@@ -1,0 +1,11 @@
+---
+site_name: DORM Documentation 
+theme:
+  name: material
+repo_url: https://github.com/myOmikron/dorm
+edit_uri: https://github.com/myOmikron/dorm/edit/main/docs/docs/
+repo_name: myOmikron/dorm
+markdown_extensions:
+  - admonition
+nav:
+  - Home: index.md
