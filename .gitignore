@@ -17,3 +17,4 @@ site/
 *.db
 *.sqlite3
 *.a
+.idea/
