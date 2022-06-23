@@ -1,0 +1,13 @@
+{
+	"authors": [
+		"myOmikron"
+	],
+	"copyright": "Copyright © 2022, myOmikron",
+	"description": "A D ORM.",
+	"license": "MIT",
+	"name": "dorm",
+	"targetType": "library",
+	"dependencies": {
+		"ddbc": "~>0.5.4"
+	}
+}
