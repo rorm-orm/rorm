@@ -52,12 +52,15 @@ adding another primary is possible via --- TODO
 
 | Annotation            |               Allowed on                | Description                                                                                 |
 |:----------------------|:---------------------------------------:|---------------------------------------------------------------------------------------------|
-| `@autoCreateTime`     |          `ulong` or `DateTime`          | Sets the current time <br/> on creation of the model. [More](#auto-time-fields)             |
-| `@autoUpdateTime`     |          `ulong` or `DateTime`          | Sets the current time <br/> on update of the model. [More](#auto-time-fields)               |
+| `@autoCreateTime`     |   `ulong` or `DateTime` or `SysTime`    | Sets the current time <br/> on creation of the model. [More](#auto-time-fields)             |
+| `@autoUpdateTime`     |   `ulong` or `DateTime` or `SysTime`    | Sets the current time <br/> on update of the model. [More](#auto-time-fields)               |
+| `@choices(x)`         |           `string` or `enum`            | Sets a list of allowed values <br/> for the column. [More](#choices)                        |
+| `@columnName(x)`      |                   any                   | Overwrite the default <br/> generated column name. [More](#column-name)                     |
 | `@constructValue!(x)` |                   any                   | Set a constructed default value <br/> for the column. [More](#construct-value)              |
 | `@defaultValue(x)`    |                   any                   | Set a constant default value <br/> for the column. [More](#default-value)                   |
 | `@maxLength(x)`       |      `string` or `Nullable!string`      | Set the maximum length <br/> of the `VARCHAR` type. [More](#max-length)                     |
 | `@primaryKey`         |       `integer` type or `string`        | Overwrite the default primary key. [More](#primary-key)                                     |
+| `@timestamp`          |                 `ulong`                 | Set the database type <br/> to `TIMESTAMP`. [More](#timestamp)                              |
 | `@unique`             | any except ManyToMany <br/> or OneToOne | Enforce that the field value <br/> is unique throughout the column. [More](#unique)         | 
 | `@validator!(x)`      |                   any                   | Set a function to validate <br/> before any database operation [More](#validator-functions) | 
 
@@ -89,6 +92,60 @@ class User : Model
 
     @autoUpdateTime
     Nullable!ulong updatedAt;
+}
+```
+
+!!!info
+    You don't need to set the `@timestamp` annotation. 
+    The `ulong` will be converted to `TIMESTAMP` implicitly. 
+
+## Choices
+
+With the `@choices(x)` annotation, you can limit the possible values for this
+field by specifying either the field type as a type of `enum T : string` or
+`@choices("foo", "bar", "baz")`.
+
+By utilizing `enum`:
+```d
+enum State: string
+{
+    ok = "ok",
+    warn = "warn",
+    critical = "critical",
+    unknown = "unknown"
+}
+
+class User : Model
+{
+    State state;
+}
+```
+
+or by list of `string`:
+```d
+class User : Model
+{
+    @choices("ok", "warn", "critical", "unknown")
+    string state;
+}
+```
+
+!!!info
+    You don't need to annotate this field with `@maxLength(x)` as 
+    `VARCHAR` is not used as database type.
+
+## Column name
+
+By setting the `@columnName(x)` annotation, you can set the column name.
+If you don't set this annotation, dorm will generate the column name for you.
+
+`x` must be of type `string`.
+
+```d
+class User : Model
+{
+    @columnName("admin")
+    bool isAdmin
 }
 ```
 
@@ -164,6 +221,23 @@ class User : Model
     ulong ownPrimaryKey;
 }
 ```
+
+## Timestamp
+
+To save an `ulong` as `TIMSTAMP` in the database, you can set the 
+annotation `@timestamp`. 
+
+```d
+class User : Model
+{
+    @timestamp
+    ulong creationTime;
+}
+```
+
+!!!info
+    You don't need to set this annotation if using `@autoCreateTime`
+    or `@autoUpdateTime` as they set this implicit.
 
 ## Unique
 
