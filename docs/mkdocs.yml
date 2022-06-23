@@ -2,10 +2,32 @@
 site_name: DORM Documentation 
 theme:
   name: material
+  palette:
+  # Palette toggle for light mode
+  - media: "(prefers-color-scheme: light)"
+    scheme: default
+    toggle:
+      icon: material/toggle-switch
+      name: Switch to dark mode
+
+  # Palette toggle for dark mode
+  - media: "(prefers-color-scheme: dark)"
+    scheme: slate
+    toggle:
+      icon: material/toggle-switch-off-outline
+      name: Switch to light mode
 repo_url: https://github.com/myOmikron/dorm
 edit_uri: https://github.com/myOmikron/dorm/edit/main/docs/docs/
 repo_name: myOmikron/dorm
 markdown_extensions:
   - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
 nav:
   - Home: index.md
+  - Model Declaration:
+    - Model Declaration: declaration/model_declaration.md
+    - Associations: declaration/associations.md
