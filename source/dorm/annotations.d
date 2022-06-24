@@ -1,5 +1,6 @@
 module dorm.annotations;
 
+import std.datetime;
 import std.traits;
 import std.meta;
 
@@ -41,7 +42,7 @@ struct index
 	priority _priority;
 	composite _composite;
 
-	this(T... args)
+	this(T...)(T args)
 	{
 		foreach (ref field; this.tupleof)
 		{

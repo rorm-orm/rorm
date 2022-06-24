@@ -1,6 +1,6 @@
 module dorm.declarative;
 
-import dorm.udas;
+import dorm.annotations;
 
 import std.sumtype;
 
@@ -48,7 +48,8 @@ struct ModelFormat
 	Field[] fields;
 }
 
-enum AnnotationFlag {
+enum AnnotationFlag
+{
 	autoCreateTime,
 	autoUpdateTime,
 	primaryKey,
@@ -57,8 +58,15 @@ enum AnnotationFlag {
 
 alias SerializedAnnotation = SumType!(
 	AnnotationFlag, ConstructValueRef, ValidatorRef,
-	maxLength, PossibleDefaultValueTs, Choices, Index
+	maxLength, PossibleDefaultValueTs, Choices, index
 );
 
-struct ConstructValueRef { long id; }
-struct ValidatorRef { long id; }
+struct ConstructValueRef
+{
+	long id;
+}
+
+struct ValidatorRef
+{
+	long id;
+}
