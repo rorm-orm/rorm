@@ -18,3 +18,4 @@ site/
 *.sqlite3
 *.a
 .idea/
+.vscode/
