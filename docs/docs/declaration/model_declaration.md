@@ -50,19 +50,20 @@ adding another primary is possible via --- TODO
 
 ## Annotations
 
-| Annotation            |               Allowed on                | Description                                                                                 |
-|:----------------------|:---------------------------------------:|---------------------------------------------------------------------------------------------|
-| `@autoCreateTime`     |   `ulong` or `DateTime` or `SysTime`    | Sets the current time <br/> on creation of the model. [More](#auto-time-fields)             |
-| `@autoUpdateTime`     |   `ulong` or `DateTime` or `SysTime`    | Sets the current time <br/> on update of the model. [More](#auto-time-fields)               |
-| `@choices(x)`         |           `string` or `enum`            | Sets a list of allowed values <br/> for the column. [More](#choices)                        |
-| `@columnName(x)`      |                   any                   | Overwrite the default <br/> generated column name. [More](#column-name)                     |
-| `@constructValue!(x)` |                   any                   | Set a constructed default value <br/> for the column. [More](#construct-value)              |
-| `@defaultValue(x)`    |                   any                   | Set a constant default value <br/> for the column. [More](#default-value)                   |
-| `@maxLength(x)`       |      `string` or `Nullable!string`      | Set the maximum length <br/> of the `VARCHAR` type. [More](#max-length)                     |
-| `@primaryKey`         |       `integer` type or `string`        | Overwrite the default primary key. [More](#primary-key)                                     |
-| `@timestamp`          |                 `ulong`                 | Set the database type <br/> to `TIMESTAMP`. [More](#timestamp)                              |
-| `@unique`             | any except ManyToMany <br/> or OneToOne | Enforce that the field value <br/> is unique throughout the column. [More](#unique)         | 
-| `@validator!(x)`      |                   any                   | Set a function to validate <br/> before any database operation [More](#validator-functions) | 
+| Annotation                |               Allowed on                | Description                                                                                 |
+|:--------------------------|:---------------------------------------:|---------------------------------------------------------------------------------------------|
+| `@autoCreateTime`         |          `ulong` or `SysTime`           | Sets the current time <br/> on creation of the model. [More](#auto-time-fields)             |
+| `@autoUpdateTime`         |          `ulong` or `SysTime`           | Sets the current time <br/> on update of the model. [More](#auto-time-fields)               |
+| `@choices(x)`             |           `string` or `enum`            | Sets a list of allowed values <br/> for the column. [More](#choices)                        |
+| `@columnName(x)`          |                   any                   | Overwrite the default <br/> generated column name. [More](#column-name)                     |
+| `@constructValue!(x)`     |                   any                   | Set a constructed default value <br/> for the column. [More](#construct-value)              |
+| `@defaultValue(x)`        |                   any                   | Set a constant default value <br/> for the column. [More](#default-value)                   |
+| `@index` or `@index(x)`   |                   any                   | Create an index. [More](#indexes)                                                           |
+| `@maxLength(x)`           |      `string` or `Nullable!string`      | Set the maximum length <br/> of the `VARCHAR` type. [More](#max-length)                     |
+| `@primaryKey`             |       `integer` type or `string`        | Overwrite the default primary key. [More](#primary-key)                                     |
+| `@timestamp`              |                 `ulong`                 | Set the database type <br/> to `TIMESTAMP`. [More](#timestamp)                              |
+| `@unique`                 | any except ManyToMany <br/> or OneToOne | Enforce that the field value <br/> is unique throughout the column. [More](#unique)         | 
+| `@validator!(x)`          |                   any                   | Set a function to validate <br/> before any database operation [More](#validator-functions) | 
 
 ## Auto Time fields
 
@@ -70,18 +71,23 @@ You can utilize the annotations `autoCreateTime` and `autoUpdateTime`
 to automatically set the current time on creation respectively on update
 of the model to the annotated field.
 
+!!!info
+    As `SysTime` contains timezone information, dorm will also save it in the database.
+
 ```d
 class User : Model
 {
     @autoCreateTime
-    DateTime createdAt;
+    SysTime createdAt;
 
     @autoUpdateTime
-    Nullable!DateTime updatedAt;
+    Nullable!SysTime updatedAt;
 }
 ```
 
-if you prefer using UNIX epoch instead of a DateTime field, you can 
+---
+
+if you prefer using UNIX epoch instead of a SysTime field, you can 
 just change the data type to `ulong`:
 
 ```d
@@ -145,7 +151,7 @@ If you don't set this annotation, dorm will generate the column name for you.
 class User : Model
 {
     @columnName("admin")
-    bool isAdmin
+    bool isAdmin;
 }
 ```
 
@@ -166,8 +172,8 @@ import std.datetime.datetime;
 
 class User : Model
 {
-    @constructValue!(() => (DateTime)Clock.currTime + 4.hours)
-    DateTime validUntil;
+    @constructValue!(() => Clock.currTime + 4.hours)
+    SysTime validUntil;
 }
 ```
 
@@ -189,6 +195,62 @@ class User : Model
     int counter;
 }
 ```
+
+## Indexes
+
+The `@index(x)` annotation can be used in multiple ways.
+
+Without `x`, an independent index is created.
+
+```d
+class User : Model
+{
+    @index
+    uint counter;
+}
+```
+
+---
+
+To create composite indexes, specify `x` as `composite(y)`
+where `y` is a string.
+
+```d
+class User : Model
+{
+    @index(composite("abc"))
+    uint a;
+    
+    @index(composite("abc"))
+    uint b;
+}
+```
+
+!!!info
+    If `@embedded` is in use, `composite(y)` can be also specified in the embedded struct.
+
+---
+
+To set the priority on a composite index, specify `x` as `priority(y)`,
+where `y` is an `int`. 
+
+The lower the priority, the earlier the field appears
+in the definition of the index.
+
+```d
+class User : Model
+{
+    @index(composite("abc"), priority(2))
+    uint a;
+    
+    @index(composite("abc"), priority(1))
+    uint b;
+}
+```
+
+!!!info
+    If `@priority(y)` is not specified, 10 is used as default.
+    On equal priorities, the field order is used to set the priorities.
 
 ## Max Length
 
