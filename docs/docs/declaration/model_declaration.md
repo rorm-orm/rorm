@@ -50,20 +50,21 @@ adding another primary is possible via --- TODO
 
 ## Annotations
 
-| Annotation                |               Allowed on                | Description                                                                                 |
-|:--------------------------|:---------------------------------------:|---------------------------------------------------------------------------------------------|
-| `@autoCreateTime`         |          `ulong` or `SysTime`           | Sets the current time <br/> on creation of the model. [More](#auto-time-fields)             |
-| `@autoUpdateTime`         |          `ulong` or `SysTime`           | Sets the current time <br/> on update of the model. [More](#auto-time-fields)               |
-| `@choices(x)`             |           `string` or `enum`            | Sets a list of allowed values <br/> for the column. [More](#choices)                        |
-| `@columnName(x)`          |                   any                   | Overwrite the default <br/> generated column name. [More](#column-name)                     |
-| `@constructValue!(x)`     |                   any                   | Set a constructed default value <br/> for the column. [More](#construct-value)              |
-| `@defaultValue(x)`        |                   any                   | Set a constant default value <br/> for the column. [More](#default-value)                   |
-| `@index` or `@index(x)`   |                   any                   | Create an index. [More](#indexes)                                                           |
-| `@maxLength(x)`           |      `string` or `Nullable!string`      | Set the maximum length <br/> of the `VARCHAR` type. [More](#max-length)                     |
-| `@primaryKey`             |       `integer` type or `string`        | Overwrite the default primary key. [More](#primary-key)                                     |
-| `@timestamp`              |                 `ulong`                 | Set the database type <br/> to `TIMESTAMP`. [More](#timestamp)                              |
-| `@unique`                 | any except ManyToMany <br/> or OneToOne | Enforce that the field value <br/> is unique throughout the column. [More](#unique)         | 
-| `@validator!(x)`          |                   any                   | Set a function to validate <br/> before any database operation [More](#validator-functions) | 
+| Annotation              |               Allowed on                | Description                                                                                 |
+|:------------------------|:---------------------------------------:|---------------------------------------------------------------------------------------------|
+| `@autoCreateTime`       |          `ulong` or `SysTime`           | Sets the current time <br/> on creation of the model. [More](#auto-time-fields)             |
+| `@autoUpdateTime`       |          `ulong` or `SysTime`           | Sets the current time <br/> on update of the model. [More](#auto-time-fields)               |
+| `@choices(x)`           |           `string` or `enum`            | Sets a list of allowed values <br/> for the column. [More](#choices)                        |
+| `@columnName(x)`        |                   any                   | Overwrite the default <br/> generated column name. [More](#column-name)                     |
+| `@constructValue!(x)`   |                   any                   | Set a constructed default value <br/> for the column. [More](#construct-value)              |
+| `@defaultValue(x)`      |                   any                   | Set a constant default value <br/> for the column. [More](#default-value)                   |
+| `@ignored`              |                   any                   | Ignores the annotated field. [More](#ignored)                                               |
+| `@index` or `@index(x)` |                   any                   | Create an index. [More](#indexes)                                                           |
+| `@maxLength(x)`         |      `string` or `Nullable!string`      | Set the maximum length <br/> of the `VARCHAR` type. [More](#max-length)                     |
+| `@primaryKey`           |       `integer` type or `string`        | Overwrite the default primary key. [More](#primary-key)                                     |
+| `@timestamp`            |                 `ulong`                 | Set the database type <br/> to `TIMESTAMP`. [More](#timestamp)                              |
+| `@unique`               | any except ManyToMany <br/> or OneToOne | Enforce that the field value <br/> is unique throughout the column. [More](#unique)         | 
+| `@validator!(x)`        |                   any                   | Set a function to validate <br/> before any database operation [More](#validator-functions) | 
 
 ## Auto Time fields
 
@@ -193,6 +194,18 @@ class User : Model
     
     @defaultValue(1337)
     int counter;
+}
+```
+
+## Ignored
+
+The `@ignored` annotation will tell dorm to ignore the annotated field.
+
+```d
+class User : Model
+{
+    @ignored
+    string priv;
 }
 ```
 
