@@ -1,6 +1,7 @@
 module dorm.declarative;
 
 import dorm.annotations;
+import dorm.model;
 
 import std.sumtype;
 

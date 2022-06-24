@@ -17,6 +17,7 @@ alias AllowedDefaultValueTypes = AliasSeq!(
 	string, ubyte[], byte, short, int, long, ubyte, ushort, uint, ulong, float,
 	double, bool, Date, DateTime, TimeOfDay
 );
+enum isAllowedDefaultValueType(T) = staticIndexOf!(T, AllowedDefaultValueTypes) != -1;
 struct DefaultValue(T) { T value; }
 auto defaultValue(T)(T value) if (isAllowedDefaultValueType!T)
 {

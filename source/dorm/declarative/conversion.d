@@ -2,6 +2,9 @@
 /// $(REF SerializedModels, dorm,declarative)
 module dorm.declarative.conversion;
 
+import dorm.annotations;
+import dorm.declarative;
+
 version (unittest) import dorm.model;
 
 SerializedModels processModelsToDeclarations(alias mod)()
@@ -10,10 +13,13 @@ SerializedModels processModelsToDeclarations(alias mod)()
 	return ret;
 }
 
-unittest
+version (none) unittest
 {
 	struct Mod
 	{
+		import std.datetime;
+		import std.typecons;
+
 		enum State : string
 		{
 			ok = "ok",
@@ -86,8 +92,8 @@ unittest
 	assert(mod.valueConstructors.length == 1);
 	assert(mod.models.length == 1);
 
-	auto validatorFunId = mod.validators.front.key;
-	auto constructFunId = mod.valueConstructors.front.key;
+	auto validatorFunId = mod.validators.byKey.front;
+	auto constructFunId = mod.valueConstructors.byKey.front;
 
 	auto m = mod.models[0];
 	assert(m.fields.length == 22);
@@ -120,32 +126,44 @@ unittest
 	assert(m.fields[5].name == "created_at");
 	assert(m.fields[5].type == ModelFormat.Field.DBType.timestamp);
 	assert(!m.fields[5].nullable);
-	assert(m.fields[5].annotations == [AnnotationFlag.autoCreateTime]);
+	assert(m.fields[5].annotations == [
+			SerializedAnnotation(AnnotationFlag.autoCreateTime)
+		]);
 
 	assert(m.fields[6].name == "updated_at");
 	assert(m.fields[6].type == ModelFormat.Field.DBType.timestamp);
 	assert(m.fields[6].nullable);
-	assert(m.fields[6].annotations == [AnnotationFlag.autoUpdateTime]);
+	assert(m.fields[6].annotations == [
+			SerializedAnnotation(AnnotationFlag.autoUpdateTime)
+		]);
 
 	assert(m.fields[7].name == "created_at_2");
 	assert(m.fields[7].type == ModelFormat.Field.DBType.timestamp);
 	assert(!m.fields[7].nullable);
-	assert(m.fields[7].annotations == [AnnotationFlag.autoCreateTime]);
+	assert(m.fields[7].annotations == [
+			SerializedAnnotation(AnnotationFlag.autoCreateTime)
+		]);
 
 	assert(m.fields[8].name == "updated_at_2");
 	assert(m.fields[8].type == ModelFormat.Field.DBType.timestamp);
 	assert(m.fields[8].nullable);
-	assert(m.fields[8].annotations == [AnnotationFlag.autoUpdateTime]);
+	assert(m.fields[8].annotations == [
+			SerializedAnnotation(AnnotationFlag.autoUpdateTime)
+		]);
 
 	assert(m.fields[9].name == "state");
 	assert(m.fields[9].type == ModelFormat.Field.DBType.choices);
 	assert(!m.fields[9].nullable);
-	assert(m.fields[9].annotations == [Choices(["ok", "warn", "critical", "unknown"])]);
+	assert(m.fields[9].annotations == [
+			SerializedAnnotation(Choices(["ok", "warn", "critical", "unknown"]))
+		]);
 
 	assert(m.fields[10].name == "state_2");
 	assert(m.fields[10].type == ModelFormat.Field.DBType.choices);
 	assert(!m.fields[10].nullable);
-	assert(m.fields[10].annotations == [Choices(["ok", "warn", "critical", "unknown"])]);
+	assert(m.fields[10].annotations == [
+			SerializedAnnotation(Choices(["ok", "warn", "critical", "unknown"]))
+		]);
 
 	assert(m.fields[11].name == "admin");
 	assert(m.fields[11].type == ModelFormat.Field.DBType.boolean);
@@ -155,22 +173,31 @@ unittest
 	assert(m.fields[12].name == "valid_until");
 	assert(m.fields[12].type == ModelFormat.Field.DBType.timestamp);
 	assert(!m.fields[12].nullable);
-	assert(m.fields[12].annotations == [ConstructValueRef(constructFunId)]);
+	assert(m.fields[12].annotations == [
+			SerializedAnnotation(ConstructValueRef(constructFunId))
+		]);
 
 	assert(m.fields[13].name == "comment");
 	assert(m.fields[13].type == ModelFormat.Field.DBType.varchar);
 	assert(!m.fields[13].nullable);
-	assert(m.fields[13].annotations == [maxLength(255), defaultValue("")]);
+	assert(m.fields[13].annotations == [
+			SerializedAnnotation(maxLength(255)),
+			SerializedAnnotation(defaultValue(""))
+		]);
 
 	assert(m.fields[14].name == "counter");
 	assert(m.fields[14].type == ModelFormat.Field.DBType.int32);
 	assert(!m.fields[14].nullable);
-	assert(m.fields[14].annotations == [defaultValue(1337)]);
+	assert(m.fields[14].annotations == [
+			SerializedAnnotation(defaultValue(1337))
+		]);
 
 	assert(m.fields[15].name == "own_primary_key");
 	assert(m.fields[15].type == ModelFormat.Field.DBType.uint64);
 	assert(!m.fields[15].nullable);
-	assert(m.fields[15].annotations == [AnnotationFlag.primaryKey]);
+	assert(m.fields[15].annotations == [
+			SerializedAnnotation(AnnotationFlag.primaryKey)
+		]);
 
 	assert(m.fields[16].name == "creation_time");
 	assert(m.fields[16].type == ModelFormat.Field.DBType.timestamp);
@@ -180,10 +207,14 @@ unittest
 	assert(m.fields[17].name == "uuid");
 	assert(m.fields[17].type == ModelFormat.Field.DBType.int32);
 	assert(!m.fields[17].nullable);
-	assert(m.fields[17].annotations == [AnnotationFlag.unique]);
+	assert(m.fields[17].annotations == [
+			SerializedAnnotation(AnnotationFlag.unique)
+		]);
 
 	assert(m.fields[18].name == "some_int");
 	assert(m.fields[18].type == ModelFormat.Field.DBType.int32);
 	assert(!m.fields[18].nullable);
-	assert(m.fields[18].annotations == [ValidatorRef(validatorFunId)]);
+	assert(m.fields[18].annotations == [
+			SerializedAnnotation(ValidatorRef(validatorFunId))
+		]);
 }
