@@ -19,3 +19,4 @@ site/
 *.a
 .idea/
 .vscode/
+dub.selections.json
