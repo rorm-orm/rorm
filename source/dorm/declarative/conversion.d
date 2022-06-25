@@ -33,7 +33,8 @@ SerializedModels processModelsToDeclarations(alias mod)()
 	return ret;
 }
 
-private void processModel(TModel : Model, SourceLocation loc)(ref SerializedModels models, ref int globalCounter)
+private void processModel(TModel : Model, SourceLocation loc)(
+	ref SerializedModels models, ref int globalCounter)
 {
 	ModelFormat serialized;
 	serialized.name = TModel.stringof.toSnakeCase;
@@ -90,7 +91,9 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 		field.nullable = true;
 
 	static if (is(typeof(fieldAlias) == enum))
-		field.annotations ~= SerializedAnnotation(Choices([__traits(allMembers, typeof(fieldAlias))]));
+		field.annotations ~= SerializedAnnotation(Choices([
+				__traits(allMembers, typeof(fieldAlias))
+			]));
 
 	static foreach (attribute; attributes)
 	{
@@ -137,7 +140,8 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 			models.validators[id] = &makeValidator!(TModel, fieldName, fn);
 			field.annotations ~= SerializedAnnotation(ValidatorRef(id));
 		}
-		else static if (is(typeof(attribute) == maxLength) || is(typeof(attribute) == DefaultValue!T, T) || is(typeof(attribute) == index))
+		else static if (is(typeof(attribute) == maxLength) || is(
+				typeof(attribute) == DefaultValue!T, T) || is(typeof(attribute) == index))
 		{
 			field.annotations ~= SerializedAnnotation(attribute);
 		}
@@ -162,7 +166,7 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 
 private void makeValueConstructor(TModel, string fieldName, alias fn)(Model model)
 {
-	auto m = cast(TModel)model;
+	auto m = cast(TModel) model;
 	__traits(getMember, m, fieldName) = fn();
 }
 
@@ -170,7 +174,7 @@ private bool makeValidator(TModel, string fieldName, alias fn)(Model model)
 {
 	import std.functional : unaryFun;
 
-	auto m = cast(TModel)model;
+	auto m = cast(TModel) model;
 	return unaryFun!fn(__traits(getMember, m, fieldName));
 }
 
@@ -184,7 +188,8 @@ private string toSnakeCase(string s)
 	char lastChar;
 	foreach (char c; s)
 	{
-		scope (exit) lastChar = c;
+		scope (exit)
+			lastChar = c;
 		if (upperCount)
 		{
 			if (isUpper(c))
@@ -409,125 +414,133 @@ unittest
 	auto constructFunId = mod.valueConstructors.byKey.front;
 
 	auto m = mod.models[0];
-	assert(m.fields.length == 19);
 
-	assert(m.fields[0].name == "username");
-	assert(m.fields[0].type == ModelFormat.Field.DBType.varchar);
+	// Length is always len(m.fields + 1) as dorm.model.Model adds the id field
+	assert(m.fields.length == 20);
+
+	// field[0] gets added by dorm.model.Model
+	assert(m.fields[0].name == "id");
+	assert(m.fields[0].type == ModelFormat.Field.DBType.uint64);
 	assert(!m.fields[0].nullable);
-	assert(m.fields[0].annotations == [SerializedAnnotation(maxLength(255))]);
+	assert(m.fields[0].annotations == []);
 
-	assert(m.fields[1].name == "password");
+	assert(m.fields[1].name == "username");
 	assert(m.fields[1].type == ModelFormat.Field.DBType.varchar);
 	assert(!m.fields[1].nullable);
 	assert(m.fields[1].annotations == [SerializedAnnotation(maxLength(255))]);
 
-	assert(m.fields[2].name == "email");
+	assert(m.fields[2].name == "password");
 	assert(m.fields[2].type == ModelFormat.Field.DBType.varchar);
-	assert(m.fields[2].nullable);
+	assert(!m.fields[2].nullable);
 	assert(m.fields[2].annotations == [SerializedAnnotation(maxLength(255))]);
 
-	assert(m.fields[3].name == "age");
-	assert(m.fields[3].type == ModelFormat.Field.DBType.uint8);
-	assert(!m.fields[3].nullable);
-	assert(m.fields[3].annotations == []);
+	assert(m.fields[3].name == "email");
+	assert(m.fields[3].type == ModelFormat.Field.DBType.varchar);
+	assert(m.fields[3].nullable);
+	assert(m.fields[3].annotations == [SerializedAnnotation(maxLength(255))]);
 
-	assert(m.fields[4].name == "birthday");
-	assert(m.fields[4].type == ModelFormat.Field.DBType.datetime);
-	assert(m.fields[4].nullable);
+	assert(m.fields[4].name == "age");
+	assert(m.fields[4].type == ModelFormat.Field.DBType.uint8);
+	assert(!m.fields[4].nullable);
 	assert(m.fields[4].annotations == []);
 
-	assert(m.fields[5].name == "created_at");
-	assert(m.fields[5].type == ModelFormat.Field.DBType.timestamp);
-	assert(!m.fields[5].nullable);
-	assert(m.fields[5].annotations == [
-			SerializedAnnotation(AnnotationFlag.autoCreateTime)
-		]);
+	assert(m.fields[5].name == "birthday");
+	assert(m.fields[5].type == ModelFormat.Field.DBType.datetime);
+	assert(m.fields[5].nullable);
+	assert(m.fields[5].annotations == []);
 
-	assert(m.fields[6].name == "updated_at");
+	assert(m.fields[6].name == "created_at");
 	assert(m.fields[6].type == ModelFormat.Field.DBType.timestamp);
-	assert(m.fields[6].nullable);
+	assert(!m.fields[6].nullable);
 	assert(m.fields[6].annotations == [
-			SerializedAnnotation(AnnotationFlag.autoUpdateTime)
-		]);
-
-	assert(m.fields[7].name == "created_at_2");
-	assert(m.fields[7].type == ModelFormat.Field.DBType.timestamp);
-	assert(!m.fields[7].nullable);
-	assert(m.fields[7].annotations == [
 			SerializedAnnotation(AnnotationFlag.autoCreateTime)
 		]);
 
-	assert(m.fields[8].name == "updated_at_2");
-	assert(m.fields[8].type == ModelFormat.Field.DBType.timestamp);
-	assert(m.fields[8].nullable);
-	assert(m.fields[8].annotations == [
+	assert(m.fields[7].name == "updated_at");
+	assert(m.fields[7].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[7].nullable);
+	assert(m.fields[7].annotations == [
 			SerializedAnnotation(AnnotationFlag.autoUpdateTime)
 		]);
 
-	assert(m.fields[9].name == "state");
-	assert(m.fields[9].type == ModelFormat.Field.DBType.choices);
-	assert(!m.fields[9].nullable);
-	assert(m.fields[9].annotations == [
-			SerializedAnnotation(Choices(["ok", "warn", "critical", "unknown"]))
+	assert(m.fields[8].name == "created_at_2");
+	assert(m.fields[8].type == ModelFormat.Field.DBType.timestamp);
+	assert(!m.fields[8].nullable);
+	assert(m.fields[8].annotations == [
+			SerializedAnnotation(AnnotationFlag.autoCreateTime)
 		]);
 
-	assert(m.fields[10].name == "state_2");
+	assert(m.fields[9].name == "updated_at_2");
+	assert(m.fields[9].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[9].nullable);
+	assert(m.fields[9].annotations == [
+			SerializedAnnotation(AnnotationFlag.autoUpdateTime)
+		]);
+
+	assert(m.fields[10].name == "state");
 	assert(m.fields[10].type == ModelFormat.Field.DBType.choices);
 	assert(!m.fields[10].nullable);
 	assert(m.fields[10].annotations == [
 			SerializedAnnotation(Choices(["ok", "warn", "critical", "unknown"]))
 		]);
 
-	assert(m.fields[11].name == "admin");
-	assert(m.fields[11].type == ModelFormat.Field.DBType.boolean);
+	assert(m.fields[11].name == "state_2");
+	assert(m.fields[11].type == ModelFormat.Field.DBType.choices);
 	assert(!m.fields[11].nullable);
-	assert(m.fields[11].annotations == []);
+	assert(m.fields[11].annotations == [
+			SerializedAnnotation(Choices(["ok", "warn", "critical", "unknown"]))
+		]);
 
-	assert(m.fields[12].name == "valid_until");
-	assert(m.fields[12].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[12].name == "admin");
+	assert(m.fields[12].type == ModelFormat.Field.DBType.boolean);
 	assert(!m.fields[12].nullable);
-	assert(m.fields[12].annotations == [
+	assert(m.fields[12].annotations == []);
+
+	assert(m.fields[13].name == "valid_until");
+	assert(m.fields[13].type == ModelFormat.Field.DBType.timestamp);
+	assert(!m.fields[13].nullable);
+	assert(m.fields[13].annotations == [
 			SerializedAnnotation(ConstructValueRef(constructFunId))
 		]);
 
-	assert(m.fields[13].name == "comment");
-	assert(m.fields[13].type == ModelFormat.Field.DBType.varchar);
-	assert(!m.fields[13].nullable);
-	assert(m.fields[13].annotations == [
+	assert(m.fields[14].name == "comment");
+	assert(m.fields[14].type == ModelFormat.Field.DBType.varchar);
+	assert(!m.fields[14].nullable);
+	assert(m.fields[14].annotations == [
 			SerializedAnnotation(maxLength(255)),
 			SerializedAnnotation(defaultValue(""))
 		]);
 
-	assert(m.fields[14].name == "counter");
-	assert(m.fields[14].type == ModelFormat.Field.DBType.int32);
-	assert(!m.fields[14].nullable);
-	assert(m.fields[14].annotations == [
+	assert(m.fields[15].name == "counter");
+	assert(m.fields[15].type == ModelFormat.Field.DBType.int32);
+	assert(!m.fields[15].nullable);
+	assert(m.fields[15].annotations == [
 			SerializedAnnotation(defaultValue(1337))
 		]);
 
-	assert(m.fields[15].name == "own_primary_key");
-	assert(m.fields[15].type == ModelFormat.Field.DBType.uint64);
-	assert(!m.fields[15].nullable);
-	assert(m.fields[15].annotations == [
+	assert(m.fields[16].name == "own_primary_key");
+	assert(m.fields[16].type == ModelFormat.Field.DBType.uint64);
+	assert(!m.fields[16].nullable);
+	assert(m.fields[16].annotations == [
 			SerializedAnnotation(AnnotationFlag.primaryKey)
 		]);
 
-	assert(m.fields[16].name == "creation_time");
-	assert(m.fields[16].type == ModelFormat.Field.DBType.timestamp);
-	assert(!m.fields[16].nullable);
-	assert(m.fields[16].annotations == []);
-
-	assert(m.fields[17].name == "uuid");
-	assert(m.fields[17].type == ModelFormat.Field.DBType.int32);
+	assert(m.fields[17].name == "creation_time");
+	assert(m.fields[17].type == ModelFormat.Field.DBType.timestamp);
 	assert(!m.fields[17].nullable);
-	assert(m.fields[17].annotations == [
-			SerializedAnnotation(AnnotationFlag.unique)
-		]);
+	assert(m.fields[17].annotations == []);
 
-	assert(m.fields[18].name == "some_int");
+	assert(m.fields[18].name == "uuid");
 	assert(m.fields[18].type == ModelFormat.Field.DBType.int32);
 	assert(!m.fields[18].nullable);
 	assert(m.fields[18].annotations == [
+			SerializedAnnotation(AnnotationFlag.unique)
+		]);
+
+	assert(m.fields[19].name == "some_int");
+	assert(m.fields[19].type == ModelFormat.Field.DBType.int32);
+	assert(!m.fields[19].nullable);
+	assert(m.fields[19].annotations == [
 			SerializedAnnotation(ValidatorRef(validatorFunId))
 		]);
 }
@@ -553,7 +566,9 @@ unittest
 
 	auto m = mod.models[0];
 	assert(m.name == "user");
-	assert(m.fields.length == 2);
-	assert(m.fields[0].name == "name");
-	assert(m.fields[1].name == "age");
+	// As Model also adds the id field, length is 3
+	assert(m.fields.length == 3);
+	assert(m.fields[0].name == "id");
+	assert(m.fields[1].name == "name");
+	assert(m.fields[2].name == "age");
 }
