@@ -465,11 +465,11 @@ unittest
 		]);
 
 	assert(m.fields[9].name == "state");
-	assert(m.fields[9].type == ModelFormat.Field.DBType.choices, m.fields[9].to!string);
+	assert(m.fields[9].type == ModelFormat.Field.DBType.choices);
 	assert(!m.fields[9].nullable);
 	assert(m.fields[9].annotations == [
 			SerializedAnnotation(Choices(["ok", "warn", "critical", "unknown"]))
-		], m.fields[9].to!string);
+		]);
 
 	assert(m.fields[10].name == "state_2");
 	assert(m.fields[10].type == ModelFormat.Field.DBType.choices);
