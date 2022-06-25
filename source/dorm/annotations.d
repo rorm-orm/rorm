@@ -57,3 +57,4 @@ struct index
 }
 
 enum embedded;
+enum ignored;

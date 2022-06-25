@@ -5,15 +5,325 @@ module dorm.declarative.conversion;
 import dorm.annotations;
 import dorm.declarative;
 
+import std.datetime;
+import std.meta;
+import std.traits;
+import std.typecons;
+
 version (unittest) import dorm.model;
 
 SerializedModels processModelsToDeclarations(alias mod)()
 {
 	SerializedModels ret;
+	int globalCounter;
+
+	static foreach (member; __traits(allMembers, mod))
+	{
+		static if (__traits(compiles, is(__traits(getMember, mod, member) : Model))
+			&& is(__traits(getMember, mod, member) : Model)
+			&& !__traits(isAbstractClass, __traits(getMember, mod, member)))
+		{
+			processModel!(
+				__traits(getMember, mod, member),
+				SourceLocation(__traits(getLocation, __traits(getMember, mod, member)))
+			)(ret, globalCounter);
+		}
+	}
+
 	return ret;
 }
 
-version (none) unittest
+private void processModel(TModel : Model, SourceLocation loc)(ref SerializedModels models, ref int globalCounter)
+{
+	ModelFormat serialized;
+	serialized.name = TModel.stringof.toSnakeCase;
+	serialized.definedAt = loc;
+
+	alias attributes = __traits(getAttributes, TModel);
+
+	static foreach (attribute; attributes)
+	{
+		static if (isDBAttribute!attribute)
+		{
+			static assert(false, "Unsupported attribute " ~ attribute.stringof ~ " on " ~ TModel.stringof ~ "." ~ member);
+		}
+	}
+
+	static foreach (field; LogicalFields!TModel)
+	{
+		static if (is(typeof(__traits(getMember, TModel, field)))
+			&& !isCallable!(__traits(getMember, TModel, field)))
+		{
+			processField!(TModel, field)(models, serialized, globalCounter);
+		}
+	}
+
+	models.models ~= serialized;
+}
+
+template LogicalFields(TModel)
+{
+	alias Classes = AliasSeq!(TModel, BaseClassesTuple!TModel);
+	alias LogicalFields = AliasSeq!();
+
+	static foreach_reverse (Class; Classes)
+		LogicalFields = AliasSeq!(LogicalFields, __traits(derivedMembers, Class));
+}
+
+private void processField(TModel, string fieldName)(ref SerializedModels models, ref ModelFormat serialized, ref int globalCounter)
+{
+	import uda = dorm.annotations;
+
+	alias fieldAlias = __traits(getMember, TModel, fieldName);
+
+	alias attributes = __traits(getAttributes, fieldAlias);
+
+	bool include = true;
+	ModelFormat.Field field;
+
+	field.definedAt = SourceLocation(__traits(getLocation, fieldAlias));
+	field.name = fieldName.toSnakeCase;
+	field.type = guessDBType!(typeof(fieldAlias));
+
+	static if (is(typeof(fieldAlias) == Nullable!T, T)
+		|| is(typeof(fieldAlias) : Model))
+		field.nullable = true;
+
+	static if (is(typeof(fieldAlias) == enum))
+		field.annotations ~= SerializedAnnotation(Choices([__traits(allMembers, typeof(fieldAlias))]));
+
+	static foreach (attribute; attributes)
+	{
+		static if (__traits(isSame, attribute, uda.autoCreateTime))
+		{
+			field.type = ModelFormat.Field.DBType.timestamp;
+			field.annotations ~= SerializedAnnotation(AnnotationFlag.autoCreateTime);
+		}
+		else static if (__traits(isSame, attribute, uda.autoUpdateTime))
+		{
+			field.type = ModelFormat.Field.DBType.timestamp;
+			field.annotations ~= SerializedAnnotation(AnnotationFlag.autoUpdateTime);
+		}
+		else static if (__traits(isSame, attribute, uda.timestamp))
+		{
+			field.type = ModelFormat.Field.DBType.timestamp;
+		}
+		else static if (__traits(isSame, attribute, uda.primaryKey))
+		{
+			field.annotations ~= SerializedAnnotation(AnnotationFlag.primaryKey);
+		}
+		else static if (__traits(isSame, attribute, uda.unique))
+		{
+			field.annotations ~= SerializedAnnotation(AnnotationFlag.unique);
+		}
+		else static if (__traits(isSame, attribute, uda.embedded))
+		{
+			static assert(false, "@embedded not implemented");
+			include = false;
+		}
+		else static if (__traits(isSame, attribute, uda.ignored))
+		{
+			include = false;
+		}
+		else static if (is(attribute == constructValue!fn, alias fn))
+		{
+			int id = globalCounter++;
+			models.valueConstructors[id] = &makeValueConstructor!(TModel, fieldName, fn);
+			field.annotations ~= SerializedAnnotation(ConstructValueRef(id));
+		}
+		else static if (is(attribute == validator!fn, alias fn))
+		{
+			int id = globalCounter++;
+			models.validators[id] = &makeValidator!(TModel, fieldName, fn);
+			field.annotations ~= SerializedAnnotation(ValidatorRef(id));
+		}
+		else static if (is(typeof(attribute) == maxLength) || is(typeof(attribute) == DefaultValue!T, T) || is(typeof(attribute) == index))
+		{
+			field.annotations ~= SerializedAnnotation(attribute);
+		}
+		else static if (is(typeof(attribute) == Choices))
+		{
+			field.type = ModelFormat.Field.DBType.choices;
+			field.annotations ~= SerializedAnnotation(attribute);
+		}
+		else static if (is(typeof(attribute) == columnName))
+		{
+			field.name = attribute.name;
+		}
+		else static if (isDBAttribute!attribute)
+		{
+			static assert(false, "Unsupported attribute " ~ attribute.stringof ~ " on " ~ TModel.stringof ~ "." ~ fieldName);
+		}
+	}
+
+	if (include)
+		serialized.fields ~= field;
+}
+
+private void makeValueConstructor(TModel, string fieldName, alias fn)(Model model)
+{
+	auto m = cast(TModel)model;
+	__traits(getMember, m, fieldName) = fn();
+}
+
+private bool makeValidator(TModel, string fieldName, alias fn)(Model model)
+{
+	import std.functional : unaryFun;
+
+	auto m = cast(TModel)model;
+	return unaryFun!fn(__traits(getMember, m, fieldName));
+}
+
+private string toSnakeCase(string s)
+{
+	import std.array;
+	import std.ascii;
+
+	auto ret = appender!(char[]);
+	int upperCount;
+	char lastChar;
+	foreach (char c; s)
+	{
+		scope (exit) lastChar = c;
+		if (upperCount)
+		{
+			if (isUpper(c))
+			{
+				ret ~= toLower(c);
+				upperCount++;
+			}
+			else
+			{
+				if (isDigit(c))
+				{
+					ret ~= '_';
+					ret ~= c;
+				}
+				else if (isLower(c) && upperCount > 1 && ret.data.length)
+				{
+					auto last = ret.data[$ - 1];
+					ret.shrinkTo(ret.data.length - 1);
+					ret ~= '_';
+					ret ~= last;
+					ret ~= c;
+				}
+				else
+				{
+					ret ~= toLower(c);
+				}
+				upperCount = 0;
+			}
+		}
+		else if (isUpper(c))
+		{
+			if (ret.data.length
+				&& ret.data[$ - 1] != '_'
+				&& !lastChar.isUpper)
+			{
+				ret ~= '_';
+				ret ~= toLower(c);
+				upperCount++;
+			}
+			else
+			{
+				if (ret.data.length)
+					upperCount++;
+				ret ~= toLower(c);
+			}
+		}
+		else if (c == '_')
+		{
+			if (ret.data.length)
+				ret ~= '_';
+		}
+		else if (isDigit(c))
+		{
+			if (ret.data.length && !ret.data[$ - 1].isDigit && ret.data[$ - 1] != '_')
+				ret ~= '_';
+			ret ~= c;
+		}
+		else
+		{
+			if (ret.data.length && ret.data[$ - 1].isDigit && ret.data[$ - 1] != '_')
+				ret ~= '_';
+			ret ~= c;
+		}
+	}
+
+	auto slice = ret.data;
+	while (slice.length && slice[$ - 1] == '_')
+		slice = slice[0 .. $ - 1];
+	return slice.idup;
+}
+
+unittest
+{
+	assert("".toSnakeCase == "");
+	assert("a".toSnakeCase == "a");
+	assert("A".toSnakeCase == "a");
+	assert("AB".toSnakeCase == "ab");
+	assert("JsonValue".toSnakeCase == "json_value");
+	assert("HTTPHandler".toSnakeCase == "http_handler");
+	assert("Test123".toSnakeCase == "test_123");
+	assert("foo_bar".toSnakeCase == "foo_bar");
+	assert("foo_Bar".toSnakeCase == "foo_bar");
+	assert("Foo_Bar".toSnakeCase == "foo_bar");
+	assert("FOO_bar".toSnakeCase == "foo_bar");
+	assert("FOO__bar".toSnakeCase == "foo__bar");
+	assert("do_".toSnakeCase == "do");
+	assert("fooBar_".toSnakeCase == "foo_bar");
+	assert("_do".toSnakeCase == "do");
+	assert("_fooBar".toSnakeCase == "foo_bar");
+	assert("_FooBar".toSnakeCase == "foo_bar");
+	assert("HTTP2".toSnakeCase == "http_2");
+	assert("HTTP2Foo".toSnakeCase == "http_2_foo");
+	assert("HTTP2foo".toSnakeCase == "http_2_foo");
+}
+
+template isDBAttribute(alias attr)
+{
+	pragma(msg, "check " ~ attr.stringof);
+	enum isDBAttribute = true;
+}
+
+template guessDBType(T)
+{
+	static if (is(T == enum))
+		enum guessDBType = ModelFormat.Field.DBType.choices;
+	else static if (is(T == BitFlags!U, U))
+		enum guessDBType = ModelFormat.Field.DBType.set;
+	else static if (is(T == Nullable!U, U))
+	{
+		static if (__traits(compiles, guessDBType!U))
+			enum guessDBType = guessDBType!U;
+		else
+			static assert(false, "cannot resolve DBType from nullable " ~ U.stringof);
+	}
+	else static if (__traits(compiles, guessDBTypeBase!T))
+		enum guessDBType = guessDBTypeBase!T;
+	else
+		static assert(false, "cannot resolve DBType from " ~ T.stringof);
+}
+
+enum guessDBTypeBase(T : const(char)[]) = ModelFormat.Field.DBType.varchar;
+enum guessDBTypeBase(T : const(ubyte)[]) = ModelFormat.Field.DBType.varbinary;
+enum guessDBTypeBase(T : byte) = ModelFormat.Field.DBType.int8;
+enum guessDBTypeBase(T : short) = ModelFormat.Field.DBType.int16;
+enum guessDBTypeBase(T : int) = ModelFormat.Field.DBType.int32;
+enum guessDBTypeBase(T : long) = ModelFormat.Field.DBType.int64;
+enum guessDBTypeBase(T : ubyte) = ModelFormat.Field.DBType.uint8;
+enum guessDBTypeBase(T : ushort) = ModelFormat.Field.DBType.uint16;
+enum guessDBTypeBase(T : uint) = ModelFormat.Field.DBType.uint32;
+enum guessDBTypeBase(T : ulong) = ModelFormat.Field.DBType.uint64;
+enum guessDBTypeBase(T : float) = ModelFormat.Field.DBType.floatNumber;
+enum guessDBTypeBase(T : double) = ModelFormat.Field.DBType.doubleNumber;
+enum guessDBTypeBase(T : bool) = ModelFormat.Field.DBType.boolean;
+enum guessDBTypeBase(T : Date) = ModelFormat.Field.DBType.date;
+enum guessDBTypeBase(T : DateTime) = ModelFormat.Field.DBType.datetime;
+enum guessDBTypeBase(T : SysTime) = ModelFormat.Field.DBType.timestamp;
+enum guessDBTypeBase(T : TimeOfDay) = ModelFormat.Field.DBType.time;
+
+unittest
 {
 	struct Mod
 	{
@@ -82,8 +392,11 @@ version (none) unittest
 			@unique
 			int uuid;
 
-			@validator!(x => x => 18)
+			@validator!(x => x >= 18)
 			int someInt;
+
+			@ignored
+			int imNotIncluded;
 		}
 	}
 
@@ -96,7 +409,7 @@ version (none) unittest
 	auto constructFunId = mod.valueConstructors.byKey.front;
 
 	auto m = mod.models[0];
-	assert(m.fields.length == 22);
+	assert(m.fields.length == 19);
 
 	assert(m.fields[0].name == "username");
 	assert(m.fields[0].type == ModelFormat.Field.DBType.varchar);
@@ -152,11 +465,11 @@ version (none) unittest
 		]);
 
 	assert(m.fields[9].name == "state");
-	assert(m.fields[9].type == ModelFormat.Field.DBType.choices);
+	assert(m.fields[9].type == ModelFormat.Field.DBType.choices, m.fields[9].to!string);
 	assert(!m.fields[9].nullable);
 	assert(m.fields[9].annotations == [
 			SerializedAnnotation(Choices(["ok", "warn", "critical", "unknown"]))
-		]);
+		], m.fields[9].to!string);
 
 	assert(m.fields[10].name == "state_2");
 	assert(m.fields[10].type == ModelFormat.Field.DBType.choices);
@@ -217,4 +530,30 @@ version (none) unittest
 	assert(m.fields[18].annotations == [
 			SerializedAnnotation(ValidatorRef(validatorFunId))
 		]);
+}
+
+unittest
+{
+	struct Mod
+	{
+		abstract class NamedThing : Model
+		{
+			@maxLength(255)
+			string name;
+		}
+
+		class User : NamedThing
+		{
+			int age;
+		}
+	}
+
+	auto mod = processModelsToDeclarations!Mod;
+	assert(mod.models.length == 1);
+
+	auto m = mod.models[0];
+	assert(m.name == "user");
+	assert(m.fields.length == 2);
+	assert(m.fields[0].name == "name");
+	assert(m.fields[1].name == "age");
 }

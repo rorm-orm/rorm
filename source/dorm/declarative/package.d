@@ -4,13 +4,14 @@ import dorm.annotations;
 import dorm.model;
 
 import std.sumtype;
+import std.typecons : tuple;
 
 struct SerializedModels
 {
 	ModelFormat[] models;
 
-	bool function(Model)[long] validators;
-	void function(Model)[long] valueConstructors;
+	bool function(Model)[int] validators;
+	void function(Model)[int] valueConstructors;
 }
 
 struct ModelFormat
@@ -44,9 +45,29 @@ struct ModelFormat
 		DBType type;
 		bool nullable;
 		SerializedAnnotation[] annotations;
+		SourceLocation definedAt;
+
+		size_t toHash() const @nogc @safe pure nothrow
+		{
+			return hashOf(tuple(name, type, nullable, annotations));
+		}
 	}
 
+	string name;
+	SourceLocation definedAt;
 	Field[] fields;
+
+	size_t toHash() const @nogc @safe pure nothrow
+	{
+		return hashOf(tuple(name, fields));
+	}
+}
+
+/// the source location where something is defined in D code
+struct SourceLocation
+{
+	string sourceFile;
+	int sourceLine, sourceColumn;
 }
 
 enum AnnotationFlag

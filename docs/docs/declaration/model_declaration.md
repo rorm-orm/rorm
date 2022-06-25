@@ -338,7 +338,7 @@ They must have the signature: `(FieldType x) => bool`.
 ```d
 class User : Model
 {
-    @validator!(x => x => 18)
+    @validator!(x => x >= 18)
     int age;
 }
 ```
