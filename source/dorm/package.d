@@ -3,7 +3,7 @@ module dorm;
 import std.stdio;
 import std.typecons;
 
-import exceptions.dorm_exceptions;
+import dorm.exceptions;
 
 import ddbc.all;
 import ddbc.drivers.sqliteddbc;
