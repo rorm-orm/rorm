@@ -31,3 +31,7 @@ nav:
   - Model Declaration:
     - Model Declaration: declaration/model_declaration.md
     - Associations: declaration/associations.md
+  - Migrations:
+    - Migrations: migrations/migrations.md
+    - Make Migrations: migrations/makemigrations.md
+    - Migration File Format: migrations/migration_files.md
