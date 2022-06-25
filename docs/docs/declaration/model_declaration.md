@@ -4,13 +4,12 @@
 
 Models are defined declarative as classes.
 
-Annotations are used to 
-
 ```d
 import std.datetime.datetime;
 import std.typecons;
 
-import dorm;
+import dorm.annotations;
+import dorm.model;
 
 class User : Model
 {
@@ -46,7 +45,7 @@ CREATE TABLE user (
 
 - the tablename is derived from --- TODO
 - column `id` is added by default by inheriting `Model`, 
-adding another primary is possible via --- TODO
+adding another primary is possible with the `@primaryKey` annotation.
 
 ## Annotations
 
@@ -63,8 +62,8 @@ adding another primary is possible via --- TODO
 | `@maxLength(x)`         |      `string` or `Nullable!string`      | Set the maximum length <br/> of the `VARCHAR` type. [More](#max-length)                     |
 | `@primaryKey`           |       `integer` type or `string`        | Overwrite the default primary key. [More](#primary-key)                                     |
 | `@timestamp`            |                 `ulong`                 | Set the database type <br/> to `TIMESTAMP`. [More](#timestamp)                              |
-| `@unique`               | any except ManyToMany <br/> or OneToOne | Enforce that the field value <br/> is unique throughout the column. [More](#unique)         | 
-| `@validator!(x)`        |                   any                   | Set a function to validate <br/> before any database operation [More](#validator-functions) | 
+| `@unique`               | any except ManyToMany <br/> or OneToOne | Enforce that the field value <br/> is unique throughout the column. [More](#unique)         |
+| `@validator!(x)`        |                   any                   | Set a function to validate <br/> before any database operation [More](#validator-functions) |
 
 ## Auto Time fields
 
