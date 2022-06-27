@@ -13,8 +13,6 @@ import dorm;
  * There are some checks to ensure invalid characters are escapted.
  *
  * Returns: Connection string
- * 
- * Throws: dorm.exceptions.ConfigException
  */
 string generatePostgresConnString(ref Config conf)
 {
