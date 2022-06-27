@@ -4,11 +4,9 @@ import std.stdio;
 import std.typecons;
 
 import dorm.exceptions;
+import dorm.utils;
 
-import ddbc.all;
-import ddbc.drivers.sqliteddbc;
-import ddbc.drivers.mysqlddbc;
-import ddbc.drivers.pgsqlddbc;
+import arsd.database;
 
 /** 
  * Enum for the database driver
@@ -51,7 +49,7 @@ struct Config
  * Throws:
  *  - ConfigException
  */
-private void checkConf(ref Config conf)
+void checkConf(ref Config conf)
 {
     if (conf.name == "")
     {
@@ -98,10 +96,11 @@ class DB
 {
     private Config conf;
 
-    DataSource ds;
+    Database db;
 
     /** 
-     * 
+     * Generates the dorm instance and tries to connect to the database by
+     * using the configuration struct given as parameter.
      * 
      * Params:
      *   conf = Configuration of the database connection
@@ -116,26 +115,27 @@ class DB
 
         string url;
         string[string] params;
-        Driver driver;
 
         final switch (this.conf.driver)
         {
         case DBDriver.SQLite:
-            driver = new SQLITEDriver();
-            url = SQLITEDriver.generateUrl(this.conf.name);
-            params = SQLITEDriver.setUserAndPassword(this.conf.user, this.conf.password);
+            import arsd.sqlite;
+
+            db = new Sqlite(conf.name);
+
             break;
         case DBDriver.MySQL:
-            driver = new MySQLDriver();
-            url = MySQLDriver.generateUrl(this.conf.host, this.conf.port, this.conf.name);
-            params = MySQLDriver.setUserAndPassword(this.conf.user, this.conf.password);
+            import arsd.mysql;
+
+            db = new MySql(conf.host, conf.user, conf.password, conf.name);
+
             break;
         case DBDriver.PostgreSQL:
-            driver = new PGSQLDriver();
-            url = PGSQLDriver.generateUrl(this.conf.host, this.conf.port, this.conf.name);
-            params = PGSQLDriver.setUserAndPassword(this.conf.user, this.conf.password);
+            import arsd.postgres;
+
+            db = new PostgreSql(generatePostgresConnString(conf));
+
             break;
         }
-        this.ds = new ConnectionPoolDataSourceImpl(driver, url, params);
     }
 }

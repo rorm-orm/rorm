@@ -4,7 +4,10 @@
 	],
 	"copyright": "Copyright © 2022, myOmikron",
 	"dependencies": {
-		"ddbc": "~>0.5.4"
+		"arsd-official:mysql": "~>10.8.4",
+		"arsd-official:postgres": "~>10.8.4",
+		"arsd-official:sqlite": "~>10.8.4",
+		"toml-temp": "~>1.0.1"
 	},
 	"description": "A D ORM.",
 	"dflags": [
