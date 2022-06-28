@@ -57,6 +57,7 @@ adding another primary is possible with the `@primaryKey` annotation.
 | `@columnName(x)`        |                   any                   | Overwrite the default <br/> generated column name. [More](#column-name)                     |
 | `@constructValue!(x)`   |                   any                   | Set a constructed default value <br/> for the column. [More](#construct-value)              |
 | `@defaultValue(x)`      |                   any                   | Set a constant default value <br/> for the column. [More](#default-value)                   |
+| `@embedded`             |                `structs`                | Embed the annotated structs <br /> in the table. [More](#embedded)                          |
 | `@ignored`              |                   any                   | Ignores the annotated field. [More](#ignored)                                               |
 | `@index` or `@index(x)` |                   any                   | Create an index. [More](#indexes)                                                           |
 | `@maxLength(x)`         |      `string` or `Nullable!string`      | Set the maximum length <br/> of the `VARCHAR` type. [More](#max-length)                     |
@@ -194,6 +195,37 @@ class User : Model
     @defaultValue(1337)
     int counter;
 }
+```
+
+## Embedded
+
+The `@embedded` annotation can be used to embed the fields of the 
+embedded structs in the table of the current class.
+
+```d
+struct Person
+{
+    @maxLength(255)
+    string firstName;
+    
+    @maxLength(255)
+    string lastName;    
+}
+
+class User : Model
+{
+    @embedded
+    Person person;
+}
+```
+
+This will create a table (using MySQL syntax):
+```sql
+CREATE TABLE user (
+    id SERIAL,
+    first_name VARCHAR(255) NOT NULL,
+    last_name VARCHAR(255) NOT NULL,  
+);
 ```
 
 ## Ignored
