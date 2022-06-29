@@ -41,7 +41,7 @@ struct MigrationConfig
  *
  * Throws: MigrationException if the migrationDirectory could not be created
  */
-private void checkMigrationsStructure(ref MigrationConfig conf)
+private void checkDirectoryStructure(ref MigrationConfig conf)
 {
     if (!exists(conf.migrationDirectory))
     {
@@ -78,7 +78,7 @@ private void checkMigrationsStructure(ref MigrationConfig conf)
  */
 Migration[] getExistingMigrations(ref MigrationConfig conf)
 {
-    checkMigrationsStructure(conf);
+    checkDirectoryStructure(conf);
 
     auto entries = dirEntries(
         conf.migrationDirectory,
