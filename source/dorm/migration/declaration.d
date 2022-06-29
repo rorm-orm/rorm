@@ -1,31 +1,38 @@
 module dorm.migration.declaration;
 
+import std.datetime : Date, DateTime, TimeOfDay;
 import std.sumtype;
 
 import dorm.declarative;
 
-/** 
- * Type of the database operation to execute
- */
-enum OperationType
-{
-    CreateModel = "CreateModel",
-    RemoveModel = "RemoveModel",
-    AlterModel = "AlterModel",
-    AddField = "AddField",
-    RemoveField = "RemoveField",
-    AlterField = "AlterField",
-    RenameField = "RenameField",
-}
+import toml;
+import toml.serialize;
 
 /** 
- * 
+ * The migration type can be determined by using this
+ */
+alias OperationType = SumType!(CreateModelOperation);
+
+alias AnnotationType = SumType!(
+    ubyte[], double, string, long, Date, DateTime, TimeOfDay, This[], This[string]
+);
+
+const string[] annotationsWithValue = [
+    "NotNull", "Choices", "ConstructValue", "DefaultValue",
+    "Index", "MaxLength", "Validator"
+];
+
+/** 
+ * Representation of an annoation
  */
 struct Annotation
 {
-    /// Name of the annotation
-    string name;
+    /// Type of the annotation
+    @tomlName("Type")
+    string type;
 
+    @tomlName("Value")
+    AnnotationType value;
 }
 
 /** 
@@ -36,30 +43,29 @@ struct Field
     alias DBType = ModelFormat.Field.DBType;
 
     /// Name of the field
+    @tomlName("Name")
     string name;
 
     /// Type of the field
+    @tomlName("Type")
     DBType type;
 
-    // Nullable flag
-    bool nullable;
-
     /// List of serialized annotations
-    SerializedAnnotation[] annotations;
+    @tomlName("Annotations")
+    Annotation[] annotations;
 }
 
 /** 
- * The operation
+ * Operation that represents the creation of a model
  */
-struct Operation
+struct CreateModelOperation
 {
-    /// Name of the model
+    /// Name of the model to execute the operation on
+    @tomlName("ModelName")
     string modelName;
 
-    /// OperationType
-    OperationType type;
-
-    /// List of fields
+    /// Fields of the model
+    @tomlName("Fields")
     Field[] fields;
 }
 
@@ -69,20 +75,25 @@ struct Operation
 struct Migration
 {
     /// Hash of the migration
+    @tomlName("Hash")
     string hash;
 
     /// Marks the migration initial state
+    @tomlName("Initial")
     bool initial;
 
     /// ID of the mirgation, derived from filename
     string id;
 
     /// List of migrations this migration depends on
+    @tomlName("Dependencies")
     string[] dependencies;
 
     /// List of migrations this migration replaces
+    @tomlName("Replaces")
     string[] replaces;
 
     /// The operations to execute
-    Operation[] operations;
+    @tomlName("Operations")
+    OperationType[] operations;
 }

@@ -3,14 +3,30 @@ module dorm.migration.parser;
 import core.exception;
 
 import std.algorithm;
+import std.array;
 import std.conv;
 import std.file;
+import std.meta;
 import std.stdio;
+import std.sumtype;
+import std.traits;
 
-import dorm.migration.declaration;
+import dorm.annotations;
+import dorm.declarative;
 import dorm.exceptions;
+import dorm.migration.declaration;
 
 import toml;
+
+alias exactly(T, alias fun) = function(arg) {
+    static assert(is(typeof(arg) == T));
+    return fun(arg);
+};
+
+alias oneOf(alias fun, T...) = function(arg) {
+    static assert(staticIndexOf!(typeof(arg), T) != -1);
+    return fun(arg);
+};
 
 /** 
  * Helper function to check if a parameter exists in the given table
@@ -25,7 +41,7 @@ import toml;
  * Throws: dorm.exceptions.MigrationException if key was not
  *      found or has the wrong type
  */
-private void checkValueExists(
+void checkValueExists(
     string keyName, ref TOMLValue[string] table, TOML_TYPE type, string path
 )
 {
@@ -55,7 +71,7 @@ private void checkValueExists(
  * Params:
  *   path = Path to the file that should be parsed
  *
- * Returns: 
+ * Returns: Migration
  *
  * Throws: dorm.exceptions.MigrationException
  */
@@ -184,4 +200,135 @@ unittest
     assert(correct.hash == toTest.hash);
 
     remove(fh.name());
+}
+
+/** 
+ * Helper function to serialize a field.
+ *
+ * Params:
+ *   field = Field to serialize
+ *
+ * Returns: TOMLValue with type table
+ */
+TOMLValue serializeField(ref Field field)
+{
+    TOMLValue[string] fieldTable;
+    fieldTable["Name"] = TOMLValue(field.name);
+    fieldTable["Type"] = TOMLValue(to!string(field.type));
+
+    // dfmt off
+    TOMLValue annotationToTOML(AnnotationType at)
+    {
+        return at.match!(
+            (AnnotationType[] v) => TOMLValue(v.map!(z => annotationToTOML(z)).array),
+            (AnnotationType[string] v) {
+                TOMLValue[string] table;
+                foreach (key, value; v)
+                {
+                    table[key] = annotationToTOML(value);
+                }
+                return TOMLValue(table);
+            },
+            v => TOMLValue(v)
+        );
+    }
+
+    fieldTable["Annotations"] = TOMLValue(field.annotations.map!(
+        (Annotation x) {
+            TOMLValue[string] table;
+            table["Type"] = x.type;
+            if (annotationsWithValue.canFind(x.type))
+                table["Value"] = annotationToTOML(x.value);
+            
+            return TOMLValue(table);
+        }
+    ).array);
+    // dfmt on
+
+    return TOMLValue(fieldTable);
+}
+
+/** 
+ * Helper function to serialize a migration.
+ *
+ * Params:
+ *   migration = Reference to a valid migration object
+ *
+ * Returns: serialized string
+ */
+string serializeMigration(ref Migration migration)
+{
+    auto doc = TOMLDocument();
+
+    TOMLValue[string] migTable;
+
+    migTable["Hash"] = TOMLValue(migration.hash);
+    migTable["Initial"] = TOMLValue(migration.initial);
+    migTable["Dependencies"] = TOMLValue(migration.dependencies.map!(
+            x => TOMLValue(x)
+    ).array);
+    migTable["Replaces"] = TOMLValue(migration.replaces.map!(
+            x => TOMLValue(x)
+    ).array);
+
+    // dfmt off
+    migTable["Operations"] = TOMLValue(migration.operations.map!(
+        x => x.match!(
+            // Case of CreateModeCreation
+            exactly!(CreateModelOperation, (CreateModelOperation y) {
+                TOMLValue[string] operationTable;
+                operationTable["ModelName"] = y.modelName;
+                operationTable["Fields"] = y.fields.map!(
+                    z => serializeField(z)
+                ).array;
+                return operationTable;
+            })
+        )
+    ).array);
+    // dfmt on
+
+    doc.table["Migration"] = TOMLValue(migTable);
+
+    return doc.toString();
+}
+
+unittest
+{
+    import std.typecons;
+
+    alias DBType = ModelFormat.Field.DBType;
+
+    auto tests = [
+        tuple(
+            Migration(
+                "hash",
+                true,
+                "0001",
+                [],
+                ["0001_old_initial"],
+                [
+                    OperationType(
+                    CreateModelOperation(
+                    "test_model",
+                    [
+                        Field("id", DBType.uint64, [
+                            Annotation("PrimaryKey"),
+                            Annotation("NotNull")
+                        ])
+                    ]
+                    )
+                    )
+                ]
+        ),
+        ""
+        )
+    ];
+
+    foreach (test; tests)
+    {
+        auto toTest = serializeMigration(test[0]);
+        writeln(toTest);
+        //assert(test[1] == serializeMigration(test[0]));
+    }
+
 }
