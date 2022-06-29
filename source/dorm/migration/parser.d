@@ -471,7 +471,7 @@ Annotation serializedAnnotationToAnnotation(ref SerializedAnnotation annotation)
  *   value = Migration.Operations.Fields.Annotations.Value as TOMLValue
  * Returns: 
  */
-AnnotationType TOMLToAnnotationType(ref TOMLValue value)
+AnnotationType TOMLToAnnotationType(ref TOMLValue value) // @suppress(dscanner.style.phobos_naming_convention)
 {
     final switch (value.type)
     {
