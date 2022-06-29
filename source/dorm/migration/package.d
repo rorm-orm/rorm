@@ -62,7 +62,7 @@ Migration[] getExistingMigrations()
         .array
         .schwartzSort!(x => baseName(x.name)[0 .. 4].to!ushort);
 
-    return null;
+    return entries.map!(x => parseFile(x.name())).array;
 }
 
 /** 
@@ -76,61 +76,8 @@ Migration[] getExistingMigrations()
  */
 void makeMigrations(SerializedModels serializedModels)
 {
-    // Hash is written to each migration file to check if execution is necessary
-    auto hash = hashOf(serializedModels.models);
-
-    // dfmt off
-    Migration newMigration;
-
-    static Annotation mapAnnotation(SerializedAnnotation annotation)
-    {
-        return annotation.match!(
-            // Annotation flag
-            (AnnotationFlag y) => Annotation(y.to!string),
-            // ConstructValueRef
-            (ConstructValueRef y) => Annotation("ConstructValue", AnnotationType(y.id)),
-            // ValidatorRef
-            (ValidatorRef y) => Annotation("Validator", AnnotationType(y.id)),
-            // maxLength
-            (maxLength y) => Annotation("MaxLength", AnnotationType(y.maxLength)),
-            // PossibleDefaultValueTs
-            oneOf!((allPossibleValues) {
-                return Annotation("DefaultValue", AnnotationType(allPossibleValues.value));
-            }, PossibleDefaultValueTs),
-            // Choices
-            (Choices y) => Annotation("Choices", AnnotationType(y.choices.map!(
-                z => AnnotationType(z.to!string)
-            ).array)),
-            // index
-            (index y) {
-                auto table = cast(AnnotationType[string])[
-                    "Priority": AnnotationType(y._priority.priority),
-                ];
-                if (y._composite.name.length > 0) {
-                    table["Name"] = y._composite.name;
-                }
-                
-                return Annotation("Index", AnnotationType(table));
-            }
-        );
-    }
-
-    newMigration.operations = serializedModels.models.map!(x => OperationType(
-        CreateModelOperation(
-            x.name,
-            x.fields.map!(
-                y => Field(
-                    y.name,
-                    y.type,
-                    y.annotations.map!(mapAnnotation).array 
-                        ~ (y.nullable ? [] : [Annotation("notNull")])
-                )
-            ).array
-        )
-    )).array;
-    // dfmt on
-
-    auto outFile = File(buildPath(migrationDirectory, "0002_abc.toml"), "w");
-    outFile.writeln(serializeMigration(newMigration));
+    Migration[] existing = getExistingMigrations();
+    //auto outFile = File(buildPath(migrationDirectory, "0002_abc.toml"), "w");
+    //outFile.writeln(serializeMigration(newMigration));
 
 }

@@ -100,12 +100,12 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 		static if (__traits(isSame, attribute, uda.autoCreateTime))
 		{
 			field.type = ModelFormat.Field.DBType.timestamp;
-			field.annotations ~= SerializedAnnotation(AnnotationFlag.autoCreateTime);
+			field.annotations ~= SerializedAnnotation(AnnotationFlag.AutoCreateTime);
 		}
 		else static if (__traits(isSame, attribute, uda.autoUpdateTime))
 		{
 			field.type = ModelFormat.Field.DBType.timestamp;
-			field.annotations ~= SerializedAnnotation(AnnotationFlag.autoUpdateTime);
+			field.annotations ~= SerializedAnnotation(AnnotationFlag.AutoUpdateTime);
 		}
 		else static if (__traits(isSame, attribute, uda.timestamp))
 		{
@@ -113,11 +113,11 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 		}
 		else static if (__traits(isSame, attribute, uda.primaryKey))
 		{
-			field.annotations ~= SerializedAnnotation(AnnotationFlag.primaryKey);
+			field.annotations ~= SerializedAnnotation(AnnotationFlag.PrimaryKey);
 		}
 		else static if (__traits(isSame, attribute, uda.unique))
 		{
-			field.annotations ~= SerializedAnnotation(AnnotationFlag.unique);
+			field.annotations ~= SerializedAnnotation(AnnotationFlag.Unique);
 		}
 		else static if (__traits(isSame, attribute, uda.embedded))
 		{
@@ -453,28 +453,28 @@ unittest
 	assert(m.fields[6].type == ModelFormat.Field.DBType.timestamp);
 	assert(!m.fields[6].nullable);
 	assert(m.fields[6].annotations == [
-			SerializedAnnotation(AnnotationFlag.autoCreateTime)
+			SerializedAnnotation(AnnotationFlag.AutoCreateTime)
 		]);
 
 	assert(m.fields[7].name == "updated_at");
 	assert(m.fields[7].type == ModelFormat.Field.DBType.timestamp);
 	assert(m.fields[7].nullable);
 	assert(m.fields[7].annotations == [
-			SerializedAnnotation(AnnotationFlag.autoUpdateTime)
+			SerializedAnnotation(AnnotationFlag.AutoUpdateTime)
 		]);
 
 	assert(m.fields[8].name == "created_at_2");
 	assert(m.fields[8].type == ModelFormat.Field.DBType.timestamp);
 	assert(!m.fields[8].nullable);
 	assert(m.fields[8].annotations == [
-			SerializedAnnotation(AnnotationFlag.autoCreateTime)
+			SerializedAnnotation(AnnotationFlag.AutoCreateTime)
 		]);
 
 	assert(m.fields[9].name == "updated_at_2");
 	assert(m.fields[9].type == ModelFormat.Field.DBType.timestamp);
 	assert(m.fields[9].nullable);
 	assert(m.fields[9].annotations == [
-			SerializedAnnotation(AnnotationFlag.autoUpdateTime)
+			SerializedAnnotation(AnnotationFlag.AutoUpdateTime)
 		]);
 
 	assert(m.fields[10].name == "state");
@@ -522,7 +522,7 @@ unittest
 	assert(m.fields[16].type == ModelFormat.Field.DBType.uint64);
 	assert(!m.fields[16].nullable);
 	assert(m.fields[16].annotations == [
-			SerializedAnnotation(AnnotationFlag.primaryKey)
+			SerializedAnnotation(AnnotationFlag.PrimaryKey)
 		]);
 
 	assert(m.fields[17].name == "creation_time");
@@ -534,7 +534,7 @@ unittest
 	assert(m.fields[18].type == ModelFormat.Field.DBType.int32);
 	assert(!m.fields[18].nullable);
 	assert(m.fields[18].annotations == [
-			SerializedAnnotation(AnnotationFlag.unique)
+			SerializedAnnotation(AnnotationFlag.Unique)
 		]);
 
 	assert(m.fields[19].name == "some_int");

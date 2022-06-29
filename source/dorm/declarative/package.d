@@ -20,25 +20,25 @@ struct ModelFormat
 	{
 		enum DBType
 		{
-			varchar = "varchar", // string
-			varbinary = "varbinary", // ubyte[]
-			int8 = "int8", // byte
-			int16 = "int16", // short
-			int32 = "int32", // int
-			int64 = "int64", // long
-			uint8 = "uint8", // ubyte
-			uint16 = "uint16", // ushort
-			uint32 = "uint32", // uint
-			uint64 = "uint64", // ulong
-			floatNumber = "floatNumber", // float
-			doubleNumber = "doubleNumber", // double
-			boolean = "boolean", // bool
-			date = "date", // std.datetime : Date
-			datetime = "datetime", // std.datetime : DateTime
-			timestamp = "timestamp", // std.datetime : SysTime, @autoCreateTime ulong, @autoUpdateTime ulong, @timestamp ulong
-			time = "time", // std.datetime : TimeOfDay
-			choices = "choices", // @choices string, enum:string
-			set = "set", // BitFlags!enum
+			varchar, // string
+			varbinary, // ubyte[]
+			int8, // byte
+			int16, // short
+			int32, // int
+			int64, // long
+			uint8, // ubyte
+			uint16, // ushort
+			uint32, // uint
+			uint64, // ulong
+			floatNumber, // float
+			doubleNumber, // double
+			boolean, // bool
+			date, // std.datetime : Date
+			datetime, // std.datetime : DateTime
+			timestamp, // std.datetime : SysTime, @AutoCreateTime ulong, @AutoUpdateTime ulong, @timestamp ulong
+			time, // std.datetime : TimeOfDay
+			choices, // @choices string, enum:string
+			set, // BitFlags!enum
 		}
 
 		string name;
@@ -72,10 +72,10 @@ struct SourceLocation
 
 enum AnnotationFlag
 {
-	autoCreateTime = "AutoCreateTime",
-	autoUpdateTime = "AutoUpdateTime",
-	primaryKey = "PrimaryKey",
-	unique = "Unique"
+	AutoCreateTime,
+	AutoUpdateTime,
+	PrimaryKey,
+	Unique
 }
 
 alias SerializedAnnotation = SumType!(

@@ -1,6 +1,6 @@
 module dorm.migration.declaration;
 
-import std.datetime : Date, DateTime, TimeOfDay;
+import std.datetime : Date, DateTime, TimeOfDay, SysTime;
 import std.sumtype;
 
 import dorm.declarative;
@@ -13,13 +13,19 @@ import toml.serialize;
  */
 alias OperationType = SumType!(CreateModelOperation);
 
+alias DBType = ModelFormat.Field.DBType;
+
 alias AnnotationType = SumType!(
-    ubyte[], double, string, long, Date, DateTime, TimeOfDay, This[], This[string]
+    ubyte[], double, string, long, Date, DateTime, TimeOfDay, SysTime, This[], This[string]
 );
 
 const string[] annotationsWithValue = [
-    "NotNull", "Choices", "ConstructValue", "DefaultValue",
+    "Choices", "ConstructValue", "DefaultValue",
     "Index", "MaxLength", "Validator"
+];
+
+const string[] annotationsWithoutValue = [
+    "NotNull", "AutoUpdateTime", "AutoCreateTime", "PrimaryKey", "Unique"
 ];
 
 /** 
@@ -40,8 +46,6 @@ struct Annotation
  */
 struct Field
 {
-    alias DBType = ModelFormat.Field.DBType;
-
     /// Name of the field
     @tomlName("Name")
     string name;
@@ -61,8 +65,8 @@ struct Field
 struct CreateModelOperation
 {
     /// Name of the model to execute the operation on
-    @tomlName("ModelName")
-    string modelName;
+    @tomlName("Name")
+    string name;
 
     /// Fields of the model
     @tomlName("Fields")

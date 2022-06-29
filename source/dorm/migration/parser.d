@@ -49,7 +49,7 @@ void checkValueExists(
     {
         throw new MigrationException(
             "missing key " ~ keyName ~ " of type "
-                ~ type ~ " in migration file " ~ path
+                ~ type.to!string ~ " in migration file " ~ path
         );
     }
 
@@ -101,27 +101,8 @@ Migration parseFile(string path)
         checkValueExists("Hash", migrationSection.table, TOML_TYPE.STRING, path);
         migration.hash = migrationSection.table["Hash"].str;
 
-        if (("Initial" in migrationSection.table) is null)
-        {
-            throw new MigrationException(
-                "missing key Initial of type BOOL in migration file " ~ path
-            );
-        }
-        if (migrationSection.table["Initial"].type == TOML_TYPE.TRUE)
-        {
-            migration.initial = true;
-        }
-        else if (migrationSection.table["Initial"].type == TOML_TYPE.FALSE)
-        {
-            migration.initial = false;
-        }
-        else
-        {
-            throw new MigrationException(
-                "key Initial has the wrong type. Should be of type BOOL. Is " ~ to!string(
-                    migrationSection.table["Initial"].type) ~ ". Migration file: " ~ path
-            );
-        }
+        checkValueExists("Initial", migrationSection.table, TOML_TYPE.BOOL, path);
+        migration.initial = migrationSection.table["Initial"].boolean;
 
         checkValueExists("Dependencies", migrationSection.table, TOML_TYPE.ARRAY, path);
         TOMLValue[] dependencies = migrationSection.table["Dependencies"].array;
@@ -139,25 +120,109 @@ Migration parseFile(string path)
             migration.dependencies ~= x.str;
         });
 
+        // dfmt off
+
         checkValueExists("Replaces", migrationSection.table, TOML_TYPE.ARRAY, path);
         TOMLValue[] replaces = migrationSection.table["Replaces"].array;
         replaces.each!((TOMLValue x) {
             if (x.type != TOML_TYPE.STRING)
             {
-                // dfmt off
                 throw new MigrationException(
                     "type of Migration.Replaces member is wrong. Expected: "
                     ~ to!string(TOML_TYPE.STRING) ~ ". Found "
                     ~ to!string(x.type) ~ "Migration file: " ~ path
                 );
-                //dfmt on
             }
             migration.replaces ~= x.str;
         });
 
         checkValueExists("Operations", migrationSection.table, TOML_TYPE.ARRAY, path);
         TOMLValue[] operations = migrationSection.table["Operations"].array;
+        operations.each!(
+            (TOMLValue x) {
+            checkValueExists("Type", x.table, TOML_TYPE.STRING, path);
+            string type = x.table["Type"].str;
 
+            switch (type)
+            {
+            case "CreateModel":
+                CreateModelOperation createModelOperation;
+
+                checkValueExists("Name", x.table, TOML_TYPE.STRING, path);
+                createModelOperation.name = x.table["Name"].str;
+
+                // As there must be at least one column to create a table,
+                // we can check for this at well
+
+                checkValueExists("Fields", x.table, TOML_TYPE.ARRAY, path);
+                if (x.table["Fields"].array.length == 0)
+                {
+                    throw new MigrationException(
+                        "There must be at least one field. Migration file: " 
+                            ~ path
+                    );
+                }
+                createModelOperation.fields = x.table["Fields"].array.map!(
+                    (y) {
+                        Field f;
+                        checkValueExists("Name", y.table, TOML_TYPE.STRING, path);
+                        f.name = y.table["Name"].str;
+
+                        checkValueExists("Type", y.table, TOML_TYPE.STRING, path);
+                        try 
+                        {
+                            f.type = y.table["Type"].str.to!DBType;
+                        }
+                        catch (ConvException exc)
+                        {
+                            throw new MigrationException(
+                                "Found unknown DBType: " ~ y.table["Type"].str,
+                                exc
+                            );
+                        }
+
+                        checkValueExists("Annotations", y.table, TOML_TYPE.ARRAY, path);
+                        f.annotations = y.table["Annotations"].array.map!(
+                            (z) {
+                                Annotation a;
+                                checkValueExists("Type", z.table, TOML_TYPE.STRING, path);
+                                a.type = z.table["Type"].str;
+                                if (annotationsWithoutValue.canFind(z.table["Type"].str))
+                                {
+                                    // Empty case to check if the key is known
+                                }
+                                else if (annotationsWithValue.canFind(z.table["Type"].str))
+                                {
+                                    a.value = TOMLToAnnotationType(z.table["Value"]);
+                                }
+                                else {
+                                    throw new MigrationException(
+                                        "Unknwon type " ~ a.type
+                                        ~ " in Migration file " ~ path
+                                    );
+                                }
+
+                                return a;
+                            }
+                        ).array;
+
+                        return f;
+                    }
+                ).array;
+
+                break;
+            
+            // If type is not known, throw
+            default:
+                throw new MigrationException(
+                    "operation type " ~ type ~ " is unknown"
+                );
+            }
+
+        }
+        );
+
+        //dfmt on
         // TODO: Implement operations
 
         return migration;
@@ -183,9 +248,23 @@ unittest
     Replaces = ["01_old"]
 
     [[Migration.Operations]]
+    Name = "Foo"
+    Type = "CreateModel"
+    
+    [[Migration.Operations.Fields]]
+    Name = "id"
+    Type = "uint64"
+
+    [[Migration.Operations.Fields.Annotations]]
+    Type = "NotNull"
     `;
 
     auto fh = File(buildPath(tempDir(), "dormmigrationtest.toml"), "w");
+    scope (exit)
+    {
+        remove(fh.name());
+    }
+
     fh.writeln(test);
     fh.close();
 
@@ -198,8 +277,6 @@ unittest
     assert(correct.replaces == toTest.replaces);
     assert(correct.initial == toTest.initial);
     assert(correct.hash == toTest.hash);
-
-    remove(fh.name());
 }
 
 /** 
@@ -277,7 +354,8 @@ string serializeMigration(ref Migration migration)
             // Case of CreateModeCreation
             exactly!(CreateModelOperation, (CreateModelOperation y) {
                 TOMLValue[string] operationTable;
-                operationTable["ModelName"] = y.modelName;
+                operationTable["Type"] = "CreateModelOperation";
+                operationTable["Name"] = y.name;
                 operationTable["Fields"] = y.fields.map!(
                     z => serializeField(z)
                 ).array;
@@ -327,8 +405,103 @@ unittest
     foreach (test; tests)
     {
         auto toTest = serializeMigration(test[0]);
-        writeln(toTest);
         //assert(test[1] == serializeMigration(test[0]));
     }
 
+    //TODO: How to test?
+}
+
+/** 
+ * Helper function to convert a SerializedAnnotation to 
+ * AnnotationType defined in migrations
+ * 
+ * Params:
+ *   annotation = SerializedAnnotation from SerializedModel.models.fields.annotations
+ *
+ * Returns: Converted Annotation
+ */
+Annotation serializedAnnotationToAnnotation(ref SerializedAnnotation annotation)
+{
+    //dfmt off
+
+    return annotation.match!(
+        // Annotation flag
+        (AnnotationFlag y) => Annotation(y.to!string),
+
+        // ConstructValueRef
+        (ConstructValueRef y) => Annotation("ConstructValue", AnnotationType(y.id)),
+
+        // ValidatorRef
+        (ValidatorRef y) => Annotation("Validator", AnnotationType(y.id)),
+
+        // maxLength
+        (maxLength y) => Annotation("MaxLength", AnnotationType(y.maxLength)),
+
+        // PossibleDefaultValueTs
+        oneOf!((allPossibleValues) {
+            return Annotation("DefaultValue", AnnotationType(allPossibleValues.value));
+        }, PossibleDefaultValueTs),
+
+        // Choices
+        (Choices y) => Annotation("Choices", AnnotationType(y.choices.map!(
+            z => AnnotationType(z.to!string)
+        ).array)),
+
+        // index
+        (index y) {
+            auto table = cast(AnnotationType[string])[
+                "Priority": AnnotationType(y._priority.priority),
+            ];
+            if (y._composite.name.length > 0) {
+                table["Name"] = y._composite.name;
+            }
+            
+            return Annotation("Index", AnnotationType(table));
+        }
+    );
+
+    //dfmt on
+}
+
+/** 
+ * Helper function to generate the correct AnnotationType from
+ * the TOMLValue "Value"
+ * 
+ * Params:
+ *   value = Migration.Operations.Fields.Annotations.Value as TOMLValue
+ * Returns: 
+ */
+AnnotationType TOMLToAnnotationType(ref TOMLValue value)
+{
+    final switch (value.type)
+    {
+    case TOML_TYPE.BOOL:
+        return AnnotationType(value.boolean);
+    case TOML_TYPE.STRING:
+        return AnnotationType(value.str);
+    case TOML_TYPE.FLOAT:
+        return AnnotationType(value.floating);
+    case TOML_TYPE.INTEGER:
+        return AnnotationType(value.integer);
+    case TOML_TYPE.LOCAL_DATE:
+        return AnnotationType(value.localDate);
+    case TOML_TYPE.LOCAL_DATETIME:
+        return AnnotationType(value.localDatetime);
+    case TOML_TYPE.LOCAL_TIME:
+        return AnnotationType(value.localTime);
+    case TOML_TYPE.OFFSET_DATETIME:
+        return AnnotationType(value.offsetDatetime);
+    case TOML_TYPE.ARRAY:
+        return AnnotationType(value.array.map!(
+                x => TOMLToAnnotationType(x)
+        ).array);
+    case TOML_TYPE.TABLE:
+        AnnotationType[string] ret;
+        foreach (key, v; value.table)
+        {
+            ret[key] = TOMLToAnnotationType(v);
+        }
+        return AnnotationType(ret);
+
+    }
 }
