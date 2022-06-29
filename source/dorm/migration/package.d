@@ -17,30 +17,47 @@ import dorm.migration.parser;
 
 import toml;
 
-const migrationDirectory = "migrations";
-
-private void checkMigrationsStructure()
+/** 
+ * Configuration for migrations
+ */
+struct MigrationConfig
 {
-    if (!exists(migrationDirectory))
+    string migrationDirectory;
+}
+
+/** 
+ * Helper method to check the migration directory structure.
+ * 
+ * If the directory specified in conf.migrationDirectory does not exists,
+ * it will be created.
+ *
+ * Params: 
+ *   conf = Reference to the MigrationConfig
+ *
+ * Throws: MigrationException if the migrationDirectory could not be created
+ */
+private void checkMigrationsStructure(ref MigrationConfig conf)
+{
+    if (!exists(conf.migrationDirectory))
     {
         try
         {
-            mkdir(migrationDirectory);
+            mkdir(conf.migrationDirectory);
         }
         catch (FileException exc)
         {
             throw new MigrationException(
-                "Could not create " ~ migrationDirectory ~ " directory",
+                "Could not create " ~ conf.migrationDirectory ~ " directory",
                 exc
             );
         }
     }
     else
     {
-        if (!isDir(migrationDirectory))
+        if (!isDir(conf.migrationDirectory))
         {
             throw new MigrationException(
-                "Migration directory " ~ migrationDirectory ~ " is a file"
+                "Migration directory " ~ conf.migrationDirectory ~ " is a file"
             );
         }
     }
@@ -48,13 +65,18 @@ private void checkMigrationsStructure()
 
 /** 
  * Use this method to retrieve the existing migrations
+ *
+ * Params: 
+ *   conf = Reference to MigrationConfig
+ *
+ * Throws: MigrationException in various cases
  */
-Migration[] getExistingMigrations()
+Migration[] getExistingMigrations(ref MigrationConfig conf)
 {
-    checkMigrationsStructure();
+    checkMigrationsStructure(conf);
 
     auto entries = dirEntries(
-        migrationDirectory,
+        conf.migrationDirectory,
         "[0123456789][0123456789][0123456789][0123456789]_?*.toml",
         SpanMode.shallow,
         false
@@ -69,14 +91,15 @@ Migration[] getExistingMigrations()
  * Intended to get called after conversion.
  *
  * Params:
- *   SerializedModels = Helper model that contains the parsed models.
+ *   serializedModels = Helper model that contains the parsed models.
+ *   conf = Configuration of the migration creation / parsing process
  *
  * Throws: 
  *   dorm.exceptions.MigrationException
  */
-void makeMigrations(SerializedModels serializedModels)
+void makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
 {
-    Migration[] existing = getExistingMigrations();
+    Migration[] existing = getExistingMigrations(conf);
     //auto outFile = File(buildPath(migrationDirectory, "0002_abc.toml"), "w");
     //outFile.writeln(serializeMigration(newMigration));
 
