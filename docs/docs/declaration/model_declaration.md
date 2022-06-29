@@ -202,6 +202,8 @@ class User : Model
 The `@embedded` annotation can be used to embed the fields of the 
 embedded structs in the table of the current class.
 
+Recursively embedding structs is also supported.
+
 ```d
 struct Person
 {
@@ -209,7 +211,7 @@ struct Person
     string firstName;
     
     @maxLength(255)
-    string lastName;    
+    string lastName;
 }
 
 class User : Model
