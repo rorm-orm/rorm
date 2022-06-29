@@ -7,6 +7,7 @@ import std.array;
 import std.conv;
 import std.file;
 import std.meta;
+import std.path;
 import std.stdio;
 import std.sumtype;
 import std.traits;
@@ -94,6 +95,8 @@ Migration parseFile(string path)
         auto doc = parseTOML(cast(string) data);
 
         Migration migration;
+
+        migration.id = baseName(path)[0 .. $ - 5];
 
         checkValueExists("Migration", doc.table, TOML_TYPE.TABLE, path);
         TOMLValue migrationSection = doc.table["Migration"];
