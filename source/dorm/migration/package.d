@@ -6,6 +6,7 @@ import std.conv;
 import std.file;
 import std.path;
 import std.range;
+import std.regex;
 import std.sumtype;
 import std.stdio;
 
@@ -22,7 +23,11 @@ import toml;
  */
 struct MigrationConfig
 {
+    /// Directory where migration files can be found
     string migrationDirectory;
+
+    /// If set to true, logging is disabled
+    bool loggingDisabled;
 }
 
 /** 
@@ -77,10 +82,26 @@ Migration[] getExistingMigrations(ref MigrationConfig conf)
 
     auto entries = dirEntries(
         conf.migrationDirectory,
-        "[0123456789][0123456789][0123456789][0123456789]_?*.toml",
+        "?*.toml",
         SpanMode.shallow,
         false
     ).filter!(x => x.isFile())
+        .filter!(
+            (DirEntry x) {
+            if (!baseName(x.name).matchFirst(`^[0-9]{4}_\w+\.toml$`))
+            {
+                if (!conf.loggingDisabled)
+                {
+                    stderr.writeln(
+                        "WARNING: Ignoring " ~ baseName(x.name)
+                        ~ " as migration file."
+                    );
+                }
+                return false;
+            }
+            return true;
+        }
+        )
         .array
         .schwartzSort!(x => baseName(x.name)[0 .. 4].to!ushort);
 
@@ -100,7 +121,4 @@ Migration[] getExistingMigrations(ref MigrationConfig conf)
 void makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
 {
     Migration[] existing = getExistingMigrations(conf);
-    //auto outFile = File(buildPath(migrationDirectory, "0002_abc.toml"), "w");
-    //outFile.writeln(serializeMigration(newMigration));
-
 }
