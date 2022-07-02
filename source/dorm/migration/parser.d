@@ -107,21 +107,8 @@ Migration parseFile(string path)
         checkValueExists("Initial", migrationSection.table, TOML_TYPE.BOOL, path);
         migration.initial = migrationSection.table["Initial"].boolean;
 
-        checkValueExists("Dependencies", migrationSection.table, TOML_TYPE.ARRAY, path);
-        TOMLValue[] dependencies = migrationSection.table["Dependencies"].array;
-        dependencies.each!((TOMLValue x) {
-            if (x.type != TOML_TYPE.STRING)
-            {
-                // dfmt off
-                throw new MigrationException(
-                    "type of Migration.Dependencies member is wrong. Expected: "
-                    ~ to!string(TOML_TYPE.STRING) ~ ". Found "
-                    ~ to!string(x.type) ~ "Migration file: " ~ path
-                );
-                //dfmt on
-            }
-            migration.dependencies ~= x.str;
-        });
+        checkValueExists("Dependency", migrationSection.table, TOML_TYPE.STRING, path);
+        migration.dependency = migrationSection.table["Dependency"].str;
 
         // dfmt off
 
@@ -247,7 +234,7 @@ unittest
     [Migration]
     Hash = "1203019591923"
     Initial = true
-    Dependencies = ["01", "02"]
+    Dependency = "01"
     Replaces = ["01_old"]
 
     [[Migration.Operations]]
@@ -272,10 +259,10 @@ unittest
     fh.close();
 
     auto correct = Migration(
-        "1203019591923", true, "3", ["01", "02"], ["01_old"], []
+        "1203019591923", true, "3", "01", ["01_old"], []
     );
     auto toTest = parseFile(fh.name());
-    assert(correct.dependencies == toTest.dependencies);
+    assert(correct.dependency == toTest.dependency);
     assert(correct.operations == toTest.operations);
     assert(correct.replaces == toTest.replaces);
     assert(correct.initial == toTest.initial);
@@ -344,9 +331,7 @@ string serializeMigration(ref Migration migration)
 
     migTable["Hash"] = TOMLValue(migration.hash);
     migTable["Initial"] = TOMLValue(migration.initial);
-    migTable["Dependencies"] = TOMLValue(migration.dependencies.map!(
-            x => TOMLValue(x)
-    ).array);
+    migTable["Dependency"] = TOMLValue(migration.dependency);
     migTable["Replaces"] = TOMLValue(migration.replaces.map!(
             x => TOMLValue(x)
     ).array);

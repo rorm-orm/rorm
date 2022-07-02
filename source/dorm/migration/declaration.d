@@ -89,9 +89,9 @@ struct Migration
     /// ID of the mirgation, derived from filename
     string id;
 
-    /// List of migrations this migration depends on
-    @tomlName("Dependencies")
-    string[] dependencies;
+    /// Migration this migration depends on
+    @tomlName("Dependency")
+    string dependency;
 
     /// List of migrations this migration replaces
     @tomlName("Replaces")

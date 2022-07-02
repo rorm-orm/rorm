@@ -120,6 +120,10 @@ Migration[] getExistingMigrations(ref MigrationConfig conf)
  */
 void validateMigrations(ref Migration[] existing)
 {
+    // If there are no migrations, there's nothing to do
+    if (existing.length == 0)
+        return;
+
     Migration[string] lookup;
 
     // Build lookup table
@@ -139,34 +143,32 @@ void validateMigrations(ref Migration[] existing)
     // dfmt off
     // Check that all dependencies && replaces exist
     existing.each!((Migration x) {
-        x.dependencies.each!((string y) {
-            if ((y in lookup) is null)
+
+        if (x.dependency !is null)
+        {
+            if ((x.dependency in lookup) is null)
             {
                 throw new MigrationException(
-                    "Dependency of migration " ~ x.id ~ " does not exist"
+                    "Replaces of migration " ~ lookup[x.dependency].id 
+                        ~ " does not exist"
                 );
             }
-        });
+        }
 
         x.replaces.each!((string y) {
             if ((y in lookup) is null)
             {
-                throw new MigrationException(
-                    "Replaces of migration " ~ x.id ~ " does not exist"
-                );
             }
         });
     });
-
     // dfmt on
 
-    // If there are no migrations, there's nothing to do
-    if (existing.length == 0)
-        return;
+    // Check that there is never more than one branch
+    // TODO
 
     // Check if migration that has initial = false has no dependencies
     existing.each!((Migration x) {
-        if (!x.initial && x.dependencies.length == 0)
+        if (!x.initial && x.dependency is null)
         {
             throw new MigrationException(
                 "No dependencies found on migration with initial = false: "
@@ -202,7 +204,7 @@ void validateMigrations(ref Migration[] existing)
     }
 
     auto dependencyMigrations = existing.filter!(
-        x => x.dependencies.length > 0
+        x => x.dependency == ""
     );
     foreach (key; dependencyMigrations)
     {
@@ -215,7 +217,7 @@ void validateMigrations(ref Migration[] existing)
 
     // If any migrations with initial = true, throw
     initialMigrations.each!((Migration x) {
-        if (x.dependencies.length != 0)
+        if (x.dependency != "")
         {
             throw new MigrationException(
                 "Migration with initial = true cannot have dependencies: "
