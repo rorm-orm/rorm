@@ -3,6 +3,7 @@ module dorm.migration;
 import std.algorithm;
 import std.array;
 import std.conv;
+import std.exception;
 import std.file;
 import std.path;
 import std.range;
@@ -175,12 +176,31 @@ void validateMigrations(ref Migration[] existing)
             depList[x.dependency] ~= x.id;
         }
     });
-    auto faulty = depList.byKeyValue.filter!(x => x.value.length > 1);
-    if (faulty.count() > 0)
+
+    string[][string] faulty;
+    depList.byKeyValue.each!((x) {
+        if (x.value.length > 1)
+        {
+            auto remaining = x.value.dup;
+            x.value.each!(
+                y => lookup[y].replaces.each!(
+                z => remaining = remaining.remove!(a => a == z)
+            )
+            );
+
+            if (remaining.length > 1)
+            {
+                faulty[x.key] ~= remaining;
+            }
+
+        }
+    });
+
+    if (faulty.length > 0)
     {
         throw new MigrationException(
             "Following migrations have the same dependencies (= branching): "
-                ~ faulty.map!(
+                ~ faulty.byKeyValue.map!(
                     x => x.value.join(", ") ~ " referencing "
                     ~ x.key ~ " as dependency"
                 ).join("; ")
@@ -318,26 +338,114 @@ void validateMigrations(ref Migration[] existing)
 
 unittest
 {
-    bool testSelfReferencing()
-    {
-        Migration replaced = Migration(
-            "def", true, "0001_replaced", "", ["0001_replaced"], []
-        );
+    Migration replaced = Migration(
+        "def", true, "0001_replaced", "", ["0001_replaced"], []
+    );
 
-        Migration[] test;
-        test ~= replaced;
-        try
+    Migration[] test;
+    test ~= replaced;
+    assertThrown!MigrationException(validateMigrations(test));
+}
+
+/** 
+ * Removes migrations that have been replaced.
+ * validateMigrations must be executed first.
+ *
+ * Params:
+ *   existing = Checked list of migrations
+ *
+ * Returns: Cleaned list of migrations
+ */
+Migration[] cleanMigrations(ref Migration[] existing)
+{
+    Migration[string] cleaned;
+    existing.each!((Migration x) { cleaned[x.id] = x; });
+
+    auto replaceMigrations = existing.filter!(x => x.replaces.length > 0);
+    replaceMigrations.each!(x => x.replaces.each!(y => cleaned.remove(y)));
+
+    return cleaned.byValue.array;
+}
+
+/** 
+ * Helper function to order migrations. It also removes migrations
+ * that are replaced.
+ *
+ * Params:
+ *   existing = Reference to list of migrations
+ *
+ * Returns: Ordered list of migrations
+ *
+ * Throws: dorm.exceptions.MigrationException
+ */
+Migration[] orderMigrations(ref Migration[] existing)
+{
+    // Validate migrations first
+    validateMigrations(existing);
+    Migration[] cleaned = cleanMigrations(existing);
+
+    Migration search;
+
+    Migration[] ordered;
+
+    auto first = cleaned.filter!(x => x.initial);
+    if (first.empty)
+    {
+        return ordered;
+    }
+    Migration head = first.front;
+    ordered ~= head;
+    auto sortedRange = cleaned.sort!((a, b) => a.dependency < b.dependency);
+
+    while (true)
+    {
+        search.dependency = head.id;
+        auto eq = sortedRange.equalRange(search);
+        if (eq.empty)
         {
-            validateMigrations(test);
-            return false;
+            break;
         }
-        catch (MigrationException exc)
-        {
-            return true;
-        }
+        assert(eq.length == 1);
+        ordered ~= eq.front;
+        head = eq.front;
     }
 
-    assert(testSelfReferencing() == true);
+    return ordered;
+}
+
+unittest
+{
+    auto elem1 = Migration(
+        "", true, "0001_abc", "", [], [
+            OperationType(CreateModelOperation())
+        ]
+    );
+    auto elem2 = Migration(
+        "", false, "0002_abc", "0001_abc", [], [
+            OperationType(CreateModelOperation())
+        ]
+    );
+    auto elem3 = Migration(
+        "", false, "0003_abc", "0002_abc", [], [
+            OperationType(CreateModelOperation())
+        ]
+    );
+    auto elem4 = Migration(
+        "", false, "0002_new", "0001_abc", ["0002_abc", "0003_abc"], [
+            OperationType(CreateModelOperation())
+        ]
+    );
+
+    Migration[] toTest;
+    toTest ~= elem3;
+    toTest ~= elem1;
+    toTest ~= elem2;
+
+    assert(orderMigrations(toTest) == [elem1, elem2, elem3]);
+
+    toTest ~= elem4;
+
+    assert(orderMigrations(toTest) == [elem1, elem4]);
 }
 
 /** 
@@ -358,9 +466,7 @@ void makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
     // the new migration will be the inital one
     bool inital = existing.length == 0;
 
-    if (!inital)
-    {
-        validateMigrations(existing);
-    }
+    Migration[] ordered = orderMigrations(existing);
+    writeln(ordered);
 
 }
