@@ -168,7 +168,24 @@ void validateMigrations(ref Migration[] existing)
     // dfmt on
 
     // Check that there is never more than one branch
-    // TODO
+    string[][string] depList;
+    existing.each!((Migration x) {
+        if (x.dependency != "")
+        {
+            depList[x.dependency] ~= x.id;
+        }
+    });
+    auto faulty = depList.byKeyValue.filter!(x => x.value.length > 1);
+    if (faulty.count() > 0)
+    {
+        throw new MigrationException(
+            "Following migrations have the same dependencies (= branching): "
+                ~ faulty.map!(
+                    x => x.value.join(", ") ~ " referencing "
+                    ~ x.key ~ " as dependency"
+                ).join("; ")
+        );
+    }
 
     // Check if migration that has initial = false has no dependencies
     existing.each!((Migration x) {
