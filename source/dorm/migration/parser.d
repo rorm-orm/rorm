@@ -101,8 +101,8 @@ Migration parseFile(string path)
         checkValueExists("Migration", doc.table, TOML_TYPE.TABLE, path);
         TOMLValue migrationSection = doc.table["Migration"];
 
-        checkValueExists("Hash", migrationSection.table, TOML_TYPE.STRING, path);
-        migration.hash = migrationSection.table["Hash"].str;
+        checkValueExists("Hash", migrationSection.table, TOML_TYPE.INTEGER, path);
+        migration.hash = migrationSection.table["Hash"].integer;
 
         checkValueExists("Initial", migrationSection.table, TOML_TYPE.BOOL, path);
         migration.initial = migrationSection.table["Initial"].boolean;
@@ -232,7 +232,7 @@ unittest
 
     string test = `
     [Migration]
-    Hash = "1203019591923"
+    Hash = 1203019591923
     Initial = true
     Dependency = "01"
     Replaces = ["01_old"]
@@ -259,7 +259,8 @@ unittest
     fh.close();
 
     auto correct = Migration(
-        "1203019591923", true, "3", "01", ["01_old"], []
+        1203019591923, // @suppress(dscanner.style.number_literals)
+        true, "3", "01", ["01_old"], []
     );
     auto toTest = parseFile(fh.name());
     assert(correct.dependency == toTest.dependency);
@@ -367,7 +368,7 @@ unittest
     auto tests = [
         tuple(
             Migration(
-                "hash",
+                123,
                 true,
                 "0001",
                 [],

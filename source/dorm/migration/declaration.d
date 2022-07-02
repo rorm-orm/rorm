@@ -80,7 +80,7 @@ struct Migration
 {
     /// Hash of the migration
     @tomlName("Hash")
-    string hash;
+    long hash;
 
     /// Marks the migration initial state
     @tomlName("Initial")

@@ -339,7 +339,7 @@ void validateMigrations(ref Migration[] existing)
 unittest
 {
     Migration replaced = Migration(
-        "def", true, "0001_replaced", "", ["0001_replaced"], []
+        123, true, "0001_replaced", "", ["0001_replaced"], []
     );
 
     Migration[] test;
@@ -416,22 +416,22 @@ Migration[] orderMigrations(ref Migration[] existing)
 unittest
 {
     auto elem1 = Migration(
-        "", true, "0001_abc", "", [], [
+        123, true, "0001_abc", "", [], [
             OperationType(CreateModelOperation())
         ]
     );
     auto elem2 = Migration(
-        "", false, "0002_abc", "0001_abc", [], [
+        123, false, "0002_abc", "0001_abc", [], [
             OperationType(CreateModelOperation())
         ]
     );
     auto elem3 = Migration(
-        "", false, "0003_abc", "0002_abc", [], [
+        123, false, "0003_abc", "0002_abc", [], [
             OperationType(CreateModelOperation())
         ]
     );
     auto elem4 = Migration(
-        "", false, "0002_new", "0001_abc", ["0002_abc", "0003_abc"], [
+        123, false, "0002_new", "0001_abc", ["0002_abc", "0003_abc"], [
             OperationType(CreateModelOperation())
         ]
     );
@@ -460,13 +460,22 @@ unittest
  */
 void makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
 {
+    auto hash = cast(long) hashOf(serializedModels);
+
     Migration[] existing = getExistingMigrations(conf);
 
     // If there are no existing migrations
     // the new migration will be the inital one
     bool inital = existing.length == 0;
 
-    Migration[] ordered = orderMigrations(existing);
-    writeln(ordered);
+    if (!inital)
+    {
+        Migration[] ordered = orderMigrations(existing);
+        if (ordered[$ - 1].hash)
+        {
+
+        }
+
+    }
 
 }
