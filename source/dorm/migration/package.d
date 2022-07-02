@@ -149,7 +149,7 @@ void validateMigrations(ref Migration[] existing)
             if ((x.dependency in lookup) is null)
             {
                 throw new MigrationException(
-                    "Replaces of migration " ~ lookup[x.dependency].id 
+                    "Dependency of migration " ~ lookup[x.dependency].id 
                         ~ " does not exist"
                 );
             }
@@ -158,6 +158,10 @@ void validateMigrations(ref Migration[] existing)
         x.replaces.each!((string y) {
             if ((y in lookup) is null)
             {
+                throw new MigrationException(
+                    "Replaces of migration " ~ lookup[y].id 
+                        ~ " does not exist"
+                );
             }
         });
     });
@@ -300,7 +304,7 @@ unittest
     bool testSelfReferencing()
     {
         Migration replaced = Migration(
-            "def", true, "0001_replaced", [], ["0001_replaced"], []
+            "def", true, "0001_replaced", "", ["0001_replaced"], []
         );
 
         Migration[] test;
