@@ -144,7 +144,7 @@ void validateMigrations(ref Migration[] existing)
     // Check that all dependencies && replaces exist
     existing.each!((Migration x) {
 
-        if (x.dependency !is null)
+        if (x.dependency != "")
         {
             if ((x.dependency in lookup) is null)
             {
@@ -203,9 +203,7 @@ void validateMigrations(ref Migration[] existing)
         checkLoop(key);
     }
 
-    auto dependencyMigrations = existing.filter!(
-        x => x.dependency == ""
-    );
+    auto dependencyMigrations = existing.filter!(x => x.dependency != "");
     foreach (key; dependencyMigrations)
     {
         visited = [];
