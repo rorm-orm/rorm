@@ -29,7 +29,7 @@ const string[] annotationsWithoutValue = [
 ];
 
 /** 
- * Representation of an annoation
+ * Representation of an annotation
  */
 struct Annotation
 {
