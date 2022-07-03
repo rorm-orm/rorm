@@ -343,7 +343,7 @@ string serializeMigration(ref Migration migration)
             // Case of CreateModeCreation
             exactly!(CreateModelOperation, (CreateModelOperation y) {
                 TOMLValue[string] operationTable;
-                operationTable["Type"] = "CreateModelOperation";
+                operationTable["Type"] = "CreateModel";
                 operationTable["Name"] = y.name;
                 operationTable["Fields"] = y.fields.map!(
                     z => serializeField(z)
