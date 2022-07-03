@@ -1,5 +1,7 @@
-/// This module converts a package containing D Model definitions to
-/// $(REF SerializedModels, dorm,declarative)
+/**
+ * This module converts a package containing D Model definitions to
+ * $(REF SerializedModels, dorm,declarative)
+ */
 module dorm.declarative.conversion;
 
 import dorm.annotations;
@@ -12,6 +14,11 @@ import std.typecons;
 
 version (unittest) import dorm.model;
 
+/** 
+ * Entry point to the Model (class) to SerializedModels (declarative) conversion
+ * code. Manually calling this should not be neccessary as the (TODO: need mixin)
+ * mixin will call this instead.
+ */
 SerializedModels processModelsToDeclarations(alias mod)()
 {
 	SerializedModels ret;
