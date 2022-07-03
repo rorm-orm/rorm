@@ -200,8 +200,18 @@ Migration parseFile(string path)
                     }
                 ).array;
 
+                migration.operations ~= OperationType(createModelOperation);
+
                 break;
             
+            case "DeleteModel":
+                checkValueExists("Name", x.table, TOML_TYPE.STRING, path);
+
+                migration.operations ~= OperationType(
+                    DeleteModelOperation(x.table["Name"].str)
+                );
+                break;
+
             // If type is not known, throw
             default:
                 throw new MigrationException(
@@ -260,7 +270,11 @@ unittest
 
     auto correct = Migration(
         1203019591923, // @suppress(dscanner.style.number_literals)
-        true, "3", "01", ["01_old"], []
+        true, "3", "01", ["01_old"], [
+            OperationType(CreateModelOperation(
+                "Foo", [Field("id", DBType.uint64, [Annotation("NotNull")])]
+            ))
+        ]
     );
     auto toTest = parseFile(fh.name());
     assert(correct.dependency == toTest.dependency);
@@ -341,7 +355,7 @@ string serializeMigration(ref Migration migration)
     migTable["Operations"] = TOMLValue(migration.operations.map!(
         x => x.match!(
             // Case of CreateModeCreation
-            exactly!(CreateModelOperation, (CreateModelOperation y) {
+            (CreateModelOperation y) {
                 TOMLValue[string] operationTable;
                 operationTable["Type"] = "CreateModel";
                 operationTable["Name"] = y.name;
@@ -349,7 +363,13 @@ string serializeMigration(ref Migration migration)
                     z => serializeField(z)
                 ).array;
                 return operationTable;
-            })
+            },
+            (DeleteModelOperation y) {
+                TOMLValue[string] operationTable;
+                operationTable["Type"] = "DeleteModel";
+                operationTable["Name"] = y.name;
+                return operationTable;
+            }
         )
     ).array);
     // dfmt on
@@ -615,6 +635,7 @@ ModelFormat.Field fieldToModelFormatField(ref Field field)
  * 
  * Params:
  *   value = Migration.Operations.Fields.Annotations.Value as TOMLValue
+ *
  * Returns: 
  */
 AnnotationType TOMLToAnnotationType(ref TOMLValue value) // @suppress(dscanner.style.phobos_naming_convention)
@@ -659,6 +680,8 @@ AnnotationType TOMLToAnnotationType(ref TOMLValue value) // @suppress(dscanner.s
  * Params:
  *   ordered = List of ordered, validated migrations
  *
+ * Throws: dorm.exceptions.MigrationException
+ *
  * Returns: SerializedModels
  */
 SerializedModels migrationsToSerializedModels(ref Migration[] ordered)
@@ -679,6 +702,11 @@ SerializedModels migrationsToSerializedModels(ref Migration[] ordered)
                         ).array;
 
                         sm.models ~= mf;
+                    },
+                    (DeleteModelOperation dmo) {
+                        sm.models = sm.models.remove!(
+                            x => x.name == dmo.name
+                        );
                     }
                 ); 
             }
