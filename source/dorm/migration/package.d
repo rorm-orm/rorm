@@ -487,8 +487,7 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
     // Name of the migration, used for the id and the filename
     string name;
 
-    Migration newMigration;
-    newMigration.hash = hash;
+    Migration newMigration = Migration(hash, inital);
 
     if (!inital)
     {
@@ -500,8 +499,6 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
         {
             return false;
         }
-
-        newMigration.dependency = ordered[$ - 1].id;
 
         ushort lastID = ordered[$ - 1].id[0 .. 4].to!ushort;
         name = format("%04d_", ++lastID);
@@ -516,6 +513,7 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
         }
 
         newMigration.id = name;
+        newMigration.dependency = ordered[$ - 1].id;
 
         SerializedModels constructed = migrationsToSerializedModels(ordered);
 
@@ -589,10 +587,11 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
             name = "0001_" ~ conf.migrationName;
         }
 
+        newMigration.id = name;
+
         // dfmt off
-        newMigration = Migration(
-            hash, true, name, "", [],
-            serializedModels.models.map!((ModelFormat x) {
+        newMigration.operations = serializedModels.models.map!(
+            (ModelFormat x) {
                 return OperationType(
                     CreateModelOperation(
                         x.name,
@@ -609,8 +608,8 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
                         }).array
                     )
                 );
-            }).array
-        );
+            }
+        ).array;
         // dfmt on
     }
 
