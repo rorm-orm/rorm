@@ -11,12 +11,13 @@ import toml.serialize;
 /** 
  * The migration type can be determined by using this
  */
-alias OperationType = SumType!(CreateModelOperation);
+alias OperationType = SumType!(CreateModelOperation, DeleteModelOperation);
 
 alias DBType = ModelFormat.Field.DBType;
 
 alias AnnotationType = SumType!(
-    ubyte[], double, string, long, Date, DateTime, TimeOfDay, SysTime, This[], This[string]
+    ubyte[], double, string, long, Date, DateTime,
+    TimeOfDay, SysTime, This[], This[string]
 );
 
 const string[] annotationsWithValue = [
@@ -71,6 +72,16 @@ struct CreateModelOperation
     /// Fields of the model
     @tomlName("Fields")
     Field[] fields;
+}
+
+/**
+ * Operation that represents the deletion of a model
+ */
+struct DeleteModelOperation
+{
+    /// Name of the model that should be deleted
+    @tomlName("Name")
+    string name;
 }
 
 /** 
