@@ -167,6 +167,8 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 private void makeValueConstructor(TModel, string fieldName, alias fn)(Model model)
 {
 	auto m = cast(TModel) model;
+	assert(m, "invalid valueConstructor call: got instance of `" ~ typeid(model).name
+		~ "`, but expected `" ~ TModel.stringof ~ '`');
 	__traits(getMember, m, fieldName) = fn();
 }
 
@@ -175,6 +177,8 @@ private bool makeValidator(TModel, string fieldName, alias fn)(Model model)
 	import std.functional : unaryFun;
 
 	auto m = cast(TModel) model;
+	assert(m, "invalid validator call: got instance of `" ~ typeid(model).name
+		~ "`, but expected `" ~ TModel.stringof ~ '`');
 	return unaryFun!fn(__traits(getMember, m, fieldName));
 }
 
