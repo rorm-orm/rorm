@@ -497,11 +497,19 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
         // No checks are necessary as these operations must be of the type
         // CreateModelOperations
 
-        auto name = conf.migrationName == "" ? "initial" : conf.migrationName;
+        string name;
+        if (conf.migrationName == "")
+        {
+            name = "0001_initial";
+        }
+        else
+        {
+            name = "0001_" ~ conf.migrationName;
+        }
 
         // dfmt off
         Migration newMigration = Migration(
-            hash, true, "0001_" ~ name, "", [],
+            hash, true, name, "", [],
             serializedModels.models.map!((ModelFormat x) {
                 return OperationType(
                     CreateModelOperation(
@@ -509,7 +517,8 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
                         x.fields.map!((ModelFormat.Field y) {
                             auto annotations = y.annotations.map!(
                                 z => serializedAnnotationToAnnotation(z)
-                            ).array ~ (y.nullable ? [] : [Annotation("NotNull")]);
+                            ).array
+                                ~ (y.nullable ? [] : [Annotation("NotNull")]);
                             return Field(
                                 y.name,
                                 y.type,
@@ -521,6 +530,13 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
             }).array
         );
         // dfmt on
+
+        File f = File(buildPath(conf.migrationDirectory, name ~ ".toml"), "w");
+        scope (exit)
+        {
+            f.close();
+        }
+        f.writeln(serializeMigration(newMigration));
 
     }
 
