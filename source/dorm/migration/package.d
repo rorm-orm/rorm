@@ -486,16 +486,29 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
     if (!inital)
     {
         Migration[] ordered = orderMigrations(existing);
+
+        // If current hash and hash of the latest migration matches,
+        // there's no need to generate a new migration
         if (ordered[$ - 1].hash == hash)
         {
             return false;
         }
+
+        SerializedModels constructed = SerializedModels();
+        foreach (Migration curr; ordered)
+        {
+            foreach (OperationType op; curr.operations)
+            {
+                
+            }
+        }
+
     }
     else
     {
         // Convert serializedModels to initial migration
         // No checks are necessary as these operations must be of the type
-        // CreateModelOperations
+        // CreateModelOperation
 
         string name;
         if (conf.migrationName == "")

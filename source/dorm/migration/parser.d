@@ -453,6 +453,163 @@ Annotation serializedAnnotationToAnnotation(ref SerializedAnnotation annotation)
 }
 
 /** 
+ * Helper function to convert a Field to a ModelFormat.Field
+ *
+ * Params:
+ *   field = Field parsed by TOML parser
+ *
+ * Returns: ModelFormat.Field
+ */
+ModelFormat.Field fieldToModelFormatField(ref Field field)
+{
+    ModelFormat.Field f;
+
+    f.name = field.name;
+    f.type = field.type;
+    f.nullable = true;
+
+    foreach (annotation; field.annotations)
+    {
+        switch (annotation.type)
+        {
+        case "NotNull":
+            f.nullable = false;
+            break;
+        case "AutoUpdateTime":
+            f.annotations ~= SerializedAnnotation(
+                AnnotationFlag.AutoUpdateTime
+            );
+            break;
+        case "AutoCreateTime":
+            f.annotations ~= SerializedAnnotation(
+                AnnotationFlag.AutoCreateTime
+            );
+            break;
+        case "PrimaryKey":
+            f.annotations ~= SerializedAnnotation(
+                AnnotationFlag.PrimaryKey
+            );
+            break;
+        case "Unique":
+            f.annotations ~= SerializedAnnotation(
+                AnnotationFlag.Unique
+            );
+            break;
+        case "Choices":
+            string[] choices;
+
+            // dfmt off
+            annotation.value.match!(
+                (AnnotationType[] arr) {
+                    arr.each!(x => x.match!(
+                        (string c) { choices ~= c; },
+                        (_) {
+                            throw new MigrationException(
+                                "Choices value element is not of type string"
+                            );
+                        }
+                    ));
+                },
+                (_) {
+                    throw new MigrationException(
+                        "Choices are not of type string[]"
+                    );
+                }
+            );
+            // dfmt on
+
+            f.annotations ~= SerializedAnnotation(Choices(choices));
+            break;
+        case "ConstructValue":
+            long id;
+
+            // dfmt off
+            annotation.value.match!(
+                (long l) { id = l; },
+                (_) {
+                    throw new MigrationException(
+                        "ConstructValue's value is not of type long"
+                    );
+                }
+            );
+            // dfmt on
+
+            f.annotations ~= SerializedAnnotation(
+                ConstructValueRef(id)
+            );
+            break;
+        case "DefaultValue":
+            // dfmt off
+            annotation.value.match!(
+                (AnnotationType[]) {
+                    throw new MigrationException(
+                        "Array is not allowed as DefaultValue annotation"
+                    );
+                },
+                (AnnotationType[string]) {
+                    throw new MigrationException(
+                        "Map is not allowed as DefaultValue annotation"
+                    );
+                },
+                (v) {
+                    f.annotations ~= SerializedAnnotation(
+                        defaultValue(v)
+                    );
+                }
+            );
+            // dfmt on
+            break;
+        case "Index":
+            // TODO: Check how to convert to indexes
+            f.annotations ~= SerializedAnnotation();
+            break;
+        case "MaxLength":
+            int length;
+
+            // dfmt off
+            annotation.value.match!(
+                (long l) { length = l.to!int; },
+                (_) {
+                     throw new MigrationException(
+                        "MaxLength's value is not of type int"
+                    );
+                }
+            );
+            // dfmt on
+
+            f.annotations ~= SerializedAnnotation(
+                maxLength(length)
+            );
+            break;
+        case "Validator":
+            long id;
+
+            // dfmt off
+            annotation.value.match!(
+                (long l) { id = l; },
+                (_) {
+                    throw new MigrationException(
+                        "Validator's value is not of type long"
+                    );
+                }
+            );
+            // dfmt on
+
+            f.annotations ~= SerializedAnnotation(
+                ValidatorRef(id)
+            );
+            break;
+        default:
+            throw new MigrationException(
+                "Got unknown AnnotationType: " ~ annotation.type
+            );
+        }
+    }
+
+    return f;
+}
+
+/** 
  * Helper function to generate the correct AnnotationType from
  * the TOMLValue "Value"
  * 
@@ -493,4 +650,41 @@ AnnotationType TOMLToAnnotationType(ref TOMLValue value) // @suppress(dscanner.s
         return AnnotationType(ret);
 
     }
+}
+
+/** 
+ * Helper function to convert a list of ordered, validated migrations
+ * to generate a single SerializedModels object.
+ * 
+ * Params:
+ *   ordered = List of ordered, validated migrations
+ *
+ * Returns: SerializedModels
+ */
+SerializedModels migrationsToSerializedModels(ref Migration[] ordered)
+{
+    SerializedModels sm;
+
+    // dfmt off
+    ordered.each!(
+        x => x.operations.each!(
+            (y) { 
+                y.match!(
+                    (CreateModelOperation cmo) {
+                        ModelFormat mf;
+
+                        mf.name = cmo.name;
+                        mf.fields = cmo.fields.map!(
+                            z => fieldToModelFormatField(z)
+                        ).array;
+
+                        sm.models ~= mf;
+                    }
+                ); 
+            }
+        )
+    );
+    // dfmt on
+
+    return sm;
 }
