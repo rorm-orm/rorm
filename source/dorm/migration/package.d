@@ -5,6 +5,7 @@ import std.array;
 import std.conv;
 import std.exception;
 import std.file;
+import std.format;
 import std.path;
 import std.range;
 import std.regex;
@@ -483,6 +484,12 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
     // the new migration will be the inital one
     bool inital = existing.length == 0;
 
+    // Name of the migration, used for the id and the filename
+    string name;
+
+    Migration newMigration;
+    newMigration.hash = hash;
+
     if (!inital)
     {
         Migration[] ordered = orderMigrations(existing);
@@ -494,14 +501,77 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
             return false;
         }
 
-        SerializedModels constructed = SerializedModels();
-        foreach (Migration curr; ordered)
+        newMigration.dependency = ordered[$ - 1].id;
+
+        ushort lastID = ordered[$ - 1].id[0 .. 4].to!ushort;
+        name = format("%04d_", ++lastID);
+
+        if (conf.migrationName != "")
         {
-            foreach (OperationType op; curr.operations)
-            {
-                
-            }
+            name ~= conf.migrationName;
         }
+        else
+        {
+            name ~= "placeholder";
+        }
+
+        newMigration.id = name;
+
+        SerializedModels constructed = migrationsToSerializedModels(ordered);
+
+        ModelFormat[] newModels;
+        ModelFormat[] deletedModels;
+
+        // Check if any new models exist
+        auto constructedModelNames = constructed.models.map!(x => x.name);
+        serializedModels.models.each!((x) {
+            if (!constructedModelNames.canFind(x.name))
+            {
+                newModels ~= x;
+            }
+        });
+
+        // Check if any models got deleted
+        auto newModelNames = serializedModels.models.map!(x => x.name);
+        constructed.models.each!((x) {
+            if (!newModelNames.canFind(x.name))
+            {
+                deletedModels ~= x;
+            }
+        });
+
+        // dfmt off
+        // Create migration operations for new models
+        newModels.each!(
+            (ModelFormat x) {
+                newMigration.operations ~= OperationType(
+                    CreateModelOperation(x.name, x.fields.map!(
+                        (ModelFormat.Field y) {
+                            auto annotations = y.annotations.map!(
+                                z => serializedAnnotationToAnnotation(z)
+                            ).array
+                                ~ (y.nullable ? [] : [Annotation("NotNull")]);
+                            return Field(
+                                y.name,
+                                y.type,
+                                annotations
+                            );
+                        }
+                    ).array)
+                );
+            }
+        );
+        
+        // Create migration operations for deleted models
+        deletedModels.each!(
+            (ModelFormat x) {
+                newMigration.operations ~= OperationType(
+                    DeleteModelOperation(x.name)
+                );
+            }
+        );
+
+        // dfmt on
 
     }
     else
@@ -510,7 +580,6 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
         // No checks are necessary as these operations must be of the type
         // CreateModelOperation
 
-        string name;
         if (conf.migrationName == "")
         {
             name = "0001_initial";
@@ -521,7 +590,7 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
         }
 
         // dfmt off
-        Migration newMigration = Migration(
+        newMigration = Migration(
             hash, true, name, "", [],
             serializedModels.models.map!((ModelFormat x) {
                 return OperationType(
@@ -543,15 +612,14 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
             }).array
         );
         // dfmt on
-
-        File f = File(buildPath(conf.migrationDirectory, name ~ ".toml"), "w");
-        scope (exit)
-        {
-            f.close();
-        }
-        f.writeln(serializeMigration(newMigration));
-
     }
+
+    File f = File(buildPath(conf.migrationDirectory, name ~ ".toml"), "w");
+    scope (exit)
+    {
+        f.close();
+    }
+    f.writeln(serializeMigration(newMigration));
 
     return true;
 }
