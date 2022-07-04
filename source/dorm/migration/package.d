@@ -520,6 +520,17 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
         ModelFormat[] newModels;
         ModelFormat[] deletedModels;
 
+        // Lookup tables by table name
+        ModelFormat[string] oldLookup;
+        ModelFormat[string] newLookup;
+
+        // Generate lookup tables
+        constructed.models.each!(x => oldLookup[x.name] = x);
+        serializedModels.models.each!(x => newLookup[x.name] = x);
+
+        // Map of list of new fields indexed by the model name
+        ModelFormat.Field[][string] newFields;
+
         // Check if any new models exist
         auto constructedModelNames = constructed.models.map!(x => x.name);
         serializedModels.models.each!((x) {
@@ -538,7 +549,27 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
             }
         });
 
+        // Calculate all models that exist in the migrations files as well
+        // as the new generated serializedModels
+        auto unchangedNewModels = serializedModels.models.filter!(
+            x => (x.name in oldLookup) !is null
+        );
+
         // dfmt off
+        // Check if any new fields got added
+        unchangedNewModels.each!(
+            x => x.fields.each!(
+                (ModelFormat.Field y) {
+                    if (!oldLookup[x.name].fields.any!(
+                        z => y.name == z.name
+                    ))
+                    {
+                        newFields[x.name] ~= y;
+                    }
+                }
+            )
+        );
+
         // Create migration operations for new models
         newModels.each!(
             (ModelFormat x) {
@@ -569,6 +600,23 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
             }
         );
 
+        // Create migration operations for added fields in unchanged models
+        foreach (tableName, value; newFields)
+        {
+            value.each!((ModelFormat.Field x) {
+                auto annotations = x.annotations.map!(
+                    z => serializedAnnotationToAnnotation(z)
+                ).array
+                    ~ (x.nullable ? [] : [Annotation("NotNull")]);
+                newMigration.operations ~= OperationType(
+                    AddFieldOperation(
+                        tableName,
+                        Field(x.name, x.type, annotations)
+                    )
+                );
+            });
+        }
+        
         // dfmt on
 
     }

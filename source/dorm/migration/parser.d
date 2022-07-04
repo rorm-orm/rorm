@@ -211,7 +211,61 @@ Migration parseFile(string path)
                     DeleteModelOperation(x.table["Name"].str)
                 );
                 break;
+            
+            case "AddField":
+                checkValueExists("Name", x.table, TOML_TYPE.STRING, path);
 
+                checkValueExists("Field", x.table, TOML_TYPE.TABLE, path);
+
+                TOMLValue[string] f = x.table["Field"].table;
+                Field field;
+
+                checkValueExists("Name", f, TOML_TYPE.STRING, path);
+                field.name = f["Name"].str;
+
+                checkValueExists("Type", f, TOML_TYPE.STRING, path);
+                try 
+                {
+                    field.type = f["Type"].str.to!DBType;
+                }
+                catch (ConvException exc)
+                {
+                    throw new MigrationException(
+                        "Found unknown DBType: " ~ f["Type"].str, exc
+                    );
+                }
+
+                checkValueExists("Annotations", f, TOML_TYPE.ARRAY, path);
+                field.annotations = f["Annotations"].array.map!(
+                    (z) {
+                        Annotation a;
+                        checkValueExists("Type", z.table, TOML_TYPE.STRING, path);
+                        a.type = z.table["Type"].str;
+                        if (annotationsWithoutValue.canFind(z.table["Type"].str))
+                        {
+                            // Empty case to check if the key is known
+                        }
+                        else if (annotationsWithValue.canFind(z.table["Type"].str))
+                        {
+                            a.value = TOMLToAnnotationType(z.table["Value"]);
+                        }
+                        else {
+                            throw new MigrationException(
+                                "Unknwon type " ~ a.type
+                                ~ " in Migration file " ~ path
+                            );
+                        }
+
+                        return a;
+                    }
+                ).array;
+
+                migration.operations ~= OperationType(
+                    AddFieldOperation(x.table["Name"].str, field)
+                );
+
+                break;
+            
             // If type is not known, throw
             default:
                 throw new MigrationException(
@@ -368,6 +422,13 @@ string serializeMigration(ref Migration migration)
                 TOMLValue[string] operationTable;
                 operationTable["Type"] = "DeleteModel";
                 operationTable["Name"] = y.name;
+                return operationTable;
+            },
+            (AddFieldOperation y) {
+                TOMLValue[string] operationTable;
+                operationTable["Type"] = "AddField";
+                operationTable["Name"] = y.name;
+                operationTable["Field"] = serializeField(y.field);
                 return operationTable;
             }
         )
@@ -590,7 +651,7 @@ ModelFormat.Field fieldToModelFormatField(ref Field field)
             annotation.value.match!(
                 (long l) { length = l.to!int; },
                 (_) {
-                     throw new MigrationException(
+                    throw new MigrationException(
                         "MaxLength's value is not of type int"
                     );
                 }
@@ -707,6 +768,22 @@ SerializedModels migrationsToSerializedModels(ref Migration[] ordered)
                         sm.models = sm.models.remove!(
                             x => x.name == dmo.name
                         );
+                    },
+                    (AddFieldOperation afo) {
+                        auto matched = sm.models.filter!(
+                            x => x.name == afo.name
+                        );
+                        
+                        if (matched.empty)
+                        {
+                            throw new MigrationException(
+                                "Parsed AddField operation but didn't found the"
+                                ~ " the corresponding model."
+                            );
+                        }
+
+                        ModelFormat mf = matched.front;
+                        mf.fields ~= fieldToModelFormatField(afo.field);
                     }
                 ); 
             }
