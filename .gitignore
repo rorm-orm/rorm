@@ -1,7 +1,7 @@
 .dub
 docs.json
 __dummy.html
-/dorm
+dorm/dorm
 dorm.so
 dorm.dylib
 dorm.dll
@@ -20,3 +20,5 @@ site/
 .idea/
 .vscode/
 dub.selections.json
+*.iml
+dorm/migrations/
