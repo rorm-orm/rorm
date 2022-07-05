@@ -266,6 +266,17 @@ Migration parseFile(string path)
 
                 break;
             
+            case "DeleteField":
+                checkValueExists("ModelName", x.table, TOML_TYPE.STRING, path);
+                checkValueExists("FieldName", x.table, TOML_TYPE.STRING, path);
+                
+                migration.operations ~= OperationType(
+                    DeleteFieldOperation(
+                        x.table["ModelName"].str, x.table["FieldName"].str
+                    )
+                );
+                break;
+                
             // If type is not known, throw
             default:
                 throw new MigrationException(

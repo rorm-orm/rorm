@@ -128,7 +128,7 @@ struct Migration
     @tomlName("Initial")
     bool initial;
 
-    /// ID of the mirgation, derived from filename
+    /// ID of the migration, derived from filename
     string id;
 
     /// Migration this migration depends on
