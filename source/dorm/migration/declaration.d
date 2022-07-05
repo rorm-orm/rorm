@@ -12,7 +12,8 @@ import toml.serialize;
  * The migration type can be determined by using this
  */
 alias OperationType = SumType!(
-    CreateModelOperation, DeleteModelOperation, AddFieldOperation
+    CreateModelOperation, DeleteModelOperation, AddFieldOperation,
+    DeleteFieldOperation
 );
 
 alias DBType = ModelFormat.Field.DBType;
@@ -95,9 +96,23 @@ struct AddFieldOperation
     @tomlName("Name")
     string name;
 
-    /// Name of the field
+    /// The field to be added
     @tomlName("Field")
     Field field;
+}
+
+/** 
+ * Operation that represents the deletion of a field from a model
+ */
+struct DeleteFieldOperation
+{
+    /// Name of the model
+    @tomlName("ModelName")
+    string modelName;
+
+    /// The name of the field to delete
+    @tomlName("FieldName")
+    string fieldName;
 }
 
 /** 

@@ -430,6 +430,13 @@ string serializeMigration(ref Migration migration)
                 operationTable["Name"] = y.name;
                 operationTable["Field"] = serializeField(y.field);
                 return operationTable;
+            },
+            (DeleteFieldOperation y) {
+                TOMLValue[string] operationTable;
+                operationTable["Type"] = "DeleteField";
+                operationTable["ModelName"] = y.modelName;
+                operationTable["FieldName"] = y.fieldName;
+                return operationTable;
             }
         )
     ).array);
@@ -770,22 +777,30 @@ SerializedModels migrationsToSerializedModels(ref Migration[] ordered)
                         );
                     },
                     (AddFieldOperation afo) {
-                        auto matched = sm.models.filter!(
-                            x => x.name == afo.name
+                        sm.models.each!(
+                            (ref ModelFormat z) {
+                                if (z.name == afo.name)
+                                {
+                                    z.fields ~= fieldToModelFormatField(
+                                        afo.field
+                                    );
+                                }
+                            }
                         );
-                        
-                        if (matched.empty)
-                        {
-                            throw new MigrationException(
-                                "Parsed AddField operation but didn't found the"
-                                ~ " the corresponding model."
-                            );
-                        }
-
-                        ModelFormat mf = matched.front;
-                        mf.fields ~= fieldToModelFormatField(afo.field);
+                    },
+                    (DeleteFieldOperation dfo) {
+                        sm.models.each!(
+                            (ref ModelFormat z) {
+                                if (z.name == dfo.modelName)
+                                {
+                                    z.fields = z.fields.filter!(
+                                        a => a.name != dfo.fieldName
+                                    ).array;
+                                }
+                            }
+                        );
                     }
-                ); 
+                );
             }
         )
     );

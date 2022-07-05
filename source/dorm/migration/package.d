@@ -531,6 +531,9 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
         // Map of list of new fields indexed by the model name
         ModelFormat.Field[][string] newFields;
 
+        // Map of list of fields to delete indexed by the model name
+        ModelFormat.Field[][string] deleteFields;
+
         // Check if any new models exist
         auto constructedModelNames = constructed.models.map!(x => x.name);
         serializedModels.models.each!((x) {
@@ -565,6 +568,20 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
                     ))
                     {
                         newFields[x.name] ~= y;
+                    }
+                }
+            )
+        );
+
+        // Check if any fields got deleted
+        unchangedNewModels.each!(
+            x => oldLookup[x.name].fields.each!(
+                (ModelFormat.Field y) {
+                    if (!x.fields.any!(
+                        z => z.name == y.name
+                    ))
+                    {
+                        deleteFields[x.name] ~= y;
                     }
                 }
             )
@@ -616,7 +633,17 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
                 );
             });
         }
-        
+
+        // Create migration operations for deleted fields in unchanged models
+        foreach (tableName, value; deleteFields)
+        {
+            value.each!((ModelFormat.Field x) {
+                newMigration.operations ~= OperationType(
+                    DeleteFieldOperation(tableName, x.name)
+                );
+            });
+        }
+
         // dfmt on
 
     }
