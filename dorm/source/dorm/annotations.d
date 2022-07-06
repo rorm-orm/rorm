@@ -50,7 +50,7 @@ struct index
 		{
 			static foreach (arg; args)
 			{
-				static if (typeof(field) == typeof(arg))
+				static if (is(typeof(field) == typeof(arg)))
 					field = arg;
 			}
 		}
