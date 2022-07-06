@@ -22,3 +22,5 @@ site/
 dub.selections.json
 *.iml
 dorm/migrations/
+# Added by cargo
+rorm/target
