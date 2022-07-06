@@ -9,6 +9,10 @@ for making migrations, it is required to include a step in
 your building pipeline to generate intermediate json files
 that represent the current model state.
 
+The resulting JSON should live in the root of your project
+directory. The cli tools assumes the JSON file has the name
+`.models.json`.
+
 ## Intermediate JSON representation
 
 This is an example of the intermediate representation:
@@ -20,7 +24,8 @@ This is an example of the intermediate representation:
       "name": "foo",
       "source_defined_at": {
         "file": "/path/to/source/file.rs",
-        "line": 140
+        "line": 140,
+        "column": 1
       },
       "fields": [
         {
@@ -28,7 +33,8 @@ This is an example of the intermediate representation:
           "type": "varchar",
           "source_defined_at": {
             "file": "/path/to/source/file.rs",
-            "line": 142
+            "line": 142,
+            "column": 4
           },
           "annotations": [
             {
@@ -42,7 +48,8 @@ This is an example of the intermediate representation:
             },
             {
               "type": "max_length",
-              "value": 255
+              "value": 255,
+              "column": 4
             }
           ]
         }
@@ -71,7 +78,8 @@ must be there as well.
   "name": "table_name",
   "source_defined_at": {
     "file": "/path/to/source/file.rs",
-    "line": 140
+    "line": 140,
+    "column": 1
   },
   "fields": []
 }
@@ -99,7 +107,8 @@ must be there as well.
   "type": "varchar",
   "source_defined_at": {
     "file": "/path/to/source/file.rs",
-    "line": 142
+    "line": 142,
+    "column": 4
   },
   "annotations": []
 }
