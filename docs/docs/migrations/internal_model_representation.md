@@ -141,8 +141,8 @@ E.g. `max_length` is using a value of type integer.
 |     `choices`      | :white_check_mark: |       array of strings        |
 |     `default`      | :white_check_mark: | one of [string, number, bool] |
 |      `index`       |      depends       |      See [index](#index)      |
-|    `maxLength`     | :white_check_mark: |            integer            |
-|    `primaryKey`    |        :x:         |                               |
+|    `max_length`    | :white_check_mark: |            integer            |
+|   `primary_key`    |        :x:         |                               |
 |      `unique`      |        :x:         |                               |
 
 #### Index
