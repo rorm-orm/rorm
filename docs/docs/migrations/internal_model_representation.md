@@ -134,16 +134,21 @@ E.g. `max_length` is using a value of type integer.
 
 ### Annotation types
 
-|  Annotation name   |   Value required   |          Value type           |
-|:------------------:|:------------------:|:-----------------------------:|
-| `auto_create_time` |        :x:         |                               |
-| `auto_update_time` |        :x:         |                               |
-|     `choices`      | :white_check_mark: |       array of strings        |
-|     `default`      | :white_check_mark: | one of [string, number, bool] |
-|      `index`       |      depends       |      See [index](#index)      |
-|    `max_length`    | :white_check_mark: |            integer            |
-|   `primary_key`    |        :x:         |                               |
-|      `unique`      |        :x:         |                               |
+|  Annotation name   |   Value required   |       Value type        |
+|:------------------:|:------------------:|:-----------------------:|
+| `auto_create_time` |        :x:         |                         |
+| `auto_update_time` |        :x:         |                         |
+|     `choices`      | :white_check_mark: |    array of strings     |
+|     `default`      | :white_check_mark: | See [default](#default) |
+|      `index`       |      depends       |   See [index](#index)   |
+|    `max_length`    | :white_check_mark: |         integer         |
+|     `not_null`     |        :x:         |                         | 
+|   `primary_key`    |        :x:         |                         |
+|      `unique`      |        :x:         |                         |
+
+#### default
+One of [string, number, bool].
+Default types for varbinary should be encoded using hex strings. 
 
 #### Index
 
