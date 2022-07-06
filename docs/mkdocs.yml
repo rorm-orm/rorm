@@ -1,5 +1,5 @@
 ---
-site_name: DORM Documentation 
+site_name: DRORM Documentation 
 theme:
   name: material
   palette:
@@ -16,9 +16,9 @@ theme:
     toggle:
       icon: material/toggle-switch-off-outline
       name: Switch to light mode
-repo_url: https://github.com/myOmikron/dorm
-edit_uri: https://github.com/myOmikron/dorm/edit/main/docs/docs/
-repo_name: myOmikron/dorm
+repo_url: https://github.com/myOmikron/drorm
+edit_uri: https://github.com/myOmikron/drorm/edit/main/docs/docs/
+repo_name: myOmikron/drorm
 markdown_extensions:
   - admonition
   - pymdownx.highlight:
@@ -26,6 +26,9 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.superfences
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
 nav:
   - Home: index.md
   - Model Declaration:
@@ -35,3 +38,5 @@ nav:
     - Migrations: migrations/migrations.md
     - Make Migrations: migrations/makemigrations.md
     - Migration File Format: migrations/migration_files.md
+    - Linter: migrations/linter.md
+    - Internal Model Representation: migrations/internal_model_representation.md
