@@ -347,6 +347,8 @@ enum guessDBTypeBase(T : TimeOfDay) = ModelFormat.Field.DBType.time;
 
 unittest
 {
+	import std.sumtype;
+
 	struct Mod
 	{
 		import std.datetime;
@@ -423,12 +425,7 @@ unittest
 	}
 
 	auto mod = processModelsToDeclarations!Mod;
-	assert(mod.validators.length == 1);
-	assert(mod.valueConstructors.length == 1);
 	assert(mod.models.length == 1);
-
-	auto validatorFunId = mod.validators.byKey.front;
-	auto constructFunId = mod.valueConstructors.byKey.front;
 
 	auto m = mod.models[0];
 
@@ -509,9 +506,8 @@ unittest
 	assert(m.fields[13].annotations == [
 			DBAnnotation(AnnotationFlag.notNull)
 		]);
-	assert(m.fields[13].internalAnnotations == [
-			InternalAnnotation(ConstructValueRef(constructFunId))
-		]);
+	assert(m.fields[13].internalAnnotations.length == 1);
+	assert(m.fields[13].internalAnnotations[0].match!((ConstructValueRef r) => true, _ => false));
 
 	assert(m.fields[14].name == "comment");
 	assert(m.fields[14].type == ModelFormat.Field.DBType.varchar);
@@ -551,9 +547,8 @@ unittest
 	assert(m.fields[19].annotations == [
 			DBAnnotation(AnnotationFlag.notNull)
 		]);
-	assert(m.fields[19].internalAnnotations == [
-			InternalAnnotation(ValidatorRef(validatorFunId))
-		]);
+	assert(m.fields[19].internalAnnotations.length == 1);
+	assert(m.fields[19].internalAnnotations[0].match!((ValidatorRef r) => true, _ => false));
 }
 
 unittest
