@@ -506,27 +506,21 @@ unittest
 }
 
 /** 
- * Helper function to convert a SerializedAnnotation to 
+ * Helper function to convert a DBAnnotation to 
  * AnnotationType defined in migrations
  * 
  * Params:
- *   annotation = SerializedAnnotation from SerializedModel.models.fields.annotations
+ *   annotation = DBAnnotation from SerializedModel.models.fields.annotations
  *
  * Returns: Converted Annotation
  */
-Annotation serializedAnnotationToAnnotation(ref SerializedAnnotation annotation)
+Annotation serializedAnnotationToAnnotation(ref DBAnnotation annotation)
 {
     //dfmt off
 
     return annotation.match!(
         // Annotation flag
         (AnnotationFlag y) => Annotation(y.to!string),
-
-        // ConstructValueRef
-        (ConstructValueRef y) => Annotation("ConstructValue", AnnotationType(y.id)),
-
-        // ValidatorRef
-        (ValidatorRef y) => Annotation("Validator", AnnotationType(y.id)),
 
         // maxLength
         (maxLength y) => Annotation("MaxLength", AnnotationType(y.maxLength)),
@@ -571,33 +565,34 @@ ModelFormat.Field fieldToModelFormatField(ref Field field)
 
     f.name = field.name;
     f.type = field.type;
-    f.nullable = true;
 
     foreach (annotation; field.annotations)
     {
         switch (annotation.type)
         {
         case "NotNull":
-            f.nullable = false;
+            f.annotations ~= DBAnnotation(
+                AnnotationFlag.notNull
+            );
             break;
         case "AutoUpdateTime":
-            f.annotations ~= SerializedAnnotation(
-                AnnotationFlag.AutoUpdateTime
+            f.annotations ~= DBAnnotation(
+                AnnotationFlag.autoUpdateTime
             );
             break;
         case "AutoCreateTime":
-            f.annotations ~= SerializedAnnotation(
-                AnnotationFlag.AutoCreateTime
+            f.annotations ~= DBAnnotation(
+                AnnotationFlag.autoCreateTime
             );
             break;
         case "PrimaryKey":
-            f.annotations ~= SerializedAnnotation(
-                AnnotationFlag.PrimaryKey
+            f.annotations ~= DBAnnotation(
+                AnnotationFlag.primaryKey
             );
             break;
         case "Unique":
-            f.annotations ~= SerializedAnnotation(
-                AnnotationFlag.Unique
+            f.annotations ~= DBAnnotation(
+                AnnotationFlag.unique
             );
             break;
         case "Choices":
@@ -623,25 +618,7 @@ ModelFormat.Field fieldToModelFormatField(ref Field field)
             );
             // dfmt on
 
-            f.annotations ~= SerializedAnnotation(Choices(choices));
-            break;
-        case "ConstructValue":
-            long id;
-
-            // dfmt off
-            annotation.value.match!(
-                (long l) { id = l; },
-                (_) {
-                    throw new MigrationException(
-                        "ConstructValue's value is not of type long"
-                    );
-                }
-            );
-            // dfmt on
-
-            f.annotations ~= SerializedAnnotation(
-                ConstructValueRef(id)
-            );
+            f.annotations ~= DBAnnotation(Choices(choices));
             break;
         case "DefaultValue":
             // dfmt off
@@ -657,7 +634,7 @@ ModelFormat.Field fieldToModelFormatField(ref Field field)
                     );
                 },
                 (v) {
-                    f.annotations ~= SerializedAnnotation(
+                    f.annotations ~= DBAnnotation(
                         defaultValue(v)
                     );
                 }
@@ -666,7 +643,7 @@ ModelFormat.Field fieldToModelFormatField(ref Field field)
             break;
         case "Index":
             // TODO: Check how to convert to indexes
-            f.annotations ~= SerializedAnnotation();
+            f.annotations ~= DBAnnotation();
             break;
         case "MaxLength":
             int length;
@@ -682,26 +659,8 @@ ModelFormat.Field fieldToModelFormatField(ref Field field)
             );
             // dfmt on
 
-            f.annotations ~= SerializedAnnotation(
+            f.annotations ~= DBAnnotation(
                 maxLength(length)
-            );
-            break;
-        case "Validator":
-            long id;
-
-            // dfmt off
-            annotation.value.match!(
-                (long l) { id = l; },
-                (_) {
-                    throw new MigrationException(
-                        "Validator's value is not of type long"
-                    );
-                }
-            );
-            // dfmt on
-
-            f.annotations ~= SerializedAnnotation(
-                ValidatorRef(id)
             );
             break;
         default:

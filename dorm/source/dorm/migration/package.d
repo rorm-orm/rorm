@@ -596,8 +596,7 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
                         (ModelFormat.Field y) {
                             auto annotations = y.annotations.map!(
                                 z => serializedAnnotationToAnnotation(z)
-                            ).array
-                                ~ (y.nullable ? [] : [Annotation("NotNull")]);
+                            ).array;
                             return Field(
                                 y.name,
                                 y.type,
@@ -626,8 +625,7 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
             value.each!((ModelFormat.Field x) {
                 auto annotations = x.annotations.map!(
                     z => serializedAnnotationToAnnotation(z)
-                ).array
-                    ~ (x.nullable ? [] : [Annotation("NotNull")]);
+                ).array;
                 newMigration.operations ~= OperationType(
                     AddFieldOperation(
                         tableName,
@@ -678,8 +676,7 @@ bool makeMigrations(SerializedModels serializedModels, MigrationConfig conf)
                         x.fields.map!((ModelFormat.Field y) {
                             auto annotations = y.annotations.map!(
                                 z => serializedAnnotationToAnnotation(z)
-                            ).array
-                                ~ (y.nullable ? [] : [Annotation("NotNull")]);
+                            ).array;
                             return Field(
                                 y.name,
                                 y.type,

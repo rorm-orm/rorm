@@ -6,6 +6,7 @@ module dorm.declarative.conversion;
 
 import dorm.annotations;
 import dorm.declarative;
+import dorm.model;
 
 import std.datetime;
 import std.meta;
@@ -16,13 +17,12 @@ version (unittest) import dorm.model;
 
 /** 
  * Entry point to the Model (class) to SerializedModels (declarative) conversion
- * code. Manually calling this should not be neccessary as the (TODO: need mixin)
- * mixin will call this instead.
+ * code. Manually calling this should not be neccessary as the
+ * $(REF RegisterModels, dorm,declarative,entrypoint) mixin will call this instead.
  */
 SerializedModels processModelsToDeclarations(alias mod)()
 {
 	SerializedModels ret;
-	int globalCounter;
 
 	static foreach (member; __traits(allMembers, mod))
 	{
@@ -33,7 +33,7 @@ SerializedModels processModelsToDeclarations(alias mod)()
 			processModel!(
 				__traits(getMember, mod, member),
 				SourceLocation(__traits(getLocation, __traits(getMember, mod, member)))
-			)(ret, globalCounter);
+			)(ret);
 		}
 	}
 
@@ -41,7 +41,7 @@ SerializedModels processModelsToDeclarations(alias mod)()
 }
 
 private void processModel(TModel : Model, SourceLocation loc)(
-	ref SerializedModels models, ref int globalCounter)
+	ref SerializedModels models)
 {
 	ModelFormat serialized;
 	serialized.name = TModel.stringof.toSnakeCase;
@@ -62,7 +62,7 @@ private void processModel(TModel : Model, SourceLocation loc)(
 		static if (is(typeof(__traits(getMember, TModel, field)))
 			&& !isCallable!(__traits(getMember, TModel, field)))
 		{
-			processField!(TModel, field)(models, serialized, globalCounter);
+			processField!(TModel, field)(models, serialized);
 		}
 	}
 
@@ -78,7 +78,7 @@ template LogicalFields(TModel)
 		LogicalFields = AliasSeq!(LogicalFields, __traits(derivedMembers, Class));
 }
 
-private void processField(TModel, string fieldName)(ref SerializedModels models, ref ModelFormat serialized, ref int globalCounter)
+private void processField(TModel, string fieldName)(ref SerializedModels models, ref ModelFormat serialized)
 {
 	import uda = dorm.annotations;
 
@@ -93,12 +93,13 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 	field.name = fieldName.toSnakeCase;
 	field.type = guessDBType!(typeof(fieldAlias));
 
+	bool nullable = false;
 	static if (is(typeof(fieldAlias) == Nullable!T, T)
 		|| is(typeof(fieldAlias) : Model))
-		field.nullable = true;
+		nullable = true;
 
 	static if (is(typeof(fieldAlias) == enum))
-		field.annotations ~= SerializedAnnotation(Choices([
+		field.annotations ~= DBAnnotation(Choices([
 				__traits(allMembers, typeof(fieldAlias))
 			]));
 
@@ -107,12 +108,12 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 		static if (__traits(isSame, attribute, uda.autoCreateTime))
 		{
 			field.type = ModelFormat.Field.DBType.timestamp;
-			field.annotations ~= SerializedAnnotation(AnnotationFlag.AutoCreateTime);
+			field.annotations ~= DBAnnotation(AnnotationFlag.autoCreateTime);
 		}
 		else static if (__traits(isSame, attribute, uda.autoUpdateTime))
 		{
 			field.type = ModelFormat.Field.DBType.timestamp;
-			field.annotations ~= SerializedAnnotation(AnnotationFlag.AutoUpdateTime);
+			field.annotations ~= DBAnnotation(AnnotationFlag.autoUpdateTime);
 		}
 		else static if (__traits(isSame, attribute, uda.timestamp))
 		{
@@ -120,11 +121,11 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 		}
 		else static if (__traits(isSame, attribute, uda.primaryKey))
 		{
-			field.annotations ~= SerializedAnnotation(AnnotationFlag.PrimaryKey);
+			field.annotations ~= DBAnnotation(AnnotationFlag.primaryKey);
 		}
 		else static if (__traits(isSame, attribute, uda.unique))
 		{
-			field.annotations ~= SerializedAnnotation(AnnotationFlag.Unique);
+			field.annotations ~= DBAnnotation(AnnotationFlag.unique);
 		}
 		else static if (__traits(isSame, attribute, uda.embedded))
 		{
@@ -135,27 +136,29 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 		{
 			include = false;
 		}
+		else static if (__traits(isSame, attribute, uda.notNull))
+		{
+			nullable = false;
+		}
 		else static if (is(attribute == constructValue!fn, alias fn))
 		{
-			int id = globalCounter++;
-			models.valueConstructors[id] = &makeValueConstructor!(TModel, fieldName, fn);
-			field.annotations ~= SerializedAnnotation(ConstructValueRef(id));
+			field.internalAnnotations ~= InternalAnnotation(ConstructValueRef(
+				&makeValueConstructor!(TModel, fieldName, fn)));
 		}
 		else static if (is(attribute == validator!fn, alias fn))
 		{
-			int id = globalCounter++;
-			models.validators[id] = &makeValidator!(TModel, fieldName, fn);
-			field.annotations ~= SerializedAnnotation(ValidatorRef(id));
+			field.internalAnnotations ~= InternalAnnotation(ValidatorRef(
+				&makeValidator!(TModel, fieldName, fn)));
 		}
 		else static if (is(typeof(attribute) == maxLength) || is(
 				typeof(attribute) == DefaultValue!T, T) || is(typeof(attribute) == index))
 		{
-			field.annotations ~= SerializedAnnotation(attribute);
+			field.annotations ~= DBAnnotation(attribute);
 		}
 		else static if (is(typeof(attribute) == Choices))
 		{
 			field.type = ModelFormat.Field.DBType.choices;
-			field.annotations ~= SerializedAnnotation(attribute);
+			field.annotations ~= DBAnnotation(attribute);
 		}
 		else static if (is(typeof(attribute) == columnName))
 		{
@@ -166,6 +169,9 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 			static assert(false, "Unsupported attribute " ~ attribute.stringof ~ " on " ~ TModel.stringof ~ "." ~ fieldName);
 		}
 	}
+
+	if (!nullable)
+		field.annotations ~= DBAnnotation(AnnotationFlag.notNull);
 
 	if (include)
 		serialized.fields ~= field;
@@ -432,127 +438,121 @@ unittest
 	// field[0] gets added by dorm.model.Model
 	assert(m.fields[0].name == "id");
 	assert(m.fields[0].type == ModelFormat.Field.DBType.uint64);
-	assert(!m.fields[0].nullable);
-	assert(m.fields[0].annotations == []);
+	assert(m.fields[0].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
 	assert(m.fields[1].name == "username");
 	assert(m.fields[1].type == ModelFormat.Field.DBType.varchar);
-	assert(!m.fields[1].nullable);
-	assert(m.fields[1].annotations == [SerializedAnnotation(maxLength(255))]);
+	assert(m.fields[1].annotations == [DBAnnotation(maxLength(255)), DBAnnotation(AnnotationFlag.notNull)]);
 
 	assert(m.fields[2].name == "password");
 	assert(m.fields[2].type == ModelFormat.Field.DBType.varchar);
-	assert(!m.fields[2].nullable);
-	assert(m.fields[2].annotations == [SerializedAnnotation(maxLength(255))]);
+	assert(m.fields[2].annotations == [DBAnnotation(maxLength(255)), DBAnnotation(AnnotationFlag.notNull)]);
 
 	assert(m.fields[3].name == "email");
 	assert(m.fields[3].type == ModelFormat.Field.DBType.varchar);
-	assert(m.fields[3].nullable);
-	assert(m.fields[3].annotations == [SerializedAnnotation(maxLength(255))]);
+	assert(m.fields[3].annotations == [DBAnnotation(maxLength(255))]);
 
 	assert(m.fields[4].name == "age");
 	assert(m.fields[4].type == ModelFormat.Field.DBType.uint8);
-	assert(!m.fields[4].nullable);
-	assert(m.fields[4].annotations == []);
+	assert(m.fields[4].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
 	assert(m.fields[5].name == "birthday");
 	assert(m.fields[5].type == ModelFormat.Field.DBType.datetime);
-	assert(m.fields[5].nullable);
 	assert(m.fields[5].annotations == []);
 
 	assert(m.fields[6].name == "created_at");
 	assert(m.fields[6].type == ModelFormat.Field.DBType.timestamp);
-	assert(!m.fields[6].nullable);
 	assert(m.fields[6].annotations == [
-			SerializedAnnotation(AnnotationFlag.AutoCreateTime)
+			DBAnnotation(AnnotationFlag.autoCreateTime),
+			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[7].name == "updated_at");
 	assert(m.fields[7].type == ModelFormat.Field.DBType.timestamp);
-	assert(m.fields[7].nullable);
 	assert(m.fields[7].annotations == [
-			SerializedAnnotation(AnnotationFlag.AutoUpdateTime)
+			DBAnnotation(AnnotationFlag.autoUpdateTime)
 		]);
 
 	assert(m.fields[8].name == "created_at_2");
 	assert(m.fields[8].type == ModelFormat.Field.DBType.timestamp);
-	assert(!m.fields[8].nullable);
 	assert(m.fields[8].annotations == [
-			SerializedAnnotation(AnnotationFlag.AutoCreateTime)
+			DBAnnotation(AnnotationFlag.autoCreateTime),
+			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[9].name == "updated_at_2");
 	assert(m.fields[9].type == ModelFormat.Field.DBType.timestamp);
-	assert(m.fields[9].nullable);
 	assert(m.fields[9].annotations == [
-			SerializedAnnotation(AnnotationFlag.AutoUpdateTime)
+			DBAnnotation(AnnotationFlag.autoUpdateTime)
 		]);
 
 	assert(m.fields[10].name == "state");
 	assert(m.fields[10].type == ModelFormat.Field.DBType.choices);
-	assert(!m.fields[10].nullable);
 	assert(m.fields[10].annotations == [
-			SerializedAnnotation(Choices(["ok", "warn", "critical", "unknown"]))
+			DBAnnotation(Choices(["ok", "warn", "critical", "unknown"])),
+			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[11].name == "state_2");
 	assert(m.fields[11].type == ModelFormat.Field.DBType.choices);
-	assert(!m.fields[11].nullable);
 	assert(m.fields[11].annotations == [
-			SerializedAnnotation(Choices(["ok", "warn", "critical", "unknown"]))
+			DBAnnotation(Choices(["ok", "warn", "critical", "unknown"])),
+			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[12].name == "admin");
 	assert(m.fields[12].type == ModelFormat.Field.DBType.boolean);
-	assert(!m.fields[12].nullable);
-	assert(m.fields[12].annotations == []);
+	assert(m.fields[12].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
 	assert(m.fields[13].name == "valid_until");
 	assert(m.fields[13].type == ModelFormat.Field.DBType.timestamp);
-	assert(!m.fields[13].nullable);
 	assert(m.fields[13].annotations == [
-			SerializedAnnotation(ConstructValueRef(constructFunId))
+			DBAnnotation(AnnotationFlag.notNull)
+		]);
+	assert(m.fields[13].internalAnnotations == [
+			InternalAnnotation(ConstructValueRef(constructFunId))
 		]);
 
 	assert(m.fields[14].name == "comment");
 	assert(m.fields[14].type == ModelFormat.Field.DBType.varchar);
-	assert(!m.fields[14].nullable);
 	assert(m.fields[14].annotations == [
-			SerializedAnnotation(maxLength(255)),
-			SerializedAnnotation(defaultValue(""))
+			DBAnnotation(maxLength(255)),
+			DBAnnotation(defaultValue("")),
+			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[15].name == "counter");
 	assert(m.fields[15].type == ModelFormat.Field.DBType.int32);
-	assert(!m.fields[15].nullable);
 	assert(m.fields[15].annotations == [
-			SerializedAnnotation(defaultValue(1337))
+			DBAnnotation(defaultValue(1337)),
+			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[16].name == "own_primary_key");
 	assert(m.fields[16].type == ModelFormat.Field.DBType.uint64);
-	assert(!m.fields[16].nullable);
 	assert(m.fields[16].annotations == [
-			SerializedAnnotation(AnnotationFlag.PrimaryKey)
+			DBAnnotation(AnnotationFlag.primaryKey),
+			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[17].name == "creation_time");
 	assert(m.fields[17].type == ModelFormat.Field.DBType.timestamp);
-	assert(!m.fields[17].nullable);
-	assert(m.fields[17].annotations == []);
+	assert(m.fields[17].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
 	assert(m.fields[18].name == "uuid");
 	assert(m.fields[18].type == ModelFormat.Field.DBType.int32);
-	assert(!m.fields[18].nullable);
 	assert(m.fields[18].annotations == [
-			SerializedAnnotation(AnnotationFlag.Unique)
+			DBAnnotation(AnnotationFlag.unique),
+			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[19].name == "some_int");
 	assert(m.fields[19].type == ModelFormat.Field.DBType.int32);
-	assert(!m.fields[19].nullable);
 	assert(m.fields[19].annotations == [
-			SerializedAnnotation(ValidatorRef(validatorFunId))
+			DBAnnotation(AnnotationFlag.notNull)
+		]);
+	assert(m.fields[19].internalAnnotations == [
+			InternalAnnotation(ValidatorRef(validatorFunId))
 		]);
 }
 

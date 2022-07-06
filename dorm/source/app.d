@@ -1,5 +1,3 @@
-module app;
-
 import std.algorithm;
 import std.array;
 import std.file;

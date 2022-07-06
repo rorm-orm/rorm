@@ -1,4 +1,6 @@
 {
+	"name": "dorm",
+	"license": "MIT",
 	"authors": [
 		"myOmikron"
 	],
@@ -7,12 +9,14 @@
 		"arsd-official:mysql": "~>10.8.4",
 		"arsd-official:postgres": "~>10.8.4",
 		"arsd-official:sqlite": "~>10.8.4",
-		"toml-temp": "~>1.0.1"
+		"toml-temp": "~>1.0.1",
+		"mir-ion": "~>1.1.0-rc3"
 	},
 	"description": "A D ORM.",
 	"dflags": [
 		"-lowmem"
 	],
-	"license": "MIT",
-	"name": "dorm"
+	"subPackages": [
+		"build-models"
+	]
 }

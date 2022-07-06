@@ -12,8 +12,13 @@ module dorm.declarative;
 import dorm.annotations;
 import dorm.model;
 
+import std.algorithm;
+import std.array;
 import std.sumtype;
 import std.typecons : tuple;
+
+import mir.serde;
+import mir.algebraic_alias.json;
 
 /**
  * This is the root of a described models module. It contains a list of models
@@ -27,38 +32,6 @@ struct SerializedModels
 {
 	/// List of all the models defined in the full module file.
 	ModelFormat[] models;
-
-	/** 
-	 * Global (per-SerializedModels instance) list of validator and defaultValue
-	 * functions.
-	 *
-	 * The key is an opaque integer that is referenced through the $(LREF
-	 * ConstructValueRef) and $(LREF ValidatorRef) annotations inside the
-	 * ModelFormat.Field.annotations field. These IDs may or may not stay the
-	 * same across builds and there is no meaning inside them.
-	 *
-	 * The value (function pointer) is a global function that is compiled into
-	 * the executable through the call of $(REF processModelsToDeclarations,
-	 * dorm,declarative) generating the `SerializedModels` definition. Manually
-	 * calling this function is not required, use the (TODO: need mixin) mixin
-	 * instead.
-	 *
-	 * The functions take in a Model (class) instance, assert it is the correct
-	 * model class type that it was registered with.
-	 *
-	 * The `validator` function calls the UDA lambda with the field as argument
-	 * and returns its return value, with the code assuming it is a boolean.
-	 * (a compiler error will occur if it cannot implicitly convert to `bool`)
-	 *
-	 * The `valueConstructor` function calls the UDA lambda without argument and
-	 * sets the annotated field value inside the containing Model instance to
-	 * its return value, with the code assuming it can simply assign it.
-	 * (a compiler error will occur if it cannot implicitly convert to the
-	 * annotated property type)
-	 */
-	bool function(Model)[int] validators;
-	/// ditto
-	void function(Model)[int] valueConstructors;
 }
 
 /** 
@@ -75,6 +48,7 @@ struct ModelFormat
 	struct Field
 	{
 		/// List of different (generic) database column types.
+		@serdeProxy!string
 		enum DBType
 		{
 			varchar, /// inferred from `string`
@@ -96,6 +70,7 @@ struct ModelFormat
 			time, /// inferred from `std.datetime : TimeOfDay`
 			choices, /// inferred from `@choices string`, `enum T : string`
 			set, /// inferred from `BitFlags!enum`
+			not_null, /// everything that is not $(REF Nullable, std,typecons) or a Model that is not marked @notNull
 		}
 
 		/// The exact name of the column later used in the DB, not neccessarily
@@ -104,23 +79,17 @@ struct ModelFormat
 		/// The generic column type that is later translated to a concrete SQL
 		/// type by a driver.
 		DBType type;
-		/// `true` if this column can be NULL in SQL, otherwise `false`.
-		/// Using the D $(REF Nullable, std,typecons) type will automatically
-		/// set this to true. This is also null when embedding other Models as
-		/// references.
-		bool nullable;
 		/// List of different annotations defined in the source code, converted
 		/// to a serializable format and also all implicit annotations such as
 		/// `Choices` for enums.
-		SerializedAnnotation[] annotations;
+		DBAnnotation[] annotations;
+		/// List of annotations only relevant for internal use.
+		@serdeIgnore
+		InternalAnnotation[] internalAnnotations;
 		/// For debugging purposes this is the D source code location where this
 		/// field is defined from. This can be used in error messages.
+		@serdeKeys("source_defined_at")
 		SourceLocation definedAt;
-
-		size_t toHash() const @nogc @safe pure nothrow
-		{
-			return hashOf(tuple(name, type, nullable, annotations));
-		}
 	}
 
 	/// The exact name of the table later used in the DB, not neccessarily
@@ -128,17 +97,13 @@ struct ModelFormat
 	string name;
 	/// For debugging purposes this is the D source code location where this
 	/// field is defined from. This can be used in error messages.
+	@serdeKeys("source_defined_at")
 	SourceLocation definedAt;
 	/// List of fields, such as defined in the D source code, recursively
 	/// including all fields from all inherited classes. This maps to the actual
 	/// SQL columns later when it is generated into an SQL create statement by
 	/// the actual driver implementation.
 	Field[] fields;
-
-	size_t toHash() const @nogc @safe pure nothrow
-	{
-		return hashOf(tuple(name, fields));
-	}
 }
 
 /**
@@ -149,25 +114,32 @@ struct ModelFormat
 struct SourceLocation
 {
 	/// The D filename, assumed to be of the same format as [__FILE__](https://dlang.org/spec/expression.html#specialkeywords).
+	@serdeKeys("file")
 	string sourceFile;
 	/// The 1-based line number and column number where the symbol is defined.
-	int sourceLine, sourceColumn;
+	@serdeKeys("line")
+	int sourceLine;
+	/// ditto
+	@serdeKeys("column")
+	int sourceColumn;
 }
 
 /**
  * This enum contains all no-argument flags that can be added as annotation to
- * the fields. It's part of the $(LREF SerializedAnnotation) SumType.
+ * the fields. It's part of the $(LREF DBAnnotation) SumType.
  */
 enum AnnotationFlag
 {
 	/// corresponds to the $(REF autoCreateTime, dorm,annotations) UDA.
-	AutoCreateTime,
+	autoCreateTime,
 	/// corresponds to the $(REF autoUpdateTime, dorm,annotations) UDA.
-	AutoUpdateTime,
+	autoUpdateTime,
 	/// corresponds to the $(REF primaryKey, dorm,annotations) UDA.
-	PrimaryKey,
+	primaryKey,
 	/// corresponds to the $(REF unique, dorm,annotations) UDA.
-	Unique
+	unique,
+	/// corresponds to the $(REF notNull, dorm,annotations) UDA. Implicit for all types except Nullable!T and Model.
+	notNull
 }
 
 /**
@@ -176,27 +148,223 @@ enum AnnotationFlag
  * helper field in the model description and these annotations only contain an
  * integer to reference it)
  */
-alias SerializedAnnotation = SumType!(
-	AnnotationFlag, ConstructValueRef, ValidatorRef,
-	maxLength, PossibleDefaultValueTs, Choices, index
-);
-
-/**
- * Corresponds to the $(REF constructValue, dorm,annotations) UDA, but the
- * function being moved out this value into the $(LREF SerializedModels) struct.
- */
-struct ConstructValueRef
+@serdeProxy!IonDBAnnotation
+struct DBAnnotation
 {
-	/// opaque id to use as index inside SerializedModels.valueConstructors
-	long id;
+	SumType!(
+		AnnotationFlag,
+		maxLength,
+		PossibleDefaultValueTs,
+		Choices,
+		index
+	) value;
+	alias value this;
+
+	this(T)(T v)
+	{
+		value = v;
+	}
+
+	auto opAssign(T)(T v)
+	{
+		value = v;
+		return this;
+	}
+}
+
+alias InternalAnnotation = SumType!(ConstructValueRef, ValidatorRef);
+
+private struct IonDBAnnotation
+{
+	JsonAlgebraic data;
+
+	this(DBAnnotation a)
+	{
+		a.match!(
+			(AnnotationFlag f) {
+				string typeStr;
+				final switch (f)
+				{
+					case AnnotationFlag.autoCreateTime:
+						typeStr = "auto_create_time";
+						break;
+					case AnnotationFlag.autoUpdateTime:
+						typeStr = "auto_update_time";
+						break;
+					case AnnotationFlag.notNull:
+						typeStr = "not_null";
+						break;
+					case AnnotationFlag.primaryKey:
+						typeStr = "primary_key";
+						break;
+					case AnnotationFlag.unique:
+						typeStr = "unique";
+						break;
+				}
+				data = JsonAlgebraic([
+					"type": JsonAlgebraic(typeStr)
+				]);
+			},
+			(maxLength l) {
+				data = JsonAlgebraic([
+					"type": JsonAlgebraic("max_length"),
+					"value": JsonAlgebraic(l.maxLength)
+				]);
+			},
+			(Choices c) {
+				data = JsonAlgebraic([
+					"type": JsonAlgebraic("max_length"),
+					"value": JsonAlgebraic(c.choices.map!(v => JsonAlgebraic(v)).array)
+				]);
+			},
+			(index i) {
+				JsonAlgebraic[string] args;
+				if (i._composite !is i.composite.init)
+					args["name"] = i._composite.name;
+				if (i._priority !is i.priority.init)
+					args["priority"] = i._priority.priority;
+
+				if (args.empty)
+					data = JsonAlgebraic(["type": JsonAlgebraic("index")]);
+				else
+					data = JsonAlgebraic([
+						"type": JsonAlgebraic("index"),
+						"value": JsonAlgebraic(args)
+					]);
+			},
+			(DefaultValue!(ubyte[]) binary) {
+				import std.digest : toHexString;
+
+				data = JsonAlgebraic([
+					"type": JsonAlgebraic("default"),
+					"value": JsonAlgebraic(binary.value.toHexString)
+				]);
+			},
+			(rest) {
+				static assert(is(typeof(rest) == DefaultValue!U, U));
+				static if (__traits(hasMember, rest.value, "toISOExtString"))
+				{
+					data = JsonAlgebraic([
+						"type": JsonAlgebraic("default"),
+						"value": JsonAlgebraic(rest.value.toISOExtString)
+					]);
+				}
+				else
+				{
+					data = JsonAlgebraic([
+						"type": JsonAlgebraic("default"),
+						"value": JsonAlgebraic(rest.value)
+					]);
+				}
+			}
+		);
+	}
+
+	void serialize(S)(scope ref S serializer) const
+	{
+		import mir.ser : serializeValue;
+
+		serializeValue(serializer, data);
+	}
 }
 
 /**
- * Corresponds to the $(REF constructValue, dorm,annotations) UDA, but the
- * function being moved out this value into the $(LREF SerializedModels) struct.
+ * Corresponds to the $(REF constructValue, dorm,annotations) and $(REF
+ * constructValue, dorm,annotations) UDAs.
+ *
+ * A global function that is compiled into the executable through the call of
+ * $(REF processModelsToDeclarations, dorm,declarative) generating the
+ * `InternalAnnotation` values. Manually constructing this function is not
+ * required, use the $(REF RegisterModels, dorm,declarative,entrypoint) mixin
+ * instead.
+ *
+ * The functions take in a Model (class) instance and assert it is the correct
+ * model class type that it was registered with.
  */
+struct ConstructValueRef
+{
+	/*
+	 * This function calls the UDA specified lambda without argument and
+	 * sets the annotated field value inside the containing Model instance to
+	 * its return value, with the code assuming it can simply assign it.
+	 * (a compiler error will occur if it cannot implicitly convert to the
+	 * annotated property type)
+	 */
+	void function(Model) callback;
+}
+
+/// ditto
 struct ValidatorRef
 {
-	/// opaque id to use as index inside SerializedModels.validators
-	long id;
+	/*
+	 * This function calls the UDA specified lambda with the field as argument
+	 * and returns its return value, with the code assuming it is a boolean.
+	 * (a compiler error will occur if it cannot implicitly convert to `bool`)
+	 */
+	bool function(Model) callback;
+}
+
+unittest
+{
+	import mir.ser.json;
+
+	SerializedModels models;
+	ModelFormat m;
+	m.name = "foo";
+	m.definedAt = SourceLocation("file.d", 140, 10);
+	ModelFormat.Field f;
+	f.name = "foo";
+	f.type = ModelFormat.Field.DBType.varchar;
+	f.definedAt = SourceLocation("file.d", 142, 12);
+	f.annotations = [
+		DBAnnotation(AnnotationFlag.primaryKey),
+		DBAnnotation(AnnotationFlag.notNull),
+		DBAnnotation(index()),
+		DBAnnotation(maxLength(255))
+	];
+	f.internalAnnotations = [
+		InternalAnnotation(ValidatorRef(2))
+	];
+	m.fields = [f];
+
+	models.models = [m];
+	string json = serializeJsonPretty(models);
+	assert(json == `{
+	"models": [
+		{
+			"name": "foo",
+			"source_defined_at": {
+				"file": "file.d",
+				"line": 140,
+				"column": 10
+			},
+			"fields": [
+				{
+					"name": "foo",
+					"type": "varchar",
+					"annotations": [
+						{
+							"type": "primary_key"
+						},
+						{
+							"type": "not_null"
+						},
+						{
+							"type": "index"
+						},
+						{
+							"type": "max_length",
+							"value": 255
+						}
+					],
+					"source_defined_at": {
+						"file": "file.d",
+						"line": 142,
+						"column": 12
+					}
+				}
+			]
+		}
+	]
+}`, json);
 }

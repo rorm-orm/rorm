@@ -5,11 +5,9 @@
 Models are defined declarative as classes.
 
 ```d
-import std.datetime.datetime;
-import std.typecons;
+import dorm.design;
 
-import dorm.annotations;
-import dorm.model;
+mixin RegisterModels; // registers all Model derived classes in this module and publicly imported modules
 
 class User : Model
 {

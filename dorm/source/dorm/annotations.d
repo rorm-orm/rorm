@@ -7,6 +7,7 @@ import std.meta;
 enum autoCreateTime;
 enum autoUpdateTime;
 enum timestamp;
+enum notNull;
 
 struct constructValue(alias fn) {}
 struct validator(alias fn) {}
