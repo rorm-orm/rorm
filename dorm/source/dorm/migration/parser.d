@@ -267,12 +267,16 @@ Migration parseFile(string path)
                 break;
             
             case "DeleteField":
-                checkValueExists("ModelName", x.table, TOML_TYPE.STRING, path);
-                checkValueExists("FieldName", x.table, TOML_TYPE.STRING, path);
+                checkValueExists("Name", x.table, TOML_TYPE.STRING, path);
+
+                checkValueExists("Field", x.table, TOML_TYPE.TABLE, path);
+                TOMLValue[string] field = x.table["Field"].table;
+
+                checkValueExists("Name", field, TOML_TYPE.STRING, path);
                 
                 migration.operations ~= OperationType(
                     DeleteFieldOperation(
-                        x.table["ModelName"].str, x.table["FieldName"].str
+                        x.table["Name"].str, field["Name"].str
                     )
                 );
                 break;
@@ -445,8 +449,10 @@ string serializeMigration(ref Migration migration)
             (DeleteFieldOperation y) {
                 TOMLValue[string] operationTable;
                 operationTable["Type"] = "DeleteField";
-                operationTable["ModelName"] = y.modelName;
-                operationTable["FieldName"] = y.fieldName;
+                operationTable["Name"] = y.modelName;
+                TOMLValue[string] fieldTable;
+                fieldTable["Name"] = y.fieldName;
+                operationTable["Field"] = fieldTable;
                 return operationTable;
             }
         )
