@@ -1,11 +1,13 @@
-/// The Internal Model Representation used by our migration cli tool
+//! The Internal Model Representation used by our migration cli tool
 use serde::{Deserialize, Serialize};
 
+/// A collection of all models used in the resulting application
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct App {
     pub models: Vec<Model>,
 }
 
+/// A single model i.e. database table
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Model {
     pub name: String,
@@ -18,6 +20,7 @@ pub struct Model {
     pub source: Option<Source>,
 }
 
+/// Model's fields i.e. the table's columns
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Field {
     pub name: String,
@@ -33,8 +36,8 @@ pub struct Field {
     pub source: Option<Source>,
 }
 
-/// Location in the source code a Model or Field originates from.
-/// Used for better error messages in the migration tool.
+/// Location in the source code a Model or Field originates from
+/// Used for better error messages in the migration tool
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Source {
     pub file: String,
@@ -42,6 +45,7 @@ pub struct Source {
     pub column: usize,
 }
 
+/// All column types supported by the migration tool
 #[non_exhaustive]
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -70,6 +74,7 @@ pub enum DbType {
     Set,
 }
 
+/// The subset of annotations which need to be communicated with the migration tool
 #[non_exhaustive]
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -100,8 +105,10 @@ pub struct Index {
 #[non_exhaustive]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum DefaultValue {
+    /// Use hexadecimal to represent binary data
     String(String),
+    /// i128 is used as it can represent any integer defined in DbType
+    Integer(i128),
     Float(f64),
-    Integer(i32),
     Boolean(bool),
 }
