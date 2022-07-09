@@ -45,7 +45,6 @@ pub struct Source {
 
 /// All column types supported by the migration tool
 #[non_exhaustive]
-#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum DbType {
@@ -74,7 +73,6 @@ pub enum DbType {
 
 /// The subset of annotations which need to be communicated with the migration tool
 #[non_exhaustive]
-#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", content = "value")]
 #[serde(rename_all = "snake_case")]
@@ -83,7 +81,7 @@ pub enum Annotation {
     AutoUpdateTime,
     Choices(Vec<String>),
     DefaultValue(DefaultValue),
-    Index(Option<Index>),
+    Index(Option<IndexValue>),
     MaxLength(i32),
     NotNull,
     PrimaryKey,
@@ -91,7 +89,7 @@ pub enum Annotation {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Index {
+pub struct IndexValue {
     pub name: String,
 
     #[serde(default)]
