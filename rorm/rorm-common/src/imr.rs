@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// A collection of all models used in the resulting application
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct App {
+pub struct InternalModelFormat {
     pub models: Vec<Model>,
 }
 
@@ -16,8 +16,7 @@ pub struct Model {
 
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "source_defined_at")]
-    pub source: Option<Source>,
+    pub source_defined_at: Option<Source>,
 }
 
 /// Model's fields i.e. the table's columns
@@ -32,8 +31,7 @@ pub struct Field {
 
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "source_defined_at")]
-    pub source: Option<Source>,
+    pub source_defined_at: Option<Source>,
 }
 
 /// Location in the source code a Model or Field originates from
