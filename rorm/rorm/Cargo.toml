@@ -1,0 +1,10 @@
+[package]
+name = "rorm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde_json = { version = "*" }
+rorm-common = { version = "0.1.0", path = "../rorm-common" }
+rorm-macro = { version = "0.1.0", path = "../rorm-macro" }
+linkme = { version = "0.3" }

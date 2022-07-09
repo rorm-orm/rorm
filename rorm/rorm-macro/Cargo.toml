@@ -1,0 +1,17 @@
+[package]
+name = "rorm-macro"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+unstable = []
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "1.0", features = ["full"] }
+quote = { version = "1.0" }
+serde_json = { version = "1.0" }
+proc-macro2 = { version = "1.0" }
+rorm-common = { version = "0.1", path = "../rorm-common" }
