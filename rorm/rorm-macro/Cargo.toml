@@ -17,3 +17,8 @@ syn = { version = "1.0", features = ["full"] }
 quote = { version = "1.0" }
 # a higher level wrapper for rust's proc-macro which is used by syn and quote
 proc-macro2 = { version = "1.0" }
+
+# Dependencies for the example code in the doc
+[dev-dependencies]
+rorm = { version = "0.1", path = "../rorm" }
+linkme = { version = "0.3" }
