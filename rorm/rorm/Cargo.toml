@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# json serialization to communicate with the migrator
 serde_json = { version = "*" }
+# linker magic to create a slice containing all models defined by crates
+linkme = { version = "0.3" }
+
 rorm-common = { version = "0.1.0", path = "../rorm-common" }
 rorm-macro = { version = "0.1.0", path = "../rorm-macro" }
-linkme = { version = "0.3" }

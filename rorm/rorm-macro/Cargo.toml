@@ -4,14 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+# requires nightly rust
 unstable = []
 
 [lib]
 proc-macro = true
 
 [dependencies]
+# syn builds rust syntax trees from strings or tokenstream
 syn = { version = "1.0", features = ["full"] }
+# quote provides a macro to write rust code with template variables which then produces a tokenstream
 quote = { version = "1.0" }
-serde_json = { version = "1.0" }
+# a higher level wrapper for rust's proc-macro which is used by syn and quote
 proc-macro2 = { version = "1.0" }
-rorm-common = { version = "0.1", path = "../rorm-common" }
