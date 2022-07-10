@@ -27,6 +27,19 @@ fn get_source<T: Spanned>(_spanned: &T) -> syn::Expr {
     syn::parse_str::<syn::Expr>("None").unwrap()
 }
 
+/// This attribute is used to turn a struct into a database model.
+///
+/// ```
+/// use rorm::Model;
+///
+/// #[Model]
+/// struct User {
+///     username: String,
+///     password: String,
+///     admin: bool,
+///     age: u8,
+/// }
+/// ```
 #[allow(non_snake_case)]
 #[proc_macro_attribute]
 pub fn Model(_args: TokenStream, mut input: TokenStream) -> TokenStream {
@@ -55,7 +68,7 @@ pub fn Model(_args: TokenStream, mut input: TokenStream) -> TokenStream {
                     name: \"{}\".to_string(),
                     db_type: <{} as ::rorm::AsDbType>::as_db_type(),
                     annotations: Vec::new(),
-                    source: {},
+                    source_defined_at: {},
                 }}",
                 field.ident.as_ref().unwrap(),
                 field.ty.to_token_stream(),
@@ -73,7 +86,7 @@ pub fn Model(_args: TokenStream, mut input: TokenStream) -> TokenStream {
                     use ::rorm::imr::*;
                     Model {
                         name: #model_name.to_string(),
-                        source: #model_source,
+                        source_defined_at: #model_source,
                         fields: vec![ #(#model_fields),* ],
                     }
                 }
