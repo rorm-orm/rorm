@@ -1,5 +1,6 @@
 [workspace]
 members = [
+	"drorm-cli",
 	"rorm-common",
 	"rorm-macro",
 	"rorm",
