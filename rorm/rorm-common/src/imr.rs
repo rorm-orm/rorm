@@ -3,12 +3,14 @@ use serde::{Deserialize, Serialize};
 
 /// A collection of all models used in the resulting application
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 pub struct InternalModelFormat {
     pub models: Vec<Model>,
 }
 
 /// A single model i.e. database table
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 pub struct Model {
     pub name: String,
 
@@ -21,10 +23,11 @@ pub struct Model {
 
 /// Model's fields i.e. the table's columns
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 pub struct Field {
     pub name: String,
 
-    #[serde(rename = "type")]
+    #[serde(rename = "Type")]
     pub db_type: DbType,
 
     pub annotations: Vec<Annotation>,
@@ -74,7 +77,7 @@ pub enum DbType {
 /// The subset of annotations which need to be communicated with the migration tool
 #[non_exhaustive]
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", content = "value")]
+#[serde(tag = "Type", content = "Value")]
 #[serde(rename_all = "snake_case")]
 pub enum Annotation {
     AutoCreateTime,
@@ -89,6 +92,7 @@ pub enum Annotation {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 pub struct IndexValue {
     pub name: String,
 
