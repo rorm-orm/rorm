@@ -40,6 +40,7 @@ pub struct Field {
 /// Location in the source code a Model or Field originates from
 /// Used for better error messages in the migration tool
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 pub struct Source {
     pub file: String,
     pub line: usize,
