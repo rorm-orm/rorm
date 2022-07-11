@@ -1,6 +1,8 @@
 //! Implementation of the Model attribute used to implement database things for structs
 #![cfg_attr(feature = "unstable", feature(proc_macro_span))]
 extern crate proc_macro;
+use std::{cell::RefCell, fmt::Display};
+
 use proc_macro::TokenStream;
 use proc_macro2::{Literal, Span};
 use quote::{quote, ToTokens};
@@ -27,6 +29,26 @@ fn get_source<T: Spanned>(_spanned: &T) -> syn::Expr {
     syn::parse_str::<syn::Expr>("None").unwrap()
 }
 
+struct Errors(RefCell<Vec<syn::Error>>);
+impl Errors {
+    fn new() -> Errors {
+        Errors(RefCell::new(Vec::new()))
+    }
+    fn push(&self, value: syn::Error) {
+        self.0.borrow_mut().push(value);
+    }
+    fn push_new<T: Display>(&self, span: proc_macro2::Span, msg: T) {
+        self.push(syn::Error::new(span, msg));
+    }
+}
+impl IntoIterator for Errors {
+    type Item = syn::Error;
+    type IntoIter = <Vec<syn::Error> as IntoIterator>::IntoIter;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_inner().into_iter()
+    }
+}
+
 /// Iterate over all "arguments" inside any #[rorm(..)] attribute
 ///
 /// It inforces the rorm attributes to look like function calls (see [syn::Meta::List])
@@ -34,6 +56,7 @@ fn get_source<T: Spanned>(_spanned: &T) -> syn::Expr {
 #[allow(dead_code)]
 fn iter_rorm_attributes<'a>(
     attrs: &'a Vec<syn::Attribute>,
+    errors: &'a Errors,
 ) -> impl Iterator<Item = syn::Meta> + 'a {
     attrs
         .iter()
@@ -42,14 +65,25 @@ fn iter_rorm_attributes<'a>(
         .map(Result::ok)
         .flatten()
         .map(|meta| match meta {
-            syn::Meta::List(syn::MetaList { nested, .. }) => nested.into_iter(),
-            _ => panic!("Attribute should be of shape: `rorm(..)`"),
+            syn::Meta::List(syn::MetaList { nested, .. }) => Some(nested.into_iter()),
+            _ => {
+                errors.push_new(meta.span(), "Attribute should be of shape: `rorm(..)`");
+                None
+            }
         })
         .flatten()
+        .flatten()
         .map(|nested_meta| match nested_meta {
-            syn::NestedMeta::Meta(meta) => meta,
-            syn::NestedMeta::Lit(_) => panic!("`rorm(..)` doesn't take literals"),
+            syn::NestedMeta::Meta(meta) => Some(meta),
+            syn::NestedMeta::Lit(_) => {
+                errors.push_new(
+                    nested_meta.span(),
+                    "`rorm(..)` doesn't take literals directly",
+                );
+                None
+            }
         })
+        .flatten()
 }
 
 /// Used to match over an [syn::Ident] in a similiar syntax as over [&str]s.
@@ -106,6 +140,8 @@ macro_rules! match_ident {
 #[allow(non_snake_case)]
 #[proc_macro_derive(Model, attributes(rorm))]
 pub fn Model(strct: TokenStream) -> TokenStream {
+    let errors = Errors::new();
+
     let strct = parse_macro_input!(strct as ItemStruct);
     let span = Span::call_site();
 
@@ -118,7 +154,7 @@ pub fn Model(strct: TokenStream) -> TokenStream {
     let mut model_fields = Vec::new();
     for field in strct.fields.iter() {
         let mut annotations = Vec::new();
-        for meta in iter_rorm_attributes(&field.attrs) {
+        for meta in iter_rorm_attributes(&field.attrs, &errors) {
             match meta {
                 syn::Meta::Path(path) => {
                     annotations.push(
@@ -130,7 +166,10 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                             "unique" => "::rorm::imr::Annotation::Unique",
                             "index" => "::rorm::imr::Annotation::Index(None)", // TODO implement
                                                                                // composite index
-                            _ => panic!("Unknown annotation")
+                            _ => {
+                                errors.push_new(path.span(), "Unknown annotation");
+                                continue;
+                            }
                         )
                         .to_string(),
                     );
@@ -146,7 +185,10 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                                 Int(integer) => ("Integer", integer.to_string()),
                                 Float(float) => ("Float", float.to_string()),
                                 Bool(boolean) => ("Boolean", boolean.value.to_string()),
-                                _ => panic!("Unsupported default literal"),
+                                _ => {
+                                    errors.push_new(lit.span(), "default expects a string, integer, float or boolean literal");
+                                    continue;
+                                }
                             };
                             annotations.push(format!(
                                 "::rorm::imr::Annotation::DefaultValue(::rorm::imr::DefaultValue::{}({}))",
@@ -156,11 +198,17 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                         "max_length" => {
                             let length = match lit {
                                 Int(integer) => integer.to_string(),
-                                _ => panic!("max_length does only support integers"),
+                                _ => {
+                                    errors.push_new(lit.span(), "max_length expects a integer literal");
+                                    continue;
+                                }
                             };
                             annotations.push(format!("::rorm::imr::Annotation::MaxLength({})", length));
                         },
-                        _ => panic!("Unknown annotation")
+                        _ => {
+                            errors.push_new(path.span(), "Unknown annotation");
+                            continue;
+                        }
                     );
                 }
                 syn::Meta::List(syn::MetaList { path, nested, .. }) => {
@@ -170,25 +218,32 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                                 .into_iter()
                                 .map(|nested_meta| match nested_meta {
                                     syn::NestedMeta::Meta(_) => {
-                                        panic!("Only literals are supported as choices")
+                                        errors.push_new(nested_meta.span(), "choices expects an enumeration of string literals");
+                                        None
                                     }
-                                    syn::NestedMeta::Lit(lit) => lit,
+                                    syn::NestedMeta::Lit(lit) => Some(lit),
                                 })
+                                .flatten()
                                 .map(|lit| match lit {
                                     syn::Lit::Str(string) => {
-                                        format!("\"{}\".to_string()", string.value())
+                                        Some(format!("\"{}\".to_string()", string.value()))
                                     }
                                     _ => {
-                                        panic!("Curently only string literals are supported as choices")
+                                        errors.push_new(lit.span(), "choices expects an enumeration of string literals");
+                                        None
                                     }
                                 })
+                                .flatten()
                                 .collect();
                             annotations.push(format!(
                                 "::rorm::imr::Annotation::Choices(vec![{}])",
                                 choices.join(",")
                             ));
                         },
-                        _ => panic!("Unknown annotation")
+                        _ => {
+                            errors.push_new(path.span(), "Unknown annotation");
+                            continue;
+                        }
                     );
                 }
             }
@@ -209,6 +264,7 @@ pub fn Model(strct: TokenStream) -> TokenStream {
             .unwrap(),
         );
     }
+    let errors = errors.into_iter().map(syn::Error::into_compile_error);
     TokenStream::from({
         quote! {
             #[allow(non_camel_case_types)]
@@ -228,6 +284,8 @@ pub fn Model(strct: TokenStream) -> TokenStream {
             #[allow(non_snake_case)]
             #[::linkme::distributed_slice(::rorm::MODELS)]
             static #definition_dyn_obj: &'static dyn ::rorm::ModelDefinition = &#definition_instance;
+
+            #(#errors)*
         }
     })
 }
