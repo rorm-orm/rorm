@@ -19,37 +19,37 @@ This is an example of the intermediate representation:
 
 ```json
 {
-  "models": [
+  "Models": [
     {
-      "name": "foo",
-      "source_defined_at": {
-        "file": "/path/to/source/file.rs",
-        "line": 140,
-        "column": 1
+      "Name": "foo",
+      "SourceDefinedAt": {
+        "File": "/path/to/source/file.rs",
+        "Line": 140,
+        "Column": 1
       },
-      "fields": [
+      "Fields": [
         {
-          "name": "foo",
-          "type": "varchar",
-          "source_defined_at": {
-            "file": "/path/to/source/file.rs",
-            "line": 142,
-            "column": 4
+          "Name": "foo",
+          "Type": "varchar",
+          "SourceDefinedAt": {
+            "File": "/path/to/source/file.rs",
+            "Line": 142,
+            "Column": 4
           },
-          "annotations": [
+          "Annotations": [
             {
-              "type": "primary_key"
+              "Type": "primary_key"
             },
             {
-              "type": "not_null"
+              "Type": "not_null"
             },
             {
-              "type": "index"
+              "Type": "index"
             },
             {
-              "type": "max_length",
-              "value": 255,
-              "column": 4
+              "Type": "max_length",
+              "Value": 255,
+              "Column": 4
             }
           ]
         }
@@ -63,25 +63,25 @@ This is an example of the intermediate representation:
 
 ### Models
 
-The `name` of a model should be already in the correct table name format. 
+The `Name` of a model should be already in the correct table name format. 
 This is enforced by the [linter](linter.md).
 
-`source_defined_at` is an optional object that specifies the file the
+`SourceDefinedAt` is an optional object that specifies the file the
 model originates from as well as the line number of the start of the
-model definition. If the key `source_defined_at` is found, `file` and `line`
+model definition. If the key `SourceDefinedAt` is found, `File` and `Line`
 must be there as well.
 
-`fields` is an array of the model fields. See [Fields](#fields)
+`Fields` is an array of the model fields. See [Fields](#fields)
 
 ```json
 {
-  "name": "table_name",
-  "source_defined_at": {
-    "file": "/path/to/source/file.rs",
-    "line": 140,
-    "column": 1
+  "Name": "table_name",
+  "SourceDefinedAt": {
+    "File": "/path/to/source/file.rs",
+    "Line": 140,
+    "Column": 1
   },
-  "fields": []
+  "Fields": []
 }
 ```
 
@@ -89,46 +89,46 @@ must be there as well.
 
 Fields represent a column in the database.
 
-`name` must be in the correct column name format. For further 
+`Name` must be in the correct column name format. For further 
 information, see [linter](linter.md).
 
-`type` must be one of the allowed [database types](#database-types).
+`Type` must be one of the allowed [database types](#database-types).
 
-`source_defined_at` is an optional object that specifies the file the
+`SourceDefinedAt` is an optional object that specifies the file the
 field originates from as well as the line number of the start of the
-field definition. If the key `source_defined_at` is found, `file` and `line`
+field definition. If the key `SourceDefinedAt` is found, `File` and `Line`
 must be there as well.
 
-`annotation` is an array of possible [annotations](#annotations).
+`Annotation` is an array of possible [annotations](#annotations).
 
 ```json
 {
-  "name": "foo",
-  "type": "varchar",
-  "source_defined_at": {
-    "file": "/path/to/source/file.rs",
-    "line": 142,
-    "column": 4
+  "Name": "foo",
+  "Type": "varchar",
+  "SourceDefinedAt": {
+    "File": "/path/to/source/file.rs",
+    "Line": 142,
+    "Column": 4
   },
-  "annotations": []
+  "Annotations": []
 }
 ```
 
 ### Annotations
 
-Annotations must always have a key named `type` with a possible
+Annotations must always have a key named `Type` with a possible
 [annotation type](#annotation-types).
 
-Depending on the type, it may be required to add a `value` key.
-The type of `value` is depending on the annotation type.
+Depending on the type, it may be required to add a `Value` key.
+The type of `Value` is depending on the annotation type.
 
 E.g. `max_length` is using a value of type integer. 
 `choices` on the other hand uses a value of type array of strings.
 
 ```json
 {
-  "type": "max_length",
-  "value": 255
+  "Type": "max_length",
+  "Value": 255
 }
 ```
 
@@ -154,30 +154,30 @@ Default types for varbinary should be encoded using hex strings.
 
 If `index` is used without a value, a new index is created on the column.
 
-If a composite index is desired, the `name` and `priority` fields are required:
+If a composite index is desired, the `Name` and `Priority` fields are required:
 
 ```json
 {
-  "type": "index",
-  "value":
+  "Type": "index",
+  "Value":
   {
-    "name": "time-name",
-    "priority": 10
+    "Name": "time-name",
+    "Priority": 10
   }
 }
 ```
 
-The `name` attribute is only used to determine which indexes should be 
-considered as composite by checking if the `name` is used more than once
+The `Name` attribute is only used to determine which indexes should be 
+considered as composite by checking if the `Name` is used more than once
 in the same model.
 
-The `priority` attribute is used to determine the order in which the fields
+The `Priority` attribute is used to determine the order in which the fields
 are placed when creating the index. This can have an impact on performance.
 The lower the number, the more important is the field. More significant fields
 get placed first at index creation.
 
-If two fields have the same priority, the order in the `fields` array is used
-to determine the order in the index. The order of the `fields` array should 
+If two fields have the same priority, the order in the `Fields` array is used
+to determine the order in the index. The order of the `Fields` array should 
 map in the best case to the order of placement in the source code.
 
 ### Database types
