@@ -9,7 +9,9 @@ use regex::Regex;
 use rorm_common::imr::{Field, InternalModelFormat};
 
 use crate::declaration::{Migration, Operation};
-use crate::utils::migrations::{convert_migration_to_file, get_existing_migrations};
+use crate::utils::migrations::{
+    convert_migration_to_file, convert_migrations_to_internal_models, get_existing_migrations,
+};
 
 pub static RE_ALLOWED_NAME: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^[\d\w]+$"#).unwrap());
 
@@ -95,6 +97,8 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             return Ok(());
         }
 
+        let constructed = convert_migrations_to_internal_models(&existing_migrations);
+
         let mut last_id: u16 = last_migration.id[..4]
             .parse()
             .with_context(|| "Failed converting name of migration to int")?;
@@ -105,13 +109,15 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             Some(n) => format!("{:04}_{}", last_id, n),
         };
 
+        let op: Vec<Operation> = vec![];
+
         let new_migration = Migration {
             hash: h,
             initial: false,
             id: name.clone(),
             dependency: last_migration.id.clone(),
             replaces: vec![],
-            operations: vec![],
+            operations: op,
         };
 
         // Write migration to disk

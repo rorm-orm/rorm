@@ -5,8 +5,9 @@ use std::path::Path;
 use anyhow::Context;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use rorm_common::imr::{InternalModelFormat, Model};
 
-use crate::declaration::{Migration, MigrationFile};
+use crate::declaration::{Migration, MigrationFile, Operation};
 
 pub static RE_ALLOWED_NAME: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#"^[0-9]{4}_\w+\.toml$"#).unwrap());
@@ -104,4 +105,51 @@ pub fn get_existing_migrations(migration_dir: &str) -> anyhow::Result<Vec<Migrat
     }
 
     Ok(migration)
+}
+
+/**
+Helper function to converts a list of migrations to an internal model.
+
+`migrations`: [Vec<Migration>]: List of migrations
+ */
+pub fn convert_migrations_to_internal_models(
+    migrations: &Vec<Migration>,
+) -> anyhow::Result<InternalModelFormat> {
+    let mut m = vec![];
+
+    migrations.iter().for_each(|x| {
+        x.operations.iter().for_each(|y| match y {
+            Operation::CreateModel { name, fields } => {
+                m.push(Model {
+                    name: name.clone(),
+                    fields: fields.clone(),
+                    source_defined_at: None,
+                });
+            }
+            Operation::DeleteModel { name } => {
+                m = m.iter().filter(|z| z.name != *name).cloned().collect();
+            }
+            Operation::CreateField { model, field } => {
+                for i in 0..m.len() {
+                    if m[i].name == *model {
+                        m[i].fields.push(field.clone());
+                    }
+                }
+            }
+            Operation::DeleteField { model, name } => {
+                for i in 0..m.len() {
+                    if m[i].name == *model {
+                        m[i].fields = m[i]
+                            .fields
+                            .iter()
+                            .filter(|z| z.name != *name)
+                            .cloned()
+                            .collect();
+                    }
+                }
+            }
+        })
+    });
+
+    Ok(InternalModelFormat { models: m })
 }
