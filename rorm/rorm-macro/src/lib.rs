@@ -155,98 +155,165 @@ pub fn Model(strct: TokenStream) -> TokenStream {
     for field in strct.fields.iter() {
         let mut annotations = Vec::new();
         for meta in iter_rorm_attributes(&field.attrs, &errors) {
-            match meta {
-                syn::Meta::Path(path) => {
-                    annotations.push(
-                        match_ident!(path.get_ident().expect("Malformed attribute argument"),
-                            "auto_create_time" => "::rorm::imr::Annotation::AutoCreateTime",
-                            "auto_update_time" => "::rorm::imr::Annotation::AutoUpdateTime",
-                            "not_null" => "::rorm::imr::Annotation::NotNull",
-                            "primary_key" => "::rorm::imr::Annotation::PrimaryKey",
-                            "unique" => "::rorm::imr::Annotation::Unique",
-                            "index" => "::rorm::imr::Annotation::Index(None)", // TODO implement
-                                                                               // composite index
-                            _ => {
-                                errors.push_new(path.span(), "Unknown annotation");
-                                continue;
-                            }
-                        )
-                        .to_string(),
-                    );
-                }
-                syn::Meta::NameValue(syn::MetaNameValue { path, lit, .. }) => {
-                    use syn::Lit::*;
-                    match_ident!(path.get_ident().expect("Malformed attribute argument"),
-                        "default" => {
-                            let (variant, argument) = match lit {
-                                Str(string) => {
-                                    ("String", format!("\"{}\".to_string()", string.value()))
-                                }
-                                Int(integer) => ("Integer", integer.to_string()),
-                                Float(float) => ("Float", float.to_string()),
-                                Bool(boolean) => ("Boolean", boolean.value.to_string()),
-                                _ => {
-                                    errors.push_new(lit.span(), "default expects a string, integer, float or boolean literal");
-                                    continue;
-                                }
-                            };
-                            annotations.push(format!(
-                                "::rorm::imr::Annotation::DefaultValue(::rorm::imr::DefaultValue::{}({}))",
-                                variant, argument,
-                            ));
-                        },
-                        "max_length" => {
-                            let length = match lit {
-                                Int(integer) => integer.to_string(),
-                                _ => {
-                                    errors.push_new(lit.span(), "max_length expects a integer literal");
-                                    continue;
-                                }
-                            };
-                            annotations.push(format!("::rorm::imr::Annotation::MaxLength({})", length));
-                        },
-                        _ => {
-                            errors.push_new(path.span(), "Unknown annotation");
-                            continue;
-                        }
-                    );
-                }
-                syn::Meta::List(syn::MetaList { path, nested, .. }) => {
-                    match_ident!(path.get_ident().expect("Malformed attribute argument"),
-                        "choices" => {
-                            let choices: Vec<String> = nested
-                                .into_iter()
-                                .map(|nested_meta| match nested_meta {
-                                    syn::NestedMeta::Meta(_) => {
-                                        errors.push_new(nested_meta.span(), "choices expects an enumeration of string literals");
-                                        None
-                                    }
-                                    syn::NestedMeta::Lit(lit) => Some(lit),
-                                })
-                                .flatten()
-                                .map(|lit| match lit {
-                                    syn::Lit::Str(string) => {
-                                        Some(format!("\"{}\".to_string()", string.value()))
-                                    }
-                                    _ => {
-                                        errors.push_new(lit.span(), "choices expects an enumeration of string literals");
-                                        None
-                                    }
-                                })
-                                .flatten()
-                                .collect();
-                            annotations.push(format!(
-                                "::rorm::imr::Annotation::Choices(vec![{}])",
-                                choices.join(",")
-                            ));
-                        },
-                        _ => {
-                            errors.push_new(path.span(), "Unknown annotation");
-                            continue;
-                        }
-                    );
-                }
+            // Get the annotation's identifier.
+            // Since one is required for every annotation, error if it is missing.
+            let ident = if let Some(ident) = meta.path().get_ident() {
+                ident
+            } else {
+                errors.push_new(meta.path().span(), "expected identifier");
+                continue;
+            };
+
+            // Get the literal if the attribute is of shape `rorm(<identifier> = <literal>)`
+            let arg = match &meta {
+                syn::Meta::NameValue(syn::MetaNameValue { lit, .. }) => Some(lit),
+                _ => None,
+            };
+
+            // The following macros check the "number of arguments" i.e. the shape of the
+            // annotation.
+            // They unify the error messages and hide the noisy if-else.
+            macro_rules! no_arg {
+                // Since an annotation with no argument, doesn't require any additional logic,
+                // `no_arg!` takes the Annotation variant's name and does everything itself.
+                ($name:literal, $variant:literal) => {{
+                    if let syn::Meta::Path(_) = meta {
+                        annotations
+                            .push(concat!("::rorm::imr::Annotation::", $variant).to_string());
+                    } else {
+                        errors.push_new(
+                            meta.span(),
+                            concat!($name, " doesn't take any values: #[rorm(", $name, ")]"),
+                        );
+                    }
+                }};
             }
+            macro_rules! one_arg {
+                // Annotations with arguments need to process these, so the macro just takes an
+                // arbitrary block.
+                ($name:literal, $then:block) => {{
+                    if arg.is_some()
+                        $then
+                    else {
+                        errors.push_new(meta.span(), concat!($name, " expects a value: #[rorm(", $name, " = ..)]"));
+                    }
+                }};
+            }
+
+            match_ident!(ident,
+                "auto_create_time" => no_arg!("auto_create_time", "AutoCreateTime"),
+                "auto_update_time" => no_arg!("auto_update_time", "AutoUpdateTime"),
+                "not_null" => no_arg!("not_null", "NotNull"),
+                "primary_key" => no_arg!("primary_key", "PrimaryKey"),
+                "unique" => no_arg!("unique", "Unique"),
+                "default" => one_arg!("default", {
+                    use syn::Lit::*;
+                    let arg = arg.unwrap();
+                    let (variant, argument) = match arg {
+                        Str(string) => {
+                            ("String", format!("\"{}\".to_string()", string.value()))
+                        }
+                        Int(integer) => ("Integer", integer.to_string()),
+                        Float(float) => ("Float", float.to_string()),
+                        Bool(boolean) => ("Boolean", boolean.value.to_string()),
+                        _ => {
+                            errors.push_new(arg.span(), "unsupported literal");
+                            continue;
+                        }
+                    };
+                    annotations.push(format!(
+                        "::rorm::imr::Annotation::DefaultValue(::rorm::imr::DefaultValue::{}({}))",
+                        variant, argument,
+                    ));
+                }),
+                "max_length" => one_arg!("max_length", {
+                    let arg = arg.unwrap();
+                    let length = match arg {
+                        syn::Lit::Int(integer) => integer.to_string(),
+                        _ => {
+                            errors.push_new(arg.span(), "max_length expects an integer literal");
+                            continue;
+                        }
+                    };
+                    annotations.push(format!("::rorm::imr::Annotation::MaxLength({})", length));
+                }),
+                "choices" => {
+                    if let syn::Meta::List(syn::MetaList { nested, .. }) = &meta {
+                        let mut choices = Vec::new();
+                        for choice in nested.iter() {
+                            let choice = match choice {
+                                syn::NestedMeta::Lit(syn::Lit::Str(choice)) => choice,
+                                _ => {
+                                    errors.push_new(choice.span(), "choices expects a list of string literals: #[rorm(choices(\"foo\", \"bar\", ..))]");
+                                    continue;
+                                }
+                            };
+                            choices.push(format!("\"{}\".to_string()", choice.value()));
+                        }
+                        annotations.push(format!(
+                            "::rorm::imr::Annotation::Choices(vec![{}])",
+                            choices.join(",")
+                        ));
+                    } else {
+                        errors.push_new(meta.span(), "choices expects a list of string literals: #[rorm(choices(\"foo\", \"bar\", ..))]");
+                    }
+                },
+                "index" => {
+                    match meta {
+                        syn::Meta::Path(_) => {
+                            annotations.push("::rorm::imr::Annotation::Index(None)".to_string());
+                        },
+                        syn::Meta::List(syn::MetaList {nested, ..}) => {
+                            let name = None;
+                            let prio = None;
+                            for nested_meta in nested.into_iter() {
+                                let (path, literal) = if let syn::NestedMeta::Meta(syn::Meta::NameValue(syn::MetaNameValue {path, lit, ..})) {
+                                    (path, literal)
+                                } else {
+                                    errors.push_new(nested_meta.span(), "index expects keyword arguments: #[rorm(index(name = \"...\"))]");
+                                };
+                                let ident = if let Some(ident) = path.get_ident() {
+                                    ident
+                                } else {
+                                    errors.push_new(nested_meta.span(), "index expects keyword arguments: #[rorm(index(name = \"...\"))]");
+                                };
+                                match_ident!(ident,
+                                    "name" => {
+                                        if name.is_none() {
+                                            match literal {
+                                                syn::Lit::Str(literal) => {
+                                                    name = Some(literal.value());
+                                                },
+                                                _ => {
+                                                    errors.push_new(literal.span(), "name expects a string literal: #[rorm(index(name = \"...\"))]");
+                                                },
+                                            }
+                                        } else {
+                                            errors.push_new(ident.span(), "name has already been set");
+                                        }
+                                    },
+                                    "priority" => {
+                                        if prio.is_none() {
+
+                                        } else {
+                                            errors.push_new(ident.span(), "priority has already been set");
+                                        }
+                                    },
+                                    _ => {
+                                        errors.push_new(ident.span(), "unknown keyword argument");
+                                    },
+                                );
+                            }
+                        },
+                        _ => {
+                            errors.push_new(meta.span(), "index ether stands on its own or looks like a function call: #[rorm(index)] or #[rorm(index(..))]");
+                        }
+                    }
+                },
+                _ => {
+                    errors.push_new(ident.span(), "Unknown annotation");
+                }
+            );
         }
         model_fields.push(
             syn::parse_str::<syn::ExprStruct>(&format!(
