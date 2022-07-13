@@ -214,7 +214,7 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                             ("String", format!("\"{}\".to_string()", string.value()))
                         }
                         Int(integer) => ("Integer", integer.to_string()),
-                        Float(float) => ("Float", float.to_string()),
+                        Float(float) => ("Float", format!("{}.into()", float)),
                         Bool(boolean) => ("Boolean", boolean.value.to_string()),
                         _ => {
                             errors.push_new(arg.span(), "unsupported literal");
@@ -259,23 +259,25 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                     }
                 },
                 "index" => {
-                    match meta {
+                    match &meta {
                         syn::Meta::Path(_) => {
                             annotations.push("::rorm::imr::Annotation::Index(None)".to_string());
                         },
                         syn::Meta::List(syn::MetaList {nested, ..}) => {
-                            let name = None;
-                            let prio = None;
+                            let mut name = None;
+                            let mut prio = None;
                             for nested_meta in nested.into_iter() {
-                                let (path, literal) = if let syn::NestedMeta::Meta(syn::Meta::NameValue(syn::MetaNameValue {path, lit, ..})) {
-                                    (path, literal)
+                                let (path, literal) = if let syn::NestedMeta::Meta(syn::Meta::NameValue(syn::MetaNameValue {path, lit, ..})) = &nested_meta {
+                                    (path.clone(), lit.clone())
                                 } else {
                                     errors.push_new(nested_meta.span(), "index expects keyword arguments: #[rorm(index(name = \"...\"))]");
+                                    continue;
                                 };
                                 let ident = if let Some(ident) = path.get_ident() {
                                     ident
                                 } else {
                                     errors.push_new(nested_meta.span(), "index expects keyword arguments: #[rorm(index(name = \"...\"))]");
+                                    continue;
                                 };
                                 match_ident!(ident,
                                     "name" => {
@@ -294,16 +296,38 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                                     },
                                     "priority" => {
                                         if prio.is_none() {
-
-                                        } else {
-                                            errors.push_new(ident.span(), "priority has already been set");
+                                            match literal {
+                                                syn::Lit::Int(literal) => {
+                                                        prio = Some(literal);
+                                                    },
+                                                    _ => {
+                                                        errors.push_new(literal.span(), "priority expects a integer literal: #[rorm(index(priority = \"...\"))]");
+                                                    },
+                                                }
+                                            } else {
+                                                errors.push_new(ident.span(), "priority has already been set");
+                                            }
+                                        },
+                                        _ => {
+                                            errors.push_new(ident.span(), "unknown keyword argument");
                                         }
-                                    },
-                                    _ => {
-                                        errors.push_new(ident.span(), "unknown keyword argument");
-                                    },
-                                );
-                            }
+                                    );
+                                }
+                                if prio.is_some() && name.is_none() {
+                                    errors.push_new(meta.span(), "index also requires a name when a priority is defined");
+                                } else {
+                                    let inner = if let Some(name) = name {
+                                        let prio = if let Some(prio) = prio {
+                                            format!("Some({})", prio)
+                                        } else {
+                                            "None".to_string()
+                                        };
+                                        format!("Some(::rorm::imr::IndexValue {{name: \"{}\".to_string(), priority: {}}})", name, prio)
+                                    } else {
+                                        "None".to_string()
+                                    };
+                                    annotations.push(format!("::rorm::imr::Annotation::Index({})", inner));
+                                }
                         },
                         _ => {
                             errors.push_new(meta.span(), "index ether stands on its own or looks like a function call: #[rorm(index)] or #[rorm(index(..))]");
