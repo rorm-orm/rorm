@@ -106,6 +106,7 @@ pub struct IndexValue {
 /// A column's default value which is any non object / array json value
 #[non_exhaustive]
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
+#[serde(untagged)]
 pub enum DefaultValue {
     /// Use hexadecimal to represent binary data
     String(String),
