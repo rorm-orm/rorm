@@ -1,4 +1,5 @@
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::fs::{create_dir_all, read_to_string};
 use std::hash::{Hash, Hasher};
 use std::path::Path;
@@ -6,7 +7,7 @@ use std::path::Path;
 use anyhow::{anyhow, Context};
 use once_cell::sync::Lazy;
 use regex::Regex;
-use rorm_common::imr::{Field, InternalModelFormat};
+use rorm_common::imr::{Field, InternalModelFormat, Model};
 
 use crate::declaration::{Migration, Operation};
 use crate::utils::migrations::{
@@ -97,7 +98,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             return Ok(());
         }
 
-        let constructed = convert_migrations_to_internal_models(&existing_migrations);
+        let constructed = convert_migrations_to_internal_models(&existing_migrations)?;
 
         let mut last_id: u16 = last_migration.id[..4]
             .parse()
@@ -109,7 +110,110 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             Some(n) => format!("{:04}_{}", last_id, n),
         };
 
-        let op: Vec<Operation> = vec![];
+        let mut op: Vec<Operation> = vec![];
+
+        let old_lookup: HashMap<_, _> = constructed
+            .models
+            .iter()
+            .map(|x| (x.name.clone(), x))
+            .collect();
+
+        let new_lookup: HashMap<_, _> = internal_models
+            .models
+            .iter()
+            .map(|x| (x.name.clone(), x))
+            .collect();
+
+        let mut new_models: Vec<&Model> = vec![];
+        let mut deleted_models: Vec<&Model> = vec![];
+
+        let mut new_fields: HashMap<String, Vec<&Field>> = HashMap::new();
+        let mut deleted_fields: HashMap<String, Vec<&Field>> = HashMap::new();
+
+        // Check if any new models exist
+        internal_models.models.iter().for_each(|x| {
+            if !old_lookup.iter().any(|(a, _)| x.name == *a) {
+                new_models.push(x);
+            }
+        });
+
+        // Check if any old model got deleted
+        constructed.models.iter().for_each(|x| {
+            if !new_lookup.iter().any(|(a, _)| x.name == *a) {
+                deleted_models.push(x);
+            }
+        });
+
+        // Iterate over all models, that are in the constructed
+        // as well as in the new internal models
+        internal_models
+            .models
+            .iter()
+            .filter(|x| old_lookup.get(x.name.as_str()).is_some())
+            .for_each(|x| {
+                // Check if a new field has been added
+                x.fields.iter().for_each(|y| {
+                    if !old_lookup[x.name.as_str()]
+                        .fields
+                        .iter()
+                        .any(|z| z.name == y.name)
+                    {
+                        if new_fields.get(x.name.as_str()).is_none() {
+                            new_fields.insert(x.name.clone(), vec![]);
+                        }
+                        new_fields.get_mut(x.name.as_str()).unwrap().push(y);
+                    }
+                });
+
+                // Check if a existing field got deleted
+                old_lookup[x.name.as_str()].fields.iter().for_each(|y| {
+                    if !x.fields.iter().any(|z| z.name == y.name) {
+                        if deleted_fields.get(x.name.as_str()).is_none() {
+                            deleted_fields.insert(x.name.clone(), vec![]);
+                        }
+                        deleted_fields.get_mut(x.name.as_str()).unwrap().push(y);
+                    }
+                });
+            });
+
+        // Create migration operations for new models
+        new_models.iter().for_each(|x| {
+            op.push(Operation::CreateModel {
+                name: x.name.clone(),
+                fields: x.fields.clone(),
+            });
+            format!("Created model {}", x.name);
+        });
+
+        // Create migration operations for deleted models
+        deleted_models.iter().for_each(|x| {
+            op.push(Operation::DeleteModel {
+                name: x.name.clone(),
+            });
+            format!("Deleted model {}", x.name);
+        });
+
+        // Create migration operations for new fields in existing models
+        new_fields.iter().for_each(|(x, y)| {
+            y.iter().for_each(|z| {
+                op.push(Operation::CreateField {
+                    model: "".to_string(),
+                    field: (*z).clone(),
+                });
+                format!("Added field {} to model {}", z.name, x);
+            })
+        });
+
+        // Create migration operations for deleted fields in existing models
+        deleted_fields.iter().for_each(|(x, y)| {
+            y.iter().for_each(|z| {
+                op.push(Operation::DeleteField {
+                    model: x.clone(),
+                    name: z.name.clone(),
+                });
+                format!("Deleted field {} from model {}", z.name, x);
+            })
+        });
 
         let new_migration = Migration {
             hash: h,
