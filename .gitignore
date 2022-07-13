@@ -23,3 +23,6 @@ dub.selections.json
 *.iml
 dorm/migrations/
 rorm/target
+rorm/Cargo.lock
+**/migrations/
+rorm/**/target/

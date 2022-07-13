@@ -1,0 +1,27 @@
+[package]
+name = "drorm-cli"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# Internal dependencies
+rorm-common = { version = "0.1", path = "../rorm-common" }
+
+# CLI parsing tool
+clap = { version = "3.1", features = ["derive"] }
+
+# Serialization library
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
+toml = { version = "0.5.9" }
+
+# Generic error package
+anyhow = { version = "1.0" }
+
+# Regex
+regex = { version = "1.6" }
+
+# Lazy implementation
+once_cell = { version = "1.13" }
