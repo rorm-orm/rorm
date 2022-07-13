@@ -31,6 +31,7 @@ import mir.algebraic_alias.json;
 struct SerializedModels
 {
 	/// List of all the models defined in the full module file.
+	@serdeKeys("Models")
 	ModelFormat[] models;
 }
 
@@ -75,34 +76,39 @@ struct ModelFormat
 
 		/// The exact name of the column later used in the DB, not neccessarily
 		/// corresponding to the D field name anymore.
+		@serdeKeys("Name")
 		string name;
 		/// The generic column type that is later translated to a concrete SQL
 		/// type by a driver.
+		@serdeKeys("Type")
 		DBType type;
 		/// List of different annotations defined in the source code, converted
 		/// to a serializable format and also all implicit annotations such as
 		/// `Choices` for enums.
+		@serdeKeys("Annotations")
 		DBAnnotation[] annotations;
 		/// List of annotations only relevant for internal use.
 		@serdeIgnore
 		InternalAnnotation[] internalAnnotations;
 		/// For debugging purposes this is the D source code location where this
 		/// field is defined from. This can be used in error messages.
-		@serdeKeys("source_defined_at")
+		@serdeKeys("SourceDefinedAt")
 		SourceLocation definedAt;
 	}
 
 	/// The exact name of the table later used in the DB, not neccessarily
 	/// corresponding to the D class name anymore.
+	@serdeKeys("Name")
 	string name;
 	/// For debugging purposes this is the D source code location where this
 	/// field is defined from. This can be used in error messages.
-	@serdeKeys("source_defined_at")
+	@serdeKeys("SourceDefinedAt")
 	SourceLocation definedAt;
 	/// List of fields, such as defined in the D source code, recursively
 	/// including all fields from all inherited classes. This maps to the actual
 	/// SQL columns later when it is generated into an SQL create statement by
 	/// the actual driver implementation.
+	@serdeKeys("Fields")
 	Field[] fields;
 }
 
@@ -114,13 +120,13 @@ struct ModelFormat
 struct SourceLocation
 {
 	/// The D filename, assumed to be of the same format as [__FILE__](https://dlang.org/spec/expression.html#specialkeywords).
-	@serdeKeys("file")
+	@serdeKeys("File")
 	string sourceFile;
 	/// The 1-based line number and column number where the symbol is defined.
-	@serdeKeys("line")
+	@serdeKeys("Line")
 	int sourceLine;
 	/// ditto
-	@serdeKeys("column")
+	@serdeKeys("Column")
 	int sourceColumn;
 }
 
@@ -202,42 +208,42 @@ private struct IonDBAnnotation
 						break;
 				}
 				data = JsonAlgebraic([
-					"type": JsonAlgebraic(typeStr)
+					"Type": JsonAlgebraic(typeStr)
 				]);
 			},
 			(maxLength l) {
 				data = JsonAlgebraic([
-					"type": JsonAlgebraic("max_length"),
-					"value": JsonAlgebraic(l.maxLength)
+					"Type": JsonAlgebraic("max_length"),
+					"Value": JsonAlgebraic(l.maxLength)
 				]);
 			},
 			(Choices c) {
 				data = JsonAlgebraic([
-					"type": JsonAlgebraic("max_length"),
-					"value": JsonAlgebraic(c.choices.map!(v => JsonAlgebraic(v)).array)
+					"Type": JsonAlgebraic("max_length"),
+					"Value": JsonAlgebraic(c.choices.map!(v => JsonAlgebraic(v)).array)
 				]);
 			},
 			(index i) {
 				JsonAlgebraic[string] args;
 				if (i._composite !is i.composite.init)
-					args["name"] = i._composite.name;
+					args["Name"] = i._composite.name;
 				if (i._priority !is i.priority.init)
-					args["priority"] = i._priority.priority;
+					args["Priority"] = i._priority.priority;
 
 				if (args.empty)
-					data = JsonAlgebraic(["type": JsonAlgebraic("index")]);
+					data = JsonAlgebraic(["Type": JsonAlgebraic("index")]);
 				else
 					data = JsonAlgebraic([
-						"type": JsonAlgebraic("index"),
-						"value": JsonAlgebraic(args)
+						"Type": JsonAlgebraic("index"),
+						"Value": JsonAlgebraic(args)
 					]);
 			},
 			(DefaultValue!(ubyte[]) binary) {
 				import std.digest : toHexString;
 
 				data = JsonAlgebraic([
-					"type": JsonAlgebraic("default"),
-					"value": JsonAlgebraic(binary.value.toHexString)
+					"Type": JsonAlgebraic("default"),
+					"Value": JsonAlgebraic(binary.value.toHexString)
 				]);
 			},
 			(rest) {
@@ -245,15 +251,15 @@ private struct IonDBAnnotation
 				static if (__traits(hasMember, rest.value, "toISOExtString"))
 				{
 					data = JsonAlgebraic([
-						"type": JsonAlgebraic("default"),
-						"value": JsonAlgebraic(rest.value.toISOExtString)
+						"Type": JsonAlgebraic("default"),
+						"Value": JsonAlgebraic(rest.value.toISOExtString)
 					]);
 				}
 				else
 				{
 					data = JsonAlgebraic([
-						"type": JsonAlgebraic("default"),
-						"value": JsonAlgebraic(rest.value)
+						"Type": JsonAlgebraic("default"),
+						"Value": JsonAlgebraic(rest.value)
 					]);
 				}
 			}
@@ -330,37 +336,37 @@ unittest
 	models.models = [m];
 	string json = serializeJsonPretty(models);
 	assert(json == `{
-	"models": [
+	"Models": [
 		{
-			"name": "foo",
-			"source_defined_at": {
-				"file": "file.d",
-				"line": 140,
-				"column": 10
+			"Name": "foo",
+			"SourceDefinedAt": {
+				"File": "file.d",
+				"Line": 140,
+				"Column": 10
 			},
-			"fields": [
+			"Fields": [
 				{
-					"name": "foo",
-					"type": "varchar",
-					"annotations": [
+					"Name": "foo",
+					"Type": "varchar",
+					"Annotations": [
 						{
-							"type": "primary_key"
+							"Type": "primary_key"
 						},
 						{
-							"type": "not_null"
+							"Type": "not_null"
 						},
 						{
-							"type": "index"
+							"Type": "index"
 						},
 						{
-							"type": "max_length",
-							"value": 255
+							"Type": "max_length",
+							"Value": 255
 						}
 					],
-					"source_defined_at": {
-						"file": "file.d",
-						"line": 142,
-						"column": 12
+					"SourceDefinedAt": {
+						"File": "file.d",
+						"Line": 142,
+						"Column": 12
 					}
 				}
 			]
