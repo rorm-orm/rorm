@@ -1,8 +1,11 @@
 //! Rorm is the rust implementation of the drorm project.
+use std::io::Write;
 pub use rorm_common::imr;
 pub use rorm_macro::*;
 
-/// This slice is populated by the [Model] attribute with all models.
+/// This slice is populated by the [`Model`] macro with all models.
+///
+/// [`Model`]: rorm_macro::Model
 #[allow(non_camel_case_types)]
 #[::linkme::distributed_slice]
 pub static MODELS: [&'static dyn ModelDefinition] = [..];
@@ -49,14 +52,23 @@ impl_as_db_type!(f32, Float);
 impl_as_db_type!(f64, Double);
 impl_as_db_type!(bool, Boolean);
 
-/// Prints all models in the Intermediate Model Representation to stdout.
-/// This should be used as a main function to produce the file for the migrator.
+/// Write all models in the Intermediate Model Representation to a [writer].
 ///
-/// WIP: A tool to automate this is planned
-pub fn print_models() -> Result<(), String> {
+/// [writer]: std::io::Write
+pub fn write_models(writer: &mut impl Write) -> Result<(), String> {
     serde_json::to_writer(
-        std::io::stdout(),
+        writer,
         &Vec::from_iter(MODELS.iter().map(|md| md.as_imr())),
     )
     .map_err(|err| err.to_string())
+}
+
+/// Prints all models in the Intermediate Model Representation to stdout.
+/// This should be used as a main function to produce the file for the migrator.
+///
+/// See also [`rorm_main`]
+///
+/// [`rorm_main`]: rorm_macro::rorm_main
+pub fn print_models() -> Result<(), String> {
+    write_models(&mut std::io::stdout())
 }
