@@ -16,7 +16,7 @@ Example migration:
 [Migration]
 Dependency = ""
 Initial = true
-Hash = 2179384940715410208
+Hash = "2179384940715410208"
 Replaces = []
 
   [[Migration.Operations]]
@@ -74,8 +74,8 @@ Replaces = []
 
 # Internal hash of the migration. This value is only used to 
 # determine if it is necessary to rerun the migration creation
-# process. If writing own migrations, you can just set it to 0.
-Hash = 123456789
+# process. If writing own migrations, you can just set it to "".
+Hash = "123456789"
 
 # List of operations to execute in this migration. Operations
 # get executed in order. 

@@ -93,7 +93,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
         let last_migration = &existing_migrations[existing_migrations.len() - 1];
 
         // If hash matches with the one of the current models, exiting
-        if &last_migration.hash == &h {
+        if (&last_migration).hash == (&h).to_string() {
             println!("No changes - nothing to do.");
             return Ok(());
         }
@@ -182,7 +182,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                 name: x.name.clone(),
                 fields: x.fields.clone(),
             });
-            format!("Created model {}", x.name);
+            println!("Created model {}", x.name);
         });
 
         // Create migration operations for deleted models
@@ -190,7 +190,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             op.push(Operation::DeleteModel {
                 name: x.name.clone(),
             });
-            format!("Deleted model {}", x.name);
+            println!("Deleted model {}", x.name);
         });
 
         // Create migration operations for new fields in existing models
@@ -200,7 +200,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                     model: "".to_string(),
                     field: (*z).clone(),
                 });
-                format!("Added field {} to model {}", z.name, x);
+                println!("Added field {} to model {}", z.name, x);
             })
         });
 
@@ -211,12 +211,12 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                     model: x.clone(),
                     name: z.name.clone(),
                 });
-                format!("Deleted field {} from model {}", z.name, x);
+                println!("Deleted field {} from model {}", z.name, x);
             })
         });
 
         let new_migration = Migration {
-            hash: h,
+            hash: h.to_string(),
             initial: false,
             id: name.clone(),
             dependency: last_migration.id.clone(),
@@ -237,7 +237,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
         };
 
         let new_migration = Migration {
-            hash: h,
+            hash: h.to_string(),
             initial: true,
             id: name.clone(),
             dependency: "".to_string(),

@@ -18,7 +18,7 @@ Representation for a migration.
 #[serde(rename_all = "PascalCase")]
 pub struct Migration {
     /// Hash of the migration
-    pub hash: u64,
+    pub hash: String,
 
     /// Marks the migration initial state
     pub initial: bool,
