@@ -1,15 +1,16 @@
 //! The Internal Model Representation used by our migration cli tool
+use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 
 /// A collection of all models used in the resulting application
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 #[serde(rename_all = "PascalCase")]
 pub struct InternalModelFormat {
     pub models: Vec<Model>,
 }
 
 /// A single model i.e. database table
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 #[serde(rename_all = "PascalCase")]
 pub struct Model {
     pub name: String,
@@ -22,7 +23,7 @@ pub struct Model {
 }
 
 /// Model's fields i.e. the table's columns
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 #[serde(rename_all = "PascalCase")]
 pub struct Field {
     pub name: String,
@@ -39,7 +40,7 @@ pub struct Field {
 
 /// Location in the source code a Model or Field originates from
 /// Used for better error messages in the migration tool
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 #[serde(rename_all = "PascalCase")]
 pub struct Source {
     pub file: String,
@@ -49,7 +50,7 @@ pub struct Source {
 
 /// All column types supported by the migration tool
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum DbType {
     VarChar,
@@ -77,7 +78,7 @@ pub enum DbType {
 
 /// The subset of annotations which need to be communicated with the migration tool
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 #[serde(tag = "Type", content = "Value")]
 #[serde(rename_all = "snake_case")]
 pub enum Annotation {
@@ -92,7 +93,7 @@ pub enum Annotation {
     Unique,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 #[serde(rename_all = "PascalCase")]
 pub struct IndexValue {
     pub name: String,
@@ -104,12 +105,13 @@ pub struct IndexValue {
 
 /// A column's default value which is any non object / array json value
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 pub enum DefaultValue {
     /// Use hexadecimal to represent binary data
     String(String),
     /// i128 is used as it can represent any integer defined in DbType
     Integer(i128),
-    Float(f64),
+    /// Ordered float is used as f64 does not Eq and Order which are needed for Hash
+    Float(OrderedFloat<f64>),
     Boolean(bool),
 }
