@@ -1,11 +1,14 @@
 //! Rorm is the rust implementation of the drorm project.
-use std::io::Write;
+#[doc(hidden)]
+pub use linkme;
 pub use rorm_common::imr;
 pub use rorm_macro::*;
+use std::io::Write;
 
 /// This slice is populated by the [`Model`] macro with all models.
 ///
 /// [`Model`]: rorm_macro::Model
+#[doc(hidden)]
 #[allow(non_camel_case_types)]
 #[::linkme::distributed_slice]
 pub static MODELS: [&'static dyn ModelDefinition] = [..];
@@ -56,11 +59,8 @@ impl_as_db_type!(bool, Boolean);
 ///
 /// [writer]: std::io::Write
 pub fn write_models(writer: &mut impl Write) -> Result<(), String> {
-    serde_json::to_writer(
-        writer,
-        &Vec::from_iter(MODELS.iter().map(|md| md.as_imr())),
-    )
-    .map_err(|err| err.to_string())
+    serde_json::to_writer(writer, &Vec::from_iter(MODELS.iter().map(|md| md.as_imr())))
+        .map_err(|err| err.to_string())
 }
 
 /// Prints all models in the Intermediate Model Representation to stdout.

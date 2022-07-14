@@ -40,7 +40,9 @@ impl Errors {
     fn push_new<T: Display>(&self, span: proc_macro2::Span, msg: T) {
         self.push(syn::Error::new(span, msg));
     }
-    fn is_empty(&self) -> bool {self.0.borrow().is_empty()}
+    fn is_empty(&self) -> bool {
+        self.0.borrow().is_empty()
+    }
 }
 impl IntoIterator for Errors {
     type Item = syn::Error;
@@ -371,15 +373,27 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                     }
                 }
             }
+
             #[allow(non_snake_case)]
             static #definition_instance: #definition_struct = #definition_struct;
+
             #[allow(non_snake_case)]
-            #[::linkme::distributed_slice(::rorm::MODELS)]
+            #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
+            #[::rorm::rename_linkme]
             static #definition_dyn_obj: &'static dyn ::rorm::ModelDefinition = &#definition_instance;
 
             #(#errors)*
         }
     })
+}
+
+mod rename_linkme;
+#[doc(hidden)]
+#[proc_macro_attribute]
+pub fn rename_linkme(_args: TokenStream, item: TokenStream) -> TokenStream {
+    let mut item = syn::parse_macro_input!(item as syn::ItemStatic);
+    rename_linkme::rename_expr(&mut item.expr);
+    item.into_token_stream().into()
 }
 
 /// This attribute is put on your main function.
@@ -406,7 +420,8 @@ pub fn rorm_main(args: TokenStream, item: TokenStream) -> TokenStream {
     let errors = Errors::new();
 
     let main = syn::parse_macro_input!(item as syn::ItemFn);
-    let feature = syn::parse::<syn::LitStr>(args).unwrap_or(syn::LitStr::new("rorm-main", Span::call_site()));
+    let feature =
+        syn::parse::<syn::LitStr>(args).unwrap_or(syn::LitStr::new("rorm-main", Span::call_site()));
     if main.sig.ident != "main" {
         errors.push_new(Span::call_site(), "only allowed on main function");
     }
