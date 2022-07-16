@@ -181,8 +181,11 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                 // `no_arg!` takes the Annotation variant's name and does everything itself.
                 ($name:literal, $variant:literal) => {{
                     if let syn::Meta::Path(_) = meta {
-                        annotations
-                            .push(concat!("::rorm::imr::Annotation::", $variant).to_string());
+                        //annotations.push(concat!("::rorm::imr::Annotation::", $variant).to_string());
+                        let variant = syn::Ident::new($variant, ident.span());
+                        annotations.push(quote!{
+                            ::rorm::imr::Annotation::#variant
+                        });
                     } else {
                         errors.push_new(
                             meta.span(),
@@ -210,53 +213,54 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                 "primary_key" => no_arg!("primary_key", "PrimaryKey"),
                 "unique" => no_arg!("unique", "Unique"),
                 "default" => one_arg!("default", {
-                    use syn::Lit::*;
                     let arg = arg.unwrap();
-                    let (variant, argument) = match arg {
-                        Str(string) => {
-                            ("String", format!("\"{}\".to_string()", string.value()))
-                        }
-                        Int(integer) => ("Integer", integer.to_string()),
-                        Float(float) => ("Float", format!("{}.into()", float)),
-                        Bool(boolean) => ("Boolean", boolean.value.to_string()),
+                    let variant = match &arg {
+                        syn::Lit::Str(_) => "String",
+                        syn::Lit::Int(_) => "Integer",
+                        syn::Lit::Float(_) => "Float",
+                        syn::Lit::Bool(_) => "Boolean",
                         _ => {
                             errors.push_new(arg.span(), "unsupported literal");
                             continue;
                         }
                     };
-                    annotations.push(format!(
-                        "::rorm::imr::Annotation::DefaultValue(::rorm::imr::DefaultValue::{}({}))",
-                        variant, argument,
-                    ));
+                    let variant = syn::Ident::new(variant, arg.span());
+                    annotations.push(quote!{
+                        ::rorm::imr::Annotation::DefaultValue(::rorm::imr::DefaultValue::#variant(#arg.into()))
+                    });
                 }),
                 "max_length" => one_arg!("max_length", {
                     let arg = arg.unwrap();
-                    let length = match arg {
-                        syn::Lit::Int(integer) => integer.to_string(),
+                    match arg {
+                        syn::Lit::Int(integer) => {
+                            annotations.push(quote!{
+                                ::rorm::imr::Annotation::MaxLength(#integer)
+                            });
+                        },
                         _ => {
                             errors.push_new(arg.span(), "max_length expects an integer literal");
-                            continue;
                         }
-                    };
-                    annotations.push(format!("::rorm::imr::Annotation::MaxLength({})", length));
+                    }
                 }),
                 "choices" => {
                     if let syn::Meta::List(syn::MetaList { nested, .. }) = &meta {
                         let mut choices = Vec::new();
                         for choice in nested.iter() {
-                            let choice = match choice {
-                                syn::NestedMeta::Lit(syn::Lit::Str(choice)) => choice,
+                            match choice {
+                                syn::NestedMeta::Lit(syn::Lit::Str(choice)) => {
+                                    choices.push(choice);
+                                },
                                 _ => {
                                     errors.push_new(choice.span(), "choices expects a list of string literals: #[rorm(choices(\"foo\", \"bar\", ..))]");
                                     continue;
                                 }
-                            };
-                            choices.push(format!("\"{}\".to_string()", choice.value()));
+                            }
                         }
-                        annotations.push(format!(
-                            "::rorm::imr::Annotation::Choices(vec![{}])",
-                            choices.join(",")
-                        ));
+                        annotations.push(quote!{
+                            ::rorm::imr::Annotation::Choices(vec![
+                                #(#choices.to_string()),*
+                            ])
+                        });
                     } else {
                         errors.push_new(meta.span(), "choices expects a list of string literals: #[rorm(choices(\"foo\", \"bar\", ..))]");
                     }
@@ -264,7 +268,9 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                 "index" => {
                     match &meta {
                         syn::Meta::Path(_) => {
-                            annotations.push("::rorm::imr::Annotation::Index(None)".to_string());
+                            annotations.push(quote!{
+                                ::rorm::imr::Annotation::Index(None)
+                            });
                         },
                         syn::Meta::List(syn::MetaList {nested, ..}) => {
                             let mut name = None;
@@ -287,7 +293,7 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                                         if name.is_none() {
                                             match literal {
                                                 syn::Lit::Str(literal) => {
-                                                    name = Some(literal.value());
+                                                    name = Some(literal);
                                                 },
                                                 _ => {
                                                     errors.push_new(literal.span(), "name expects a string literal: #[rorm(index(name = \"...\"))]");
@@ -321,15 +327,15 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                                 } else {
                                     let inner = if let Some(name) = name {
                                         let prio = if let Some(prio) = prio {
-                                            format!("Some({})", prio)
+                                            quote!{ Some(#prio) }
                                         } else {
-                                            "None".to_string()
+                                            quote!{ None }
                                         };
-                                        format!("Some(::rorm::imr::IndexValue {{name: \"{}\".to_string(), priority: {}}})", name, prio)
+                                        quote!{ Some(::rorm::imr::IndexValue { name: #name.to_string(), priority: #prio }) }
                                     } else {
-                                        "None".to_string()
+                                        quote!{ None }
                                     };
-                                    annotations.push(format!("::rorm::imr::Annotation::Index({})", inner));
+                                    annotations.push(quote!{ ::rorm::imr::Annotation::Index(#inner) });
                                 }
                         },
                         _ => {
@@ -342,21 +348,22 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                 }
             );
         }
-        model_fields.push(
-            syn::parse_str::<syn::ExprStruct>(&format!(
-                "::rorm::imr::Field {{
-                    name: \"{}\".to_string(),
-                    db_type: <{} as ::rorm::AsDbType>::as_db_type(),
-                    annotations: vec![{}],
-                    source_defined_at: {},
-                }}",
-                field.ident.as_ref().unwrap(),
-                field.ty.to_token_stream(),
-                annotations.join(", "),
-                get_source(&field).to_token_stream()
-            ))
-            .unwrap(),
-        );
+        let field_name = syn::LitStr::new(&field.ident.as_ref().unwrap().to_string(), field.span());
+        let field_type = &field.ty;
+        let field_source = get_source(&field);
+        model_fields.push(quote!{
+            {
+                let annotations = vec![
+                    #(#annotations),*
+                ];
+                ::rorm::imr::Field {
+                    name: #field_name.to_string(),
+                    db_type: <#field_type as ::rorm::AsDbType>::as_db_type(&annotations),
+                    annotations,
+                    source_defined_at: #field_source,
+                }
+            }
+        });
     }
     let errors = errors.into_iter().map(syn::Error::into_compile_error);
     TokenStream::from({

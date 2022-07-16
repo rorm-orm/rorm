@@ -27,19 +27,18 @@ pub trait ModelDefinition: Sync + Send {
 /// This trait maps rust types to database types
 pub trait AsDbType {
     /// Returns the database type as defined in the Intermediate Model Representation
-    fn as_db_type() -> imr::DbType;
+    fn as_db_type(annotations: &[imr::Annotation]) -> imr::DbType;
 }
 
 macro_rules! impl_as_db_type {
     ($type:ty, $variant:ident) => {
         impl AsDbType for $type {
-            fn as_db_type() -> imr::DbType {
+            fn as_db_type(_annotations: &[imr::Annotation]) -> imr::DbType {
                 imr::DbType::$variant
             }
         }
     };
 }
-impl_as_db_type!(String, VarChar);
 impl_as_db_type!(Vec<u8>, VarBinary);
 impl_as_db_type!(i8, Int8);
 impl_as_db_type!(i16, Int16);
@@ -54,6 +53,22 @@ impl_as_db_type!(usize, UInt64);
 impl_as_db_type!(f32, Float);
 impl_as_db_type!(f64, Double);
 impl_as_db_type!(bool, Boolean);
+impl AsDbType for String {
+    fn as_db_type(annotations: &[imr::Annotation]) -> imr::DbType {
+        let mut choices = false;
+        for annotation in annotations.iter() {
+            match annotation {
+                imr::Annotation::Choices(_) => { choices = true; }
+                _ => {}
+            }
+        }
+        if choices {
+            imr::DbType::Choices
+        } else {
+            imr::DbType::VarChar
+        }
+    }
+}
 
 /// Write all models in the Intermediate Model Representation to a [writer].
 ///
