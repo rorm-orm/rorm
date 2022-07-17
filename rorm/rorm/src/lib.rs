@@ -5,26 +5,8 @@ pub use rorm_common::imr;
 pub use rorm_macro::*;
 use std::io::Write;
 
-/// This slice is populated by the [`Model`] macro with all models.
-///
-/// [`Model`]: rorm_macro::Model
-#[doc(hidden)]
-#[allow(non_camel_case_types)]
-#[::linkme::distributed_slice]
-pub static MODELS: [&'static dyn ModelDefinition] = [..];
-
 pub mod id;
-
-/// A ModelDefinition provides methods to do something similar to reflection on model structs.
-///
-/// This trait is only implemented on empty types and used as dyn objects i.e. it is a highler
-/// level representation for a function table.
-/// It is automatically implemented for you by the [Model] attribute.
-// sync and send is required in order to store it as a static
-pub trait ModelDefinition: Sync + Send {
-    /// Build the Intermediate Model Representation
-    fn as_imr(&self) -> imr::Model;
-}
+pub mod model_def;
 
 /// This trait maps rust types to database types
 pub trait AsDbType {
@@ -112,7 +94,7 @@ impl<E: DbEnum> AsDbType for E {
 /// [writer]: std::io::Write
 pub fn write_models(writer: &mut impl Write) -> Result<(), String> {
     let imf = imr::InternalModelFormat {
-        models: MODELS.iter().map(|md| md.as_imr()).collect(),
+        models: model_def::MODELS.iter().map(|md| md.as_imr()).collect(),
     };
     serde_json::to_writer(writer, &imf).map_err(|err| err.to_string())
 }

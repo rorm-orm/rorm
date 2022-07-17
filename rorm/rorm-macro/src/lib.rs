@@ -404,10 +404,10 @@ pub fn Model(strct: TokenStream) -> TokenStream {
                 ];
                 let db_type = <#field_type as ::rorm::AsDbType>::as_db_type(&annotations);
                 annotations.append(&mut <#field_type as ::rorm::AsDbType>::implicit_annotations());
-                ::rorm::imr::Field {
-                    name: #field_name.to_string(),
+                ::rorm::model_def::Field {
+                    name: #field_name,
                     db_type, annotations,
-                    source_defined_at: #field_source,
+                    source: #field_source,
                 }
             }
         });
@@ -417,12 +417,11 @@ pub fn Model(strct: TokenStream) -> TokenStream {
         quote! {
             #[allow(non_camel_case_types)]
             struct #definition_struct;
-            impl ::rorm::ModelDefinition for #definition_struct {
-                fn as_imr(&self) -> ::rorm::imr::Model {
-                    use ::rorm::imr::*;
-                    Model {
-                        name: #model_name.to_string(),
-                        source_defined_at: #model_source,
+            impl ::rorm::model_def::ModelDefinition for #definition_struct {
+                fn as_rorm(&self) -> ::rorm::model_def::Model {
+                    ::rorm::model_def::Model {
+                        name: #model_name,
+                        source: #model_source,
                         fields: vec![ #(#model_fields),* ],
                     }
                 }
@@ -432,9 +431,9 @@ pub fn Model(strct: TokenStream) -> TokenStream {
             static #definition_instance: #definition_struct = #definition_struct;
 
             #[allow(non_snake_case)]
-            #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
+            #[::rorm::linkme::distributed_slice(::rorm::model_def::MODELS)]
             #[::rorm::rename_linkme]
-            static #definition_dyn_obj: &'static dyn ::rorm::ModelDefinition = &#definition_instance;
+            static #definition_dyn_obj: &'static dyn ::rorm::model_def::ModelDefinition = &#definition_instance;
 
             #(#errors)*
         }
