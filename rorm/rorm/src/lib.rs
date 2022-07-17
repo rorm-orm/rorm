@@ -109,8 +109,10 @@ impl<E: DbEnum> AsDbType for E {
 ///
 /// [writer]: std::io::Write
 pub fn write_models(writer: &mut impl Write) -> Result<(), String> {
-    serde_json::to_writer(writer, &Vec::from_iter(MODELS.iter().map(|md| md.as_imr())))
-        .map_err(|err| err.to_string())
+    let imf = imr::InternalModelFormat {
+        models: MODELS.iter().map(|md| md.as_imr()).collect(),
+    };
+    serde_json::to_writer(writer, &imf).map_err(|err| err.to_string())
 }
 
 /// Prints all models in the Intermediate Model Representation to stdout.
