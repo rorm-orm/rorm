@@ -120,6 +120,52 @@ macro_rules! match_ident {
     };
 }
 
+#[proc_macro_derive(DbEnum)]
+pub fn derive_db_enum(enm: TokenStream) -> TokenStream {
+    let errors = Errors::new();
+
+    let enm = syn::parse_macro_input!(enm as syn::ItemEnum);
+    let mut identifiers = Vec::new();
+    let mut literals = Vec::new();
+    for variant in enm.variants.iter() {
+        if variant.fields.is_empty() {
+            let ident = variant.ident.clone();
+            let literal = syn::LitStr::new(&variant.ident.to_string(), variant.ident.span());
+            identifiers.push(ident);
+            literals.push(literal);
+        } else {
+            errors.push_new(variant.span(), "Variants aren't allowed to contain data");
+        }
+    }
+    let errors = errors.into_iter().map(syn::Error::into_compile_error);
+    let enum_name = &enm.ident;
+    TokenStream::from(quote! {
+        impl ::rorm::DbEnum for #enum_name {
+            fn from_str(string: &str) -> Self {
+                use #enum_name::*;
+                match string {
+                    #(#literals => #identifiers,)*
+                    _ => panic!("Unexpected database value"),
+                }
+            }
+            fn to_str(&self) -> &'static str {
+                use #enum_name::*;
+                match self {
+                    #(#identifiers => #literals,)*
+                    _ => unreachable!(),
+                }
+            }
+            fn as_choices() -> Vec<String> {
+                vec![
+                    #(#literals.to_string()),*
+                ]
+            }
+
+            #(#errors)*
+        }
+    })
+}
+
 /// This attribute is used to turn a struct into a database model.
 ///
 /// ```
@@ -351,15 +397,16 @@ pub fn Model(strct: TokenStream) -> TokenStream {
         let field_name = syn::LitStr::new(&field.ident.as_ref().unwrap().to_string(), field.span());
         let field_type = &field.ty;
         let field_source = get_source(&field);
-        model_fields.push(quote!{
+        model_fields.push(quote! {
             {
-                let annotations = vec![
+                let mut annotations = vec![
                     #(#annotations),*
                 ];
+                let db_type = <#field_type as ::rorm::AsDbType>::as_db_type(&annotations);
+                annotations.append(&mut <#field_type as ::rorm::AsDbType>::implicit_annotations());
                 ::rorm::imr::Field {
                     name: #field_name.to_string(),
-                    db_type: <#field_type as ::rorm::AsDbType>::as_db_type(&annotations),
-                    annotations,
+                    db_type, annotations,
                     source_defined_at: #field_source,
                 }
             }

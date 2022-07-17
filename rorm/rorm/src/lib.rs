@@ -28,6 +28,14 @@ pub trait ModelDefinition: Sync + Send {
 pub trait AsDbType {
     /// Returns the database type as defined in the Intermediate Model Representation
     fn as_db_type(annotations: &[imr::Annotation]) -> imr::DbType;
+
+    /// Returns a list of migrator annotations which are implied by the type.
+    ///
+    /// For most types this would be empty. So that's its default implementation.
+    /// It is called after `as_db_type` and therefore not available to it.
+    fn implicit_annotations() -> Vec<imr::Annotation> {
+        Vec::new()
+    }
 }
 
 macro_rules! impl_as_db_type {
@@ -58,7 +66,9 @@ impl AsDbType for String {
         let mut choices = false;
         for annotation in annotations.iter() {
             match annotation {
-                imr::Annotation::Choices(_) => { choices = true; }
+                imr::Annotation::Choices(_) => {
+                    choices = true;
+                }
                 _ => {}
             }
         }
@@ -67,6 +77,31 @@ impl AsDbType for String {
         } else {
             imr::DbType::VarChar
         }
+    }
+}
+
+/// Map a rust enum, whose variant don't hold any data, into a database enum
+///
+/// ```rust
+/// #[derive(rorm::DbEnum)]
+/// pub enum Gender {
+///     Male,
+///     Female,
+///     Other,
+/// }
+/// ```
+pub trait DbEnum {
+    fn from_str(string: &str) -> Self;
+    fn to_str(&self) -> &'static str;
+    fn as_choices() -> Vec<String>;
+}
+impl<E: DbEnum> AsDbType for E {
+    fn as_db_type(_annotations: &[imr::Annotation]) -> imr::DbType {
+        imr::DbType::Choices
+    }
+
+    fn implicit_annotations() -> Vec<imr::Annotation> {
+        vec![imr::Annotation::Choices(E::as_choices())]
     }
 }
 
