@@ -13,6 +13,8 @@ use std::io::Write;
 #[::linkme::distributed_slice]
 pub static MODELS: [&'static dyn ModelDefinition] = [..];
 
+pub mod id;
+
 /// A ModelDefinition provides methods to do something similar to reflection on model structs.
 ///
 /// This trait is only implemented on empty types and used as dyn objects i.e. it is a highler
