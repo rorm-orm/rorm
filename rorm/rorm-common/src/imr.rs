@@ -84,6 +84,7 @@ pub enum DbType {
 pub enum Annotation {
     AutoCreateTime,
     AutoUpdateTime,
+    AutoIncrement,
     Choices(Vec<String>),
     DefaultValue(DefaultValue),
     Index(Option<IndexValue>),
