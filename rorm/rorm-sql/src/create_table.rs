@@ -157,7 +157,7 @@ impl SQLCreateTable {
     This method is used to convert the current state for the given dialect in a [String].
     */
     pub fn build(self) -> anyhow::Result<String> {
-        match self.dialect {
+        return match self.dialect {
             DBImpl::SQLite => {
                 let mut columns = vec![];
                 let mut trigger = vec![];
@@ -209,7 +209,7 @@ impl SQLCreateTable {
                                         ).as_str(),
                                         self.name.as_str(),
                                         Some(SQLCreateTriggerPointInTime::After),
-                                        SQLCreateTriggerOperation::Update {columns: None},
+                                        SQLCreateTriggerOperation::Update { columns: None },
                                     )
                                         .if_not_exists().
                                         add_statement(
@@ -230,7 +230,7 @@ impl SQLCreateTable {
                     }
                 }
 
-                return Ok(format!(
+                Ok(format!(
                     r#"CREATE TABLE{} {} ({}) STRICT;{}"#,
                     if self.if_not_exists {
                         " IF NOT EXISTS"
@@ -240,8 +240,8 @@ impl SQLCreateTable {
                     self.name,
                     columns.join(","),
                     trigger.join(" "),
-                ));
+                ))
             }
-        }
+        };
     }
 }
