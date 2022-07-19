@@ -1,8 +1,10 @@
+use crate::create_index::SQLCreateIndex;
 use crate::create_table::SQLCreateTable;
 use crate::create_trigger::{
     SQLCreateTrigger, SQLCreateTriggerOperation, SQLCreateTriggerPointInTime,
 };
 
+pub mod create_index;
 pub mod create_table;
 pub mod create_trigger;
 
@@ -54,6 +56,26 @@ impl DBImpl {
                 point_in_time,
                 operation,
                 statements: vec![],
+            },
+        }
+    }
+
+    /**
+    The entry point to create an index.
+
+    `name`: [&str]: Name of the index.
+    `table_name`: [&str]: Table to create the index on.
+    ``
+    */
+    pub fn create_index(self, name: &str, table_name: &str) -> SQLCreateIndex {
+        match self {
+            DBImpl::SQLite => SQLCreateIndex {
+                name: name.to_string(),
+                table_name: table_name.to_string(),
+                unique: false,
+                if_not_exists: false,
+                columns: vec![],
+                condition: None,
             },
         }
     }
