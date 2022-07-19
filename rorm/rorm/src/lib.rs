@@ -1,39 +1,36 @@
 //! Rorm is the rust implementation of the drorm project.
+#[doc(hidden)]
+pub use linkme;
 pub use rorm_common::imr;
 pub use rorm_macro::*;
+use std::io::Write;
 
-/// This slice is populated by the [Model] attribute with all models.
-#[allow(non_camel_case_types)]
-#[::linkme::distributed_slice]
-pub static MODELS: [&'static dyn ModelDefinition] = [..];
-
-/// A ModelDefinition provides methods to do something similar to reflection on model structs.
-///
-/// This trait is only implemented on empty types and used as dyn objects i.e. it is a highler
-/// level representation for a function table.
-/// It is automatically implemented for you by the [Model] attribute.
-// sync and send is required in order to store it as a static
-pub trait ModelDefinition: Sync + Send {
-    /// Build the Intermediate Model Representation
-    fn as_imr(&self) -> imr::Model;
-}
+pub mod id;
+pub mod model_def;
 
 /// This trait maps rust types to database types
 pub trait AsDbType {
     /// Returns the database type as defined in the Intermediate Model Representation
-    fn as_db_type() -> imr::DbType;
+    fn as_db_type(annotations: &[imr::Annotation]) -> imr::DbType;
+
+    /// Returns a list of migrator annotations which are implied by the type.
+    ///
+    /// For most types this would be empty. So that's its default implementation.
+    /// It is called after `as_db_type` and therefore not available to it.
+    fn implicit_annotations() -> Vec<imr::Annotation> {
+        Vec::new()
+    }
 }
 
 macro_rules! impl_as_db_type {
     ($type:ty, $variant:ident) => {
         impl AsDbType for $type {
-            fn as_db_type() -> imr::DbType {
+            fn as_db_type(_annotations: &[imr::Annotation]) -> imr::DbType {
                 imr::DbType::$variant
             }
         }
     };
 }
-impl_as_db_type!(String, VarChar);
 impl_as_db_type!(Vec<u8>, VarBinary);
 impl_as_db_type!(i8, Int8);
 impl_as_db_type!(i16, Int16);
@@ -48,15 +45,66 @@ impl_as_db_type!(usize, UInt64);
 impl_as_db_type!(f32, Float);
 impl_as_db_type!(f64, Double);
 impl_as_db_type!(bool, Boolean);
+impl AsDbType for String {
+    fn as_db_type(annotations: &[imr::Annotation]) -> imr::DbType {
+        let mut choices = false;
+        for annotation in annotations.iter() {
+            match annotation {
+                imr::Annotation::Choices(_) => {
+                    choices = true;
+                }
+                _ => {}
+            }
+        }
+        if choices {
+            imr::DbType::Choices
+        } else {
+            imr::DbType::VarChar
+        }
+    }
+}
+
+/// Map a rust enum, whose variant don't hold any data, into a database enum
+///
+/// ```rust
+/// #[derive(rorm::DbEnum)]
+/// pub enum Gender {
+///     Male,
+///     Female,
+///     Other,
+/// }
+/// ```
+pub trait DbEnum {
+    fn from_str(string: &str) -> Self;
+    fn to_str(&self) -> &'static str;
+    fn as_choices() -> Vec<String>;
+}
+impl<E: DbEnum> AsDbType for E {
+    fn as_db_type(_annotations: &[imr::Annotation]) -> imr::DbType {
+        imr::DbType::Choices
+    }
+
+    fn implicit_annotations() -> Vec<imr::Annotation> {
+        vec![imr::Annotation::Choices(E::as_choices())]
+    }
+}
+
+/// Write all models in the Intermediate Model Representation to a [writer].
+///
+/// [writer]: std::io::Write
+pub fn write_models(writer: &mut impl Write) -> Result<(), String> {
+    let imf = imr::InternalModelFormat {
+        models: model_def::MODELS.iter().map(|md| md.as_imr()).collect(),
+    };
+    serde_json::to_writer(writer, &imf).map_err(|err| err.to_string())
+}
 
 /// Prints all models in the Intermediate Model Representation to stdout.
 /// This should be used as a main function to produce the file for the migrator.
 ///
-/// WIP: A tool to automate this is planned
+/// See also [`rorm_main`]
+///
+/// [`rorm_main`]: rorm_macro::rorm_main
 pub fn print_models() -> Result<(), String> {
-    serde_json::to_writer(
-        std::io::stdout(),
-        &Vec::from_iter(MODELS.iter().map(|md| md.as_imr())),
-    )
-    .map_err(|err| err.to_string())
+    write_models(&mut std::io::stdout())
 }
