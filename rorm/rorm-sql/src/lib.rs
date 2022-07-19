@@ -33,7 +33,10 @@ impl DBImpl {
     /**
     The entry point to create a trigger.
 
+    `name`: [&str]: Name of the trigger.
     `table_name`: [&str]: Name of the table to create the trigger on.
+    `point_in_time`: [Option<SQLCreateTriggerPointInTime]: When to execute the trigger.
+    `operation`: [SQLCreateTriggerOperation]: The operation that invokes the trigger.
     */
     pub fn create_trigger(
         &self,
@@ -44,6 +47,7 @@ impl DBImpl {
     ) -> SQLCreateTrigger {
         match self {
             DBImpl::SQLite => SQLCreateTrigger {
+                dialect: DBImpl::SQLite,
                 name: name.to_string(),
                 table_name: table_name.to_string(),
                 if_not_exists: false,

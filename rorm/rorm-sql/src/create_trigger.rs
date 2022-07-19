@@ -1,3 +1,4 @@
+use crate::DBImpl;
 use anyhow::anyhow;
 use std::fmt::{Display, Formatter};
 
@@ -46,6 +47,7 @@ impl Display for SQLCreateTriggerOperation {
 Representation of a trigger.
 */
 pub struct SQLCreateTrigger {
+    pub(crate) dialect: DBImpl,
     pub(crate) name: String,
     pub(crate) table_name: String,
     pub(crate) if_not_exists: bool,
@@ -75,29 +77,33 @@ impl SQLCreateTrigger {
     Generate the resulting SQL string
     */
     pub fn build(self) -> anyhow::Result<String> {
-        if self.name == "" {
-            return Err(anyhow!("Name of the trigger must not empty"));
-        }
+        return match self.dialect {
+            DBImpl::SQLite => {
+                if self.name == "" {
+                    return Err(anyhow!("Name of the trigger must not empty"));
+                }
 
-        if self.table_name == "" {
-            return Err(anyhow!("Name of the table must not be empty"));
-        }
+                if self.table_name == "" {
+                    return Err(anyhow!("Name of the table must not be empty"));
+                }
 
-        Ok(format!(
-            "CREATE TRIGGER {} {} {} {} ON {} BEGIN {} END;",
-            if self.if_not_exists {
-                "IF NOT EXISTS"
-            } else {
-                ""
-            },
-            self.name,
-            match self.point_in_time {
-                None => "".to_string(),
-                Some(s) => s.to_string(),
-            },
-            self.operation,
-            self.table_name,
-            self.statements.join(" "),
-        ))
+                Ok(format!(
+                    "CREATE TRIGGER {} {} {} {} ON {} BEGIN {} END;",
+                    if self.if_not_exists {
+                        "IF NOT EXISTS"
+                    } else {
+                        ""
+                    },
+                    self.name,
+                    match self.point_in_time {
+                        None => "".to_string(),
+                        Some(s) => s.to_string(),
+                    },
+                    self.operation,
+                    self.table_name,
+                    self.statements.join(" "),
+                ))
+            }
+        };
     }
 }
