@@ -1,0 +1,103 @@
+use anyhow::anyhow;
+use std::fmt::{Display, Formatter};
+
+/**
+Representation of a point in time definition of a create trigger statement
+*/
+pub enum SQLCreateTriggerPointInTime {
+    After,
+    Before,
+    InsteadOf,
+}
+
+impl Display for SQLCreateTriggerPointInTime {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SQLCreateTriggerPointInTime::After => write!(f, "AFTER"),
+            SQLCreateTriggerPointInTime::Before => write!(f, "BEFORE"),
+            SQLCreateTriggerPointInTime::InsteadOf => write!(f, "INSTEAD OF"),
+        }
+    }
+}
+
+/**
+Representation of the operation to execute the trigger on
+*/
+pub enum SQLCreateTriggerOperation {
+    Delete,
+    Insert,
+    Update { columns: Option<Vec<String>> },
+}
+
+impl Display for SQLCreateTriggerOperation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SQLCreateTriggerOperation::Delete => write!(f, "DELETE"),
+            SQLCreateTriggerOperation::Insert => write!(f, "INSERT"),
+            SQLCreateTriggerOperation::Update { columns: None } => write!(f, "UPDATE"),
+            SQLCreateTriggerOperation::Update { columns: Some(c) } => {
+                write!(f, "UPDATE OF {}", c.join(","))
+            }
+        }
+    }
+}
+
+/**
+Representation of a trigger.
+*/
+pub struct SQLCreateTrigger {
+    pub(crate) name: String,
+    pub(crate) table_name: String,
+    pub(crate) if_not_exists: bool,
+    pub(crate) point_in_time: Option<SQLCreateTriggerPointInTime>,
+    pub(crate) operation: SQLCreateTriggerOperation,
+    pub(crate) statements: Vec<String>,
+}
+
+impl SQLCreateTrigger {
+    /**
+    Create the trigger only, if it does not exists
+    */
+    pub fn if_not_exists(mut self) -> Self {
+        self.if_not_exists = true;
+        return self;
+    }
+
+    /**
+    Adds a statement to a create trigger operation
+    */
+    pub fn add_statement(mut self, statement: String) -> Self {
+        self.statements.push(statement);
+        return self;
+    }
+
+    /**
+    Generate the resulting SQL string
+    */
+    pub fn build(self) -> anyhow::Result<String> {
+        if self.name == "" {
+            return Err(anyhow!("Name of the trigger must not empty"));
+        }
+
+        if self.table_name == "" {
+            return Err(anyhow!("Name of the table must not be empty"));
+        }
+
+        Ok(format!(
+            "CREATE TRIGGER {} {} {} {} ON {} BEGIN {} END;",
+            if self.if_not_exists {
+                "IF NOT EXISTS"
+            } else {
+                ""
+            },
+            self.name,
+            match self.point_in_time {
+                None => "".to_string(),
+                Some(s) => s.to_string(),
+            },
+            self.operation,
+            self.table_name,
+            self.statements.join(" "),
+        ))
+    }
+}

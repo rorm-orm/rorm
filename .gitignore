@@ -15,7 +15,7 @@ dorm-test-*
 venv/
 site/
 *.db
-*.sqlite3
+*.sqlite3*
 *.a
 .idea/
 .vscode/
@@ -26,3 +26,4 @@ rorm/target
 rorm/Cargo.lock
 **/migrations/
 rorm/**/target/
+database.toml

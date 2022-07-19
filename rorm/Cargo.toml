@@ -3,5 +3,6 @@ members = [
 	"drorm-cli",
 	"rorm-common",
 	"rorm-macro",
+	"rorm-sql",
 	"rorm",
 ]
