@@ -55,8 +55,8 @@ pub fn db_enum(enm: TokenStream) -> TokenStream {
             errors.push_new(variant.span(), "Variants aren't allowed to contain data");
         }
     }
-    let errors = errors.into_compile_errors();
     let enum_name = &enm.ident;
+
     quote! {
         impl ::rorm::DbEnum for #enum_name {
             fn from_str(string: &str) -> Self {
@@ -79,7 +79,7 @@ pub fn db_enum(enm: TokenStream) -> TokenStream {
                 ]
             }
 
-            #(#errors)*
+            #errors
         }
     }
 }
@@ -311,7 +311,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
             }
         });
     }
-    let errors = errors.into_compile_errors();
+
     TokenStream::from({
         quote! {
             #[allow(non_camel_case_types)]
@@ -334,7 +334,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
             #[::rorm::rename_linkme]
             static #definition_dyn_obj: &'static dyn ::rorm::model_def::ModelDefinition = &#definition_instance;
 
-            #(#errors)*
+            #errors
         }
     })
 }

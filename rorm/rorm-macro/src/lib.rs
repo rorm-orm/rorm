@@ -92,9 +92,8 @@ pub fn rorm_main(args: TokenStream, item: TokenStream) -> TokenStream {
             #main
         }
     } else {
-        let errors = errors.into_compile_errors();
         quote! {
-            #(#errors)*
+            #errors
             #main
         }
     }).into()

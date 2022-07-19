@@ -5,13 +5,16 @@ use std::fmt::Display;
 
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
+use quote::ToTokens;
 
 /// List of errors
 ///
-/// Use this in any macro to collect occurring errors and put all of them into the resulting TokenStream in a single bulk.
+/// Use this in any macro to collect occurring errors and put all of them into
+/// the resulting TokenStream in a single bulk.
 ///
-/// To avoid worrying about mutability this type uses a RefCell and all its methods take immutable references.
-/// Since errors are only ever pushed, order doesn't matter and macros are evaluated single threaded, this is fine.
+/// To avoid worrying about mutability this type uses a RefCell and all its methods take
+/// immutable references. Since errors are only ever pushed, order doesn't matter and
+/// macros are evaluated single threaded, this is fine.
 ///
 /// ```ignore
 /// fn some_macro(input: TokenStream) -> TokenStream {
@@ -23,16 +26,15 @@ use proc_macro2::TokenStream;
 ///     // Oh not found an error
 ///     errors.push_new(Span::call_site(), "Something went wrong");
 ///
-///     // Futher processing
+///     // Further processing
 ///     ..
 ///
 ///     // Report the errors inside the TokenStream
-///     let errors = errors.into_compile_errors();
 ///     quote!{
 ///         // Fancy expansion
 ///         ..
 ///
-///         #(#errors);*
+///         #errors
 ///     }
 /// }
 pub struct Errors(RefCell<Vec<syn::Error>>);
@@ -53,10 +55,6 @@ impl Errors {
     pub fn is_empty(&self) -> bool {
         self.0.borrow().is_empty()
     }
-
-    pub fn into_compile_errors(self) -> impl Iterator<Item = TokenStream> {
-        self.into_iter().map(syn::Error::into_compile_error)
-    }
 }
 
 impl IntoIterator for Errors {
@@ -65,5 +63,13 @@ impl IntoIterator for Errors {
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_inner().into_iter()
+    }
+}
+
+impl ToTokens for Errors {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        for error in self.0.borrow().iter() {
+            error.to_compile_error().to_tokens(tokens);
+        }
     }
 }
