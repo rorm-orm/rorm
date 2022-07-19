@@ -1,18 +1,20 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream};
 use quote::quote;
-use syn::{spanned::Spanned, Ident};
+use syn::spanned::Spanned;
 
 use crate::errors::Errors;
 use crate::utils::{get_source, iter_rorm_attributes};
 
-/// Used to match over an [syn::Ident] in a similar syntax as over [&str]s.
+/// Used to match over an [`Ident`] in a similar syntax as over [&str]s.
 ///
 /// The first argument is the identifier to match.
 /// The last argument is a default match arm (`_ => ..`).
 /// In between an arbitrary number of match arms can be passed.
 ///
 /// ```ignore
-/// let ident = syn::Ident::new("some_identifier", proc_macro2::Span::call_site());
+/// use syn::Ident;
+///
+/// let ident = Ident::new("some_identifier", proc_macro2::Span::call_site());
 /// match_ident!(ident
 ///     "foo" => println!("The identifier was 'foo'"),
 ///     "bar" => println!("The identifier was 'bar'"),
@@ -112,23 +114,12 @@ pub fn model(strct: TokenStream) -> TokenStream {
                 continue;
             };
 
-            // Get the literal if the attribute is of shape `rorm(<identifier> = <literal>)`
-            let arg = match &meta {
-                syn::Meta::NameValue(syn::MetaNameValue { lit, .. }) => Some(lit),
-                _ => None,
-            };
-
-            // The following macros check the "number of arguments" i.e. the shape of the
-            // annotation.
-            // They unify the error messages and hide the noisy if-else.
-            macro_rules! no_arg {
-                // Since an annotation with no argument, doesn't require any additional logic,
-                // `no_arg!` takes the Annotation variant's name and does everything itself.
+            // Parse a simple annotation taking no arguments and simply adding its associated variant
+            macro_rules! parse_anno {
                 ($name:literal, $variant:literal) => {{
                     if let syn::Meta::Path(_) = meta {
-                        //annotations.push(concat!("::rorm::imr::Annotation::", $variant).to_string());
-                        let variant = syn::Ident::new($variant, ident.span());
-                        annotations.push(quote!{
+                        let variant = Ident::new($variant, ident.span());
+                        annotations.push(quote! {
                             ::rorm::imr::Annotation::#variant
                         });
                     } else {
@@ -139,158 +130,18 @@ pub fn model(strct: TokenStream) -> TokenStream {
                     }
                 }};
             }
-            macro_rules! one_arg {
-                // Annotations with arguments need to process these, so the macro just takes an
-                // arbitrary block.
-                ($name:literal, $then:block) => {{
-                    if arg.is_some()
-                        $then
-                    else {
-                        errors.push_new(meta.span(), concat!($name, " expects a value: #[rorm(", $name, " = ..)]"));
-                    }
-                }};
-            }
 
             match_ident!(ident,
-                "auto_create_time" => no_arg!("auto_create_time", "AutoCreateTime"),
-                "auto_update_time" => no_arg!("auto_update_time", "AutoUpdateTime"),
-                "not_null" => no_arg!("not_null", "NotNull"),
-                "primary_key" => no_arg!("primary_key", "PrimaryKey"),
-                "unique" => no_arg!("unique", "Unique"),
-                "default" => one_arg!("default", {
-                    let arg = arg.unwrap();
-                    let variant = match &arg {
-                        syn::Lit::Str(_) => "String",
-                        syn::Lit::Int(_) => "Integer",
-                        syn::Lit::Float(_) => "Float",
-                        syn::Lit::Bool(_) => "Boolean",
-                        _ => {
-                            errors.push_new(arg.span(), "unsupported literal");
-                            continue;
-                        }
-                    };
-                    let variant = syn::Ident::new(variant, arg.span());
-                    annotations.push(quote!{
-                        ::rorm::imr::Annotation::DefaultValue(::rorm::imr::DefaultValue::#variant(#arg.into()))
-                    });
-                }),
-                "max_length" => one_arg!("max_length", {
-                    let arg = arg.unwrap();
-                    match arg {
-                        syn::Lit::Int(integer) => {
-                            annotations.push(quote!{
-                                ::rorm::imr::Annotation::MaxLength(#integer)
-                            });
-                        },
-                        _ => {
-                            errors.push_new(arg.span(), "max_length expects an integer literal");
-                        }
-                    }
-                }),
-                "choices" => {
-                    if let syn::Meta::List(syn::MetaList { nested, .. }) = &meta {
-                        let mut choices = Vec::new();
-                        for choice in nested.iter() {
-                            match choice {
-                                syn::NestedMeta::Lit(syn::Lit::Str(choice)) => {
-                                    choices.push(choice);
-                                },
-                                _ => {
-                                    errors.push_new(choice.span(), "choices expects a list of string literals: #[rorm(choices(\"foo\", \"bar\", ..))]");
-                                    continue;
-                                }
-                            }
-                        }
-                        annotations.push(quote!{
-                            ::rorm::imr::Annotation::Choices(vec![
-                                #(#choices.to_string()),*
-                            ])
-                        });
-                    } else {
-                        errors.push_new(meta.span(), "choices expects a list of string literals: #[rorm(choices(\"foo\", \"bar\", ..))]");
-                    }
-                },
-                "index" => {
-                    match &meta {
-                        syn::Meta::Path(_) => {
-                            annotations.push(quote!{
-                                ::rorm::imr::Annotation::Index(None)
-                            });
-                        },
-                        syn::Meta::List(syn::MetaList {nested, ..}) => {
-                            let mut name = None;
-                            let mut prio = None;
-                            for nested_meta in nested.into_iter() {
-                                let (path, literal) = if let syn::NestedMeta::Meta(syn::Meta::NameValue(syn::MetaNameValue {path, lit, ..})) = &nested_meta {
-                                    (path.clone(), lit.clone())
-                                } else {
-                                    errors.push_new(nested_meta.span(), "index expects keyword arguments: #[rorm(index(name = \"...\"))]");
-                                    continue;
-                                };
-                                let ident = if let Some(ident) = path.get_ident() {
-                                    ident
-                                } else {
-                                    errors.push_new(nested_meta.span(), "index expects keyword arguments: #[rorm(index(name = \"...\"))]");
-                                    continue;
-                                };
-                                match_ident!(ident,
-                                    "name" => {
-                                        if name.is_none() {
-                                            match literal {
-                                                syn::Lit::Str(literal) => {
-                                                    name = Some(literal);
-                                                },
-                                                _ => {
-                                                    errors.push_new(literal.span(), "name expects a string literal: #[rorm(index(name = \"...\"))]");
-                                                },
-                                            }
-                                        } else {
-                                            errors.push_new(ident.span(), "name has already been set");
-                                        }
-                                    },
-                                    "priority" => {
-                                        if prio.is_none() {
-                                            match literal {
-                                                syn::Lit::Int(literal) => {
-                                                        prio = Some(literal);
-                                                    },
-                                                    _ => {
-                                                        errors.push_new(literal.span(), "priority expects a integer literal: #[rorm(index(priority = \"...\"))]");
-                                                    },
-                                                }
-                                            } else {
-                                                errors.push_new(ident.span(), "priority has already been set");
-                                            }
-                                        },
-                                        _ => {
-                                            errors.push_new(ident.span(), "unknown keyword argument");
-                                        }
-                                    );
-                                }
-                                if prio.is_some() && name.is_none() {
-                                    errors.push_new(meta.span(), "index also requires a name when a priority is defined");
-                                } else {
-                                    let inner = if let Some(name) = name {
-                                        let prio = if let Some(prio) = prio {
-                                            quote!{ Some(#prio) }
-                                        } else {
-                                            quote!{ None }
-                                        };
-                                        quote!{ Some(::rorm::imr::IndexValue { name: #name.to_string(), priority: #prio }) }
-                                    } else {
-                                        quote!{ None }
-                                    };
-                                    annotations.push(quote!{ ::rorm::imr::Annotation::Index(#inner) });
-                                }
-                        },
-                        _ => {
-                            errors.push_new(meta.span(), "index ether stands on its own or looks like a function call: #[rorm(index)] or #[rorm(index(..))]");
-                        }
-                    }
-                },
-                _ => {
-                    errors.push_new(ident.span(), "Unknown annotation");
-                }
+                "auto_create_time" => parse_anno!("auto_create_time", "AutoCreateTime"),
+                "auto_update_time" => parse_anno!("auto_update_time", "AutoUpdateTime"),
+                "not_null" => parse_anno!("not_null", "NotNull"),
+                "primary_key" => parse_anno!("primary_key", "PrimaryKey"),
+                "unique" => parse_anno!("unique", "Unique"),
+                "default" => parse_default(&mut annotations, &errors, &meta),
+                "max_length" => parse_max_length(&mut annotations, &errors, &meta),
+                "choices" => parse_choices(&mut annotations, &errors, &meta),
+                "index" => parse_index(&mut annotations, &errors, &meta),
+                _ => errors.push_new(ident.span(), "Unknown annotation")
             );
         }
         let field_name = syn::LitStr::new(&field.ident.as_ref().unwrap().to_string(), field.span());
@@ -337,4 +188,173 @@ pub fn model(strct: TokenStream) -> TokenStream {
             #errors
         }
     })
+}
+
+fn parse_default(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::Meta) {
+    let arg = match meta {
+        syn::Meta::NameValue(syn::MetaNameValue { lit, .. }) => lit,
+        _ => {
+            errors.push_new(
+                meta.span(),
+                "default expects a single literal: #[rorm(default = ..)]",
+            );
+            return;
+        }
+    };
+
+    let variant = match arg {
+        syn::Lit::Str(_) => "String",
+        syn::Lit::Int(_) => "Integer",
+        syn::Lit::Float(_) => "Float",
+        syn::Lit::Bool(_) => "Boolean",
+        _ => {
+            errors.push_new(arg.span(), "unsupported literal");
+            return;
+        }
+    };
+
+    let variant = Ident::new(variant, arg.span());
+    annotations.push(quote! {
+        ::rorm::imr::Annotation::DefaultValue(::rorm::imr::DefaultValue::#variant(#arg.into()))
+    });
+}
+
+fn parse_max_length(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::Meta) {
+    match meta {
+        syn::Meta::NameValue(syn::MetaNameValue {
+            lit: syn::Lit::Int(integer),
+            ..
+        }) => {
+            annotations.push(quote! {
+                ::rorm::imr::Annotation::MaxLength(#integer)
+            });
+        }
+        _ => {
+            errors.push_new(
+                meta.span(),
+                "max_length expects a single integer literal: #rorm(max_length = 255)",
+            );
+        }
+    }
+}
+
+fn parse_choices(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::Meta) {
+    if let syn::Meta::List(syn::MetaList { nested, .. }) = meta {
+        let mut choices = Vec::new();
+        for choice in nested.iter() {
+            match choice {
+                syn::NestedMeta::Lit(syn::Lit::Str(choice)) => {
+                    choices.push(choice);
+                }
+                _ => {
+                    errors.push_new(choice.span(), "choices expects a list of string literals: #[rorm(choices(\"foo\", \"bar\", ..))]");
+                    continue;
+                }
+            }
+        }
+        annotations.push(quote! {
+            ::rorm::imr::Annotation::Choices(vec![
+                #(#choices.to_string()),*
+            ])
+        });
+    } else {
+        errors.push_new(
+            meta.span(),
+            "choices expects a list of string literals: #[rorm(choices(\"foo\", \"bar\", ..))]",
+        );
+    }
+}
+
+fn parse_index(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::Meta) {
+    match &meta {
+        syn::Meta::Path(_) => {
+            annotations.push(quote! {
+                ::rorm::imr::Annotation::Index(None)
+            });
+        }
+        syn::Meta::List(syn::MetaList { nested, .. }) => {
+            let mut name = None;
+            let mut prio = None;
+            for nested_meta in nested.into_iter() {
+                let (path, literal) =
+                    if let syn::NestedMeta::Meta(syn::Meta::NameValue(syn::MetaNameValue {
+                        path,
+                        lit,
+                        ..
+                    })) = &nested_meta
+                    {
+                        (path.clone(), lit.clone())
+                    } else {
+                        errors.push_new(
+                            nested_meta.span(),
+                            "index expects keyword arguments: #[rorm(index(name = \"...\"))]",
+                        );
+                        continue;
+                    };
+                let ident = if let Some(ident) = path.get_ident() {
+                    ident
+                } else {
+                    errors.push_new(
+                        nested_meta.span(),
+                        "index expects keyword arguments: #[rorm(index(name = \"...\"))]",
+                    );
+                    continue;
+                };
+                match_ident!(ident,
+                "name" => {
+                    if name.is_none() {
+                        match literal {
+                            syn::Lit::Str(literal) => {
+                                name = Some(literal);
+                            },
+                            _ => {
+                                errors.push_new(literal.span(), "name expects a string literal: #[rorm(index(name = \"...\"))]");
+                            },
+                        }
+                    } else {
+                        errors.push_new(ident.span(), "name has already been set");
+                    }
+                },
+                "priority" => {
+                    if prio.is_none() {
+                        match literal {
+                            syn::Lit::Int(literal) => {
+                                    prio = Some(literal);
+                                },
+                                _ => {
+                                    errors.push_new(literal.span(), "priority expects a integer literal: #[rorm(index(priority = \"...\"))]");
+                                },
+                            }
+                        } else {
+                            errors.push_new(ident.span(), "priority has already been set");
+                        }
+                    },
+                    _ => {
+                        errors.push_new(ident.span(), "unknown keyword argument");
+                    }
+                );
+            }
+            if prio.is_some() && name.is_none() {
+                errors.push_new(
+                    meta.span(),
+                    "index also requires a name when a priority is defined",
+                );
+            } else {
+                let inner = if let Some(name) = name {
+                    let prio = if let Some(prio) = prio {
+                        quote! { Some(#prio) }
+                    } else {
+                        quote! { None }
+                    };
+                    quote! { Some(::rorm::imr::IndexValue { name: #name.to_string(), priority: #prio }) }
+                } else {
+                    quote! { None }
+                };
+                annotations.push(quote! { ::rorm::imr::Annotation::Index(#inner) });
+            }
+        }
+        _ => {
+            errors.push_new(meta.span(), "index ether stands on its own or looks like a function call: #[rorm(index)] or #[rorm(index(..))]");
+        }
+    }
 }
