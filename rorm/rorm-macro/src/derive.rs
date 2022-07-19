@@ -95,10 +95,6 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let errors = Errors::new();
     let span = proc_macro2::Span::call_site();
 
-    let definition_struct = Ident::new(&format!("__{}_definition_struct", strct.ident), span);
-    let definition_instance = Ident::new(&format!("__{}_definition_instance", strct.ident), span);
-    let definition_dyn_obj = Ident::new(&format!("__{}_definition_dyn_object", strct.ident), span);
-
     let model_name = syn::LitStr::new(&strct.ident.to_string(), strct.ident.span());
     let model_source = get_source(&strct);
     let mut model_fields = Vec::new();
@@ -163,6 +159,13 @@ pub fn model(strct: TokenStream) -> TokenStream {
         });
     }
 
+    // Empty struct to implement ModelDefinition on
+    let definition_struct = Ident::new(&format!("__{}_definition_struct", strct.ident), span);
+    // Instance of said empty struct
+    let definition_instance = Ident::new(&format!("__{}_definition_instance", strct.ident), span);
+    // Trait object from said instance
+    let definition_dyn_obj = Ident::new(&format!("__{}_definition_dyn_object", strct.ident), span);
+
     TokenStream::from({
         quote! {
             #[allow(non_camel_case_types)]
@@ -190,6 +193,16 @@ pub fn model(strct: TokenStream) -> TokenStream {
     })
 }
 
+/// Parse the `#[rorm(default = ..)]` annotation.
+///
+/// It accepts a single literal as argument.
+/// Currently the only supported literal types are:
+/// - String
+/// - Integer
+/// - Floating Point Number
+/// - Boolean
+///
+/// TODO: Figure out how to check the literal's type is compatible with the annotated field's type
 fn parse_default(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::Meta) {
     let arg = match meta {
         syn::Meta::NameValue(syn::MetaNameValue { lit, .. }) => lit,
@@ -219,6 +232,9 @@ fn parse_default(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn
     });
 }
 
+/// Parse the `#[rorm(max_length = ..)]` annotation.
+///
+/// It accepts a single integer literal as argument.
 fn parse_max_length(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::Meta) {
     match meta {
         syn::Meta::NameValue(syn::MetaNameValue {
@@ -238,44 +254,66 @@ fn parse_max_length(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &
     }
 }
 
+/// Parse the `#[rorm(choices(..))]` annotation.
+///
+/// It accepts any number of string literals as arguments.
 fn parse_choices(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::Meta) {
+    let usage_string =
+        "choices expects a list of string literals: #[rorm(choices(\"foo\", \"bar\", ..))]";
+
+    // Check if used as list i.e. "function call"
     if let syn::Meta::List(syn::MetaList { nested, .. }) = meta {
         let mut choices = Vec::new();
+
+        // Check and collect string literals
         for choice in nested.iter() {
             match choice {
                 syn::NestedMeta::Lit(syn::Lit::Str(choice)) => {
                     choices.push(choice);
                 }
                 _ => {
-                    errors.push_new(choice.span(), "choices expects a list of string literals: #[rorm(choices(\"foo\", \"bar\", ..))]");
+                    errors.push_new(choice.span(), usage_string);
                     continue;
                 }
             }
         }
+
         annotations.push(quote! {
             ::rorm::imr::Annotation::Choices(vec![
                 #(#choices.to_string()),*
             ])
         });
     } else {
-        errors.push_new(
-            meta.span(),
-            "choices expects a list of string literals: #[rorm(choices(\"foo\", \"bar\", ..))]",
-        );
+        errors.push_new(meta.span(), usage_string);
     }
 }
 
+/// Parse the `#[rorm(index)]` annotation.
+///
+/// It accepts four different syntax's:
+/// - `#[rorm(index)]`
+/// - `#[rorm(index())]`
+///    *(semantically identical to first one)*
+/// - `#[rorm(name = <string literal>)]`
+/// - `#[rorm(name = <string literal>, priority = <integer literal>)]`
+///    *(insensitive to argument order)*
 fn parse_index(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::Meta) {
     match &meta {
+        // index was used on its own without arguments
         syn::Meta::Path(_) => {
             annotations.push(quote! {
                 ::rorm::imr::Annotation::Index(None)
             });
         }
+
+        // index was used as "function call"
         syn::Meta::List(syn::MetaList { nested, .. }) => {
             let mut name = None;
             let mut prio = None;
+
+            // Loop over arguments extracting `name` and `prio` while reporting any errors
             for nested_meta in nested.into_iter() {
+                // Only accept keyword arguments
                 let (path, literal) =
                     if let syn::NestedMeta::Meta(syn::Meta::NameValue(syn::MetaNameValue {
                         path,
@@ -291,6 +329,8 @@ fn parse_index(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::
                         );
                         continue;
                     };
+
+                // Only accept keywords who are identifier
                 let ident = if let Some(ident) = path.get_ident() {
                     ident
                 } else {
@@ -300,40 +340,46 @@ fn parse_index(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::
                     );
                     continue;
                 };
-                match_ident!(ident,
-                "name" => {
+
+                // Only accept "name" and "prio" as keywords
+                // Check the associated value's type
+                // Report duplications
+                if ident == "name" {
                     if name.is_none() {
                         match literal {
                             syn::Lit::Str(literal) => {
                                 name = Some(literal);
-                            },
+                            }
                             _ => {
-                                errors.push_new(literal.span(), "name expects a string literal: #[rorm(index(name = \"...\"))]");
-                            },
+                                errors.push_new(
+                                    literal.span(),
+                                    "name expects a string literal: #[rorm(index(name = \"...\"))]",
+                                );
+                            }
                         }
                     } else {
                         errors.push_new(ident.span(), "name has already been set");
                     }
-                },
-                "priority" => {
+                } else if ident == "priority" {
                     if prio.is_none() {
                         match literal {
                             syn::Lit::Int(literal) => {
-                                    prio = Some(literal);
-                                },
-                                _ => {
-                                    errors.push_new(literal.span(), "priority expects a integer literal: #[rorm(index(priority = \"...\"))]");
-                                },
+                                prio = Some(literal);
                             }
-                        } else {
-                            errors.push_new(ident.span(), "priority has already been set");
-                        }
-                    },
-                    _ => {
-                        errors.push_new(ident.span(), "unknown keyword argument");
+                            _ => {
+                                errors.push_new(literal.span(), "priority expects a integer literal: #[rorm(index(priority = \"...\"))]");
+                            }
+                        };
+                    } else {
+                        errors.push_new(ident.span(), "priority has already been set");
                     }
-                );
+                } else {
+                    errors.push_new(ident.span(), "unknown keyword argument");
+                }
             }
+
+            // Produce output depending on the 4 possible configurations
+            // of `prio.is_some()` and `name.is_some()`
             if prio.is_some() && name.is_none() {
                 errors.push_new(
                     meta.span(),
@@ -353,6 +399,8 @@ fn parse_index(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::
                 annotations.push(quote! { ::rorm::imr::Annotation::Index(#inner) });
             }
         }
+
+        // index was used as keyword argument
         _ => {
             errors.push_new(meta.span(), "index ether stands on its own or looks like a function call: #[rorm(index)] or #[rorm(index(..))]");
         }
