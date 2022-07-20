@@ -40,3 +40,6 @@ nav:
     - Migration File Format: migrations/migration_files.md
     - Linter: migrations/linter.md
     - Internal Model Representation: migrations/internal_model_representation.md
+  - Rorm:
+    - Getting Started: rorm/getting_started.md
+    - Model Declaration: rorm/model_declaration.md
