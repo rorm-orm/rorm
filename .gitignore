@@ -26,3 +26,4 @@ rorm/target
 rorm/Cargo.lock
 **/migrations/
 rorm/**/target/
+.models.json
