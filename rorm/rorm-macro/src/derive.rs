@@ -98,6 +98,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let model_name = syn::LitStr::new(&strct.ident.to_string(), strct.ident.span());
     let model_source = get_source(&strct);
     let mut model_fields = Vec::new();
+    let mut field_idents = Vec::new();
     for field in strct.fields.iter() {
         let mut annotations = Vec::new();
         for meta in iter_rorm_attributes(&field.attrs, &errors) {
@@ -157,22 +158,39 @@ pub fn model(strct: TokenStream) -> TokenStream {
                 }
             }
         });
+        field_idents.push(field.ident.clone());
     }
 
     // Empty struct to implement ModelDefinition on
-    let definition_struct = Ident::new(&format!("__{}_definition_struct", strct.ident), span);
+    let definition_getter_struct =
+        Ident::new(&format!("__{}_definition_struct", strct.ident), span);
     // Instance of said empty struct
-    let definition_instance = Ident::new(&format!("__{}_definition_instance", strct.ident), span);
+    let definition_getter_instance =
+        Ident::new(&format!("__{}_definition_instance", strct.ident), span);
     // Trait object from said instance
-    let definition_dyn_obj = Ident::new(&format!("__{}_definition_dyn_object", strct.ident), span);
+    let definition_getter_dyn_obj =
+        Ident::new(&format!("__{}_definition_dyn_object", strct.ident), span);
 
+    // Enum containing all model's fields
+    let fields_enum = Ident::new(&format!("__{}_Fields", strct.ident), span);
+
+    let strct_ident = strct.ident;
     TokenStream::from({
         quote! {
             #[allow(non_camel_case_types)]
-            struct #definition_struct;
-            impl ::rorm::model_def::ModelDefinition for #definition_struct {
-                fn as_rorm(&self) -> ::rorm::model_def::Model {
-                    ::rorm::model_def::Model {
+            #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+            pub enum #fields_enum {
+                #(#field_idents),*
+            }
+            impl ::rorm::model_def::Model for #strct_ident {
+                type Fields = #fields_enum;
+            }
+
+            #[allow(non_camel_case_types)]
+            struct #definition_getter_struct;
+            impl ::rorm::model_def::GetModelDefinition for #definition_getter_struct {
+                fn as_rorm(&self) -> ::rorm::model_def::ModelDefinition {
+                    ::rorm::model_def::ModelDefinition {
                         name: #model_name,
                         source: #model_source,
                         fields: vec![ #(#model_fields),* ],
@@ -181,12 +199,12 @@ pub fn model(strct: TokenStream) -> TokenStream {
             }
 
             #[allow(non_snake_case)]
-            static #definition_instance: #definition_struct = #definition_struct;
+            static #definition_getter_instance: #definition_getter_struct = #definition_getter_struct;
 
             #[allow(non_snake_case)]
             #[::rorm::linkme::distributed_slice(::rorm::model_def::MODELS)]
             #[::rorm::rename_linkme]
-            static #definition_dyn_obj: &'static dyn ::rorm::model_def::ModelDefinition = &#definition_instance;
+            static #definition_getter_dyn_obj: &'static dyn ::rorm::model_def::GetModelDefinition = &#definition_getter_instance;
 
             #errors
         }
