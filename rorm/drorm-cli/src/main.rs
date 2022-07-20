@@ -6,7 +6,9 @@ pub mod squash_migrations;
 pub mod utils;
 
 use crate::make_migrations::{run_make_migrations, MakeMigrationsOptions};
+use crate::migrate::{run_migrate, MigrateOptions};
 use clap::{Parser, Subcommand};
+use tokio;
 
 #[derive(Subcommand)]
 enum Commands {
@@ -37,7 +39,17 @@ enum Commands {
     },
 
     #[clap(about = "Apply migrations")]
-    Migrate {},
+    Migrate {
+        #[clap(short = 'm', long = "migration-dir")]
+        #[clap(default_value_t=String::from("./migrations/"))]
+        #[clap(help = "Destination to / from which migrations are written / read.")]
+        migration_dir: String,
+
+        #[clap(long = "database-config")]
+        #[clap(default_value_t=String::from("./database.toml"))]
+        #[clap(help = "Path to the database configuration file.")]
+        database_config: String,
+    },
 
     #[clap(about = "Squash migrations")]
     SquashMigrations {},
@@ -55,7 +67,8 @@ struct CLI {
     command: Option<Commands>,
 }
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let cli: CLI = CLI::parse();
 
     match cli.command {
@@ -73,6 +86,16 @@ fn main() -> anyhow::Result<()> {
                 non_interactive,
                 warnings_disabled,
             })?;
+        }
+        Some(Commands::Migrate {
+            migration_dir,
+            database_config,
+        }) => {
+            run_migrate(MigrateOptions {
+                migration_dir,
+                database_config,
+            })
+            .await?;
         }
         _ => {}
     }
