@@ -46,8 +46,6 @@ pub trait Model {
 pub struct ModelDefinition {
     pub name: &'static str,
     pub fields: Vec<Field>,
-
-    // Only forwarded to imr
     pub source: Option<imr::Source>,
 }
 
@@ -65,17 +63,20 @@ pub struct Field {
     pub name: &'static str,
     pub db_type: imr::DbType,
     pub annotations: Vec<imr::Annotation>,
-
-    // Only forwarded to imr
+    pub nullable: bool,
     pub source: Option<imr::Source>,
 }
 
 impl From<Field> for imr::Field {
     fn from(field: Field) -> Self {
+        let mut annotations: Vec<_> = field.annotations.into_iter().map(From::from).collect();
+        if !field.nullable {
+            annotations.push(imr::Annotation::NotNull);
+        }
         imr::Field {
             name: field.name.to_string(),
             db_type: field.db_type,
-            annotations: field.annotations.into_iter().map(From::from).collect(),
+            annotations,
             source_defined_at: field.source,
         }
     }

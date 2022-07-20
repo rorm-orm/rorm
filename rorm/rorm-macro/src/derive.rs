@@ -131,7 +131,6 @@ pub fn model(strct: TokenStream) -> TokenStream {
             match_ident!(ident,
                 "auto_create_time" => parse_anno!("auto_create_time", "AutoCreateTime"),
                 "auto_update_time" => parse_anno!("auto_update_time", "AutoUpdateTime"),
-                "not_null" => parse_anno!("not_null", "NotNull"),
                 "primary_key" => parse_anno!("primary_key", "PrimaryKey"),
                 "unique" => parse_anno!("unique", "Unique"),
                 "autoincrement" => parse_anno!("autoincrement", "AutoIncrement"),
@@ -144,17 +143,19 @@ pub fn model(strct: TokenStream) -> TokenStream {
         }
         let field_name = syn::LitStr::new(&field.ident.as_ref().unwrap().to_string(), field.span());
         let field_type = &field.ty;
+        let field_type = quote! { <#field_type as ::rorm::AsDbType> };
         let field_source = get_source(&field);
         model_fields.push(quote! {
             {
                 let mut annotations = vec![
                     #(#annotations),*
                 ];
-                let db_type = <#field_type as ::rorm::AsDbType>::as_db_type(&annotations);
-                annotations.append(&mut <#field_type as ::rorm::AsDbType>::implicit_annotations());
+                let db_type = #field_type::as_db_type(&annotations);
+                annotations.append(&mut #field_type::implicit_annotations());
                 ::rorm::model_def::Field {
                     name: #field_name,
                     db_type, annotations,
+                    nullable: #field_type::is_nullable(),
                     source: #field_source,
                 }
             }

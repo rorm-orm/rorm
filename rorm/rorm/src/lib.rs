@@ -20,6 +20,10 @@ pub trait AsDbType {
     fn implicit_annotations() -> Vec<imr::Annotation> {
         Vec::new()
     }
+
+    fn is_nullable() -> bool {
+        false
+    }
 }
 
 macro_rules! impl_as_db_type {
@@ -61,6 +65,19 @@ impl AsDbType for String {
         } else {
             imr::DbType::VarChar
         }
+    }
+}
+impl<T: AsDbType> AsDbType for Option<T> {
+    fn as_db_type(annotations: &[imr::Annotation]) -> imr::DbType {
+        T::as_db_type(annotations)
+    }
+
+    fn implicit_annotations() -> Vec<imr::Annotation> {
+        T::implicit_annotations()
+    }
+
+    fn is_nullable() -> bool {
+        true
     }
 }
 

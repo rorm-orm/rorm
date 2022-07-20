@@ -106,9 +106,6 @@ struct User {
 }
 ```
 
-### `not_null`
-TODO: To be redesigned
-
 ### `primary_key`
 Marks a field as primary key in the database.
 
