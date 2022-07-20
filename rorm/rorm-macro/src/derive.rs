@@ -134,6 +134,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
                 "not_null" => parse_anno!("not_null", "NotNull"),
                 "primary_key" => parse_anno!("primary_key", "PrimaryKey"),
                 "unique" => parse_anno!("unique", "Unique"),
+                "autoincrement" => parse_anno!("autoincrement", "AutoIncrement"),
                 "default" => parse_default(&mut annotations, &errors, &meta),
                 "max_length" => parse_max_length(&mut annotations, &errors, &meta),
                 "choices" => parse_choices(&mut annotations, &errors, &meta),

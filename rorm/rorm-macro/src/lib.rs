@@ -13,8 +13,8 @@ mod utils;
 use errors::Errors;
 
 #[proc_macro_derive(DbEnum)]
-pub fn derive_db_enum(enm: TokenStream) -> TokenStream {
-    derive::db_enum(enm.into()).into()
+pub fn derive_db_enum(input: TokenStream) -> TokenStream {
+    derive::db_enum(input.into()).into()
 }
 
 /// This attribute is used to turn a struct into a database model.
@@ -38,8 +38,8 @@ pub fn derive_db_enum(enm: TokenStream) -> TokenStream {
 /// }
 /// ```
 #[proc_macro_derive(Model, attributes(rorm))]
-pub fn derive_model(strct: TokenStream) -> TokenStream {
-    derive::model(strct.into()).into()
+pub fn derive_model(input: TokenStream) -> TokenStream {
+    derive::model(input.into()).into()
 }
 
 mod rename_linkme;

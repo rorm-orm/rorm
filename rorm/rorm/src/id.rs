@@ -13,9 +13,9 @@ use std::ops::{Deref, DerefMut};
 ///     id: Id,
 ///     ..
 /// }
-pub type Id = GenericId<u64>;
+pub type ID = GenericId<u64>;
 
-/// Generic Wrapper which implies the primary key annotation
+/// Generic Wrapper which implies the primary key and autoincrement annotation
 #[derive(Copy, Clone)]
 pub struct GenericId<I: AsDbType>(pub I);
 
@@ -27,6 +27,7 @@ impl<I: AsDbType> AsDbType for GenericId<I> {
     fn implicit_annotations() -> Vec<Annotation> {
         let mut annotations = I::implicit_annotations();
         annotations.push(Annotation::PrimaryKey); // TODO check if already
+        annotations.push(Annotation::AutoIncrement);
         annotations
     }
 }
