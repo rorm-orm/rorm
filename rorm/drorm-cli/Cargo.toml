@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 # Internal dependencies
 rorm-common = { version = "0.1", path = "../rorm-common" }
+rorm-sql = { version = "0.1", path = "../rorm-sql" }
 
 # CLI parsing tool
 clap = { version = "3.1", features = ["derive"] }
@@ -25,3 +26,9 @@ regex = { version = "1.6" }
 
 # Lazy implementation
 once_cell = { version = "1.13" }
+
+# SQL database abstraction
+sqlx = { version = "0.6.0", features = [ "runtime-tokio-native-tls", "mysql", "sqlite", "postgres", "tls" ] }
+
+# Runtime
+tokio = { version = "1.20.0", features = ["rt", "macros"]  }

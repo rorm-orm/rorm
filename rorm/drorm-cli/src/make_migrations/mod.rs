@@ -112,13 +112,13 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
 
         let mut op: Vec<Operation> = vec![];
 
-        let old_lookup: HashMap<_, _> = constructed
+        let old_lookup: HashMap<String, &Model> = constructed
             .models
             .iter()
             .map(|x| (x.name.clone(), x))
             .collect();
 
-        let new_lookup: HashMap<_, _> = internal_models
+        let new_lookup: HashMap<String, &Model> = internal_models
             .models
             .iter()
             .map(|x| (x.name.clone(), x))
