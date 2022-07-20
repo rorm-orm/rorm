@@ -95,7 +95,9 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let errors = Errors::new();
     let span = proc_macro2::Span::call_site();
 
-    let model_name = syn::LitStr::new(&strct.ident.to_string(), strct.ident.span());
+    let mut model_name = strct.ident.to_string();
+    model_name.make_ascii_lowercase();
+    let model_name = syn::LitStr::new(&model_name, strct.ident.span());
     let model_source = get_source(&strct);
     let mut model_fields = Vec::new();
     let mut field_idents = Vec::new();
@@ -141,7 +143,9 @@ pub fn model(strct: TokenStream) -> TokenStream {
                 _ => errors.push_new(ident.span(), "Unknown annotation")
             );
         }
-        let field_name = syn::LitStr::new(&field.ident.as_ref().unwrap().to_string(), field.span());
+        let mut field_name = field.ident.as_ref().unwrap().to_string();
+        field_name.make_ascii_lowercase();
+        let field_name = syn::LitStr::new(&field_name, field.span());
         let field_type = &field.ty;
         let field_type = quote! { <#field_type as ::rorm::AsDbType> };
         let field_source = get_source(&field);
