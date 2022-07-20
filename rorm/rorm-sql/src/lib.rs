@@ -3,10 +3,12 @@ use crate::create_table::SQLCreateTable;
 use crate::create_trigger::{
     SQLCreateTrigger, SQLCreateTriggerOperation, SQLCreateTriggerPointInTime,
 };
+use crate::transaction::SQLTransaction;
 
 pub mod create_index;
 pub mod create_table;
 pub mod create_trigger;
+pub mod transaction;
 
 /**
 The main interface for creating sql strings
@@ -67,7 +69,7 @@ impl DBImpl {
     `table_name`: [&str]: Table to create the index on.
     ``
     */
-    pub fn create_index(self, name: &str, table_name: &str) -> SQLCreateIndex {
+    pub fn create_index(&self, name: &str, table_name: &str) -> SQLCreateIndex {
         match self {
             DBImpl::SQLite => SQLCreateIndex {
                 name: name.to_string(),
@@ -76,6 +78,18 @@ impl DBImpl {
                 if_not_exists: false,
                 columns: vec![],
                 condition: None,
+            },
+        }
+    }
+
+    /**
+    The entry point to start a transaction
+    */
+    pub fn start_transaction(&self) -> SQLTransaction {
+        match self {
+            DBImpl::SQLite => SQLTransaction {
+                dialect: DBImpl::SQLite,
+                statements: vec![],
             },
         }
     }
