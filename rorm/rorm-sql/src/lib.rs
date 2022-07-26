@@ -3,11 +3,13 @@ use crate::create_table::SQLCreateTable;
 use crate::create_trigger::{
     SQLCreateTrigger, SQLCreateTriggerOperation, SQLCreateTriggerPointInTime,
 };
+use crate::drop_table::SQLDropTable;
 use crate::transaction::SQLTransaction;
 
 pub mod create_index;
 pub mod create_table;
 pub mod create_trigger;
+pub mod drop_table;
 pub mod transaction;
 
 /**
@@ -90,6 +92,21 @@ impl DBImpl {
             DBImpl::SQLite => SQLTransaction {
                 dialect: DBImpl::SQLite,
                 statements: vec![],
+            },
+        }
+    }
+
+    /**
+    The entry point to drop a table.
+
+    `name`: [&str]: Name of the table to drop.
+    */
+    pub fn drop_table(&self, name: &str) -> SQLDropTable {
+        match self {
+            DBImpl::SQLite => SQLDropTable {
+                dialect: DBImpl::SQLite,
+                name: name.to_string(),
+                if_exists: false,
             },
         }
     }
