@@ -32,7 +32,16 @@ pub fn migration_to_sql(db_impl: DBImpl, migration: &Migration) -> anyhow::Resul
                         )
                     })?);
             }
-            Operation::DeleteModel { .. } => {}
+            Operation::DeleteModel { name } => {
+                transaction = transaction.add_statement(
+                    db_impl.drop_table(name.as_str()).build().with_context(|| {
+                        format!(
+                            "Could not build drop table operation for migration {}",
+                            migration.id.as_str()
+                        )
+                    })?,
+                )
+            }
             Operation::CreateField { .. } => {}
             Operation::DeleteField { .. } => {}
         }

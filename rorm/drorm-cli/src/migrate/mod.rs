@@ -59,6 +59,8 @@ pub async fn apply_migration_sqlite(
             last_migration_table_name
         )
     })?;
+
+    println!("Applied migration {}", migration.id.as_str());
     Ok(())
 }
 
@@ -161,7 +163,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                                 apply = true;
 
                                 if idx == existing_migrations.len() - 1 {
-                                    println!("All migration has already been applied.");
+                                    println!("All migration have already been applied.");
                                 }
                             }
                         }
