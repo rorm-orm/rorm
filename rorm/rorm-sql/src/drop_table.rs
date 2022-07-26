@@ -21,8 +21,8 @@ impl SQLDropTable {
     /**
     This method is used to build the drop table statement.
     */
-    pub fn build(self) -> String {
-        return match self.dialect {
+    pub fn build(self) -> anyhow::Result<String> {
+        return Ok(match self.dialect {
             DBImpl::SQLite => {
                 format!(
                     "DROP TABLE {} {};",
@@ -30,6 +30,6 @@ impl SQLDropTable {
                     if self.if_exists { "IF EXISTS" } else { "" }
                 )
             }
-        };
+        });
     }
 }
