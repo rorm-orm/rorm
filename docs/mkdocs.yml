@@ -31,15 +31,18 @@ markdown_extensions:
       emoji_generator: !!python/name:materialx.emoji.to_svg
 nav:
   - Home: index.md
-  - Model Declaration:
-    - Model Declaration: declaration/model_declaration.md
-    - Associations: declaration/associations.md
   - Migrations:
     - Migrations: migrations/migrations.md
     - Make Migrations: migrations/makemigrations.md
     - Migration File Format: migrations/migration_files.md
     - Linter: migrations/linter.md
     - Internal Model Representation: migrations/internal_model_representation.md
-  - Rorm:
+  - DORM:
+    - Getting Started: dorm/getting_started.md
+    - Model Declaration: dorm/model_declaration.md
+    - Associations: dorm/associations.md
+  - RORM:
     - Getting Started: rorm/getting_started.md
     - Model Declaration: rorm/model_declaration.md
+  - Developer information:
+    - Style Guidelines: developer/guidelines.md
