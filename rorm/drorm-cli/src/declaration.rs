@@ -52,6 +52,14 @@ pub enum Operation {
     },
 
     #[serde(rename_all = "PascalCase")]
+    RenameModel {
+        /// Old name of the model
+        old: String,
+        /// New name of the model
+        new: String,
+    },
+
+    #[serde(rename_all = "PascalCase")]
     DeleteModel {
         /// Name of the model
         name: String,
@@ -63,6 +71,18 @@ pub enum Operation {
         model: String,
         /// The field that should be created
         field: Field,
+    },
+
+    #[serde(rename_all = "PascalCase")]
+    RenameField {
+        /// Name of the table the column lives in
+        table_name: String,
+
+        /// Old name of the column
+        old: String,
+
+        /// New name of the column
+        new: String,
     },
 
     #[serde(rename_all = "PascalCase")]

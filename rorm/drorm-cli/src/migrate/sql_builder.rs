@@ -12,6 +12,7 @@ Helper method to convert a migration to a transaction string
 */
 pub fn migration_to_sql(db_impl: DBImpl, migration: &Migration) -> anyhow::Result<String> {
     let mut transaction = db_impl.start_transaction();
+
     for operation in &migration.operations {
         match &operation {
             Operation::CreateModel { name, fields } => {
@@ -33,6 +34,24 @@ pub fn migration_to_sql(db_impl: DBImpl, migration: &Migration) -> anyhow::Resul
                             migration.id.as_str()
                         )
                     })?);
+            }
+            Operation::RenameModel { old, new } => {
+                transaction = transaction.add_statement(
+                    db_impl
+                        .alter_table(
+                            old.as_str(),
+                            SQLAlterTableOperation::RenameTo {
+                                name: new.to_string(),
+                            },
+                        )
+                        .build()
+                        .with_context(|| {
+                            format!(
+                                "Could not build rename table operation for migration {}",
+                                migration.id.as_str()
+                            )
+                        })?,
+                );
             }
             Operation::DeleteModel { name } => {
                 transaction = transaction.add_statement(
@@ -66,6 +85,29 @@ pub fn migration_to_sql(db_impl: DBImpl, migration: &Migration) -> anyhow::Resul
                             )
                         })?,
                 );
+            }
+            Operation::RenameField {
+                table_name,
+                old,
+                new,
+            } => {
+                transaction = transaction.add_statement(
+                    db_impl
+                        .alter_table(
+                            table_name.as_str(),
+                            SQLAlterTableOperation::RenameColumnTo {
+                                column_name: old.to_string(),
+                                new_column_name: new.to_string(),
+                            },
+                        )
+                        .build()
+                        .with_context(|| {
+                            format!(
+                                "Could not build rename field operation for migration {}",
+                                migration.id.as_str()
+                            )
+                        })?,
+                )
             }
             Operation::DeleteField { model, name } => {
                 transaction = transaction.add_statement(

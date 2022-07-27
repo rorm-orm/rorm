@@ -135,6 +135,20 @@ Type = "PrimaryKey"
 # Value = SomeType
 ```
 
+#### Rename Model Operation
+
+This operation will rename an existing model in the database.
+
+```toml
+[[Migration.Operations]]
+Type = "RenameModel"
+
+# Current name of the table.
+Old = "foo"
+# New name of the table.
+New = "bar"
+```
+
 #### Delete Model Operation
 
 This operation will delete an existing table from the database.
@@ -174,6 +188,23 @@ Type = "int32"
 # List of annotations of the field.
 # If there are no annotations, this list must be empty.
 Annotations = []
+```
+
+#### Rename Field Operation
+
+This operation renames a column from a table.
+
+```toml
+[[Migration.Operations]]
+Type = "RenameField"
+
+# Name of the table the column lives in.
+TableName = "foo"
+
+# Old name of the column
+Old = "it"
+# New name of the column
+New = "id"
 ```
 
 #### Delete Field Operation
