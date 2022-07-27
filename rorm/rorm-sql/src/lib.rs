@@ -1,3 +1,4 @@
+use crate::alter_table::{SQLAlterTable, SQLAlterTableOperation};
 use crate::create_index::SQLCreateIndex;
 use crate::create_table::SQLCreateTable;
 use crate::create_trigger::{
@@ -6,6 +7,7 @@ use crate::create_trigger::{
 use crate::drop_table::SQLDropTable;
 use crate::transaction::SQLTransaction;
 
+pub mod alter_table;
 pub mod create_index;
 pub mod create_table;
 pub mod create_trigger;
@@ -107,6 +109,22 @@ impl DBImpl {
                 dialect: DBImpl::SQLite,
                 name: name.to_string(),
                 if_exists: false,
+            },
+        }
+    }
+
+    /**
+    The entry point to alter a table.
+
+    `name`: [&str]: Name of the table to execute the operation on.
+    `operation`: [crate::alter_table::SQLAlterTableOperation]: The operation to execute.
+    */
+    pub fn alter_table(&self, name: &str, operation: SQLAlterTableOperation) -> SQLAlterTable {
+        match self {
+            DBImpl::SQLite => SQLAlterTable {
+                dialect: DBImpl::SQLite,
+                name: name.to_string(),
+                operation,
             },
         }
     }

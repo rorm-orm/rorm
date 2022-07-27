@@ -1,4 +1,5 @@
 use anyhow::Context;
+use rorm_sql::alter_table::SQLAlterTableOperation;
 use rorm_sql::DBImpl;
 
 use crate::declaration::{Migration, Operation};
@@ -43,7 +44,22 @@ pub fn migration_to_sql(db_impl: DBImpl, migration: &Migration) -> anyhow::Resul
                 )
             }
             Operation::CreateField { .. } => {}
-            Operation::DeleteField { .. } => {}
+            Operation::DeleteField { model, name } => {
+                transaction = transaction.add_statement(
+                    db_impl
+                        .alter_table(
+                            model.as_str(),
+                            SQLAlterTableOperation::DropColumn { name: name.clone() },
+                        )
+                        .build()
+                        .with_context(|| {
+                            format!(
+                                "Could not build drop column operation for migration {}",
+                                migration.id.as_str()
+                            )
+                        })?,
+                );
+            }
         }
     }
 
