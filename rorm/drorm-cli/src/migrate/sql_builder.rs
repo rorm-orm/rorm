@@ -18,11 +18,12 @@ pub fn migration_to_sql(db_impl: DBImpl, migration: &Migration) -> anyhow::Resul
                 let mut create_table = db_impl.create_table(name.as_str());
 
                 for field in fields {
-                    create_table = create_table.add_column(
+                    create_table = create_table.add_column(db_impl.create_column(
+                        name.as_str(),
                         field.name.as_str(),
                         field.db_type.clone(),
                         field.annotations.clone(),
-                    );
+                    ));
                 }
 
                 transaction =
@@ -43,7 +44,29 @@ pub fn migration_to_sql(db_impl: DBImpl, migration: &Migration) -> anyhow::Resul
                     })?,
                 )
             }
-            Operation::CreateField { .. } => {}
+            Operation::CreateField { model, field } => {
+                transaction = transaction.add_statement(
+                    db_impl
+                        .alter_table(
+                            model.as_str(),
+                            SQLAlterTableOperation::AddColumn {
+                                operation: db_impl.create_column(
+                                    model.as_str(),
+                                    field.name.as_str(),
+                                    field.db_type.clone(),
+                                    field.annotations.clone(),
+                                ),
+                            },
+                        )
+                        .build()
+                        .with_context(|| {
+                            format!(
+                                "Could not build add column operation for migration {}",
+                                migration.id.as_str()
+                            )
+                        })?,
+                );
+            }
             Operation::DeleteField { model, name } => {
                 transaction = transaction.add_statement(
                     db_impl

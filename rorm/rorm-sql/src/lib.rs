@@ -1,4 +1,5 @@
 use crate::alter_table::{SQLAlterTable, SQLAlterTableOperation};
+use crate::create_column::{SQLAnnotation, SQLCreateColumn};
 use crate::create_index::SQLCreateIndex;
 use crate::create_table::SQLCreateTable;
 use crate::create_trigger::{
@@ -6,8 +7,10 @@ use crate::create_trigger::{
 };
 use crate::drop_table::SQLDropTable;
 use crate::transaction::SQLTransaction;
+use rorm_common::imr::{Annotation, DbType};
 
 pub mod alter_table;
+pub mod create_column;
 pub mod create_index;
 pub mod create_table;
 pub mod create_trigger;
@@ -125,6 +128,35 @@ impl DBImpl {
                 dialect: DBImpl::SQLite,
                 name: name.to_string(),
                 operation,
+            },
+        }
+    }
+
+    /**
+    The entry point to create a column in a table.
+
+    - `table_name`: [&str]: Name of the table.
+    - `name`: [&str]: Name of the column.
+    - `data_type`: [DbType]: Data type of the column
+    - `annotations`: [Vec<Annotation>]: List of annotations.
+    */
+    pub fn create_column(
+        &self,
+        table_name: &str,
+        name: &str,
+        data_type: DbType,
+        annotations: Vec<Annotation>,
+    ) -> SQLCreateColumn {
+        match self {
+            DBImpl::SQLite => SQLCreateColumn {
+                dialect: DBImpl::SQLite,
+                name: name.to_string(),
+                table_name: table_name.to_string(),
+                data_type,
+                annotations: annotations
+                    .into_iter()
+                    .map(|x| SQLAnnotation { annotation: x })
+                    .collect(),
             },
         }
     }
