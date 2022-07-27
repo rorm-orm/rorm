@@ -6,8 +6,8 @@ use crate::create_trigger::{
     SQLCreateTrigger, SQLCreateTriggerOperation, SQLCreateTriggerPointInTime,
 };
 use crate::drop_table::SQLDropTable;
+use crate::imr::{Annotation, DbType};
 use crate::transaction::SQLTransaction;
-use rorm_common::imr::{Annotation, DbType};
 
 pub mod alter_table;
 pub mod create_column;
@@ -15,6 +15,7 @@ pub mod create_index;
 pub mod create_table;
 pub mod create_trigger;
 pub mod drop_table;
+pub mod imr;
 pub mod transaction;
 
 /**

@@ -5,7 +5,7 @@ use std::path::Path;
 use anyhow::Context;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use rorm_common::imr::{InternalModelFormat, Model};
+use rorm_sql::imr::{InternalModelFormat, Model};
 
 use crate::declaration::{Migration, MigrationFile, Operation};
 

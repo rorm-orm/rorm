@@ -4,7 +4,7 @@ pub mod sql_builder;
 use std::path::Path;
 
 use anyhow::{anyhow, Context};
-use rorm_common::imr::{Annotation, DbType};
+use rorm_sql::imr::{Annotation, DbType};
 use rorm_sql::DBImpl;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteRow};
 use sqlx::{query, Row, SqlitePool};

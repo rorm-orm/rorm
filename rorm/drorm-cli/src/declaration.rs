@@ -1,4 +1,4 @@
-use rorm_common::imr::Field;
+use rorm_sql::imr::Field;
 use serde::{Deserialize, Serialize};
 
 /**

@@ -7,7 +7,7 @@ use std::path::Path;
 use anyhow::{anyhow, Context};
 use once_cell::sync::Lazy;
 use regex::Regex;
-use rorm_common::imr::{Field, InternalModelFormat, Model};
+use rorm_sql::imr::{Field, InternalModelFormat, Model};
 
 use crate::declaration::{Migration, Operation};
 use crate::utils::migrations::{

@@ -1,4 +1,4 @@
-use rorm_common::imr;
+use rorm_sql::imr;
 
 /// This slice is populated by the [`Model`] macro with all models.
 ///

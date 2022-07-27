@@ -1,9 +1,8 @@
 use std::fmt::{Display, Formatter};
 
 use anyhow::{anyhow, Context};
-use rorm_common::imr::Annotation;
 
-use crate::DBImpl;
+use crate::{Annotation, DBImpl};
 
 /**
 Representation of a point in time definition of a create trigger statement

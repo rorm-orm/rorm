@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 # Internal dependencies
-rorm-common = { version = "0.1", path = "../rorm-common" }
 rorm-sql = { version = "0.1", path = "../rorm-sql" }
 
 # CLI parsing tool
