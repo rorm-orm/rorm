@@ -47,7 +47,7 @@ impl DBImpl {
 
     `name`: [&str]: Name of the trigger.
     `table_name`: [&str]: Name of the table to create the trigger on.
-    `point_in_time`: [Option<SQLCreateTriggerPointInTime]: When to execute the trigger.
+    `point_in_time`: [Option<SQLCreateTriggerPointInTime>]: When to execute the trigger.
     `operation`: [SQLCreateTriggerOperation]: The operation that invokes the trigger.
     */
     pub fn create_trigger(
