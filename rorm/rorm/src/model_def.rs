@@ -24,7 +24,7 @@ pub trait GetModelDefinition: Sync + Send {
     }
 }
 
-/// Trait implementing most database iteractions for a struct.
+/// Trait implementing most database interactions for a struct.
 ///
 /// It should only ever be generated using [`derive(Model)`].
 ///

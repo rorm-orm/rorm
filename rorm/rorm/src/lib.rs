@@ -1,5 +1,7 @@
 //! Rorm is the rust implementation of the drorm project.
+
 #[doc(hidden)]
+pub use id::ID;
 pub use linkme;
 pub use rorm_macro::*;
 pub use rorm_sql::imr;
