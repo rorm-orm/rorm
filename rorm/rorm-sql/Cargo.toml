@@ -4,12 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# SQL database abstraction
-sqlx = { version = "0.6.0", features = [ "runtime-tokio-native-tls", "mysql", "sqlite", "postgres", "tls" ] }
-
-# Runtime
-tokio = { version = "1.20", features = ["rt", "macros"]  }
-
 # Generic error package
 anyhow = { version = "1.0" }
 
