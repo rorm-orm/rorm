@@ -20,5 +20,5 @@ proc-macro2 = { version = "1.0" }
 
 # Dependencies for the example code in the doc
 [dev-dependencies]
-rorm = { version = "0.1", path = "../rorm" }
+rorm = { version = "0.1", path = "../" }
 linkme = { version = "0.3" }

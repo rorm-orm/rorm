@@ -39,6 +39,7 @@ pub async fn apply_migration_sqlite(
     last_migration_table_name: &str,
 ) -> anyhow::Result<()> {
     let q = migration_to_sql(DBImpl::SQLite, migration)?;
+
     query(q.as_str())
         .execute(pool)
         .await

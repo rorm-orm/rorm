@@ -75,7 +75,6 @@ impl DBImpl {
 
     `name`: [&str]: Name of the index.
     `table_name`: [&str]: Table to create the index on.
-    ``
     */
     pub fn create_index(&self, name: &str, table_name: &str) -> SQLCreateIndex {
         match self {
