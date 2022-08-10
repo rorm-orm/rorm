@@ -28,3 +28,5 @@ rorm/Cargo.lock
 rorm/**/target/
 .models.json
 database.toml
+*.h
+*.hpp
