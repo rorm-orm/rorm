@@ -1,0 +1,69 @@
+[package]
+name = "rorm-db"
+version = "0.1.0"
+edition = "2021"
+categories = ["database"]
+keywords = ["async", "orm", "database", "orm"]
+repository = "github.com/myOmikron/drorm"
+authors = ["myOmikron <git@omikron.dev>"]
+
+[lib]
+name = "rorm_db"
+
+[dependencies]
+rorm-sql = { version = "0.1.0", path = "../rorm-sql" }
+
+# SQL executor. Optional because it requires a runtime and a TLS implementation.
+# A compile error will be thrown if no runtime is chosen.
+sqlx = { version = "^0.6", optional = true }
+
+[features]
+default = [
+    "sqlx-all-drivers",
+]
+
+sqlx-all-drivers = [
+    "sqlx?/mysql",
+    "sqlx?/postgres",
+    "sqlx?/sqlite",
+    "sqlx?/uuid",
+    "sqlx?/chrono",
+    "sqlx?/time",
+    "sqlx?/bstr",
+    "sqlx?/bigdecimal",
+    "sqlx?/decimal",
+    "sqlx?/ipnetwork",
+    "sqlx?/json",
+    "sqlx?/any",
+    "sqlx?/tls",
+]
+
+async-std = []
+async-std-native-tls = [
+    "sqlx/runtime-async-std-native-tls",
+    "async-std",
+]
+async-std-rustls = [
+    "sqlx/runtime-async-std-rustls",
+    "async-std",
+]
+
+actix = []
+actix-native-tls = [
+    "sqlx/runtime-actix-native-tls",
+    "actix"
+]
+actix-rustls = [
+    "sqlx/runtime-actix-rustls",
+    "actix"
+]
+
+tokio = []
+tokio-native-tls = [
+    "sqlx/runtime-tokio-native-tls",
+    "tokio"
+]
+tokio-rustls = [
+    "sqlx/runtime-tokio-rustls",
+    "tokio"
+]
