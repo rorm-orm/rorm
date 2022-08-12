@@ -2,6 +2,10 @@
 name = "rorm-sql"
 version = "0.1.0"
 edition = "2021"
+keywords = ["database", "abstraction-layer", "sqlite", "postgres", "mysql"]
+categories = ["database"]
+authors = ["myOmikron <git@omikron.dev>"]
+repository = "github.com/myOmikron/drorm"
 
 [dependencies]
 # Generic error package
