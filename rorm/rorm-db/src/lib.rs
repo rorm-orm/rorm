@@ -37,6 +37,7 @@ impl Database {
         match configuration.backend {
             DatabaseBackend::SQLite => {
                 let connect_options = SqliteConnectOptions::new()
+                    .create_if_missing(true)
                     .filename(configuration.name);
                 pool = pool_options.connect_with(connect_options.into()).await?;
             }

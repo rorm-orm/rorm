@@ -17,6 +17,9 @@ rorm-sql = { version = "0.1.0", path = "../rorm-sql" }
 # A compile error will be thrown if no runtime is chosen.
 sqlx = { version = "^0.6", optional = true }
 
+[dev-dependencies]
+sqlx = { version = "^0.6", features = ["any"] }
+
 [features]
 default = [
     "sqlx-all-drivers",
