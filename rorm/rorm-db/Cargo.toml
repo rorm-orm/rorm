@@ -25,13 +25,21 @@ sqlx = { version = "^0.6", features = ["any"] }
 
 [features]
 default = [
-    "sqlx-all-drivers",
+    "sqlx-all-extensions",
+    "all-driver"
 ]
 
-sqlx-all-drivers = [
-    "sqlx?/mysql",
-    "sqlx?/postgres",
-    "sqlx?/sqlite",
+all-driver = [
+    "mysql",
+    "postgres",
+    "sqlite"
+]
+
+mysql = ["sqlx?/mysql"]
+postgres = ["sqlx?/postgres"]
+sqlite = ["sqlx?/sqlite"]
+
+sqlx-all-extensions = [
     "sqlx?/uuid",
     "sqlx?/chrono",
     "sqlx?/time",
