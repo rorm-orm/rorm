@@ -1,4 +1,4 @@
-use rorm_common::imr;
+use rorm_sql::imr;
 
 /// This slice is populated by the [`Model`] macro with all models.
 ///
@@ -24,7 +24,7 @@ pub trait GetModelDefinition: Sync + Send {
     }
 }
 
-/// Trait implementing most database iteractions for a struct.
+/// Trait implementing most database interactions for a struct.
 ///
 /// It should only ever be generated using [`derive(Model)`].
 ///
@@ -45,7 +45,9 @@ pub trait Model {
 
 pub struct ModelDefinition {
     pub name: &'static str,
+    /// Fields the Model has attached
     pub fields: Vec<Field>,
+    /// Optional location of the source of this model
     pub source: Option<imr::Source>,
 }
 
@@ -61,9 +63,12 @@ impl From<ModelDefinition> for imr::Model {
 
 pub struct Field {
     pub name: &'static str,
+    /// [imr::DbType] of this field
     pub db_type: imr::DbType,
+    /// List of annotations this field has set
     pub annotations: Vec<imr::Annotation>,
     pub nullable: bool,
+    /// Optional definition of the location of field in the source code
     pub source: Option<imr::Source>,
 }
 

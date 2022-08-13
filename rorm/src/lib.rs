@@ -1,11 +1,17 @@
 //! Rorm is the rust implementation of the drorm project.
+#![warn(missing_docs)]
+
 #[doc(hidden)]
+pub use id::ID;
 pub use linkme;
-pub use rorm_common::imr;
+pub use rorm_db::*;
 pub use rorm_macro::*;
+pub use rorm_sql::imr;
 use std::io::Write;
 
+/// Helper type alias with autoincrement and primary key
 pub mod id;
+
 pub mod model_def;
 
 /// This trait maps rust types to database types

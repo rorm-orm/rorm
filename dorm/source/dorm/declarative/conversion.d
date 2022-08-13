@@ -123,6 +123,10 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 		{
 			field.annotations ~= DBAnnotation(AnnotationFlag.primaryKey);
 		}
+		else static if (__traits(isSame, attribute, uda.autoincrement))
+		{
+			field.annotations ~= DBAnnotation(AnnotationFlag.autoincrement);
+		}
 		else static if (__traits(isSame, attribute, uda.unique))
 		{
 			field.annotations ~= DBAnnotation(AnnotationFlag.unique);
@@ -150,8 +154,9 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 			field.internalAnnotations ~= InternalAnnotation(ValidatorRef(
 				&makeValidator!(TModel, fieldName, fn)));
 		}
-		else static if (is(typeof(attribute) == maxLength) || is(
-				typeof(attribute) == DefaultValue!T, T) || is(typeof(attribute) == index))
+		else static if (is(typeof(attribute) == maxLength)
+			|| is(typeof(attribute) == DefaultValue!T, T)
+			|| is(typeof(attribute) == index))
 		{
 			field.annotations ~= DBAnnotation(attribute);
 		}

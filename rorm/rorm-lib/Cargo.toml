@@ -1,0 +1,31 @@
+[package]
+name = "rorm-lib"
+version = "0.1.0"
+edition = "2021"
+keywords = ["database", "library"]
+authors = ["myOmikron <git@omikron.dev>"]
+categories = ["database", "development-tools.categories.ffi"]
+repository = "github.com/myOmikron/drorm"
+
+[lib]
+name = "rorm"
+crate-type = ["staticlib"]
+
+[dependencies]
+rorm-db = { version = "0.1.0", path = "../rorm-db" }
+
+# Runtime to execute the async context in
+tokio = { version = "1.20" }
+
+# Lazy implementation, not needed in unstable
+once_cell = { version = "1.13" }
+
+# Implementation of UUID
+uuid = { version = "^1.1" }
+
+[features]
+default = [
+    "rorm-db/tokio-rustls",
+    "tokio/rt-multi-thread",
+    "uuid/v4"
+]

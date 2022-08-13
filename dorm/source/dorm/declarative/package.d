@@ -140,6 +140,8 @@ enum AnnotationFlag
 	autoCreateTime,
 	/// corresponds to the $(REF autoUpdateTime, dorm,annotations) UDA.
 	autoUpdateTime,
+	/// corresponds to the $(REF autoincrement, dorm,annotations) UDA.
+	autoincrement,
 	/// corresponds to the $(REF primaryKey, dorm,annotations) UDA.
 	primaryKey,
 	/// corresponds to the $(REF unique, dorm,annotations) UDA.
@@ -199,6 +201,9 @@ private struct IonDBAnnotation
 						break;
 					case AnnotationFlag.notNull:
 						typeStr = "not_null";
+						break;
+					case AnnotationFlag.autoincrement:
+						typeStr = "autoincrement";
 						break;
 					case AnnotationFlag.primaryKey:
 						typeStr = "primary_key";

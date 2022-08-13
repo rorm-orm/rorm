@@ -5,7 +5,7 @@ use std::path::Path;
 use anyhow::Context;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use rorm_common::imr::{InternalModelFormat, Model};
+use rorm_sql::imr::{InternalModelFormat, Model};
 
 use crate::declaration::{Migration, MigrationFile, Operation};
 
@@ -126,6 +126,18 @@ pub fn convert_migrations_to_internal_models(
                     source_defined_at: None,
                 });
             }
+            Operation::RenameModel { old, new } => {
+                m = m
+                    .iter()
+                    .map(|z| {
+                        let mut a = z.clone();
+                        if &a.name == old {
+                            a.name = new.to_string();
+                        }
+                        return a;
+                    })
+                    .collect();
+            }
             Operation::DeleteModel { name } => {
                 m = m.iter().filter(|z| z.name != *name).cloned().collect();
             }
@@ -135,6 +147,32 @@ pub fn convert_migrations_to_internal_models(
                         m[i].fields.push(field.clone());
                     }
                 }
+            }
+            Operation::RenameField {
+                table_name,
+                old,
+                new,
+            } => {
+                m = m
+                    .iter()
+                    .map(|z| {
+                        let mut a = z.clone();
+                        if &a.name == table_name {
+                            a.fields = a
+                                .fields
+                                .iter()
+                                .map(|b| {
+                                    let mut c = b.clone();
+                                    if &c.name == old {
+                                        c.name = new.to_string();
+                                    }
+                                    return c;
+                                })
+                                .collect();
+                        }
+                        return a;
+                    })
+                    .collect();
             }
             Operation::DeleteField { model, name } => {
                 for i in 0..m.len() {

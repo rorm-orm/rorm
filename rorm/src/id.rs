@@ -1,16 +1,16 @@
 //! A wrapper around integer implying primary_key
 
 use crate::AsDbType;
-use rorm_common::imr::{Annotation, DbType};
+use rorm_sql::imr::{Annotation, DbType};
 use std::ops::{Deref, DerefMut};
 
 /// The type to add to most models as primary key:
 /// ```ignore
-/// use rorm::{Model, id::Id};
+/// use rorm::{Model, ID};
 ///
 /// #[derive(Model)]
 /// struct SomeModel {
-///     id: Id,
+///     id: ID,
 ///     ..
 /// }
 pub type ID = GenericId<u64>;

@@ -5,10 +5,11 @@ pub mod migrate;
 pub mod squash_migrations;
 pub mod utils;
 
-use crate::make_migrations::{run_make_migrations, MakeMigrationsOptions};
-use crate::migrate::{run_migrate, MigrateOptions};
 use clap::{Parser, Subcommand};
 use tokio;
+
+use crate::make_migrations::{run_make_migrations, MakeMigrationsOptions};
+use crate::migrate::{run_migrate, MigrateOptions};
 
 #[derive(Subcommand)]
 enum Commands {

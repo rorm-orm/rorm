@@ -3,13 +3,13 @@ pub mod sql_builder;
 
 use std::path::Path;
 
-use crate::declaration::Migration;
 use anyhow::{anyhow, Context};
-use rorm_common::imr::{Annotation, DbType};
+use rorm_sql::imr::{Annotation, DbType};
 use rorm_sql::DBImpl;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteRow};
 use sqlx::{query, Row, SqlitePool};
 
+use crate::declaration::Migration;
 use crate::migrate::config::DatabaseDriver::SQLite;
 use crate::migrate::config::{create_db_config, deserialize_db_conf, DatabaseDriver};
 use crate::migrate::sql_builder::migration_to_sql;
@@ -39,6 +39,7 @@ pub async fn apply_migration_sqlite(
     last_migration_table_name: &str,
 ) -> anyhow::Result<()> {
     let q = migration_to_sql(DBImpl::SQLite, migration)?;
+
     query(q.as_str())
         .execute(pool)
         .await
@@ -59,6 +60,8 @@ pub async fn apply_migration_sqlite(
             last_migration_table_name
         )
     })?;
+
+    println!("Applied migration {}", migration.id.as_str());
     Ok(())
 }
 
@@ -92,7 +95,8 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
             query(
                 DBImpl::SQLite
                     .create_table(db_conf.last_migration_table_name.as_str())
-                    .add_column(
+                    .add_column(DBImpl::SQLite.create_column(
+                        db_conf.last_migration_table_name.as_str(),
                         "id",
                         DbType::UInt64,
                         vec![
@@ -100,13 +104,19 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                             Annotation::PrimaryKey,
                             Annotation::AutoIncrement,
                         ],
-                    )
-                    .add_column(
+                    ))
+                    .add_column(DBImpl::SQLite.create_column(
+                        db_conf.last_migration_table_name.as_str(),
                         "updated_at",
                         DbType::VarChar,
                         vec![Annotation::AutoUpdateTime],
-                    )
-                    .add_column("migration_name", DbType::VarChar, vec![Annotation::NotNull])
+                    ))
+                    .add_column(DBImpl::SQLite.create_column(
+                        db_conf.last_migration_table_name.as_str(),
+                        "migration_name",
+                        DbType::VarChar,
+                        vec![Annotation::NotNull],
+                    ))
                     .if_not_exists()
                     .build()
                     .with_context(|| "Error while creating last migration table")?
@@ -161,7 +171,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                                 apply = true;
 
                                 if idx == existing_migrations.len() - 1 {
-                                    println!("All migration has already been applied.");
+                                    println!("All migration have already been applied.");
                                 }
                             }
                         }

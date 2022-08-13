@@ -1,19 +1,42 @@
+//! The module should be used to create sql queries for different SQL dialects.
+#![warn(missing_docs)]
+
+/// Implementation of SQL ALTER TABLE statements
+pub mod alter_table;
+/// Implementation of SQL CREATE COLUMN statements
+pub mod create_column;
+/// Implementation of SQL CREATE INDEX statements
+pub mod create_index;
+/// Implementation of SQL CREATE TABLE statements
+pub mod create_table;
+/// Implementation of SQL CREATE TRIGGER statements
+pub mod create_trigger;
+/// Implementation of SQL DROP TABLE statements
+pub mod drop_table;
+/// This module holds the internal model representation
+pub mod imr;
+/// Implementation of SQL SELECT statements
+pub mod select;
+/// Implementation of SQL Transactions
+pub mod transaction;
+
+use crate::alter_table::{SQLAlterTable, SQLAlterTableOperation};
+use crate::create_column::{SQLAnnotation, SQLCreateColumn};
 use crate::create_index::SQLCreateIndex;
 use crate::create_table::SQLCreateTable;
 use crate::create_trigger::{
     SQLCreateTrigger, SQLCreateTriggerOperation, SQLCreateTriggerPointInTime,
 };
+use crate::drop_table::SQLDropTable;
+use crate::imr::{Annotation, DbType};
+use crate::select::SQLSelect;
 use crate::transaction::SQLTransaction;
-
-pub mod create_index;
-pub mod create_table;
-pub mod create_trigger;
-pub mod transaction;
 
 /**
 The main interface for creating sql strings
 */
 pub enum DBImpl {
+    /// Implementation of SQLite
     SQLite,
 }
 
@@ -39,7 +62,7 @@ impl DBImpl {
 
     `name`: [&str]: Name of the trigger.
     `table_name`: [&str]: Name of the table to create the trigger on.
-    `point_in_time`: [Option<SQLCreateTriggerPointInTime]: When to execute the trigger.
+    `point_in_time`: [Option<SQLCreateTriggerPointInTime>]: When to execute the trigger.
     `operation`: [SQLCreateTriggerOperation]: The operation that invokes the trigger.
     */
     pub fn create_trigger(
@@ -67,7 +90,6 @@ impl DBImpl {
 
     `name`: [&str]: Name of the index.
     `table_name`: [&str]: Table to create the index on.
-    ``
     */
     pub fn create_index(&self, name: &str, table_name: &str) -> SQLCreateIndex {
         match self {
@@ -93,12 +115,88 @@ impl DBImpl {
             },
         }
     }
+
+    /**
+    The entry point to drop a table.
+
+    `name`: [&str]: Name of the table to drop.
+    */
+    pub fn drop_table(&self, name: &str) -> SQLDropTable {
+        match self {
+            DBImpl::SQLite => SQLDropTable {
+                dialect: DBImpl::SQLite,
+                name: name.to_string(),
+                if_exists: false,
+            },
+        }
+    }
+
+    /**
+    The entry point to alter a table.
+
+    `name`: [&str]: Name of the table to execute the operation on.
+    `operation`: [crate::alter_table::SQLAlterTableOperation]: The operation to execute.
+    */
+    pub fn alter_table(&self, name: &str, operation: SQLAlterTableOperation) -> SQLAlterTable {
+        match self {
+            DBImpl::SQLite => SQLAlterTable {
+                dialect: DBImpl::SQLite,
+                name: name.to_string(),
+                operation,
+            },
+        }
+    }
+
+    /**
+    The entry point to create a column in a table.
+
+    - `table_name`: [&str]: Name of the table.
+    - `name`: [&str]: Name of the column.
+    - `data_type`: [DbType]: Data type of the column
+    - `annotations`: [Vec<Annotation>]: List of annotations.
+    */
+    pub fn create_column(
+        &self,
+        table_name: &str,
+        name: &str,
+        data_type: DbType,
+        annotations: Vec<Annotation>,
+    ) -> SQLCreateColumn {
+        match self {
+            DBImpl::SQLite => SQLCreateColumn {
+                dialect: DBImpl::SQLite,
+                name: name.to_string(),
+                table_name: table_name.to_string(),
+                data_type,
+                annotations: annotations
+                    .into_iter()
+                    .map(|x| SQLAnnotation { annotation: x })
+                    .collect(),
+            },
+        }
+    }
+
+    /**
+    Build a select query
+    */
+    pub fn select(&self, from_clause: &str) -> SQLSelect {
+        match self {
+            DBImpl::SQLite => SQLSelect {
+                dialect: DBImpl::SQLite,
+                resulting_columns: vec![],
+                from_clause: from_clause.to_string(),
+                where_clause: None,
+                limit: None,
+                offset: None,
+                distinct: false,
+            },
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::DBImpl;
-    use rorm_common::imr::{Annotation, DbType};
 
     #[test]
     fn sqlite_01() {
@@ -122,38 +220,13 @@ mod tests {
 
     #[test]
     fn sqlite_03() {
-        assert_eq!(
-            DBImpl::SQLite
-                .create_table("test")
-                .add_column("id", DbType::UInt64, vec![])
-                .build()
-                .unwrap(),
-            "CREATE TABLE test (id INTEGER) STRICT;".to_string()
-        )
     }
 
     #[test]
     fn sqlite_04() {
-        assert_eq!(
-            DBImpl::SQLite
-                .create_table("test")
-                .add_column("id", DbType::UInt64, vec![Annotation::PrimaryKey])
-                .build()
-                .unwrap(),
-            "CREATE TABLE test (id INTEGER PRIMARY KEY) STRICT;"
-        )
     }
 
     #[test]
     fn sqlite_05() {
-        assert_eq!(
-            DBImpl::SQLite
-                .create_table("test")
-                .add_column("id", DbType::UInt64, vec![Annotation::PrimaryKey])
-                .add_column("foo", DbType::VarChar, vec![Annotation::NotNull])
-                .build()
-                .unwrap(),
-            "CREATE TABLE test (id INTEGER PRIMARY KEY,foo TEXT NOT NULL) STRICT;"
-        )
     }
 }

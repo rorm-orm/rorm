@@ -7,7 +7,7 @@ use std::path::Path;
 use anyhow::{anyhow, Context};
 use once_cell::sync::Lazy;
 use regex::Regex;
-use rorm_common::imr::{Field, InternalModelFormat, Model};
+use rorm_sql::imr::{Field, InternalModelFormat, Model};
 
 use crate::declaration::{Migration, Operation};
 use crate::utils::migrations::{
@@ -197,7 +197,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
         new_fields.iter().for_each(|(x, y)| {
             y.iter().for_each(|z| {
                 op.push(Operation::CreateField {
-                    model: "".to_string(),
+                    model: x.clone(),
                     field: (*z).clone(),
                 });
                 println!("Added field {} to model {}", z.name, x);
