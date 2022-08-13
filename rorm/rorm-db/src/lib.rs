@@ -1,3 +1,12 @@
+//! This crate is used as language independent base for building an orm.
+//!
+//! Rust specific features will be exposed through the `rorm` crate.
+//! `rorm-lib` implements C bindings for this crate.
+#![warn(missing_docs)]
+
+/**
+Errors of rorm-db will be specified here.
+*/
 pub mod error;
 
 use sqlx::any::AnyPoolOptions;
@@ -11,8 +20,11 @@ use crate::error::Error;
 Representation of different backends
 */
 pub enum DatabaseBackend {
+    /// SQLite database backend
     SQLite,
+    /// Postgres database backend
     Postgres,
+    /// MySQL / MariaDB database backend
     MySQL,
 }
 
@@ -29,21 +41,37 @@ database to connect to.
 and `max_connections` must be greater or equals `min_connections`.
 */
 pub struct DatabaseConfiguration {
+    /// Specifies the driver that will be used
     pub backend: DatabaseBackend,
+    /// Name of the database, in case of [DatabaseBackend::SQLite] name of the file.
     pub name: String,
+    /// Host to connect to. Not used in case of [DatabaseBackend::SQLite].
     pub host: String,
+    /// Port to connect to. Not used in case of [DatabaseBackend::SQLite].
     pub port: u16,
+    /// Username to authenticate with. Not used in case of [DatabaseBackend::SQLite].
     pub user: String,
+    /// Password to authenticate with. Not used in case of [DatabaseBackend::SQLite].
     pub password: String,
+    /// Minimal connections to initialize upfront.
     pub min_connections: u32,
+    /// Maximum connections that allowed to be created.
     pub max_connections: u32,
 }
 
+/**
+Main API wrapper.
+
+All operations can be started with methods of this struct.
+*/
 pub struct Database {
     pool: sqlx::Pool<sqlx::Any>,
 }
 
 impl Database {
+    /**
+    Connect to the database using `configuration`.
+    */
     pub async fn connect(configuration: DatabaseConfiguration) -> Result<Self, Error> {
         if configuration.max_connections < configuration.min_connections {
             return Err(Error::ConfigurationError(String::from("max_connections must not be less than min_connections")));
