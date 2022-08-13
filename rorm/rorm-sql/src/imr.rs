@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 #[serde(rename_all = "PascalCase")]
 pub struct InternalModelFormat {
+    /// List of all models
     pub models: Vec<Model>,
 }
 
@@ -13,10 +14,13 @@ pub struct InternalModelFormat {
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 #[serde(rename_all = "PascalCase")]
 pub struct Model {
+    /// Name of the table
     pub name: String,
 
+    /// List of columns of the table
     pub fields: Vec<Field>,
 
+    /// Optional source reference to enhance error messages
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_defined_at: Option<Source>,
@@ -26,29 +30,37 @@ pub struct Model {
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 #[serde(rename_all = "PascalCase")]
 pub struct Field {
+    /// Name of the column
     pub name: String,
 
+    /// Type of the column
     #[serde(rename = "Type")]
     pub db_type: DbType,
 
+    /// List of annotations, constraints, etc.
     pub annotations: Vec<Annotation>,
 
+    /// Optional source reference to enhance error messages
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_defined_at: Option<Source>,
 }
 
-/// Location in the source code a Model or Field originates from
+/// Location in the source code a [Model] or [Field] originates from
 /// Used for better error messages in the migration tool
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 #[serde(rename_all = "PascalCase")]
 pub struct Source {
+    /// Filename of the source code of the [Model] or [Field]
     pub file: String,
+    /// Line of the [Model] or [Field]
     pub line: usize,
+    /// Column of the [Model] or [Field]
     pub column: usize,
 }
 
 /// All column types supported by the migration tool
+#[allow(missing_docs)]
 #[non_exhaustive]
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 #[serde(rename_all = "lowercase")]
@@ -82,23 +94,40 @@ pub enum DbType {
 #[serde(tag = "Type", content = "Value")]
 #[serde(rename_all = "snake_case")]
 pub enum Annotation {
+    /// Only for [DbType::Timestamp], [DbType::Datetime], [DbType::Time], [DbType::Date] and
+    /// [DbType::Uint64]. Will set the current time of the database when a row is created.
     AutoCreateTime,
+    /// Only for [DbType::Timestamp], [DbType::Datetime], [DbType::Time], [DbType::Date] and
+    /// [DbType::Uint64]. Will set the current time of the database when a row is updated.
     AutoUpdateTime,
+    /// AUTO_INCREMENT constraint
     AutoIncrement,
+    /// A list of choices to set
     Choices(Vec<String>),
+    /// DEFAULT constraint
     DefaultValue(DefaultValue),
+    /// Create an index. The optional [IndexValue] can be used, to build more complex indexes.
     Index(Option<IndexValue>),
+    /// Only for VARCHAR. Specifies the maximum length of the column's content.
     MaxLength(i32),
+    /// NOT NULL constraint
     NotNull,
+    /// The annotated column will be used as primary key
     PrimaryKey,
+    /// UNIQUE constraint
     Unique,
 }
 
+/// Represents a complex index
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 #[serde(rename_all = "PascalCase")]
 pub struct IndexValue {
+    /// Name of the index. Can be used multiple times in a [Model] to create an
+    /// index with multiple columns.
     pub name: String,
 
+    /// The order to put the columns in while generating an index.
+    /// Only useful if multiple columns with the same name are present.
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<i32>,
@@ -115,5 +144,6 @@ pub enum DefaultValue {
     Integer(i128),
     /// Ordered float is used as f64 does not Eq and Order which are needed for Hash
     Float(OrderedFloat<f64>),
+    /// Just a bool. Nothing interesting here.
     Boolean(bool),
 }

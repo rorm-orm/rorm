@@ -58,6 +58,9 @@ pub struct SQLCreateColumn {
 }
 
 impl SQLCreateColumn {
+    /**
+    This method is used to build the statement to create a column
+    */
     pub fn build(self) -> anyhow::Result<(String, Vec<String>)> {
         match self.dialect {
             DBImpl::SQLite => {

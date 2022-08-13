@@ -2,6 +2,9 @@ use anyhow::Context;
 
 use crate::{DBImpl, SQLCreateColumn};
 
+/**
+
+*/
 pub struct SQLCreateTable {
     pub(crate) dialect: DBImpl,
     pub(crate) name: String,

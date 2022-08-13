@@ -8,8 +8,11 @@ use crate::{Annotation, DBImpl};
 Representation of a point in time definition of a create trigger statement
 */
 pub enum SQLCreateTriggerPointInTime {
+    /// Trigger AFTER operation
     After,
+    /// Trigger BEFORE operation
     Before,
+    /// Trigger INSTEAD OF operation
     InsteadOf,
 }
 
@@ -27,9 +30,15 @@ impl Display for SQLCreateTriggerPointInTime {
 Representation of the operation to execute the trigger on
 */
 pub enum SQLCreateTriggerOperation {
+    /// Execute a DELETE operation
     Delete,
+    /// Execute an INSERT operation
     Insert,
-    Update { columns: Option<Vec<String>> },
+    /// Execute an UPDATE operation
+    Update {
+        /// Columns to update
+        columns: Option<Vec<String>>
+    },
 }
 
 impl Display for SQLCreateTriggerOperation {
