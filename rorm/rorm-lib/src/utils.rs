@@ -1,6 +1,9 @@
 use std::slice::from_raw_parts;
 use std::string::FromUtf8Error;
 
+/**
+Representation of a string.
+*/
 #[repr(C)]
 pub struct FFIString {
     content: *const u8,
