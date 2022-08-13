@@ -1,8 +1,11 @@
-use sqlx::Error;
+pub mod error;
+
 use sqlx::any::AnyPoolOptions;
 use sqlx::mysql::MySqlConnectOptions;
 use sqlx::postgres::PgConnectOptions;
 use sqlx::sqlite::SqliteConnectOptions;
+
+use crate::error::Error;
 
 pub enum DatabaseBackend {
     SQLite,
@@ -27,6 +30,18 @@ pub struct Database {
 
 impl Database {
     pub async fn connect(configuration: DatabaseConfiguration) -> Result<Self, Error> {
+        if configuration.max_connections < configuration.min_connections {
+            return Err(Error::ConfigurationError(String::from("max_connections must not be less than min_connections")));
+        }
+
+        if configuration.min_connections == 0 {
+            return Err(Error::ConfigurationError(String::from("min_connections must not be 0")));
+        }
+
+        if configuration.name == "" {
+            return Err(Error::ConfigurationError(String::from("name must not be empty")))
+        }
+
         let database;
         let pool_options = AnyPoolOptions::new()
             .min_connections(configuration.min_connections)
