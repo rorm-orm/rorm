@@ -4,6 +4,7 @@
 #[doc(hidden)]
 pub use id::ID;
 pub use linkme;
+pub use rorm_db::*;
 pub use rorm_macro::*;
 pub use rorm_sql::imr;
 use std::io::Write;
