@@ -7,12 +7,27 @@ use sqlx::sqlite::SqliteConnectOptions;
 
 use crate::error::Error;
 
+/**
+Representation of different backends
+*/
 pub enum DatabaseBackend {
     SQLite,
     Postgres,
     MySQL,
 }
 
+/**
+Configuration to create a database connection.
+
+If [DatabaseBackend::SQLite] is used as backend, `name` specifies the filename.
+`host`, `port`, `user`, `password` is not used in this case.
+
+If [DatabaseBackend::Postgres] or [DatabaseBackend::MySQL] is used, `name` specifies the
+database to connect to.
+
+`min_connections` and `max_connections` must be greater than 0
+and `max_connections` must be greater or equals `min_connections`.
+*/
 pub struct DatabaseConfiguration {
     pub backend: DatabaseBackend,
     pub name: String,
