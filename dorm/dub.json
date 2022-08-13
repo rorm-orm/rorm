@@ -2,14 +2,11 @@
 	"name": "dorm",
 	"license": "MIT",
 	"authors": [
-		"myOmikron"
+		"myOmikron",
+		"WebFreak"
 	],
 	"copyright": "Copyright © 2022, myOmikron",
 	"dependencies": {
-		"arsd-official:mysql": "~>10.8.4",
-		"arsd-official:postgres": "~>10.8.4",
-		"arsd-official:sqlite": "~>10.8.4",
-		"toml-temp": "~>1.0.1",
 		"mir-ion": "~>1.1.0-rc3"
 	},
 	"description": "A D ORM.",
