@@ -190,6 +190,10 @@ pub fn model(strct: TokenStream) -> TokenStream {
             }
             impl ::rorm::model::Model for #strct_ident {
                 type Fields = #fields_enum;
+
+                fn table_name() -> &'static str {
+                    #model_name
+                }
             }
 
             #[allow(non_camel_case_types)]

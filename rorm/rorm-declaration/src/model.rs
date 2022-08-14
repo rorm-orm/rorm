@@ -157,7 +157,7 @@ pub trait Model {
     type Fields;
 
     /// Returns the table name of the model
-    fn table_name() -> String;
+    fn table_name() -> &'static str;
 }
 
 /// rorm's model representation holding all data about a specific model.

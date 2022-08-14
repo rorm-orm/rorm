@@ -3,8 +3,7 @@
 
 pub use linkme;
 pub use rorm_db::*;
-pub use rorm_declaration::model::DbEnum;
-pub use rorm_declaration::model::ID;
+pub use rorm_declaration::model::{DbEnum, Model, ID};
 pub use rorm_macro::*;
 
 // Reexports to be used by macro
