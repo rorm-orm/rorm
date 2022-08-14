@@ -155,6 +155,9 @@ pub trait Model {
     /// no variant or associated item named `$field` found for enum `__$model_Fields` in the current scope
     /// ```
     type Fields;
+
+    /// Returns the table name of the model
+    fn table_name() -> String;
 }
 
 /// rorm's model representation holding all data about a specific model.
