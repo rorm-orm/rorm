@@ -5,9 +5,8 @@ use std::path::Path;
 use anyhow::Context;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use rorm_sql::imr::{InternalModelFormat, Model};
-
-use crate::declaration::{Migration, MigrationFile, Operation};
+use rorm_declaration::imr::{InternalModelFormat, Model};
+use rorm_declaration::migration::{Migration, MigrationFile, Operation};
 
 pub static RE_ALLOWED_NAME: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#"^[0-9]{4}_\w+\.toml$"#).unwrap());

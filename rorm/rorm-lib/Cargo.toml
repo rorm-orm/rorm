@@ -9,7 +9,7 @@ repository = "github.com/myOmikron/drorm"
 
 [lib]
 name = "rorm"
-crate-type = ["staticlib"]
+crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
 rorm-db = { version = "0.1.0", path = "../rorm-db" }

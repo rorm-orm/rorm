@@ -7,9 +7,9 @@ use std::path::Path;
 use anyhow::{anyhow, Context};
 use once_cell::sync::Lazy;
 use regex::Regex;
-use rorm_sql::imr::{Field, InternalModelFormat, Model};
+use rorm_declaration::imr::{Field, InternalModelFormat, Model};
+use rorm_declaration::migration::{Migration, Operation};
 
-use crate::declaration::{Migration, Operation};
 use crate::utils::migrations::{
     convert_migration_to_file, convert_migrations_to_internal_models, get_existing_migrations,
 };

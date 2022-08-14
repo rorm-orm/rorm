@@ -1,8 +1,7 @@
 use anyhow::Context;
+use rorm_declaration::migration::{Migration, Operation};
 use rorm_sql::alter_table::SQLAlterTableOperation;
 use rorm_sql::DBImpl;
-
-use crate::declaration::{Migration, Operation};
 
 /**
 Helper method to convert a migration to a transaction string

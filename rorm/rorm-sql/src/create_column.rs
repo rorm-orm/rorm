@@ -1,8 +1,8 @@
 use anyhow::Context;
 
-use crate::create_trigger::trigger_annotation_to_trigger;
+use rorm_declaration::imr::DefaultValue;
 
-use crate::imr::DefaultValue;
+use crate::create_trigger::trigger_annotation_to_trigger;
 use crate::{Annotation, DBImpl, DbType};
 
 /**
@@ -34,6 +34,9 @@ impl SQLAnnotation {
                             } else {
                                 "DEFAULT 0".to_string()
                             }
+                        }
+                        _ => {
+                            todo!("not intended");
                         }
                     },
                     Annotation::NotNull => "NOT NULL".to_string(),
@@ -83,6 +86,7 @@ impl SQLCreateColumn {
                     | DbType::UInt64
                     | DbType::Boolean => "INTEGER",
                     DbType::Float | DbType::Double => "REAL",
+                    _ => {todo!("not implemented");}
                 };
 
                 let mut annotations = vec![];

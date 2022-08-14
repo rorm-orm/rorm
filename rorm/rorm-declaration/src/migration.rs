@@ -1,5 +1,6 @@
-use rorm_sql::imr::Field;
 use serde::{Deserialize, Serialize};
+
+use crate::imr::Field;
 
 /**
 The presentation of a migration file
@@ -43,6 +44,7 @@ The representation for all possible database operations
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "Type")]
 pub enum Operation {
+    /// Representation of a CreateModel operation
     #[serde(rename_all = "PascalCase")]
     CreateModel {
         /// Name of the model
@@ -51,6 +53,7 @@ pub enum Operation {
         fields: Vec<Field>,
     },
 
+    /// Representation of a RenameModel operation
     #[serde(rename_all = "PascalCase")]
     RenameModel {
         /// Old name of the model
@@ -59,12 +62,14 @@ pub enum Operation {
         new: String,
     },
 
+    /// Representation of a DeleteModel operation
     #[serde(rename_all = "PascalCase")]
     DeleteModel {
         /// Name of the model
         name: String,
     },
 
+    /// Representation of a CreateField operation
     #[serde(rename_all = "PascalCase")]
     CreateField {
         /// Name of the model
@@ -73,6 +78,7 @@ pub enum Operation {
         field: Field,
     },
 
+    /// Representation of a RenameField operation
     #[serde(rename_all = "PascalCase")]
     RenameField {
         /// Name of the table the column lives in
@@ -85,6 +91,7 @@ pub enum Operation {
         new: String,
     },
 
+    /// Representation of a DeleteField operation
     #[serde(rename_all = "PascalCase")]
     DeleteField {
         /// Name of the model

@@ -13,12 +13,12 @@ pub mod create_table;
 pub mod create_trigger;
 /// Implementation of SQL DROP TABLE statements
 pub mod drop_table;
-/// This module holds the internal model representation
-pub mod imr;
 /// Implementation of SQL SELECT statements
 pub mod select;
 /// Implementation of SQL Transactions
 pub mod transaction;
+
+use rorm_declaration::imr::{Annotation, DbType};
 
 use crate::alter_table::{SQLAlterTable, SQLAlterTableOperation};
 use crate::create_column::{SQLAnnotation, SQLCreateColumn};
@@ -28,7 +28,6 @@ use crate::create_trigger::{
     SQLCreateTrigger, SQLCreateTriggerOperation, SQLCreateTriggerPointInTime,
 };
 use crate::drop_table::SQLDropTable;
-use crate::imr::{Annotation, DbType};
 use crate::select::SQLSelect;
 use crate::transaction::SQLTransaction;
 
@@ -219,14 +218,11 @@ mod tests {
     }
 
     #[test]
-    fn sqlite_03() {
-    }
+    fn sqlite_03() {}
 
     #[test]
-    fn sqlite_04() {
-    }
+    fn sqlite_04() {}
 
     #[test]
-    fn sqlite_05() {
-    }
+    fn sqlite_05() {}
 }

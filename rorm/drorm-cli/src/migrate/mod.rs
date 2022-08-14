@@ -4,12 +4,12 @@ pub mod sql_builder;
 use std::path::Path;
 
 use anyhow::{anyhow, Context};
-use rorm_sql::imr::{Annotation, DbType};
+use rorm_declaration::imr::{Annotation, DbType};
+use rorm_declaration::migration::Migration;
 use rorm_sql::DBImpl;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteRow};
 use sqlx::{query, Row, SqlitePool};
 
-use crate::declaration::Migration;
 use crate::migrate::config::DatabaseDriver::SQLite;
 use crate::migrate::config::{create_db_config, deserialize_db_conf, DatabaseDriver};
 use crate::migrate::sql_builder::migration_to_sql;

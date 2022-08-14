@@ -1,4 +1,3 @@
-pub mod declaration;
 pub mod make_migrations;
 pub mod merge_migrations;
 pub mod migrate;
