@@ -1,30 +1,31 @@
+use std::marker::PhantomData;
 use std::slice::from_raw_parts;
-use std::string::FromUtf8Error;
+use std::str::{from_utf8, Utf8Error};
 
 /**
 Representation of a string.
 */
 #[repr(C)]
-pub struct FFIString {
+pub struct FFIString<'a> {
     content: *const u8,
     size: usize,
+    lifetime: PhantomData<&'a ()>,
 }
 
-impl TryFrom<FFIString> for String {
-    type Error = FromUtf8Error;
+impl<'a> TryFrom<FFIString<'a>> for &'a str {
+    type Error = Utf8Error;
 
     fn try_from(value: FFIString) -> Result<Self, Self::Error> {
-        unsafe {
-            String::from_utf8(from_raw_parts(value.content, value.size).into())
-        }
+        from_utf8(unsafe { from_raw_parts(value.content, value.size) })
     }
 }
 
-impl From<String> for FFIString {
-    fn from(s: String) -> Self {
+impl<'a> From<&'a str> for FFIString<'a> {
+    fn from(s: &'a str) -> Self {
         Self {
             content: s.as_ptr(),
             size: s.len(),
+            lifetime: PhantomData,
         }
     }
 }

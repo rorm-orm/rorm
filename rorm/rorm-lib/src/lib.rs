@@ -10,15 +10,15 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use uuid::Uuid;
 use once_cell::sync::Lazy;
-use tokio::runtime::Runtime;
 use rorm_db::{Database, DatabaseBackend, DatabaseConfiguration};
+use tokio::runtime::Runtime;
+use uuid::Uuid;
 
 use crate::utils::FFIString;
 
-
-static RUNTIME: Lazy<Mutex<Option<Runtime>>> = Lazy::new(|| Mutex::new(Some(Runtime::new().expect("Couldn't start runtime"))));
+static RUNTIME: Lazy<Mutex<Option<Runtime>>> =
+    Lazy::new(|| Mutex::new(Some(Runtime::new().expect("Couldn't start runtime"))));
 
 /**
 Representation of the database backend.
@@ -51,28 +51,28 @@ Configuration operation to connect to a database.
 Will be converted into [rorm_db::DatabaseConfiguration].
 */
 #[repr(C)]
-pub struct DBConnectOptions {
+pub struct DBConnectOptions<'a> {
     backend: DBBackend,
-    name: FFIString,
-    host: FFIString,
+    name: FFIString<'a>,
+    host: FFIString<'a>,
     port: u16,
-    user: FFIString,
-    password: FFIString,
+    user: FFIString<'a>,
+    password: FFIString<'a>,
     min_connections: u32,
     max_connections: u32,
 }
 
-impl From<DBConnectOptions> for DatabaseConfiguration {
+impl From<DBConnectOptions<'_>> for DatabaseConfiguration {
     fn from(config: DBConnectOptions) -> Self {
         Self {
             backend: config.backend.into(),
-            name: String::try_from(config.name).unwrap(),
-            host: String::try_from(config.host).unwrap(),
+            name: <&str>::try_from(config.name).unwrap().to_owned(),
+            host: <&str>::try_from(config.host).unwrap().to_owned(),
             port: config.port,
-            user: String::try_from(config.user).unwrap(),
-            password: String::try_from(config.password).unwrap(),
+            user: <&str>::try_from(config.user).unwrap().to_owned(),
+            password: <&str>::try_from(config.password).unwrap().to_owned(),
             min_connections: config.min_connections,
-            max_connections: config.max_connections
+            max_connections: config.max_connections,
         }
     }
 }
@@ -89,7 +89,10 @@ The first parameter is used as identifier for later operations.
 If it is an empty string, the second parameter will hold an error message.
 */
 #[no_mangle]
-pub extern "C" fn rorm_db_connect(options: DBConnectOptions, callback: extern "C" fn(FFIString, FFIString) -> ()) {
+pub extern "C" fn rorm_db_connect(
+    options: DBConnectOptions,
+    callback: extern "C" fn(FFIString<'_>, FFIString<'_>) -> (),
+) {
     let db_options = options.into();
 
     RUNTIME.lock().unwrap().as_ref().unwrap().spawn(async move {
@@ -98,10 +101,12 @@ pub extern "C" fn rorm_db_connect(options: DBConnectOptions, callback: extern "C
                 let mut l = DB_LIST.lock().unwrap();
                 let u = Uuid::new_v4();
                 l.insert(u, db);
-                callback(u.to_string().into(), String::from("").into());
+                let identifier = u.to_string();
+                callback(FFIString::from(identifier.as_str()), FFIString::from(""));
             }
             Err(e) => {
-                callback(FFIString::from(String::from("")), e.to_string().into());
+                let error = e.to_string();
+                callback(FFIString::from(""), FFIString::from(error.as_str()));
             }
         };
     });
@@ -114,5 +119,10 @@ Specify the amount of time to wait in milliseconds.
 */
 #[no_mangle]
 pub extern "C" fn rorm_shutdown(duration: u64) {
-    RUNTIME.lock().unwrap().take().unwrap().shutdown_timeout(Duration::from_millis(duration));
+    RUNTIME
+        .lock()
+        .unwrap()
+        .take()
+        .unwrap()
+        .shutdown_timeout(Duration::from_millis(duration));
 }
