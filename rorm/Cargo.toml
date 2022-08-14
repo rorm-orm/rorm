@@ -7,7 +7,6 @@ members = [
 	"rorm-lib",
 	"rorm-macro",
 	"rorm-sql",
-	"example",
 ]
 
 [package]
