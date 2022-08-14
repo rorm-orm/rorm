@@ -60,7 +60,7 @@ pub fn db_enum(enm: TokenStream) -> TokenStream {
     let enum_name = &enm.ident;
 
     quote! {
-        impl ::rorm::DbEnum for #enum_name {
+        impl ::rorm::model::DbEnum for #enum_name {
             fn from_str(string: &str) -> Self {
                 use #enum_name::*;
                 match string {
@@ -147,7 +147,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
         field_name.make_ascii_lowercase();
         let field_name = syn::LitStr::new(&field_name, field.span());
         let field_type = &field.ty;
-        let field_type = quote! { <#field_type as ::rorm::AsDbType> };
+        let field_type = quote! { <#field_type as ::rorm::model::AsDbType> };
         let field_source = get_source(&field);
         model_fields.push(quote! {
             {
@@ -156,7 +156,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
                 ];
                 let db_type = #field_type::as_db_type(&annotations);
                 annotations.append(&mut #field_type::implicit_annotations());
-                ::rorm::model_def::Field {
+                ::rorm::model::Field {
                     name: #field_name,
                     db_type, annotations,
                     nullable: #field_type::is_nullable(),
@@ -188,15 +188,15 @@ pub fn model(strct: TokenStream) -> TokenStream {
             pub enum #fields_enum {
                 #(#field_idents),*
             }
-            impl ::rorm::model_def::Model for #strct_ident {
+            impl ::rorm::model::Model for #strct_ident {
                 type Fields = #fields_enum;
             }
 
             #[allow(non_camel_case_types)]
             struct #definition_getter_struct;
-            impl ::rorm::model_def::GetModelDefinition for #definition_getter_struct {
-                fn as_rorm(&self) -> ::rorm::model_def::ModelDefinition {
-                    ::rorm::model_def::ModelDefinition {
+            impl ::rorm::model::GetModelDefinition for #definition_getter_struct {
+                fn as_rorm(&self) -> ::rorm::model::ModelDefinition {
+                    ::rorm::model::ModelDefinition {
                         name: #model_name,
                         source: #model_source,
                         fields: vec![ #(#model_fields),* ],
@@ -208,9 +208,9 @@ pub fn model(strct: TokenStream) -> TokenStream {
             static #definition_getter_instance: #definition_getter_struct = #definition_getter_struct;
 
             #[allow(non_snake_case)]
-            #[::rorm::linkme::distributed_slice(::rorm::model_def::MODELS)]
+            #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
             #[::rorm::rename_linkme]
-            static #definition_getter_dyn_obj: &'static dyn ::rorm::model_def::GetModelDefinition = &#definition_getter_instance;
+            static #definition_getter_dyn_obj: &'static dyn ::rorm::model::GetModelDefinition = &#definition_getter_instance;
 
             #errors
         }

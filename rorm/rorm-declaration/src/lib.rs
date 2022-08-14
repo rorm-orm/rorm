@@ -7,3 +7,6 @@ pub mod imr;
 
 /// This module holds the definition of migration files
 pub mod migration;
+
+/// This module holds traits and structs for working with models
+pub mod model;
