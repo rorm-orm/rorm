@@ -1,4 +1,3 @@
-use crate::error::Error;
 use crate::{DBImpl, SQLCreateColumn};
 
 /**

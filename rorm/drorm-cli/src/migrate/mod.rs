@@ -119,7 +119,6 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                     ))
                     .if_not_exists()
                     .build()
-                    .with_context(|| "Error while creating last migration table")?
                     .as_str(),
             )
             .execute(&pool)

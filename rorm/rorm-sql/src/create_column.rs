@@ -1,7 +1,6 @@
 use rorm_declaration::imr::DefaultValue;
 
 use crate::create_trigger::trigger_annotation_to_trigger;
-use crate::error::Error;
 use crate::{Annotation, DBImpl, DbType};
 
 /**

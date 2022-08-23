@@ -1,6 +1,5 @@
 use std::fmt::{Display, Formatter};
 
-use crate::error::Error;
 use crate::{Annotation, DBImpl};
 
 /**

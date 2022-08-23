@@ -1,4 +1,3 @@
-use anyhow::Context;
 use rorm_declaration::migration::{Migration, Operation};
 use rorm_sql::alter_table::SQLAlterTableOperation;
 use rorm_sql::DBImpl;
@@ -26,13 +25,7 @@ pub fn migration_to_sql(db_impl: DBImpl, migration: &Migration) -> anyhow::Resul
                     ));
                 }
 
-                transaction =
-                    transaction.add_statement(create_table.build().with_context(|| {
-                        format!(
-                            "Could not build create table operation for migration {}",
-                            migration.id.as_str()
-                        )
-                    })?);
+                transaction = transaction.add_statement(create_table.build());
             }
             Operation::RenameModel { old, new } => {
                 transaction = transaction.add_statement(
@@ -43,24 +36,11 @@ pub fn migration_to_sql(db_impl: DBImpl, migration: &Migration) -> anyhow::Resul
                                 name: new.to_string(),
                             },
                         )
-                        .build()
-                        .with_context(|| {
-                            format!(
-                                "Could not build rename table operation for migration {}",
-                                migration.id.as_str()
-                            )
-                        })?,
+                        .build(),
                 );
             }
             Operation::DeleteModel { name } => {
-                transaction = transaction.add_statement(
-                    db_impl.drop_table(name.as_str()).build().with_context(|| {
-                        format!(
-                            "Could not build drop table operation for migration {}",
-                            migration.id.as_str()
-                        )
-                    })?,
-                )
+                transaction = transaction.add_statement(db_impl.drop_table(name.as_str()).build())
             }
             Operation::CreateField { model, field } => {
                 transaction = transaction.add_statement(
@@ -76,13 +56,7 @@ pub fn migration_to_sql(db_impl: DBImpl, migration: &Migration) -> anyhow::Resul
                                 ),
                             },
                         )
-                        .build()
-                        .with_context(|| {
-                            format!(
-                                "Could not build add column operation for migration {}",
-                                migration.id.as_str()
-                            )
-                        })?,
+                        .build(),
                 );
             }
             Operation::RenameField {
@@ -99,13 +73,7 @@ pub fn migration_to_sql(db_impl: DBImpl, migration: &Migration) -> anyhow::Resul
                                 new_column_name: new.to_string(),
                             },
                         )
-                        .build()
-                        .with_context(|| {
-                            format!(
-                                "Could not build rename field operation for migration {}",
-                                migration.id.as_str()
-                            )
-                        })?,
+                        .build(),
                 )
             }
             Operation::DeleteField { model, name } => {
@@ -115,22 +83,11 @@ pub fn migration_to_sql(db_impl: DBImpl, migration: &Migration) -> anyhow::Resul
                             model.as_str(),
                             SQLAlterTableOperation::DropColumn { name: name.clone() },
                         )
-                        .build()
-                        .with_context(|| {
-                            format!(
-                                "Could not build drop column operation for migration {}",
-                                migration.id.as_str()
-                            )
-                        })?,
+                        .build(),
                 );
             }
         }
     }
 
-    Ok(transaction.finish().with_context(|| {
-        format!(
-            "Could not create transaction for migration {}",
-            migration.id.as_str()
-        )
-    })?)
+    Ok(transaction.finish())
 }
