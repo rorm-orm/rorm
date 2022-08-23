@@ -82,6 +82,7 @@ impl SQLAlterTable {
                     }
                 )
             }
+            _ => todo!("Not implemented yet!")
         })
     }
 }

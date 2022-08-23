@@ -45,6 +45,7 @@ impl SQLAnnotation {
                     _ => "".to_string(),
                 });
             }
+            _ => todo!("Not implemented yet!")
         }
     }
 }
@@ -121,6 +122,7 @@ impl SQLCreateColumn {
                     trigger,
                 ));
             }
+            _ => todo!("Not implemented yet!")
         }
     }
 }

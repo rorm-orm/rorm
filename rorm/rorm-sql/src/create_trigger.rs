@@ -117,6 +117,7 @@ pub(crate) fn trigger_annotation_to_trigger(
             }
             _ => {}
         },
+        _ => todo!("Not implemented yet!")
     };
     return Ok(trigger);
 }
@@ -182,6 +183,7 @@ impl SQLCreateTrigger {
                     self.statements.join(" "),
                 ))
             }
+            _ => todo!("Not implemented yet!")
         };
     }
 }

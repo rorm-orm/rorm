@@ -58,6 +58,7 @@ impl SQLCreateTable {
                     trigger.join(" "),
                 ))
             }
+            _ => todo!("Not implemented yet!")
         };
     }
 }

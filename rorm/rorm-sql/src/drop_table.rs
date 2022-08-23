@@ -30,6 +30,7 @@ impl SQLDropTable {
                     if self.if_exists { "IF EXISTS" } else { "" }
                 )
             }
+            _ => todo!("Not implemented yet!")
         });
     }
 }

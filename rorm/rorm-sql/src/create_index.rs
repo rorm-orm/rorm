@@ -1,9 +1,12 @@
 use anyhow::anyhow;
 
+use crate::DBImpl;
+
 /**
 Representation of a create index operation
 */
 pub struct SQLCreateIndex {
+    pub(crate) dialect: DBImpl,
     pub(crate) name: String,
     pub(crate) table_name: String,
     pub(crate) unique: bool,
@@ -57,21 +60,24 @@ impl SQLCreateIndex {
             ));
         }
 
-        Ok(format!(
-            "CREATE {} INDEX {} {} ON {} ({}) {};",
-            if self.unique { "UNIQUE" } else { "" },
-            if self.if_not_exists {
-                "IF NOT EXISTS"
-            } else {
-                ""
-            },
-            self.name,
-            self.table_name,
-            self.columns.join(","),
-            match self.condition {
-                None => "".to_string(),
-                Some(s) => s,
-            }
-        ))
+        Ok(match self.dialect {
+            DBImpl::SQLite => format!(
+                "CREATE {} INDEX {} {} ON {} ({}) {};",
+                if self.unique { "UNIQUE" } else { "" },
+                if self.if_not_exists {
+                    "IF NOT EXISTS"
+                } else {
+                    ""
+                },
+                self.name,
+                self.table_name,
+                self.columns.join(","),
+                match self.condition {
+                    None => "".to_string(),
+                    Some(s) => s,
+                }
+            ),
+            _ => todo!("Not implemented yet!")
+        })
     }
 }

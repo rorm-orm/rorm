@@ -84,6 +84,7 @@ impl SQLSelect {
                 ),
                 lookup,
             )),
+            _ => todo!("Not implemented yet!")
         };
     }
 }

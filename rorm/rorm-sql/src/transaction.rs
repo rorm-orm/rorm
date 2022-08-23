@@ -25,6 +25,7 @@ impl SQLTransaction {
             DBImpl::SQLite => {
                 format!("BEGIN; {} COMMIT;", self.statements.join(" "))
             }
+            _ => todo!("Not implemented yet!")
         })
     }
 }

@@ -37,6 +37,10 @@ The main interface for creating sql strings
 pub enum DBImpl {
     /// Implementation of SQLite
     SQLite,
+    /// Implementation of Postgres
+    Postgres,
+    /// Implementation of MySQL / MariaDB
+    MySQL,
 }
 
 impl DBImpl {
@@ -53,6 +57,7 @@ impl DBImpl {
                 columns: vec![],
                 if_not_exists: false,
             },
+            _ => todo!("Not implemented yet!")
         }
     }
 
@@ -81,6 +86,7 @@ impl DBImpl {
                 operation,
                 statements: vec![],
             },
+            _ => todo!("Not implemented yet!")
         }
     }
 
@@ -93,6 +99,7 @@ impl DBImpl {
     pub fn create_index(&self, name: &str, table_name: &str) -> SQLCreateIndex {
         match self {
             DBImpl::SQLite => SQLCreateIndex {
+                dialect: DBImpl::SQLite,
                 name: name.to_string(),
                 table_name: table_name.to_string(),
                 unique: false,
@@ -100,6 +107,7 @@ impl DBImpl {
                 columns: vec![],
                 condition: None,
             },
+            _ => todo!("Not implemented yet!")
         }
     }
 
@@ -112,6 +120,7 @@ impl DBImpl {
                 dialect: DBImpl::SQLite,
                 statements: vec![],
             },
+            _ => todo!("Not implemented yet!")
         }
     }
 
@@ -127,6 +136,7 @@ impl DBImpl {
                 name: name.to_string(),
                 if_exists: false,
             },
+            _ => todo!("Not implemented yet!")
         }
     }
 
@@ -143,6 +153,7 @@ impl DBImpl {
                 name: name.to_string(),
                 operation,
             },
+            _ => todo!("Not implemented yet!")
         }
     }
 
@@ -172,6 +183,7 @@ impl DBImpl {
                     .map(|x| SQLAnnotation { annotation: x })
                     .collect(),
             },
+            _ => todo!("Not implemented yet!")
         }
     }
 
@@ -189,6 +201,7 @@ impl DBImpl {
                 offset: None,
                 distinct: false,
             },
+            _ => todo!("Not implemented yet!")
         }
     }
 }
