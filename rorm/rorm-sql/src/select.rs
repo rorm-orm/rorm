@@ -67,24 +67,28 @@ impl SQLSelect {
     /**
     Build the select query
     */
-    pub fn build(self) -> anyhow::Result<(String, HashMap<String, i64>)> {
+    pub fn build(self) -> (String, HashMap<String, i64>) {
         let lookup = HashMap::new();
 
         return match self.dialect {
-            DBImpl::SQLite => Ok((
+            DBImpl::SQLite => (
                 format!(
                     "SELECT {} {} FROM {} {};",
                     if self.distinct { "DISTINCT" } else { "" },
                     self.resulting_columns.join(", "),
                     self.from_clause,
                     match self.where_clause {
-                        None => {"".to_string()}
-                        Some( where_clause ) => {format!("WHERE {}", where_clause)}
+                        None => {
+                            "".to_string()
+                        }
+                        Some(where_clause) => {
+                            format!("WHERE {}", where_clause)
+                        }
                     },
                 ),
                 lookup,
-            )),
-            _ => todo!("Not implemented yet!")
+            ),
+            _ => todo!("Not implemented yet!"),
         };
     }
 }

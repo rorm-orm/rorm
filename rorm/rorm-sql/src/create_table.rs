@@ -1,5 +1,3 @@
-use anyhow::Context;
-
 use crate::{DBImpl, SQLCreateColumn};
 
 /**
@@ -32,21 +30,19 @@ impl SQLCreateTable {
     /**
     This method is used to convert the current state for the given dialect in a [String].
     */
-    pub fn build(self) -> anyhow::Result<String> {
+    pub fn build(self) -> String {
         return match self.dialect {
             DBImpl::SQLite => {
                 let mut columns = vec![];
                 let mut trigger = vec![];
                 for column in self.columns {
-                    let (s, c_trigger) = column.build().with_context(|| {
-                        format!("Error while building CREATE TABLE {}", self.name)
-                    })?;
+                    let (s, c_trigger) = column.build();
                     columns.push(s);
 
                     trigger.extend(c_trigger);
                 }
 
-                Ok(format!(
+                format!(
                     r#"CREATE TABLE{} {} ({}) STRICT;{}"#,
                     if self.if_not_exists {
                         " IF NOT EXISTS"
@@ -56,9 +52,9 @@ impl SQLCreateTable {
                     self.name,
                     columns.join(","),
                     trigger.join(" "),
-                ))
+                )
             }
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         };
     }
 }

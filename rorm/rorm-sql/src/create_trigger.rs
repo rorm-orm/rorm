@@ -1,7 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-use anyhow::{anyhow, Context};
-
+use crate::error::Error;
 use crate::{Annotation, DBImpl};
 
 /**
@@ -37,7 +36,7 @@ pub enum SQLCreateTriggerOperation {
     /// Execute an UPDATE operation
     Update {
         /// Columns to update
-        columns: Option<Vec<String>>
+        columns: Option<Vec<String>>,
     },
 }
 
@@ -59,7 +58,7 @@ pub(crate) fn trigger_annotation_to_trigger(
     annotation: &Annotation,
     table_name: &str,
     column_name: &str,
-) -> anyhow::Result<Vec<String>> {
+) -> Vec<String> {
     let mut trigger: Vec<String> = vec![];
     match dialect {
         DBImpl::SQLite => match annotation {
@@ -69,57 +68,38 @@ pub(crate) fn trigger_annotation_to_trigger(
                     table_name, column_name
                 );
 
-                trigger.push(DBImpl::SQLite
-                    .create_trigger(
-                        format!(
-                            "{}_{}_auto_update_time_insert",
-                            table_name, column_name
-                        ).as_str(),
-                        table_name,
-                        Some(SQLCreateTriggerPointInTime::After),
-                        SQLCreateTriggerOperation::Insert,
-                    ).if_not_exists()
-                    .add_statement(
-                        update_statement.clone(),
-                    )
-                    .build()
-                    .with_context(
-                        || format!(
-                            "Couldn't create insert trigger for auto_update_time annotation on field {} in table {}",
-                            column_name,
-                            table_name,
-                        )
-                    )?);
                 trigger.push(
-                    DBImpl::SQLite.create_trigger(
-                        format!(
-                            "{}_{}_auto_update_time_update",
+                    DBImpl::SQLite
+                        .create_trigger(
+                            format!("{}_{}_auto_update_time_insert", table_name, column_name)
+                                .as_str(),
                             table_name,
-                            column_name
-                        ).as_str(),
-                        table_name,
-                        Some(SQLCreateTriggerPointInTime::After),
-                        SQLCreateTriggerOperation::Update { columns: None },
-                    )
-                        .if_not_exists().
-                        add_statement(
-                            update_statement.clone(),
+                            Some(SQLCreateTriggerPointInTime::After),
+                            SQLCreateTriggerOperation::Insert,
                         )
-                        .build()
-                        .with_context(
-                            || format!(
-                                "Couldn't create update trigger for auto_update_time annotation on field {} in table {}",
-                                column_name,
-                                table_name
-                            )
-                        )?
+                        .if_not_exists()
+                        .add_statement(update_statement.clone())
+                        .build(),
+                );
+                trigger.push(
+                    DBImpl::SQLite
+                        .create_trigger(
+                            format!("{}_{}_auto_update_time_update", table_name, column_name)
+                                .as_str(),
+                            table_name,
+                            Some(SQLCreateTriggerPointInTime::After),
+                            SQLCreateTriggerOperation::Update { columns: None },
+                        )
+                        .if_not_exists()
+                        .add_statement(update_statement.clone())
+                        .build(),
                 )
             }
             _ => {}
         },
-        _ => todo!("Not implemented yet!")
+        _ => todo!("Not implemented yet!"),
     };
-    return Ok(trigger);
+    return trigger;
 }
 
 /**
@@ -155,18 +135,10 @@ impl SQLCreateTrigger {
     /**
     Generate the resulting SQL string
     */
-    pub fn build(self) -> anyhow::Result<String> {
+    pub fn build(self) -> String {
         return match self.dialect {
             DBImpl::SQLite => {
-                if self.name == "" {
-                    return Err(anyhow!("Name of the trigger must not empty"));
-                }
-
-                if self.table_name == "" {
-                    return Err(anyhow!("Name of the table must not be empty"));
-                }
-
-                Ok(format!(
+                format!(
                     "CREATE TRIGGER {} {} {} {} ON {} BEGIN {} END;",
                     if self.if_not_exists {
                         "IF NOT EXISTS"
@@ -181,9 +153,9 @@ impl SQLCreateTrigger {
                     self.operation,
                     self.table_name,
                     self.statements.join(" "),
-                ))
+                )
             }
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         };
     }
 }

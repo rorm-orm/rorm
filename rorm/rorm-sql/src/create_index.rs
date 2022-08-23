@@ -1,5 +1,4 @@
-use anyhow::anyhow;
-
+use crate::error::Error;
 use crate::DBImpl;
 
 /**
@@ -52,12 +51,12 @@ impl SQLCreateIndex {
     /**
     This method is used to build the create index operation
     */
-    pub fn build(self) -> anyhow::Result<String> {
+    pub fn build(self) -> Result<String, Error> {
         if self.columns.len() == 0 {
-            return Err(anyhow!(
+            return Err(Error::SQLBuildError(format!(
                 "Couldn't create index on {}: Missing column(s) to create the index on",
                 self.table_name
-            ));
+            )));
         }
 
         Ok(match self.dialect {
@@ -77,7 +76,7 @@ impl SQLCreateIndex {
                     Some(s) => s,
                 }
             ),
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         })
     }
 }

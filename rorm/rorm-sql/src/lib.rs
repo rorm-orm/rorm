@@ -13,6 +13,8 @@ pub mod create_table;
 pub mod create_trigger;
 /// Implementation of SQL DROP TABLE statements
 pub mod drop_table;
+/// Definition of error types that can occur.
+pub mod error;
 /// Implementation of SQL SELECT statements
 pub mod select;
 /// Implementation of SQL Transactions
@@ -188,7 +190,10 @@ impl DBImpl {
     }
 
     /**
-    Build a select query
+    Build a select query.
+
+    The `from_clause` specifies the FROM in sql.
+    This can be a single table name or a complex query itself.
     */
     pub fn select(&self, from_clause: &str) -> SQLSelect {
         match self {

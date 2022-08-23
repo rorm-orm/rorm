@@ -8,7 +8,7 @@ authors = ["myOmikron <git@omikron.dev>"]
 repository = "github.com/myOmikron/drorm"
 
 [dependencies]
-# Generic error package
-anyhow = { version = "1.0" }
+# Error library to simplify the std::error::Error trait
+thiserror = { version = "^1.0" }
 
 rorm-declaration = { version = "0.1.0", path = "../rorm-declaration" }

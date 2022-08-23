@@ -20,12 +20,12 @@ impl SQLTransaction {
     /**
     Finishes the current migration
     */
-    pub fn finish(self) -> anyhow::Result<String> {
-        Ok(match self.dialect {
+    pub fn finish(self) -> String {
+        match self.dialect {
             DBImpl::SQLite => {
                 format!("BEGIN; {} COMMIT;", self.statements.join(" "))
             }
-            _ => todo!("Not implemented yet!")
-        })
+            _ => todo!("Not implemented yet!"),
+        }
     }
 }

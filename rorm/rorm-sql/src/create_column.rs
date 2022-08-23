@@ -1,8 +1,7 @@
-use anyhow::Context;
-
 use rorm_declaration::imr::DefaultValue;
 
 use crate::create_trigger::trigger_annotation_to_trigger;
+use crate::error::Error;
 use crate::{Annotation, DBImpl, DbType};
 
 /**
@@ -18,10 +17,10 @@ impl SQLAnnotation {
 
     `dialect`: [&DBImpl]: dialect to use
      */
-    pub fn build(&self, dialect: DBImpl) -> anyhow::Result<String> {
+    pub fn build(&self, dialect: DBImpl) -> String {
         match dialect {
             DBImpl::SQLite => {
-                return Ok(match &self.annotation {
+                return match &self.annotation {
                     Annotation::AutoIncrement => "AUTOINCREMENT".to_string(),
                     Annotation::AutoCreateTime => "DEFAULT CURRENT_TIMESTAMP".to_string(),
                     Annotation::DefaultValue(d) => match d {
@@ -43,9 +42,9 @@ impl SQLAnnotation {
                     Annotation::PrimaryKey => "PRIMARY KEY".to_string(),
                     Annotation::Unique => "UNIQUE".to_string(),
                     _ => "".to_string(),
-                });
+                };
             }
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 }
@@ -65,7 +64,7 @@ impl SQLCreateColumn {
     /**
     This method is used to build the statement to create a column
     */
-    pub fn build(self) -> anyhow::Result<(String, Vec<String>)> {
+    pub fn build(self) -> (String, Vec<String>) {
         match self.dialect {
             DBImpl::SQLite => {
                 let db_type = match self.data_type {
@@ -87,17 +86,15 @@ impl SQLCreateColumn {
                     | DbType::UInt64
                     | DbType::Boolean => "INTEGER",
                     DbType::Float | DbType::Double => "REAL",
-                    _ => {todo!("not implemented");}
+                    _ => {
+                        todo!("not implemented");
+                    }
                 };
 
                 let mut annotations = vec![];
                 let mut trigger = vec![];
                 for annotation in &self.annotations {
-                    annotations.push(
-                        annotation.build(DBImpl::SQLite).with_context(|| {
-                            format!("Error while building column {}", self.name)
-                        })?,
-                    );
+                    annotations.push(annotation.build(DBImpl::SQLite));
 
                     // If annotation requires a trigger, create those
                     trigger.extend(trigger_annotation_to_trigger(
@@ -105,10 +102,10 @@ impl SQLCreateColumn {
                         &annotation.annotation,
                         self.table_name.as_str(),
                         self.name.as_str(),
-                    )?)
+                    ))
                 }
 
-                return Ok((
+                return (
                     format!(
                         "{} {}{}",
                         self.name,
@@ -120,9 +117,9 @@ impl SQLCreateColumn {
                         }
                     ),
                     trigger,
-                ));
+                );
             }
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 }
