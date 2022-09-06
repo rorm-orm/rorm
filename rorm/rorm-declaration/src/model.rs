@@ -236,7 +236,7 @@ impl From<Field> for imr::Field {
 pub type ID = GenericId<u64>;
 
 /// Generic Wrapper which implies the primary key and autoincrement annotation
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct GenericId<I: AsDbType>(pub I);
 
 impl<I: AsDbType> AsDbType for GenericId<I> {
