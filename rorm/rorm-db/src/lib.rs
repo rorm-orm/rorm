@@ -9,12 +9,28 @@ Errors of rorm-db will be specified here.
 */
 pub mod error;
 
+/**
+This module holds the definitions of queries and their results
+*/
+pub mod query;
+
+/**
+This module holds the results of a query
+*/
+pub mod result;
+
+use std::pin::Pin;
+
+use rorm_sql::DBImpl;
 use sqlx::any::AnyPoolOptions;
 use sqlx::mysql::MySqlConnectOptions;
 use sqlx::postgres::PgConnectOptions;
 use sqlx::sqlite::SqliteConnectOptions;
 
+pub use sqlx::Row;
+
 use crate::error::Error;
+use crate::result::QueryStream;
 
 /**
 Representation of different backends
@@ -66,6 +82,7 @@ All operations can be started with methods of this struct.
 */
 pub struct Database {
     pool: sqlx::Pool<sqlx::Any>,
+    db_impl: DBImpl,
 }
 
 impl Database {
@@ -74,15 +91,21 @@ impl Database {
     */
     pub async fn connect(configuration: DatabaseConfiguration) -> Result<Self, Error> {
         if configuration.max_connections < configuration.min_connections {
-            return Err(Error::ConfigurationError(String::from("max_connections must not be less than min_connections")));
+            return Err(Error::ConfigurationError(String::from(
+                "max_connections must not be less than min_connections",
+            )));
         }
 
         if configuration.min_connections == 0 {
-            return Err(Error::ConfigurationError(String::from("min_connections must not be 0")));
+            return Err(Error::ConfigurationError(String::from(
+                "min_connections must not be 0",
+            )));
         }
 
         if configuration.name == "" {
-            return Err(Error::ConfigurationError(String::from("name must not be empty")))
+            return Err(Error::ConfigurationError(String::from(
+                "name must not be empty",
+            )));
         }
 
         let database;
@@ -121,8 +144,24 @@ impl Database {
 
         database = Database {
             pool,
+            db_impl: match configuration.backend {
+                DatabaseBackend::SQLite => DBImpl::SQLite,
+                DatabaseBackend::Postgres => DBImpl::Postgres,
+                DatabaseBackend::MySQL => DBImpl::MySQL,
+            },
         };
 
         return Ok(database);
+    }
+
+    pub fn query_stream(&self, model: String, columns: Vec<&str>) -> QueryStream {
+        let mut q = self.db_impl.select(model.as_str());
+        for column in columns {
+            q = q.add_column(column);
+        }
+
+        let (query_string, bind_params) = q.build();
+
+        return QueryStream::build(query_string, &self.pool);
     }
 }
