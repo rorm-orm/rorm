@@ -6,6 +6,10 @@ repository = "github.com/myOmikron/drorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
 categories = ["database"]
 keywords = ["declarative", "orm", "database", "macros"]
+homepage = "https://rorm.rs"
+documentation = "https://docs.rorm.rs"
+license = "MIT"
+description = "Macro definitions for rorm."
 
 [features]
 # requires nightly rust

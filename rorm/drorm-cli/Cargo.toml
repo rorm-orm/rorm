@@ -6,6 +6,10 @@ authors = ["myOmikron <git@omikron.dev>"]
 repository = "github.com/myOmikron/drorm"
 keywords = ["cli", "database", "migrator", "orm"]
 categories = ["command-line-utilities", "database"]
+homepage = "https://rorm.rs"
+documentation = "https://docs.rorm.rs"
+license = "MIT"
+description = "The cli tool for managing rorm applications."
 
 [dependencies]
 # Internal dependencies

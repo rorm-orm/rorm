@@ -6,6 +6,10 @@ repository = "github.com/myOmikron/drorm"
 categories = ["database"]
 authors = ["myOmikron <git@omikron.dev>", "gammelalf"]
 keywords = ["database", "declarative"]
+homepage = "https://rorm.rs"
+documentation = "https://docs.rorm.rs"
+license = "MIT"
+description = "The base defintion layer all rorm crates rely on."
 
 [lib]
 path = "src/lib.rs"

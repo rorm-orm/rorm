@@ -6,6 +6,10 @@ keywords = ["database", "library"]
 authors = ["myOmikron <git@omikron.dev>"]
 categories = ["database", "development-tools.categories.ffi"]
 repository = "github.com/myOmikron/drorm"
+homepage = "https://rorm.rs"
+documentation = "https://docs.rorm.rs"
+license = "MIT"
+description = "The FFI bindings to C."
 
 [lib]
 name = "rorm"

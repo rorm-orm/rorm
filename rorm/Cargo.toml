@@ -17,6 +17,10 @@ repository = "github.com/myOmikron/drorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
 categories = ["database"]
 keywords = ["database", "orm", "async"]
+description = "A asynchronous declarative ORM written in pure rust."
+homepage = "https://rorm.rs"
+documentation = "https://docs.rorm.rs"
+license = "MIT"
 
 [lib]
 name = "rorm"
