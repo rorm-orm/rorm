@@ -1,7 +1,5 @@
 use crate::DBImpl;
 
-use std::collections::HashMap;
-
 /**
 The representation of a FROM clause
 */
@@ -10,9 +8,9 @@ pub enum SQLSelectFrom {}
 /**
 The representation of a select query.
 */
-pub struct SQLSelect {
+pub struct SQLSelect<'a> {
     pub(crate) dialect: DBImpl,
-    pub(crate) resulting_columns: Vec<String>,
+    pub(crate) resulting_columns: Vec<&'a str>,
     pub(crate) limit: Option<u64>,
     pub(crate) offset: Option<u64>,
     pub(crate) from_clause: String,
@@ -20,7 +18,7 @@ pub struct SQLSelect {
     pub(crate) distinct: bool,
 }
 
-impl SQLSelect {
+impl<'a> SQLSelect<'a> {
     /**
     Set a limit to the resulting rows.
     */
@@ -51,7 +49,7 @@ impl SQLSelect {
     matches:
     SELECT {columns} FROM ...;
     */
-    pub fn add_column(mut self, col: String) -> Self {
+    pub fn add_column(mut self, col: &'a str) -> Self {
         self.resulting_columns.push(col);
         return self;
     }
@@ -67,8 +65,8 @@ impl SQLSelect {
     /**
     Build the select query
     */
-    pub fn build(self) -> (String, HashMap<String, i64>) {
-        let lookup = HashMap::new();
+    pub fn build(self) -> (String, Vec<String>) {
+        let lookup = vec![];
 
         return match self.dialect {
             DBImpl::SQLite => (
