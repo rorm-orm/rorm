@@ -21,9 +21,8 @@ rorm-declaration = { version = "0.1.0", path = "../rorm-declaration" }
 # Abstractions for asynchronous programming.
 futures = { version = "^0.3" }
 
-# SQL executor. Optional because it requires a runtime and a TLS implementation.
-# A compile error will be thrown if no runtime is chosen.
-sqlx = { version = "^0.6", optional = true }
+# SQL executor
+sqlx = { version = "^0.6" }
 
 # Error library to simplify the std::error::Error trait
 thiserror = { version = "^1.0" }
@@ -46,21 +45,21 @@ all-driver = [
     "sqlite"
 ]
 
-mysql = ["sqlx?/mysql"]
-postgres = ["sqlx?/postgres"]
-sqlite = ["sqlx?/sqlite"]
+mysql = ["sqlx/mysql"]
+postgres = ["sqlx/postgres"]
+sqlite = ["sqlx/sqlite"]
 
 sqlx-all-extensions = [
-    "sqlx?/uuid",
-    "sqlx?/chrono",
-    "sqlx?/time",
-    "sqlx?/bstr",
-    "sqlx?/bigdecimal",
-    "sqlx?/decimal",
-    "sqlx?/ipnetwork",
-    "sqlx?/json",
-    "sqlx?/any",
-    "sqlx?/tls",
+    "sqlx/uuid",
+    "sqlx/chrono",
+    "sqlx/time",
+    "sqlx/bstr",
+    "sqlx/bigdecimal",
+    "sqlx/decimal",
+    "sqlx/ipnetwork",
+    "sqlx/json",
+    "sqlx/any",
+    "sqlx/tls",
 ]
 
 async-std = []
