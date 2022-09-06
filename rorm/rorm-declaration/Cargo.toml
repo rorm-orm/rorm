@@ -2,7 +2,7 @@
 name = "rorm-declaration"
 version = "0.1.0"
 edition = "2021"
-repository = "github.com/myOmikron/drorm"
+repository = "https://github.com/myOmikron/drorm"
 categories = ["database"]
 authors = ["myOmikron <git@omikron.dev>", "gammelalf"]
 keywords = ["database", "declarative"]
