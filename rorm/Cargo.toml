@@ -28,7 +28,7 @@ path = "src/lib.rs"
 
 [dependencies]
 # json serialization to communicate with the migrator
-serde_json = { version = "*" }
+serde_json = { version = "^1.0" }
 # linker magic to create a slice containing all models defined by crates
 linkme = { version = "0.3" }
 
