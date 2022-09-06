@@ -1,9 +1,9 @@
-
 /**
 Error type to simplify propagating different error types.
  */
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[cfg(feature = "sqlx-dep")]
     /// Error returned from Sqlx
     #[error("sqlx error: {0}")]
     SqlxError(#[from] sqlx::Error),

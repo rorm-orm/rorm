@@ -1,10 +1,11 @@
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
 use futures::stream::BoxStream;
 use futures::{Stream, TryStream, TryStreamExt};
 use sqlx::any::AnyRow;
 use sqlx::Row;
 use sqlx::{AnyPool, Error};
-use std::pin::Pin;
-use std::task::{Context, Poll};
 
 #[ouroboros::self_referencing]
 pub struct QueryStream {

@@ -9,11 +9,13 @@ Errors of rorm-db will be specified here.
 */
 pub mod error;
 
+#[cfg(feature = "sqlx-dep")]
 /**
 This module holds the definitions of queries and their results
 */
 pub mod query;
 
+#[cfg(feature = "sqlx-dep")]
 /**
 This module holds the results of a query
 */
@@ -22,14 +24,21 @@ pub mod result;
 use std::pin::Pin;
 
 use rorm_sql::DBImpl;
+
+#[cfg(feature = "sqlx-dep")]
 use sqlx::any::AnyPoolOptions;
+#[cfg(feature = "sqlx-dep")]
 use sqlx::mysql::MySqlConnectOptions;
+#[cfg(feature = "sqlx-dep")]
 use sqlx::postgres::PgConnectOptions;
+#[cfg(feature = "sqlx-dep")]
 use sqlx::sqlite::SqliteConnectOptions;
 
+#[cfg(feature = "sqlx-dep")]
 pub use sqlx::Row;
 
 use crate::error::Error;
+#[cfg(feature = "sqlx-dep")]
 use crate::result::QueryStream;
 
 /**
@@ -75,6 +84,7 @@ pub struct DatabaseConfiguration {
     pub max_connections: u32,
 }
 
+#[cfg(feature = "sqlx-dep")]
 /**
 Main API wrapper.
 
@@ -85,6 +95,7 @@ pub struct Database {
     db_impl: DBImpl,
 }
 
+#[cfg(feature = "sqlx-dep")]
 impl Database {
     /**
     Connect to the database using `configuration`.
