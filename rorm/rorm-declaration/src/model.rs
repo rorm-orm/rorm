@@ -233,7 +233,7 @@ impl From<Field> for imr::Field {
 ///     id: ID,
 ///     ..
 /// }
-pub type ID = GenericId<u64>;
+pub type ID = GenericId<i64>;
 
 /// Generic Wrapper which implies the primary key and autoincrement annotation
 #[derive(Copy, Clone, Debug)]
