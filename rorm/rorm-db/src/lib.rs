@@ -21,12 +21,14 @@ This module holds the results of a query
 */
 pub mod result;
 
-use std::pin::Pin;
+use futures::stream::BoxStream;
+use futures::StreamExt;
 
 use rorm_sql::DBImpl;
 
 #[cfg(feature = "sqlx-dep")]
 use sqlx::any::AnyPoolOptions;
+use sqlx::any::AnyRow;
 #[cfg(feature = "sqlx-dep")]
 use sqlx::mysql::MySqlConnectOptions;
 #[cfg(feature = "sqlx-dep")]
@@ -165,14 +167,90 @@ impl Database {
         return Ok(database);
     }
 
-    pub fn query_stream(&self, model: String, columns: Vec<&str>) -> QueryStream {
-        let mut q = self.db_impl.select(model.as_str());
+    /**
+    This method is used to retrieve a stream of rows that matched the applied conditions.
+
+    `model`: Name of the table.
+    `columns`: Columns to retrieve values from.
+    */
+    pub fn query_stream(
+        &self,
+        model: &str,
+        columns: &[&str],
+    ) -> BoxStream<Result<AnyRow, sqlx::Error>> {
+        let mut q = self.db_impl.select(model);
         for column in columns {
             q = q.add_column(column);
         }
 
-        let (query_string, bind_params) = q.build();
+        let (query_string, _bind_params) = q.build();
 
-        return QueryStream::build(query_string, &self.pool);
+        return QueryStream::build(query_string, &self.pool).boxed();
+    }
+
+    /**
+    This method is used to retrieve exactly one row from the table.
+    An error is returned if no value could be retrieved.
+
+    `model`: Model to query.
+    `columns`: Columns to retrieve values from.
+    */
+    pub async fn query_one(&self, model: &str, columns: &[&str]) -> Result<AnyRow, sqlx::Error> {
+        let mut q = self.db_impl.select(model);
+        for column in columns {
+            q = q.add_column(column);
+        }
+
+        let (query_string, _bind_params) = q.build();
+
+        sqlx::query(query_string.as_str())
+            .fetch_one(&self.pool)
+            .await
+    }
+
+    /**
+    This method is used to retrieve an optional row from the table.
+
+    `model`: Model to query.
+    `columns`: Columns to retrieve values from.
+    */
+    pub async fn query_optional(
+        &self,
+        model: &str,
+        columns: &[&str],
+    ) -> Result<Option<AnyRow>, sqlx::Error> {
+        let mut q = self.db_impl.select(model);
+        for column in columns {
+            q = q.add_column(column);
+        }
+
+        let (query_string, _bind_params) = q.build();
+
+        sqlx::query(query_string.as_str())
+            .fetch_optional(&self.pool)
+            .await
+    }
+
+    /**
+    This method is used to retrieve all rows that match the provided query.
+
+    `model`: Model to query.
+    `columns`: Columns to retrieve values from.
+    */
+    pub async fn query_all(
+        &self,
+        model: &str,
+        columns: &[&str],
+    ) -> Result<Vec<AnyRow>, sqlx::Error> {
+        let mut q = self.db_impl.select(model);
+        for column in columns {
+            q = q.add_column(column);
+        }
+
+        let (query_string, _bind_params) = q.build();
+
+        sqlx::query(query_string.as_str())
+            .fetch_all(&self.pool)
+            .await
     }
 }
