@@ -95,12 +95,16 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let errors = Errors::new();
     let span = proc_macro2::Span::call_site();
 
+    // Enum containing all model's fields
+    let fields_enum = Ident::new(&format!("__{}_Fields", strct.ident), span);
+
     let mut model_name = strct.ident.to_string();
     model_name.make_ascii_lowercase();
     let model_name = syn::LitStr::new(&model_name, strct.ident.span());
     let model_source = get_source(&strct);
     let mut model_fields = Vec::new();
     let mut field_idents = Vec::new();
+    let mut field_arms = Vec::new();
     for field in strct.fields.iter() {
         let mut annotations = Vec::new();
         for meta in iter_rorm_attributes(&field.attrs, &errors) {
@@ -165,6 +169,10 @@ pub fn model(strct: TokenStream) -> TokenStream {
             }
         });
         field_idents.push(field.ident.clone());
+        let field_ident = field.ident.clone();
+        field_arms.push(quote! {
+            #fields_enum::#field_ident => #field_name
+        });
     }
 
     // Empty struct to implement ModelDefinition on
@@ -176,9 +184,6 @@ pub fn model(strct: TokenStream) -> TokenStream {
     // Trait object from said instance
     let definition_getter_dyn_obj =
         Ident::new(&format!("__{}_definition_dyn_object", strct.ident), span);
-
-    // Enum containing all model's fields
-    let fields_enum = Ident::new(&format!("__{}_Fields", strct.ident), span);
 
     let strct_ident = strct.ident;
     TokenStream::from({
@@ -193,6 +198,14 @@ pub fn model(strct: TokenStream) -> TokenStream {
 
                 fn table_name() -> &'static str {
                     #model_name
+                }
+            }
+
+            impl #fields_enum {
+                pub fn as_str(&self) -> &'static str {
+                    match self {
+                        #(#field_arms),*
+                    }
                 }
             }
 
