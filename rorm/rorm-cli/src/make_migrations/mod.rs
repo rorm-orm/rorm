@@ -229,47 +229,53 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
         convert_migration_to_file(new_migration, &path)
             .with_context(|| "Error occurred while converting migration to file")?;
     } else {
+        // If there are no models yet, no migrations must be created
+        if internal_models.models.len() == 0 {
+            println!("No models found.");
         // New migration must be generated as no migration exists
+        } else {
+            let name = match options.name {
+                None => "0001_initial".to_string(),
+                Some(n) => format!("0001_{}", n),
+            };
 
-        let name = match options.name {
-            None => "0001_initial".to_string(),
-            Some(n) => format!("0001_{}", n),
-        };
+            let new_migration = Migration {
+                hash: h.to_string(),
+                initial: true,
+                id: name.clone(),
+                dependency: "".to_string(),
+                replaces: vec![],
+                operations: internal_models
+                    .models
+                    .iter()
+                    .map(|x| {
+                        let o = Operation::CreateModel {
+                            name: x.name.clone(),
+                            fields: x
+                                .fields
+                                .iter()
+                                .map(|y| Field {
+                                    name: y.name.clone(),
+                                    db_type: y.db_type.clone(),
+                                    annotations: y.annotations.clone(),
+                                    source_defined_at: None,
+                                })
+                                .collect(),
+                        };
+                        println!("Created model {}", x.name);
+                        return o;
+                    })
+                    .collect(),
+            };
 
-        let new_migration = Migration {
-            hash: h.to_string(),
-            initial: true,
-            id: name.clone(),
-            dependency: "".to_string(),
-            replaces: vec![],
-            operations: internal_models
-                .models
-                .iter()
-                .map(|x| {
-                    let o = Operation::CreateModel {
-                        name: x.name.clone(),
-                        fields: x
-                            .fields
-                            .iter()
-                            .map(|y| Field {
-                                name: y.name.clone(),
-                                db_type: y.db_type.clone(),
-                                annotations: y.annotations.clone(),
-                                source_defined_at: None,
-                            })
-                            .collect(),
-                    };
-                    println!("Created model {}", x.name);
-                    return o;
-                })
-                .collect(),
-        };
-
-        // Write migration to disk
-        let path = Path::new(options.migration_dir.as_str()).join(format!("{}.toml", name));
-        convert_migration_to_file(new_migration, &path)
-            .with_context(|| "Error occurred while converting migration to file")?;
+            // Write migration to disk
+            let path = Path::new(options.migration_dir.as_str()).join(format!("{}.toml", name));
+            convert_migration_to_file(new_migration, &path)
+                .with_context(|| "Error occurred while converting migration to file")?;
+        }
     }
+
+    println!("Done.");
 
     Ok(())
 }
