@@ -11,10 +11,6 @@ documentation = "https://docs.rorm.rs"
 license = "MIT"
 description = "Macro definitions for rorm."
 
-[features]
-# requires nightly rust
-unstable = []
-
 [lib]
 proc-macro = true
 
@@ -30,3 +26,5 @@ proc-macro2 = { version = "1.0" }
 default = [
     "syn/full"
 ]
+# requires nightly rust
+unstable = []
