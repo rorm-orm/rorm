@@ -17,10 +17,10 @@ rorm-sql = { version = "0.1", path = "../rorm-sql" }
 rorm-declaration = { version = "0.1", path = "../rorm-declaration" }
 
 # CLI parsing tool
-clap = { version = "3.1", features = ["derive"] }
+clap = { version = "3.1" }
 
 # Serialization library
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0" }
 serde_json = { version = "1.0" }
 toml = { version = "0.5.9" }
 
@@ -37,7 +37,7 @@ once_cell = { version = "1.13" }
 sqlx = { version = "0.6.0" }
 
 # Runtime
-tokio = { version = "1.20.0", features = ["rt", "macros"]  }
+tokio = { version = "1.20.0" }
 
 [features]
 default = [
@@ -45,5 +45,9 @@ default = [
     "sqlx/mysql",
     "sqlx/sqlite",
     "sqlx/postgres",
-    "sqlx/tls"
+    "sqlx/tls",
+    "tokio/rt",
+    "tokio/macros",
+    "serde/derive",
+    "clap/derive",
 ]
