@@ -21,13 +21,11 @@ This module holds the results of a query
 */
 pub mod result;
 
-use futures::stream::BoxStream;
-use futures::StreamExt;
-
 use rorm_sql::DBImpl;
 
 #[cfg(feature = "sqlx-dep")]
 use sqlx::any::AnyPoolOptions;
+#[cfg(feature = "sqlx-dep")]
 use sqlx::any::AnyRow;
 #[cfg(feature = "sqlx-dep")]
 use sqlx::mysql::MySqlConnectOptions;
@@ -39,7 +37,6 @@ use sqlx::sqlite::SqliteConnectOptions;
 #[cfg(feature = "sqlx-dep")]
 pub use sqlx::Row;
 
-use crate::error::Error;
 #[cfg(feature = "sqlx-dep")]
 use crate::result::QueryStream;
 
