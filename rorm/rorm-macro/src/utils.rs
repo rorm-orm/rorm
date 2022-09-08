@@ -1,13 +1,19 @@
 use crate::errors::Errors;
 use syn::spanned::Spanned;
 
+pub fn to_db_name(name: String) -> String {
+    let mut name = name;
+    name.make_ascii_lowercase();
+    name
+}
+
 /// Create the expression for creating a Option<Source> instance from a span
 #[cfg(feature = "unstable")]
 pub fn get_source<T: Spanned>(spanned: &T) -> syn::Expr {
     let span = spanned.span().unwrap();
     syn::parse_str::<syn::Expr>(&format!(
-        "Some(::rorm::imr::Source {{
-            file: \"{}\".to_string(),
+        "Some(::rorm::model::Source {{
+            file: \"{}\",
             line: {},
             column: {},
         }})",

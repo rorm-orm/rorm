@@ -3,7 +3,7 @@ use quote::quote;
 use syn::spanned::Spanned;
 
 use crate::errors::Errors;
-use crate::utils::{get_source, iter_rorm_attributes};
+use crate::utils::{get_source, iter_rorm_attributes, to_db_name};
 
 /// Used to match over an [`Ident`] in a similar syntax as over [&str]s.
 ///
@@ -95,84 +95,20 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let errors = Errors::new();
     let span = proc_macro2::Span::call_site();
 
-    // Enum containing all model's fields
-    let fields_enum = Ident::new(&format!("__{}_Fields", strct.ident), span);
+    // Static struct containing all model's fields
+    let fields_strct = Ident::new(&format!("__{}_Fields", strct.ident), span);
 
     let mut model_name = strct.ident.to_string();
     model_name.make_ascii_lowercase();
     let model_name = syn::LitStr::new(&model_name, strct.ident.span());
     let model_source = get_source(&strct);
-    let mut model_fields = Vec::new();
     let mut field_idents = Vec::new();
-    let mut field_arms = Vec::new();
+    let mut field_defs = Vec::new();
     for field in strct.fields.iter() {
-        let mut annotations = Vec::new();
-        for meta in iter_rorm_attributes(&field.attrs, &errors) {
-            // Get the annotation's identifier.
-            // Since one is required for every annotation, error if it is missing.
-            let ident = if let Some(ident) = meta.path().get_ident() {
-                ident
-            } else {
-                errors.push_new(meta.path().span(), "expected identifier");
-                continue;
-            };
-
-            // Parse a simple annotation taking no arguments and simply adding its associated variant
-            macro_rules! parse_anno {
-                ($name:literal, $variant:literal) => {{
-                    if let syn::Meta::Path(_) = meta {
-                        let variant = Ident::new($variant, ident.span());
-                        annotations.push(quote! {
-                            ::rorm::imr::Annotation::#variant
-                        });
-                    } else {
-                        errors.push_new(
-                            meta.span(),
-                            concat!($name, " doesn't take any values: #[rorm(", $name, ")]"),
-                        );
-                    }
-                }};
-            }
-
-            match_ident!(ident,
-                "auto_create_time" => parse_anno!("auto_create_time", "AutoCreateTime"),
-                "auto_update_time" => parse_anno!("auto_update_time", "AutoUpdateTime"),
-                "primary_key" => parse_anno!("primary_key", "PrimaryKey"),
-                "unique" => parse_anno!("unique", "Unique"),
-                "autoincrement" => parse_anno!("autoincrement", "AutoIncrement"),
-                "default" => parse_default(&mut annotations, &errors, &meta),
-                "max_length" => parse_max_length(&mut annotations, &errors, &meta),
-                "choices" => parse_choices(&mut annotations, &errors, &meta),
-                "index" => parse_index(&mut annotations, &errors, &meta),
-                _ => errors.push_new(ident.span(), "Unknown annotation")
-            );
+        if let Some((ident, def)) = parse_field(field, &errors) {
+            field_idents.push(ident);
+            field_defs.push(def);
         }
-        let mut field_name = field.ident.as_ref().unwrap().to_string();
-        field_name.make_ascii_lowercase();
-        let field_name = syn::LitStr::new(&field_name, field.span());
-        let field_type = &field.ty;
-        let field_type = quote! { <#field_type as ::rorm::model::AsDbType> };
-        let field_source = get_source(&field);
-        model_fields.push(quote! {
-            {
-                let mut annotations = vec![
-                    #(#annotations),*
-                ];
-                let db_type = #field_type::as_db_type(&annotations);
-                annotations.append(&mut #field_type::implicit_annotations());
-                ::rorm::model::Field {
-                    name: #field_name,
-                    db_type, annotations,
-                    nullable: #field_type::is_nullable(),
-                    source: #field_source,
-                }
-            }
-        });
-        field_idents.push(field.ident.clone());
-        let field_ident = field.ident.clone();
-        field_arms.push(quote! {
-            #fields_enum::#field_ident => #field_name
-        });
     }
 
     // Empty struct to implement ModelDefinition on
@@ -188,24 +124,20 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let strct_ident = strct.ident;
     TokenStream::from({
         quote! {
-            #[allow(non_camel_case_types)]
-            #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-            pub enum #fields_enum {
-                #(#field_idents),*
+            pub struct #fields_strct {
+                #(pub #field_idents: ::rorm::model::Field),*
             }
-            impl ::rorm::model::Model for #strct_ident {
-                type Fields = #fields_enum;
 
+            impl ::rorm::model::Model<#fields_strct> for #strct_ident {
                 fn table_name() -> &'static str {
                     #model_name
                 }
-            }
 
-            impl #fields_enum {
-                pub fn as_str(&self) -> &'static str {
-                    match self {
-                        #(#field_arms),*
-                    }
+                fn fields() -> &'static #fields_strct {
+                    static fields: #fields_strct = #fields_strct {
+                        #(#field_defs),*
+                    };
+                    &fields
                 }
             }
 
@@ -216,7 +148,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
                     ::rorm::model::ModelDefinition {
                         name: #model_name,
                         source: #model_source,
-                        fields: vec![ #(#model_fields),* ],
+                        fields: vec![ #(<#strct_ident as ::rorm::model::Model<_>>::fields().#field_idents),* ],
                     }
                 }
             }
@@ -232,6 +164,90 @@ pub fn model(strct: TokenStream) -> TokenStream {
             #errors
         }
     })
+}
+
+fn parse_field(field: &syn::Field, errors: &Errors) -> Option<(Ident, TokenStream)> {
+    let ident = if let Some(ident) = field.ident.as_ref() {
+        ident.clone()
+    } else {
+        errors.push_new(field.ident.span(), "field has no name");
+        return None;
+    };
+
+    let mut annotations = Vec::new();
+    let mut has_choices = false;
+    for meta in iter_rorm_attributes(&field.attrs, &errors) {
+        // Get the annotation's identifier.
+        // Since one is required for every annotation, error if it is missing.
+        let ident = if let Some(ident) = meta.path().get_ident() {
+            ident
+        } else {
+            errors.push_new(meta.path().span(), "expected identifier");
+            continue;
+        };
+
+        // Parse a simple annotation taking no arguments and simply adding its associated variant
+        macro_rules! parse_anno {
+            ($name:literal, $variant:literal) => {{
+                if let syn::Meta::Path(_) = meta {
+                    let variant = Ident::new($variant, ident.span());
+                    annotations.push(quote! {
+                        ::rorm::model::Annotation::#variant
+                    });
+                } else {
+                    errors.push_new(
+                        meta.span(),
+                        concat!($name, " doesn't take any values: #[rorm(", $name, ")]"),
+                    );
+                }
+            }};
+        }
+
+        match_ident!(ident,
+            "auto_create_time" => parse_anno!("auto_create_time", "AutoCreateTime"),
+            "auto_update_time" => parse_anno!("auto_update_time", "AutoUpdateTime"),
+            "primary_key" => parse_anno!("primary_key", "PrimaryKey"),
+            "unique" => parse_anno!("unique", "Unique"),
+            "autoincrement" => parse_anno!("autoincrement", "AutoIncrement"),
+            "default" => parse_default(&mut annotations, &errors, &meta),
+            "max_length" => parse_max_length(&mut annotations, &errors, &meta),
+            "choices" => {parse_choices(&mut annotations, &errors, &meta); has_choices = true;},
+            "index" => parse_index(&mut annotations, &errors, &meta),
+            _ => errors.push_new(ident.span(), "Unknown annotation")
+        );
+    }
+
+    let data_type = &field.ty;
+    let data_type = quote! { <#data_type as ::rorm::model::AsDbType> };
+
+    let db_name = syn::LitStr::new(&to_db_name(ident.to_string()), field.span());
+
+    let db_type = if has_choices {
+        quote! { ::rorm::imr::DbType::Choices }
+    } else {
+        quote! { #data_type::DB_TYPE }
+    };
+
+    let source = get_source(&field);
+
+    return Some((
+        field.ident.clone().unwrap(),
+        quote! {
+            /*
+            annotations.append(&mut #data_type::implicit_annotations());
+             */
+            #ident: ::rorm::model::Field {
+                name: #db_name,
+                db_type: #db_type,
+                annotations: &[
+                    #(#annotations),*
+                ],
+                implicit_annotations: &#data_type::implicit_annotations,
+                nullable: #data_type::IS_NULLABLE,
+                source: #source,
+            }
+        },
+    ));
 }
 
 /// Parse the `#[rorm(default = ..)]` annotation.
@@ -269,7 +285,7 @@ fn parse_default(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn
 
     let variant = Ident::new(variant, arg.span());
     annotations.push(quote! {
-        ::rorm::imr::Annotation::DefaultValue(::rorm::imr::DefaultValue::#variant(#arg.into()))
+        ::rorm::model::Annotation::DefaultValue(::rorm::model::DefaultValue::#variant(#arg))
     });
 }
 
@@ -283,7 +299,7 @@ fn parse_max_length(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &
             ..
         }) => {
             annotations.push(quote! {
-                ::rorm::imr::Annotation::MaxLength(#integer)
+                ::rorm::model::Annotation::MaxLength(#integer)
             });
         }
         _ => {
@@ -320,8 +336,8 @@ fn parse_choices(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn
         }
 
         annotations.push(quote! {
-            ::rorm::imr::Annotation::Choices(vec![
-                #(#choices.to_string()),*
+            ::rorm::model::Annotation::Choices(&[
+                #(#choices),*
             ])
         });
     } else {
@@ -343,7 +359,7 @@ fn parse_index(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::
         // index was used on its own without arguments
         syn::Meta::Path(_) => {
             annotations.push(quote! {
-                ::rorm::imr::Annotation::Index(None)
+                ::rorm::model::Annotation::Index(None)
             });
         }
 
@@ -433,11 +449,11 @@ fn parse_index(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::
                     } else {
                         quote! { None }
                     };
-                    quote! { Some(::rorm::imr::IndexValue { name: #name.to_string(), priority: #prio }) }
+                    quote! { Some(::rorm::model::IndexValue { name: #name, priority: #prio }) }
                 } else {
                     quote! { None }
                 };
-                annotations.push(quote! { ::rorm::imr::Annotation::Index(#inner) });
+                annotations.push(quote! { ::rorm::model::Annotation::Index(#inner) });
             }
         }
 

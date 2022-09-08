@@ -62,7 +62,7 @@ pub struct Source {
 /// All column types supported by the migration tool
 #[allow(missing_docs)]
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum DbType {
     VarChar,
