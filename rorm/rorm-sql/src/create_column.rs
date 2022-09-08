@@ -14,7 +14,7 @@ impl SQLAnnotation {
     /**
     Converts the struct into the String for the given dialect.
 
-    `dialect`: [&DBImpl]: dialect to use
+    `dialect`: [crate::DBImpl]: dialect to use
      */
     pub fn build(&self, dialect: DBImpl) -> String {
         match dialect {
