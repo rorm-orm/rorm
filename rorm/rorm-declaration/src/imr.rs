@@ -95,10 +95,10 @@ pub enum DbType {
 #[serde(rename_all = "snake_case")]
 pub enum Annotation {
     /// Only for [DbType::Timestamp], [DbType::Datetime], [DbType::Time], [DbType::Date] and
-    /// [DbType::Uint64]. Will set the current time of the database when a row is created.
+    /// [DbType::UInt64]. Will set the current time of the database when a row is created.
     AutoCreateTime,
     /// Only for [DbType::Timestamp], [DbType::Datetime], [DbType::Time], [DbType::Date] and
-    /// [DbType::Uint64]. Will set the current time of the database when a row is updated.
+    /// [DbType::UInt64]. Will set the current time of the database when a row is updated.
     AutoUpdateTime,
     /// AUTO_INCREMENT constraint
     AutoIncrement,
