@@ -21,8 +21,6 @@ This module holds the results of a query
 */
 pub mod result;
 
-use rorm_sql::DBImpl;
-
 #[cfg(feature = "sqlx-dep")]
 use sqlx::any::AnyPoolOptions;
 #[cfg(feature = "sqlx-dep")]
