@@ -42,6 +42,11 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
     derive::model(input.into()).into()
 }
 
+#[proc_macro_derive(Patch, attributes(rorm))]
+pub fn derive_patch(input: TokenStream) -> TokenStream {
+    derive::patch(input.into()).into()
+}
+
 mod rename_linkme;
 #[doc(hidden)]
 #[proc_macro_attribute]

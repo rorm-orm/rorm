@@ -1,5 +1,5 @@
 use proc_macro2::{Ident, TokenStream};
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::spanned::Spanned;
 
 use crate::errors::Errors;
@@ -124,6 +124,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
         Ident::new(&format!("__{}_definition_dyn_object", strct.ident), span);
 
     let strct_ident = strct.ident;
+    let impl_from_row = from_row(&strct_ident, &strct_ident, &field_idents, &field_types);
     TokenStream::from({
         quote! {
             pub struct #fields_strct {
@@ -145,18 +146,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
                 }
             }
 
-            #[cfg(feature = "sqlx")] // TODO decouple this from sqlx
-            impl<'r> ::sqlx::FromRow<'r, ::sqlx::any::AnyRow> for #strct_ident {
-                fn from_row(row: &'r ::sqlx::any::AnyRow) -> Result<Self, ::sqlx::Error> {
-                    use ::sqlx::Row;
-                    let fields = <Self as ::rorm::model::Model<_>>::fields();
-                    Ok(#strct_ident {
-                        #(
-                            #field_idents: #field_types::from_primitive(row.try_get(fields.#field_idents.name)?),
-                        )*
-                    })
-                }
-            }
+            #impl_from_row
 
             #[allow(non_camel_case_types)]
             struct #definition_getter_struct;
@@ -183,7 +173,113 @@ pub fn model(strct: TokenStream) -> TokenStream {
     })
 }
 
-fn parse_field(field: &syn::Field, errors: &Errors) -> Option<(Ident, TokenStream, TokenStream)> {
+pub fn patch(strct: TokenStream) -> TokenStream {
+    let strct = match syn::parse2::<syn::ItemStruct>(strct) {
+        Ok(strct) => strct,
+        Err(err) => return err.into_compile_error(),
+    };
+
+    let errors = Errors::new();
+    let span = proc_macro2::Span::call_site();
+
+    let mut model_path = None;
+    for meta in iter_rorm_attributes(&strct.attrs, &errors) {
+        // get the annotation's identifier.
+        // since one is required for every annotation, error if it is missing.
+        let ident = if let Some(ident) = meta.path().get_ident() {
+            ident
+        } else {
+            errors.push_new(meta.path().span(), "expected identifier");
+            continue;
+        };
+
+        if ident == "model" {
+            if model_path.is_some() {
+                errors.push_new(meta.span(), "model is already defined");
+                continue;
+            }
+            match meta {
+                syn::Meta::NameValue(value) => match value.lit {
+                    syn::Lit::Str(string) => match syn::parse_str::<syn::Path>(&string.value()) {
+                        Ok(path) => {
+                            model_path = Some(path);
+                        }
+                        Err(error) => errors.push(error),
+                    },
+                    _ => errors.push_new(value.lit.span(), "the model attribute expects a path inside a string: `#[rorm(model = \"path::to::model\")]`"),
+                }
+                _ => errors.push_new(meta.span(), "the model attribute expects a single value: `#[rorm(model = \"path::to::model\")]`"),
+            }
+        }
+    }
+    let model_path = if let Some(model_path) = model_path {
+        model_path
+    } else {
+        errors.push_new(span, "missing model attribute. please add `#[rorm(model = \"path::to::model\")]` to your struct!\n\nif you have, maybe you forget to quotes?");
+        return errors.into_token_stream();
+    };
+
+    let mut field_idents = Vec::new();
+    let mut field_types = Vec::new();
+    for field in strct.fields.iter() {
+        if let Some(ident) = field.ident.as_ref() {
+            field_idents.push(ident.clone());
+            field_types.push(field.ty.clone());
+        } else {
+            errors.push_new(field.span(), "missing field name");
+        }
+    }
+
+    let compile_check = Ident::new(
+        &format!("__compile_check_{}", strct.ident.to_string()),
+        span,
+    );
+    let patch_ident = strct.ident.clone();
+    let impl_from_row = from_row(&patch_ident, &model_path, &field_idents, &field_types);
+    return quote! {
+        #[allow(non_snake_case)]
+        fn #compile_check(model: #model_path) {
+            // check if the specified model actually implements model
+            let _ = <#model_path as ::rorm::model::Model<_>>::fields();
+
+            // check fields exist on model and match model's types
+            // todo error messages for type mismatches are terrible
+            let _ = #patch_ident {
+                #(
+                    #field_idents: model.#field_idents,
+                )*
+            };
+        }
+
+        #impl_from_row
+
+        #errors
+    };
+}
+
+fn from_row(
+    strct: &Ident,
+    model: &impl ToTokens,
+    fields: &[Ident],
+    types: &[syn::Type],
+) -> TokenStream {
+    quote! {
+        #[cfg(feature = "sqlx")] // TODO decouple this from sqlx
+        impl<'r> ::sqlx::FromRow<'r, ::sqlx::any::AnyRow> for #strct {
+            fn from_row(row: &'r ::sqlx::any::AnyRow) -> Result<Self, ::sqlx::Error> {
+                use ::sqlx::Row;
+                let fields = <#model as ::rorm::model::Model<_>>::fields();
+                Ok(#strct {
+                    #(
+                        #fields: <#types as ::rorm::model::AsDbType>::from_primitive(row.try_get(fields.#fields.name)?),
+                    )*
+                })
+            }
+        }
+    }
+}
+
+fn parse_field(field: &syn::Field, errors: &Errors) -> Option<(Ident, syn::Type, TokenStream)> {
     let ident = if let Some(ident) = field.ident.as_ref() {
         ident.clone()
     } else {
@@ -249,7 +345,7 @@ fn parse_field(field: &syn::Field, errors: &Errors) -> Option<(Ident, TokenStrea
 
     return Some((
         field.ident.clone().unwrap(),
-        data_type.clone(),
+        field.ty.clone(),
         quote! {
             /*
             annotations.append(&mut #data_type::implicit_annotations());
