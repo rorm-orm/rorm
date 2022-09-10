@@ -4,19 +4,33 @@ use crate::imr;
 
 /// This trait maps rust types to database types
 pub trait AsDbType {
-    /// Extend a Vec with migrator annotations which are implied by the type.
-    fn implicit_annotations(_annotations: &mut Vec<imr::Annotation>) {}
+    /// A type understood which can be retrieved from the db and then converted into Self.
+    type PRIMITIVE;
+    /// Convert the associated primitive type into `Self`.
+    ///
+    /// This function allows "non-primitive" types like [GenericId] or any [DbEnum] to implement
+    /// their decoding without access to the underlying db details (namely `sqlx::Decode`)
+    fn from_primitive(primitive: Self::PRIMITIVE) -> Self;
 
     /// The database type as defined in the Intermediate Model Representation
     const DB_TYPE: imr::DbType;
 
     /// Whether this type supports null.
     const IS_NULLABLE: bool = false;
+
+    /// Extend a Vec with migrator annotations which are implied by the type.
+    fn implicit_annotations(_annotations: &mut Vec<imr::Annotation>) {}
 }
 
 macro_rules! impl_as_db_type {
     ($type:ty, $variant:ident) => {
         impl AsDbType for $type {
+            type PRIMITIVE = Self;
+            #[inline(always)]
+            fn from_primitive(primitive: Self::PRIMITIVE) -> Self {
+                primitive
+            }
+
             const DB_TYPE: imr::DbType = imr::DbType::$variant;
         }
     };
@@ -37,6 +51,12 @@ impl_as_db_type!(f64, Double);
 impl_as_db_type!(bool, Boolean);
 impl_as_db_type!(String, VarChar);
 impl<T: AsDbType> AsDbType for Option<T> {
+    type PRIMITIVE = Self;
+    #[inline(always)]
+    fn from_primitive(primitive: Self::PRIMITIVE) -> Self {
+        primitive
+    }
+
     fn implicit_annotations(annotations: &mut Vec<imr::Annotation>) {
         T::implicit_annotations(annotations)
     }
@@ -73,6 +93,11 @@ pub trait DbEnum {
     fn as_choices() -> Vec<String>;
 }
 impl<E: DbEnum> AsDbType for E {
+    type PRIMITIVE = String;
+    fn from_primitive(primitive: Self::PRIMITIVE) -> Self {
+        E::from_str(&primitive)
+    }
+
     fn implicit_annotations(annotations: &mut Vec<imr::Annotation>) {
         annotations.push(imr::Annotation::Choices(E::as_choices()));
     }
@@ -127,13 +152,18 @@ pub type ID = GenericId<i64>;
 pub struct GenericId<I: AsDbType>(pub I);
 
 impl<I: AsDbType> AsDbType for GenericId<I> {
+    type PRIMITIVE = I;
+    fn from_primitive(primitive: Self::PRIMITIVE) -> Self {
+        GenericId(primitive)
+    }
+
+    const DB_TYPE: imr::DbType = I::DB_TYPE;
+
     fn implicit_annotations(annotations: &mut Vec<imr::Annotation>) {
         I::implicit_annotations(annotations);
         annotations.push(imr::Annotation::PrimaryKey); // TODO check if already
         annotations.push(imr::Annotation::AutoIncrement);
     }
-
-    const DB_TYPE: imr::DbType = I::DB_TYPE;
 }
 
 impl<I: AsDbType> From<I> for GenericId<I> {

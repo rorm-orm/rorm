@@ -103,10 +103,12 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let model_name = syn::LitStr::new(&model_name, strct.ident.span());
     let model_source = get_source(&strct);
     let mut field_idents = Vec::new();
+    let mut field_types = Vec::new();
     let mut field_defs = Vec::new();
     for field in strct.fields.iter() {
-        if let Some((ident, def)) = parse_field(field, &errors) {
+        if let Some((ident, ty, def)) = parse_field(field, &errors) {
             field_idents.push(ident);
+            field_types.push(ty);
             field_defs.push(def);
         }
     }
@@ -135,9 +137,24 @@ pub fn model(strct: TokenStream) -> TokenStream {
 
                 fn fields() -> &'static #fields_strct {
                     static fields: #fields_strct = #fields_strct {
-                        #(#field_defs),*
+                        #(
+                            #field_idents: #field_defs,
+                        )*
                     };
                     &fields
+                }
+            }
+
+            #[cfg(feature = "sqlx")] // TODO decouple this from sqlx
+            impl<'r> ::sqlx::FromRow<'r, ::sqlx::any::AnyRow> for #strct_ident {
+                fn from_row(row: &'r ::sqlx::any::AnyRow) -> Result<Self, ::sqlx::Error> {
+                    use ::sqlx::Row;
+                    let fields = <Self as ::rorm::model::Model<_>>::fields();
+                    Ok(#strct_ident {
+                        #(
+                            #field_idents: #field_types::from_primitive(row.try_get(fields.#field_idents.name)?),
+                        )*
+                    })
                 }
             }
 
@@ -166,7 +183,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
     })
 }
 
-fn parse_field(field: &syn::Field, errors: &Errors) -> Option<(Ident, TokenStream)> {
+fn parse_field(field: &syn::Field, errors: &Errors) -> Option<(Ident, TokenStream, TokenStream)> {
     let ident = if let Some(ident) = field.ident.as_ref() {
         ident.clone()
     } else {
@@ -232,11 +249,12 @@ fn parse_field(field: &syn::Field, errors: &Errors) -> Option<(Ident, TokenStrea
 
     return Some((
         field.ident.clone().unwrap(),
+        data_type.clone(),
         quote! {
             /*
             annotations.append(&mut #data_type::implicit_annotations());
              */
-            #ident: ::rorm::model::Field {
+            ::rorm::model::Field {
                 name: #db_name,
                 db_type: #db_type,
                 annotations: &[
