@@ -177,10 +177,7 @@ impl Database {
         model: &str,
         columns: &[&str],
     ) -> BoxStream<Result<AnyRow, sqlx::Error>> {
-        let mut q = self.db_impl.select(model);
-        for column in columns {
-            q = q.add_column(column);
-        }
+        let q = self.db_impl.select(columns, model);
 
         let (query_string, _bind_params) = q.build();
 
@@ -195,10 +192,7 @@ impl Database {
     `columns`: Columns to retrieve values from.
     */
     pub async fn query_one(&self, model: &str, columns: &[&str]) -> Result<AnyRow, sqlx::Error> {
-        let mut q = self.db_impl.select(model);
-        for column in columns {
-            q = q.add_column(column);
-        }
+        let q = self.db_impl.select(columns, model);
 
         let (query_string, _bind_params) = q.build();
 
@@ -218,10 +212,7 @@ impl Database {
         model: &str,
         columns: &[&str],
     ) -> Result<Option<AnyRow>, sqlx::Error> {
-        let mut q = self.db_impl.select(model);
-        for column in columns {
-            q = q.add_column(column);
-        }
+        let q = self.db_impl.select(columns, model);
 
         let (query_string, _bind_params) = q.build();
 
@@ -241,10 +232,7 @@ impl Database {
         model: &str,
         columns: &[&str],
     ) -> Result<Vec<AnyRow>, sqlx::Error> {
-        let mut q = self.db_impl.select(model);
-        for column in columns {
-            q = q.add_column(column);
-        }
+        let q = self.db_impl.select(columns, model);
 
         let (query_string, _bind_params) = q.build();
 

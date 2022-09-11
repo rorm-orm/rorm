@@ -45,7 +45,7 @@ pub enum DBImpl {
     MySQL,
 }
 
-impl DBImpl {
+impl<'a> DBImpl {
     /**
     The entry point to create a table.
 
@@ -59,7 +59,7 @@ impl DBImpl {
                 columns: vec![],
                 if_not_exists: false,
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 
@@ -88,7 +88,7 @@ impl DBImpl {
                 operation,
                 statements: vec![],
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 
@@ -109,7 +109,7 @@ impl DBImpl {
                 columns: vec![],
                 condition: None,
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 
@@ -122,7 +122,7 @@ impl DBImpl {
                 dialect: DBImpl::SQLite,
                 statements: vec![],
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 
@@ -138,7 +138,7 @@ impl DBImpl {
                 name: name.to_string(),
                 if_exists: false,
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 
@@ -155,7 +155,7 @@ impl DBImpl {
                 name: name.to_string(),
                 operation,
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 
@@ -185,7 +185,7 @@ impl DBImpl {
                     .map(|x| SQLAnnotation { annotation: x })
                     .collect(),
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 

@@ -1,4 +1,4 @@
-use crate::DBImpl;
+use crate::{DBImpl, SQLWhere};
 
 /**
 The representation of a FROM clause
@@ -10,7 +10,7 @@ The representation of a select query.
 */
 pub struct SQLSelect<'a> {
     pub(crate) dialect: DBImpl,
-    pub(crate) resulting_columns: Vec<&'a str>,
+    pub(crate) resulting_columns: &'a [&'a str],
     pub(crate) limit: Option<u64>,
     pub(crate) offset: Option<u64>,
     pub(crate) from_clause: String,
@@ -40,17 +40,6 @@ impl<'a> SQLSelect<'a> {
     */
     pub fn distinct(mut self) -> Self {
         self.distinct = true;
-        return self;
-    }
-
-    /**
-    Add an identifier to the retrieving columns.
-
-    matches:
-    SELECT {columns} FROM ...;
-    */
-    pub fn add_column(mut self, col: &'a str) -> Self {
-        self.resulting_columns.push(col);
         return self;
     }
 
