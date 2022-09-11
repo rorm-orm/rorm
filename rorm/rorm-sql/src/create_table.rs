@@ -1,7 +1,7 @@
 use crate::{DBImpl, SQLCreateColumn};
 
 /**
-
+The representation of an create table operation.
 */
 pub struct SQLCreateTable {
     pub(crate) dialect: DBImpl,
