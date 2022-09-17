@@ -47,7 +47,7 @@ pub enum DBImpl {
     MySQL,
 }
 
-impl<'a> DBImpl {
+impl DBImpl {
     /**
     The entry point to create a table.
 
@@ -197,7 +197,11 @@ impl<'a> DBImpl {
     The `from_clause` specifies the FROM in sql.
     This can be a single table name or a complex query itself.
     */
-    pub fn select(&self, columns: &'a [&'a str], from_clause: &str) -> SQLSelect<'a> {
+    pub fn select<'until_build>(
+        &self,
+        columns: &'until_build [&'until_build str],
+        from_clause: &str,
+    ) -> SQLSelect<'until_build, '_> {
         match self {
             DBImpl::SQLite => SQLSelect {
                 dialect: DBImpl::SQLite,
@@ -207,6 +211,7 @@ impl<'a> DBImpl {
                 limit: None,
                 offset: None,
                 distinct: false,
+                lookup: vec![],
             },
             _ => todo!("Not implemented yet!"),
         }

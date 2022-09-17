@@ -24,6 +24,7 @@ pub mod result;
 use futures::stream::BoxStream;
 use futures::StreamExt;
 pub use rorm_sql::conditional;
+use rorm_sql::conditional::ConditionValue;
 use rorm_sql::DBImpl;
 #[cfg(feature = "sqlx-dep")]
 use sqlx::any::AnyPoolOptions;
@@ -173,20 +174,24 @@ impl Database {
     `columns`: Columns to retrieve values from.
     `conditions`: Optional conditions to apply.
     */
-    pub fn query_stream(
-        &self,
+    pub fn query_stream<'db, 'post_query, 'stream>(
+        &'db self,
         model: &str,
         columns: &[&str],
-        conditions: Option<&conditional::Condition>,
-    ) -> BoxStream<Result<AnyRow, sqlx::Error>> {
+        conditions: Option<&conditional::Condition<'post_query>>,
+    ) -> BoxStream<'stream, Result<AnyRow, sqlx::Error>>
+    where
+        'post_query: 'stream,
+        'db: 'stream,
+    {
         let mut q = self.db_impl.select(columns, model);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
         }
 
-        let (query_string, _bind_params) = q.build();
+        let (query_string, bind_params) = q.build();
 
-        return QueryStream::build(query_string, &self.pool).boxed();
+        return QueryStream::build(query_string, bind_params, &self.pool).boxed();
     }
 
     /**
@@ -208,11 +213,19 @@ impl Database {
             q = q.where_clause(conditions.unwrap());
         }
 
-        let (query_string, _bind_params) = q.build();
+        let (query_string, bind_params) = q.build();
 
-        sqlx::query(query_string.as_str())
-            .fetch_one(&self.pool)
-            .await
+        let mut tmp = sqlx::query(query_string.as_str());
+        for x in bind_params {
+            tmp = match x {
+                ConditionValue::String(x) => tmp.bind(x),
+                ConditionValue::I64(x) => tmp.bind(x),
+                ConditionValue::I32(x) => tmp.bind(x),
+                ConditionValue::I16(x) => tmp.bind(x),
+            }
+        }
+
+        tmp.fetch_one(&self.pool).await
     }
 
     /**
@@ -233,11 +246,19 @@ impl Database {
             q = q.where_clause(conditions.unwrap());
         }
 
-        let (query_string, _bind_params) = q.build();
+        let (query_string, bind_params) = q.build();
 
-        sqlx::query(query_string.as_str())
-            .fetch_optional(&self.pool)
-            .await
+        let mut tmp = sqlx::query(query_string.as_str());
+        for x in bind_params {
+            tmp = match x {
+                ConditionValue::String(x) => tmp.bind(x),
+                ConditionValue::I64(x) => tmp.bind(x),
+                ConditionValue::I32(x) => tmp.bind(x),
+                ConditionValue::I16(x) => tmp.bind(x),
+            }
+        }
+
+        tmp.fetch_optional(&self.pool).await
     }
 
     /**
@@ -258,10 +279,18 @@ impl Database {
             q = q.where_clause(conditions.unwrap());
         }
 
-        let (query_string, _bind_params) = q.build();
+        let (query_string, bind_params) = q.build();
 
-        sqlx::query(query_string.as_str())
-            .fetch_all(&self.pool)
-            .await
+        let mut tmp = sqlx::query(query_string.as_str());
+        for x in bind_params {
+            tmp = match x {
+                ConditionValue::String(x) => tmp.bind(x),
+                ConditionValue::I64(x) => tmp.bind(x),
+                ConditionValue::I32(x) => tmp.bind(x),
+                ConditionValue::I16(x) => tmp.bind(x),
+            }
+        }
+
+        tmp.fetch_all(&self.pool).await
     }
 }

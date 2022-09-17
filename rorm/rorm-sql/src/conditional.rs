@@ -1,6 +1,7 @@
 /**
 This enum represents a value
 */
+#[derive(Copy, Clone)]
 pub enum ConditionValue<'a> {
     /// String representation
     String(&'a str),
@@ -10,8 +11,6 @@ pub enum ConditionValue<'a> {
     I32(i32),
     /// i16 representation
     I16(i16),
-    /// i8 representation
-    I8(i8),
 }
 
 /**
@@ -24,23 +23,23 @@ pub enum TernaryCondition<'a> {
     NotBetween(Box<[Condition<'a>; 3]>),
 }
 
-impl TernaryCondition<'_> {
+impl<'a> TernaryCondition<'a> {
     /**
     This method is used to convert the current enum to SQL.
     */
-    pub fn build(&self) -> String {
+    pub fn build(&self, lookup: &mut Vec<ConditionValue<'a>>) -> String {
         match self {
             TernaryCondition::Between(params) => format!(
                 "{} BETWEEN {} AND {}",
-                params[0].build(),
-                params[1].build(),
-                params[2].build(),
+                params[0].build(lookup),
+                params[1].build(lookup),
+                params[2].build(lookup),
             ),
             TernaryCondition::NotBetween(params) => format!(
                 "{} NOT BETWEEN {} AND {}",
-                params[0].build(),
-                params[1].build(),
-                params[2].build(),
+                params[0].build(lookup),
+                params[1].build(lookup),
+                params[2].build(lookup),
             ),
         }
     }
@@ -76,47 +75,67 @@ pub enum BinaryCondition<'a> {
     NotIn(Box<[Condition<'a>; 2]>),
 }
 
-impl BinaryCondition<'_> {
+impl<'a> BinaryCondition<'a> {
     /**
     This method is used to convert the current enum to SQL.
     */
-    pub fn build(&self) -> String {
+    pub fn build(&self, lookup: &mut Vec<ConditionValue<'a>>) -> String {
         match self {
             BinaryCondition::Equals(params) => {
-                format!("{} = {}", params[0].build(), params[1].build())
+                format!("{} = {}", params[0].build(lookup), params[1].build(lookup))
             }
             BinaryCondition::NotEquals(params) => {
-                format!("{} <> {}", params[0].build(), params[1].build())
+                format!("{} <> {}", params[0].build(lookup), params[1].build(lookup))
             }
             BinaryCondition::Greater(params) => {
-                format!("{} > {}", params[0].build(), params[1].build())
+                format!("{} > {}", params[0].build(lookup), params[1].build(lookup))
             }
             BinaryCondition::GreaterOrEquals(params) => {
-                format!("{} >= {}", params[0].build(), params[1].build())
+                format!("{} >= {}", params[0].build(lookup), params[1].build(lookup))
             }
             BinaryCondition::Less(params) => {
-                format!("{} < {}", params[0].build(), params[1].build())
+                format!("{} < {}", params[0].build(lookup), params[1].build(lookup))
             }
             BinaryCondition::LessOrEquals(params) => {
-                format!("{} <= {}", params[0].build(), params[1].build())
+                format!("{} <= {}", params[0].build(lookup), params[1].build(lookup))
             }
             BinaryCondition::Like(params) => {
-                format!("{} LIKE {}", params[0].build(), params[1].build())
+                format!(
+                    "{} LIKE {}",
+                    params[0].build(lookup),
+                    params[1].build(lookup)
+                )
             }
             BinaryCondition::NotLike(params) => {
-                format!("{} NOT LIKE {}", params[0].build(), params[1].build())
+                format!(
+                    "{} NOT LIKE {}",
+                    params[0].build(lookup),
+                    params[1].build(lookup)
+                )
             }
             BinaryCondition::Regexp(params) => {
-                format!("{} REGEXP {}", params[0].build(), params[1].build())
+                format!(
+                    "{} REGEXP {}",
+                    params[0].build(lookup),
+                    params[1].build(lookup)
+                )
             }
             BinaryCondition::NotRegexp(params) => {
-                format!("{} NOT REGEXP {}", params[0].build(), params[1].build())
+                format!(
+                    "{} NOT REGEXP {}",
+                    params[0].build(lookup),
+                    params[1].build(lookup)
+                )
             }
             BinaryCondition::In(params) => {
-                format!("{} IN {}", params[0].build(), params[1].build())
+                format!("{} IN {}", params[0].build(lookup), params[1].build(lookup))
             }
             BinaryCondition::NotIn(params) => {
-                format!("{} NOT IN {}", params[0].build(), params[1].build())
+                format!(
+                    "{} NOT IN {}",
+                    params[0].build(lookup),
+                    params[1].build(lookup)
+                )
             }
         }
     }
@@ -136,16 +155,16 @@ pub enum UnaryCondition<'a> {
     NotExists(Box<Condition<'a>>),
 }
 
-impl UnaryCondition<'_> {
+impl<'a> UnaryCondition<'a> {
     /**
     This method is used to convert the [UnaryCondition] to SQL.
     */
-    pub fn build(&self) -> String {
+    pub fn build(&self, lookup: &mut Vec<ConditionValue<'a>>) -> String {
         match self {
-            UnaryCondition::IsNull(value) => format!("{} IS NULL", value.build()),
-            UnaryCondition::IsNotNull(value) => format!("{} IS NOT NULL", value.build()),
-            UnaryCondition::Exists(value) => format!("EXISTS {}", value.build()),
-            UnaryCondition::NotExists(value) => format!("NOT EXISTS {}", value.build()),
+            UnaryCondition::IsNull(value) => format!("{} IS NULL", value.build(lookup)),
+            UnaryCondition::IsNotNull(value) => format!("{} IS NOT NULL", value.build(lookup)),
+            UnaryCondition::Exists(value) => format!("EXISTS {}", value.build(lookup)),
+            UnaryCondition::NotExists(value) => format!("NOT EXISTS {}", value.build(lookup)),
         }
     }
 }
@@ -168,17 +187,17 @@ pub enum Condition<'a> {
     Value(ConditionValue<'a>),
 }
 
-impl Condition<'_> {
+impl<'a> Condition<'a> {
     /**
     This method is used to convert the condition into SQL.
     */
-    pub fn build(&self) -> String {
+    pub fn build(&self, lookup: &mut Vec<ConditionValue<'a>>) -> String {
         match self {
             Condition::Conjunction(conditions) => format!(
                 "({})",
                 conditions
                     .iter()
-                    .map(|x| x.build())
+                    .map(|x| x.build(lookup))
                     .collect::<Vec<String>>()
                     .join(" AND ")
             ),
@@ -186,21 +205,17 @@ impl Condition<'_> {
                 "({})",
                 conditions
                     .iter()
-                    .map(|x| x.build())
+                    .map(|x| x.build(lookup))
                     .collect::<Vec<String>>()
                     .join(" OR ")
             ),
-            Condition::UnaryCondition(unary) => unary.build(),
-            Condition::BinaryCondition(binary) => binary.build(),
-            Condition::TernaryCondition(ternary) => ternary.build(),
-            Condition::Value(expression) => match expression {
-                //TODO: Use ? representation
-                ConditionValue::String(str) => str.to_string(),
-                ConditionValue::I64(int) => int.to_string(),
-                ConditionValue::I32(int) => int.to_string(),
-                ConditionValue::I16(int) => int.to_string(),
-                ConditionValue::I8(int) => int.to_string(),
-            },
+            Condition::UnaryCondition(unary) => unary.build(lookup),
+            Condition::BinaryCondition(binary) => binary.build(lookup),
+            Condition::TernaryCondition(ternary) => ternary.build(lookup),
+            Condition::Value(expression) => {
+                lookup.push(*expression);
+                return "?".to_string();
+            }
         }
     }
 }
