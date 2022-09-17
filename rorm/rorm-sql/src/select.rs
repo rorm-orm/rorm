@@ -1,4 +1,4 @@
-use crate::{DBImpl, SQLWhere};
+use crate::{conditional, DBImpl};
 
 /**
 The representation of a FROM clause
@@ -46,8 +46,8 @@ impl<'a> SQLSelect<'a> {
     /**
     Set a where clause to the query.
     */
-    pub fn where_clause(mut self, where_clause: String) -> Self {
-        self.where_clause = Some(where_clause);
+    pub fn where_clause(mut self, where_clause: &conditional::Condition) -> Self {
+        self.where_clause = Some(where_clause.build());
         return self;
     }
 

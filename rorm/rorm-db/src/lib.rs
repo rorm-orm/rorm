@@ -21,10 +21,9 @@ This module holds the results of a query
 */
 pub mod result;
 
-use crate::error::Error;
-
 use futures::stream::BoxStream;
 use futures::StreamExt;
+pub use rorm_sql::conditional;
 use rorm_sql::DBImpl;
 #[cfg(feature = "sqlx-dep")]
 use sqlx::any::AnyPoolOptions;
@@ -39,6 +38,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 #[cfg(feature = "sqlx-dep")]
 pub use sqlx::Row;
 
+use crate::error::Error;
 #[cfg(feature = "sqlx-dep")]
 use crate::result::QueryStream;
 
@@ -171,13 +171,18 @@ impl Database {
 
     `model`: Name of the table.
     `columns`: Columns to retrieve values from.
+    `conditions`: Optional conditions to apply.
     */
     pub fn query_stream(
         &self,
         model: &str,
         columns: &[&str],
+        conditions: Option<&conditional::Condition>,
     ) -> BoxStream<Result<AnyRow, sqlx::Error>> {
-        let q = self.db_impl.select(columns, model);
+        let mut q = self.db_impl.select(columns, model);
+        if conditions.is_some() {
+            q = q.where_clause(conditions.unwrap());
+        }
 
         let (query_string, _bind_params) = q.build();
 
@@ -190,9 +195,18 @@ impl Database {
 
     `model`: Model to query.
     `columns`: Columns to retrieve values from.
+    `conditions`: Optional conditions to apply.
     */
-    pub async fn query_one(&self, model: &str, columns: &[&str]) -> Result<AnyRow, sqlx::Error> {
-        let q = self.db_impl.select(columns, model);
+    pub async fn query_one(
+        &self,
+        model: &str,
+        columns: &[&str],
+        conditions: Option<&conditional::Condition<'_>>,
+    ) -> Result<AnyRow, sqlx::Error> {
+        let mut q = self.db_impl.select(columns, model);
+        if conditions.is_some() {
+            q = q.where_clause(conditions.unwrap());
+        }
 
         let (query_string, _bind_params) = q.build();
 
@@ -206,13 +220,18 @@ impl Database {
 
     `model`: Model to query.
     `columns`: Columns to retrieve values from.
+    `conditions`: Optional conditions to apply.
     */
     pub async fn query_optional(
         &self,
         model: &str,
         columns: &[&str],
+        conditions: Option<&conditional::Condition<'_>>,
     ) -> Result<Option<AnyRow>, sqlx::Error> {
-        let q = self.db_impl.select(columns, model);
+        let mut q = self.db_impl.select(columns, model);
+        if conditions.is_some() {
+            q = q.where_clause(conditions.unwrap());
+        }
 
         let (query_string, _bind_params) = q.build();
 
@@ -226,13 +245,18 @@ impl Database {
 
     `model`: Model to query.
     `columns`: Columns to retrieve values from.
+    `conditions`: Optional conditions to apply.
     */
     pub async fn query_all(
         &self,
         model: &str,
         columns: &[&str],
+        conditions: Option<&conditional::Condition<'_>>,
     ) -> Result<Vec<AnyRow>, sqlx::Error> {
-        let q = self.db_impl.select(columns, model);
+        let mut q = self.db_impl.select(columns, model);
+        if conditions.is_some() {
+            q = q.where_clause(conditions.unwrap());
+        }
 
         let (query_string, _bind_params) = q.build();
 

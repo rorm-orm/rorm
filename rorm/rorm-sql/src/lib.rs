@@ -3,6 +3,8 @@
 
 /// Implementation of SQL ALTER TABLE statements
 pub mod alter_table;
+///This module defines the conditional statements
+pub mod conditional;
 /// Implementation of SQL CREATE COLUMN statements
 pub mod create_column;
 /// Implementation of SQL CREATE INDEX statements
@@ -195,18 +197,18 @@ impl<'a> DBImpl {
     The `from_clause` specifies the FROM in sql.
     This can be a single table name or a complex query itself.
     */
-    pub fn select(&self, from_clause: &str) -> SQLSelect {
+    pub fn select(&self, columns: &'a [&'a str], from_clause: &str) -> SQLSelect<'a> {
         match self {
             DBImpl::SQLite => SQLSelect {
                 dialect: DBImpl::SQLite,
-                resulting_columns: vec![],
+                resulting_columns: columns,
                 from_clause: from_clause.to_string(),
                 where_clause: None,
                 limit: None,
                 offset: None,
                 distinct: false,
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 }
