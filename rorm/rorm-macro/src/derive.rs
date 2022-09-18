@@ -124,52 +124,61 @@ pub fn model(strct: TokenStream) -> TokenStream {
         Ident::new(&format!("__{}_definition_dyn_object", strct.ident), span);
 
     let strct_ident = strct.ident;
+    let field_literals = field_idents
+        .iter()
+        .map(|ident| syn::LitStr::new(&ident.to_string(), ident.span()));
     let impl_from_row = from_row(&strct_ident, &strct_ident, &field_idents, &field_types);
-    TokenStream::from({
-        quote! {
-            pub struct #fields_strct {
-                #(pub #field_idents: ::rorm::model::Field),*
-            }
-
-            impl ::rorm::model::Model<#fields_strct> for #strct_ident {
-                fn table_name() -> &'static str {
-                    #model_name
-                }
-
-                fn fields() -> &'static #fields_strct {
-                    static fields: #fields_strct = #fields_strct {
-                        #(
-                            #field_idents: #field_defs,
-                        )*
-                    };
-                    &fields
-                }
-            }
-
-            #impl_from_row
-
-            #[allow(non_camel_case_types)]
-            struct #definition_getter_struct;
-            impl ::rorm::model::GetModelDefinition for #definition_getter_struct {
-                fn as_rorm(&self) -> ::rorm::model::ModelDefinition {
-                    ::rorm::model::ModelDefinition {
-                        name: #model_name,
-                        source: #model_source,
-                        fields: vec![ #(<#strct_ident as ::rorm::model::Model<_>>::fields().#field_idents),* ],
-                    }
-                }
-            }
-
-            #[allow(non_snake_case)]
-            static #definition_getter_instance: #definition_getter_struct = #definition_getter_struct;
-
-            #[allow(non_snake_case)]
-            #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
-            #[::rorm::rename_linkme]
-            static #definition_getter_dyn_obj: &'static dyn ::rorm::model::GetModelDefinition = &#definition_getter_instance;
-
-            #errors
+    TokenStream::from(quote! {
+        pub struct #fields_strct {
+            #(pub #field_idents: ::rorm::model::Field),*
         }
+
+        impl ::rorm::model::Model<#fields_strct> for #strct_ident {
+            fn table_name() -> &'static str {
+                #model_name
+            }
+
+            fn fields() -> &'static #fields_strct {
+                static fields: #fields_strct = #fields_strct {
+                    #(
+                        #field_idents: #field_defs,
+                    )*
+                };
+                &fields
+            }
+        }
+
+        impl ::rorm::model::Patch for #strct_ident {
+            type MODEL = #strct_ident;
+
+            const COLUMNS: &'static [&'static str] = &[#(
+                #field_literals,
+            )*];
+        }
+
+        #impl_from_row
+
+        #[allow(non_camel_case_types)]
+        struct #definition_getter_struct;
+        impl ::rorm::model::GetModelDefinition for #definition_getter_struct {
+            fn as_rorm(&self) -> ::rorm::model::ModelDefinition {
+                ::rorm::model::ModelDefinition {
+                    name: #model_name,
+                    source: #model_source,
+                    fields: vec![ #(<#strct_ident as ::rorm::model::Model<_>>::fields().#field_idents),* ],
+                }
+            }
+        }
+
+        #[allow(non_snake_case)]
+        static #definition_getter_instance: #definition_getter_struct = #definition_getter_struct;
+
+        #[allow(non_snake_case)]
+        #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
+        #[::rorm::rename_linkme]
+        static #definition_getter_dyn_obj: &'static dyn ::rorm::model::GetModelDefinition = &#definition_getter_instance;
+
+        #errors
     })
 }
 
@@ -230,13 +239,16 @@ pub fn patch(strct: TokenStream) -> TokenStream {
         }
     }
 
+    let field_literals = field_idents
+        .iter()
+        .map(|ident| syn::LitStr::new(&ident.to_string(), ident.span()));
     let compile_check = Ident::new(
         &format!("__compile_check_{}", strct.ident.to_string()),
         span,
     );
     let patch_ident = strct.ident.clone();
     let impl_from_row = from_row(&patch_ident, &model_path, &field_idents, &field_types);
-    return quote! {
+    TokenStream::from(quote! {
         #[allow(non_snake_case)]
         fn #compile_check(model: #model_path) {
             // check if the specified model actually implements model
@@ -251,10 +263,18 @@ pub fn patch(strct: TokenStream) -> TokenStream {
             };
         }
 
+        impl ::rorm::model::Patch for #patch_ident {
+            type MODEL = #model_path;
+
+            const COLUMNS: &'static [&'static str] = &[#(
+                #field_literals,
+            )*];
+        }
+
         #impl_from_row
 
         #errors
-    };
+    })
 }
 
 fn from_row(

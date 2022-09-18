@@ -123,6 +123,17 @@ pub trait GetModelDefinition: Sync + Send {
     }
 }
 
+/// Trait implemented on Patches i.e. a subset of a model's fields.
+///
+/// Implemented by [`derive(Patch)`] as well as [`derive(Model)`].
+pub trait Patch {
+    /// The model this patch is for
+    type MODEL;
+
+    /// List of columns i.e. fields this patch contains
+    const COLUMNS: &'static [&'static str];
+}
+
 /// Trait implementing most database interactions for a struct.
 ///
 /// It should only ever be generated using [`derive(Model)`].
