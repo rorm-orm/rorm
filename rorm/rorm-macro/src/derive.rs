@@ -113,15 +113,8 @@ pub fn model(strct: TokenStream) -> TokenStream {
         }
     }
 
-    // Empty struct to implement ModelDefinition on
-    let definition_getter_struct =
-        Ident::new(&format!("__{}_definition_struct", strct.ident), span);
-    // Instance of said empty struct
-    let definition_getter_instance =
-        Ident::new(&format!("__{}_definition_instance", strct.ident), span);
-    // Trait object from said instance
-    let definition_getter_dyn_obj =
-        Ident::new(&format!("__{}_definition_dyn_object", strct.ident), span);
+    // Static reference pointing to Model::get_imr
+    let static_get_imr = Ident::new(&format!("__{}_get_imr", strct.ident), span);
 
     let strct_ident = strct.ident;
     let field_literals = field_idents
@@ -130,21 +123,34 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let impl_from_row = from_row(&strct_ident, &strct_ident, &field_idents, &field_types);
     TokenStream::from(quote! {
         pub struct #fields_strct {
-            #(pub #field_idents: ::rorm::model::Field),*
+            #(pub #field_idents: ::rorm::model::Field<#field_types>),*
         }
 
-        impl ::rorm::model::Model<#fields_strct> for #strct_ident {
+        impl ::rorm::model::Model for #strct_ident {
+            type FIELDS = #fields_strct;
+
             fn table_name() -> &'static str {
                 #model_name
             }
 
-            fn fields() -> &'static #fields_strct {
+            fn fields() -> &'static Self::FIELDS {
                 static fields: #fields_strct = #fields_strct {
                     #(
                         #field_idents: #field_defs,
                     )*
                 };
                 &fields
+            }
+
+            fn get_imr() -> ::rorm::imr::Model {
+                let fields = <#strct_ident as ::rorm::model::Model>::fields();
+                ::rorm::imr::Model {
+                    name: #model_name.to_string(),
+                    fields: vec![#(
+                        (&fields.#field_idents).into(),
+                    )*],
+                    source_defined_at: #model_source,
+                }
             }
         }
 
@@ -158,25 +164,10 @@ pub fn model(strct: TokenStream) -> TokenStream {
 
         #impl_from_row
 
-        #[allow(non_camel_case_types)]
-        struct #definition_getter_struct;
-        impl ::rorm::model::GetModelDefinition for #definition_getter_struct {
-            fn as_rorm(&self) -> ::rorm::model::ModelDefinition {
-                ::rorm::model::ModelDefinition {
-                    name: #model_name,
-                    source: #model_source,
-                    fields: vec![ #(<#strct_ident as ::rorm::model::Model<_>>::fields().#field_idents),* ],
-                }
-            }
-        }
-
-        #[allow(non_snake_case)]
-        static #definition_getter_instance: #definition_getter_struct = #definition_getter_struct;
-
         #[allow(non_snake_case)]
         #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
         #[::rorm::rename_linkme]
-        static #definition_getter_dyn_obj: &'static dyn ::rorm::model::GetModelDefinition = &#definition_getter_instance;
+        static #static_get_imr: fn() -> ::rorm::imr::Model = <#strct_ident as ::rorm::model::Model>::get_imr;
 
         #errors
     })
@@ -252,7 +243,7 @@ pub fn patch(strct: TokenStream) -> TokenStream {
         #[allow(non_snake_case)]
         fn #compile_check(model: #model_path) {
             // check if the specified model actually implements model
-            let _ = <#model_path as ::rorm::model::Model<_>>::fields();
+            let _ = <#model_path as ::rorm::model::Model>::fields();
 
             // check fields exist on model and match model's types
             // todo error messages for type mismatches are terrible
@@ -288,7 +279,7 @@ fn from_row(
         impl<'r> ::sqlx::FromRow<'r, ::sqlx::any::AnyRow> for #strct {
             fn from_row(row: &'r ::sqlx::any::AnyRow) -> Result<Self, ::sqlx::Error> {
                 use ::sqlx::Row;
-                let fields = <#model as ::rorm::model::Model<_>>::fields();
+                let fields = <#model as ::rorm::model::Model>::fields();
                 Ok(#strct {
                     #(
                         #fields: <#types as ::rorm::model::AsDbType>::from_primitive(row.try_get(fields.#fields.name)?),
@@ -366,7 +357,7 @@ fn parse_field(field: &syn::Field, errors: &Errors) -> Option<(Ident, syn::Type,
     return Some((
         field.ident.clone().unwrap(),
         field.ty.clone(),
-        quote! {
+        TokenStream::from(quote! {
             /*
             annotations.append(&mut #data_type::implicit_annotations());
              */
@@ -379,8 +370,9 @@ fn parse_field(field: &syn::Field, errors: &Errors) -> Option<(Ident, syn::Type,
                 implicit_annotations: &#data_type::implicit_annotations,
                 nullable: #data_type::IS_NULLABLE,
                 source: #source,
+                _phantom: ::std::marker::PhantomData,
             }
-        },
+        }),
     ));
 }
 
@@ -418,9 +410,9 @@ fn parse_default(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn
     };
 
     let variant = Ident::new(variant, arg.span());
-    annotations.push(quote! {
+    annotations.push(TokenStream::from(quote! {
         ::rorm::model::Annotation::DefaultValue(::rorm::model::DefaultValue::#variant(#arg))
-    });
+    }));
 }
 
 /// Parse the `#[rorm(max_length = ..)]` annotation.
@@ -432,9 +424,9 @@ fn parse_max_length(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &
             lit: syn::Lit::Int(integer),
             ..
         }) => {
-            annotations.push(quote! {
+            annotations.push(TokenStream::from(quote! {
                 ::rorm::model::Annotation::MaxLength(#integer)
-            });
+            }));
         }
         _ => {
             errors.push_new(
@@ -469,11 +461,11 @@ fn parse_choices(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn
             }
         }
 
-        annotations.push(quote! {
+        annotations.push(TokenStream::from(quote! {
             ::rorm::model::Annotation::Choices(&[
                 #(#choices),*
             ])
-        });
+        }));
     } else {
         errors.push_new(meta.span(), usage_string);
     }
@@ -492,9 +484,9 @@ fn parse_index(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::
     match &meta {
         // index was used on its own without arguments
         syn::Meta::Path(_) => {
-            annotations.push(quote! {
+            annotations.push(TokenStream::from(quote! {
                 ::rorm::model::Annotation::Index(None)
-            });
+            }));
         }
 
         // index was used as "function call"
@@ -587,7 +579,9 @@ fn parse_index(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::
                 } else {
                     quote! { None }
                 };
-                annotations.push(quote! { ::rorm::model::Annotation::Index(#inner) });
+                annotations.push(TokenStream::from(quote! {
+                    ::rorm::model::Annotation::Index(#inner)
+                }));
             }
         }
 

@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 use crate::imr;
@@ -105,24 +106,6 @@ impl<E: DbEnum> AsDbType for E {
     const DB_TYPE: imr::DbType = imr::DbType::Choices;
 }
 
-/// A ModelDefinition provides methods to do something similar to reflection on model structs.
-///
-/// This trait is only implemented on empty types and used as dyn objects i.e. it is a higher
-/// level representation for a function table.
-/// It is automatically implemented for you by the [`derive(Model)`] attribute.
-///
-/// [`derive(Model)`]: crate::Model
-// sync and send is required in order to store it as a static
-pub trait GetModelDefinition: Sync + Send {
-    /// Build rorm's model representation.
-    fn as_rorm(&self) -> ModelDefinition;
-
-    /// Build the Intermediate Model Representation
-    fn as_imr(&self) -> imr::Model {
-        self.as_rorm().into()
-    }
-}
-
 /// Trait implemented on Patches i.e. a subset of a model's fields.
 ///
 /// Implemented by [`derive(Patch)`] as well as [`derive(Model)`].
@@ -139,12 +122,22 @@ pub trait Patch {
 /// It should only ever be generated using [`derive(Model)`].
 ///
 /// [`derive(Model)`]: crate::Model
-pub trait Model<FIELDS> {
+pub trait Model {
+    /// A struct holding data about the model's fields
+    type FIELDS;
+
     /// Returns the table name of the model
     fn table_name() -> &'static str;
 
     /// Returns a struct with all the fields' definitions
-    fn fields() -> &'static FIELDS;
+    fn fields() -> &'static Self::FIELDS;
+
+    /// Returns the model's intermediate representation
+    ///
+    /// As library user you probably won't need this. You might want to look at [`write_models`].
+    ///
+    /// [`write_models`]: crate::write_models
+    fn get_imr() -> imr::Model;
 }
 
 /// The type to add to most models as primary key:
@@ -195,40 +188,11 @@ impl<I: AsDbType> DerefMut for GenericId<I> {
     }
 }
 
-/// rorm's model representation holding all data about a specific model.
-///
-/// This is very similar to the [Intermediate Model Representation](imr::Model). But it contains
-/// more information and uses a slightly different format.
-/// (For example using `&'static str` instead of `String`)
-///
-/// # WIP
-/// This representations doesn't do much currently, but it is planned to be used in resolving relations.
-pub struct ModelDefinition {
-    /// Name of the table
-    pub name: &'static str,
-
-    /// Fields the Model has attached
-    pub fields: Vec<Field>,
-
-    /// Optional location of the source of this model
-    pub source: Option<Source>,
-}
-
-impl From<ModelDefinition> for imr::Model {
-    fn from(model: ModelDefinition) -> Self {
-        imr::Model {
-            name: model.name.to_string(),
-            fields: model.fields.into_iter().map(From::from).collect(),
-            source_defined_at: model.source.map(Into::into),
-        }
-    }
-}
-
 /// [`ModelDefinitions`]'s fields.
 ///
 /// This is similar to [`imr::Field`]. See [`ModelDefinition`] for the why.
 #[derive(Copy, Clone)]
-pub struct Field {
+pub struct Field<T: 'static> {
     /// Name of this field
     pub name: &'static str,
 
@@ -246,10 +210,13 @@ pub struct Field {
 
     /// Optional definition of the location of field in the source code
     pub source: Option<Source>,
+
+    #[doc(hidden)]
+    pub _phantom: PhantomData<&'static T>,
 }
 
-impl From<Field> for imr::Field {
-    fn from(field: Field) -> Self {
+impl<T> From<&'_ Field<T>> for imr::Field {
+    fn from(field: &'_ Field<T>) -> Self {
         let mut annotations: Vec<_> = field.annotations.iter().map(|&anno| anno.into()).collect();
         (field.implicit_annotations)(&mut annotations);
         if !field.nullable {

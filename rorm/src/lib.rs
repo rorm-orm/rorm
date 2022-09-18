@@ -13,21 +13,20 @@ pub use rorm_declaration::imr;
 
 /// This module holds traits and structs for working with models
 pub mod model;
-use model::GetModelDefinition;
 
 /// This slice is populated by the [`Model`] macro with all models.
 ///
 /// [`Model`]: rorm_macro::Model
 #[allow(non_camel_case_types)]
 #[linkme::distributed_slice]
-pub static MODELS: [&'static dyn GetModelDefinition] = [..];
+pub static MODELS: [fn() -> imr::Model] = [..];
 
 /// Write all models in the Intermediate Model Representation to a [writer].
 ///
 /// [writer]: std::io::Write
 pub fn write_models(writer: &mut impl Write) -> Result<(), String> {
     let imf = imr::InternalModelFormat {
-        models: MODELS.iter().map(|md| md.as_imr()).collect(),
+        models: MODELS.iter().map(|func| func()).collect(),
     };
     serde_json::to_writer(writer, &imf).map_err(|err| err.to_string())
 }
