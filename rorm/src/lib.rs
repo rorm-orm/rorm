@@ -40,50 +40,28 @@ pub fn print_models() -> Result<(), String> {
     write_models(&mut std::io::stdout())
 }
 
-/// High level macro for [`Database::query_all`].
+/// High level macro for `Database::query_*` methods.
 ///
-/// It takes a database connection and patch or model and infers the table and columns for it.
+/// It takes:
+/// - a database connection
+/// - the actual method to call (i.e. `query_all`, `query_one`, ...)
+/// - a patch or model
+/// - an optional condition (wrapped in any brackets)
+/// and calls the method on the connection inferring its arguments from the patch and parsing the condition.
 #[macro_export]
-macro_rules! query_all {
-    ($db:expr, $patch:path) => {{
-        let table = <$patch as ::rorm::model::Patch>::MODEL::table_name();
-        let columns = <$patch as ::rorm::model::Patch>::COLUMNS;
-        $db.query_all(table, columns, None)
-    }};
-}
-
-/// High level macro for [`Database::query_one`].
-///
-/// It takes a database connection and patch or model and infers the table and columns for it.
-#[macro_export]
-macro_rules! query_one {
-    ($db:expr, $patch:path) => {{
-        let table = <$patch as ::rorm::model::Patch>::MODEL::table_name();
-        let columns = <$patch as ::rorm::model::Patch>::COLUMNS;
-        $db.query_one(table, columns, None)
-    }};
-}
-
-/// High level macro for [`Database::query_stream`].
-///
-/// It takes a database connection and patch or model and infers the table and columns for it.
-#[macro_export]
-macro_rules! query_stream {
-    ($db:expr, $patch:path) => {{
-        let table = <$patch as ::rorm::model::Patch>::MODEL::table_name();
-        let columns = <$patch as ::rorm::model::Patch>::COLUMNS;
-        $db.query_stream(table, columns, None)
-    }};
-}
-
-/// High level macro for [`Database::query_optional`].
-///
-/// It takes a database connection and patch or model and infers the table and columns for it.
-#[macro_export]
-macro_rules! query_optional {
-    ($db:expr, $patch:path) => {{
-        let table = <$patch as ::rorm::model::Patch>::MODEL::table_name();
-        let columns = <$patch as ::rorm::model::Patch>::COLUMNS;
-        $db.query_optional(table, columns, None)
-    }};
+macro_rules! query {
+    ($db:expr, $method:ident, $patch:path, $condition:tt) => {
+        $db.$method(
+            <$patch as ::rorm::model::Patch>::MODEL::table_name(),
+            <$patch as ::rorm::model::Patch>::COLUMNS,
+            Some(&$crate::parse_condition!$condition),
+        )
+    };
+    ($db:expr, $method:ident, $patch:path) => {
+        $db.$method(
+            <$patch as ::rorm::model::Patch>::MODEL::table_name(),
+            <$patch as ::rorm::model::Patch>::COLUMNS,
+            None,
+        )
+    };
 }
