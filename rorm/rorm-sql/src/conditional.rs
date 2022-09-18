@@ -140,6 +140,8 @@ pub enum UnaryCondition<'a> {
     Exists(Box<Condition<'a>>),
     /// Representation of SQL's "NOT EXISTS {}"
     NotExists(Box<Condition<'a>>),
+    /// Representation of SQL's "NOT {}"
+    Not(Box<Condition<'a>>),
 }
 
 impl<'a> UnaryCondition<'a> {
@@ -152,6 +154,7 @@ impl<'a> UnaryCondition<'a> {
             UnaryCondition::IsNotNull(value) => format!("{} IS NOT NULL", value.build(lookup)),
             UnaryCondition::Exists(value) => format!("EXISTS {}", value.build(lookup)),
             UnaryCondition::NotExists(value) => format!("NOT EXISTS {}", value.build(lookup)),
+            UnaryCondition::Not(value) => format!("NOT {}", value.build(lookup)),
         }
     }
 }
