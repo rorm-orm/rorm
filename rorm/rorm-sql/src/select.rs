@@ -1,4 +1,4 @@
-use crate::{conditional, DBImpl};
+use crate::{conditional, value, DBImpl};
 
 /**
 The representation of a FROM clause
@@ -16,7 +16,7 @@ pub struct SQLSelect<'until_build, 'post_query> {
     pub(crate) from_clause: String,
     pub(crate) where_clause: Option<&'until_build conditional::Condition<'post_query>>,
     pub(crate) distinct: bool,
-    pub(crate) lookup: Vec<conditional::ConditionValue<'post_query>>,
+    pub(crate) lookup: Vec<value::Value<'post_query>>,
 }
 
 impl<'until_build, 'post_query> SQLSelect<'until_build, 'post_query> {
@@ -58,7 +58,7 @@ impl<'until_build, 'post_query> SQLSelect<'until_build, 'post_query> {
     /**
     Build the select query
     */
-    pub fn build(mut self) -> (String, Vec<conditional::ConditionValue<'post_query>>) {
+    pub fn build(mut self) -> (String, Vec<value::Value<'post_query>>) {
         return match self.dialect {
             DBImpl::SQLite => (
                 format!(

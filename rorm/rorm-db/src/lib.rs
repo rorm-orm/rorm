@@ -26,6 +26,7 @@ mod utils;
 use futures::stream::BoxStream;
 use futures::StreamExt;
 pub use rorm_sql::conditional;
+pub use rorm_sql::value;
 use rorm_sql::DBImpl;
 #[cfg(feature = "sqlx-dep")]
 use sqlx::any::AnyPoolOptions;

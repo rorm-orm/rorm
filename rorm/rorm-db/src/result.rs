@@ -4,14 +4,14 @@ use std::task::{Context, Poll};
 use crate::utils;
 use futures::stream::BoxStream;
 use futures::Stream;
-use rorm_sql::conditional;
+use rorm_sql::value;
 use sqlx::any::AnyRow;
 use sqlx::{AnyPool, Error};
 
 #[ouroboros::self_referencing]
 pub struct QueryStream<'post_query> {
     pub(crate) query_str: String,
-    pub(crate) bind_params: Vec<conditional::ConditionValue<'post_query>>,
+    pub(crate) bind_params: Vec<value::Value<'post_query>>,
     #[borrows(query_str, bind_params)]
     #[not_covariant]
     pub(crate) stream: BoxStream<'this, Result<AnyRow, Error>>,
@@ -20,7 +20,7 @@ pub struct QueryStream<'post_query> {
 impl<'post_query> QueryStream<'post_query> {
     pub(crate) fn build(
         stmt: String,
-        bind_params: Vec<conditional::ConditionValue<'post_query>>,
+        bind_params: Vec<value::Value<'post_query>>,
         executor: &AnyPool,
     ) -> QueryStream<'post_query> {
         QueryStream::new(stmt, bind_params, |stmt, bind_params| {

@@ -21,6 +21,8 @@ pub mod error;
 pub mod select;
 /// Implementation of SQL Transactions
 pub mod transaction;
+/// Implementation of supported datatypes
+pub mod value;
 
 use rorm_declaration::imr::{Annotation, DbType};
 

@@ -1,25 +1,4 @@
-/**
-This enum represents a value
-*/
-#[derive(Copy, Clone)]
-pub enum ConditionValue<'a> {
-    /// String representation
-    String(&'a str),
-    /// i64 representation
-    I64(i64),
-    /// i32 representation
-    I32(i32),
-    /// i16 representation
-    I16(i16),
-    /// Bool representation
-    Bool(bool),
-    /// f64 representation
-    F64(f64),
-    /// f32 representation
-    F32(f32),
-    /// null representation
-    Null,
-}
+use crate::value::Value;
 
 /**
 This enum represents all available ternary expression.
@@ -35,7 +14,7 @@ impl<'a> TernaryCondition<'a> {
     /**
     This method is used to convert the current enum to SQL.
     */
-    pub fn build(&self, lookup: &mut Vec<ConditionValue<'a>>) -> String {
+    pub fn build(&self, lookup: &mut Vec<Value<'a>>) -> String {
         match self {
             TernaryCondition::Between(params) => format!(
                 "{} BETWEEN {} AND {}",
@@ -87,7 +66,7 @@ impl<'a> BinaryCondition<'a> {
     /**
     This method is used to convert the current enum to SQL.
     */
-    pub fn build(&self, lookup: &mut Vec<ConditionValue<'a>>) -> String {
+    pub fn build(&self, lookup: &mut Vec<Value<'a>>) -> String {
         match self {
             BinaryCondition::Equals(params) => {
                 format!("{} = {}", params[0].build(lookup), params[1].build(lookup))
@@ -167,7 +146,7 @@ impl<'a> UnaryCondition<'a> {
     /**
     This method is used to convert the [UnaryCondition] to SQL.
     */
-    pub fn build(&self, lookup: &mut Vec<ConditionValue<'a>>) -> String {
+    pub fn build(&self, lookup: &mut Vec<Value<'a>>) -> String {
         match self {
             UnaryCondition::IsNull(value) => format!("{} IS NULL", value.build(lookup)),
             UnaryCondition::IsNotNull(value) => format!("{} IS NOT NULL", value.build(lookup)),
@@ -192,14 +171,14 @@ pub enum Condition<'a> {
     /// Representation of a ternary condition.
     TernaryCondition(TernaryCondition<'a>),
     /// Representation of a value.
-    Value(ConditionValue<'a>),
+    Value(Value<'a>),
 }
 
 impl<'a> Condition<'a> {
     /**
     This method is used to convert the condition into SQL.
     */
-    pub fn build(&self, lookup: &mut Vec<ConditionValue<'a>>) -> String {
+    pub fn build(&self, lookup: &mut Vec<Value<'a>>) -> String {
         match self {
             Condition::Conjunction(conditions) => format!(
                 "({})",
