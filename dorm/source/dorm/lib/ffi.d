@@ -59,13 +59,117 @@ struct FFIResult(T)
 	T expect() return
 	{
 		if (error.size)
-			throw new Exception(error.data);
+			throw new Exception(error.data.idup);
 
 		return raw_result;
 	}
 }
 
 void rorm_db_discconnect(DBHandle handle);
+
+struct Condition
+{
+	enum Type
+	{
+		Conjunction,
+		Disjunction,
+		UnaryCondition,
+		BinaryCondition,
+		TernaryCondition,
+		Value
+	}
+	Type type;
+
+	union
+	{
+		FFIArray!Condition conjunction;
+		FFIArray!Condition disjunction;
+		UnaryCondition* unaryCondition;
+		BinaryCondition* binaryCondition;
+		TernaryCondition* ternaryCondition;
+		ConditionValue value;
+	}
+}
+
+struct UnaryCondition
+{
+	enum Type
+	{
+		IsNull,
+		IsNotNull,
+		Exists,
+		NotExists
+	}
+	Type type;
+
+	Condition condition;
+}
+
+struct BinaryCondition
+{
+	enum Type
+	{
+		Equals,
+		NotEquals,
+		Greater,
+		GreaterOrEquals,
+		Less,
+		LessOrEquals,
+		Like,
+		NotLike,
+		Regexp,
+		NotRegexp,
+		In,
+		NotIn
+	}
+	Type type;
+
+	Condition lhs;
+	Condition rhs;
+}
+
+struct TernaryCondition
+{
+	enum Type
+	{
+		Between,
+		NotBetween
+	}
+	Type type;
+
+	Condition first;
+	Condition second;
+	Condition third;
+}
+
+struct ConditionValue
+{
+	enum Type
+	{
+		Identifier,
+		String,
+		I64,
+		I32,
+		I16,
+		Bool,
+		F64,
+		F32,
+		Null
+	}
+	Type type;
+
+	union
+	{
+		FFIString identifier;
+		FFIString string;
+		FFIString i64;
+		FFIString i32;
+		FFIString i16;
+		FFIString boolean;
+		FFIString f64;
+		FFIString f32;
+	}
+}
 
 alias DBRowHandle = void*;
 alias DBStreamHandle = void*;
@@ -74,10 +178,13 @@ DBStreamHandle rorm_db_query_stream(DBHandle handle, FFIString model, FFIArray!F
 
 /// Returns true if the stream pointed to by the handle is invalid or empty.
 bool rorm_stream_empty(DBStreamHandle handle);
+
+alias StreamRowCallback = extern(C) void function(void* data, scope FFIResult!DBRowHandle row);
+
 /// Returns the current item pointed to by the stream and advances it. If
 /// already past the end or on an invalid stream, an error is passed in in the
 /// result. The callback is called synchronously 
-void rorm_stream_next(DBStreamHandle handle, extern(C) void function(void* data, scope FFIResult!DBRowHandle row) callback, void* data);
+void rorm_stream_next(DBStreamHandle handle, StreamRowCallback callback, void* data);
 
 /**
 Params:
