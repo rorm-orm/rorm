@@ -41,28 +41,85 @@ pub fn print_models() -> Result<(), String> {
     write_models(&mut std::io::stdout())
 }
 
-/// High level macro for `Database::query_*` methods.
-///
-/// It takes:
-/// - a database connection
-/// - the actual method to call (i.e. `query_all`, `query_one`, ...)
-/// - a patch or model
-/// - an optional condition (wrapped in any brackets)
-/// and calls the method on the connection inferring its arguments from the patch and parsing the condition.
-#[macro_export]
-macro_rules! query {
-    ($db:expr, $method:ident, $patch:path, $condition:tt) => {
-        $db.$method(
-            <$patch as ::rorm::model::Patch>::MODEL::table_name(),
-            <$patch as ::rorm::model::Patch>::COLUMNS,
-            Some(&$crate::parse_condition!$condition),
-        )
-    };
-    ($db:expr, $method:ident, $patch:path) => {
-        $db.$method(
-            <$patch as ::rorm::model::Patch>::MODEL::table_name(),
-            <$patch as ::rorm::model::Patch>::COLUMNS,
-            None,
-        )
+macro_rules! define_query_macro {
+    ($(#[doc = $doc:literal])* $name:ident) => {
+        $(#[doc = $doc])*
+        #[macro_export]
+        macro_rules! $name {
+            ($db:expr, $patch:path, $condition:expr) => {
+                $db.$name(
+                    <$patch as ::rorm::model::Patch>::MODEL::table_name(),
+                    <$patch as ::rorm::model::Patch>::COLUMNS,
+                    Some(&$condition),
+                )
+            };
+            ($db:expr, $patch:path) => {
+                $db.$name(
+                    <$patch as ::rorm::model::Patch>::MODEL::table_name(),
+                    <$patch as ::rorm::model::Patch>::COLUMNS,
+                    None,
+                )
+            };
+        }
     };
 }
+
+define_query_macro!(
+    /// High level macro for [`Database::query_all`].
+    ///
+    /// It takes:
+    /// - a database connection (instance of [`Database`])
+    /// - a patch or model (path to your [`Patch`] struct)
+    /// - an optional condition (instance of [`Condition`])
+    ///
+    /// and calls [`Database::query_all`] on the connection
+    /// inferring its arguments from the patch and parsing the condition.
+    ///
+    /// [`Condition`]: conditional::Condition
+    query_all
+);
+
+define_query_macro!(
+    /// High level macro for [`Database::query_stream`].
+    ///
+    /// It takes:
+    /// - a database connection (instance of [`Database`])
+    /// - a patch or model (path to your [`Patch`] struct)
+    /// - an optional condition (instance of [`Condition`])
+    ///
+    /// and calls [`Database::query_stream`] on the connection
+    /// inferring its arguments from the patch and parsing the condition.
+    ///
+    /// [`Condition`]: conditional::Condition
+    query_stream
+);
+
+define_query_macro!(
+    /// High level macro for [`Database::query_one`].
+    ///
+    /// It takes:
+    /// - a database connection (instance of [`Database`])
+    /// - a patch or model (path to your [`Patch`] struct)
+    /// - an optional condition (instance of [`Condition`])
+    ///
+    /// and calls [`Database::query_one`] on the connection
+    /// inferring its arguments from the patch and parsing the condition.
+    ///
+    /// [`Condition`]: conditional::Condition
+    query_one
+);
+
+define_query_macro!(
+    /// High level macro for [`Database::query_optional`].
+    ///
+    /// It takes:
+    /// - a database connection (instance of [`Database`])
+    /// - a patch or model (path to your [`Patch`] struct)
+    /// - an optional condition (instance of [`Condition`])
+    ///
+    /// and calls [`Database::query_optional`] on the connection
+    /// inferring its arguments from the patch and parsing the condition.
+    ///
+    /// [`Condition`]: conditional::Condition
+    query_optional
+);

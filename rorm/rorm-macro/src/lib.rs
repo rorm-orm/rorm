@@ -48,6 +48,8 @@ pub fn derive_patch(input: TokenStream) -> TokenStream {
     derive::patch(input.into()).into()
 }
 
+//TODO actually map fields to columns
+#[deprecated]
 #[proc_macro]
 pub fn parse_condition(input: TokenStream) -> TokenStream {
     let errors = Errors::new();
