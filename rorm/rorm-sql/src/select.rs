@@ -1,4 +1,4 @@
-use crate::DBImpl;
+use crate::{conditional, value, DBImpl};
 
 /**
 The representation of a FROM clause
@@ -8,17 +8,18 @@ pub enum SQLSelectFrom {}
 /**
 The representation of a select query.
 */
-pub struct SQLSelect<'a> {
+pub struct SQLSelect<'until_build, 'post_query> {
     pub(crate) dialect: DBImpl,
-    pub(crate) resulting_columns: Vec<&'a str>,
+    pub(crate) resulting_columns: &'until_build [&'until_build str],
     pub(crate) limit: Option<u64>,
     pub(crate) offset: Option<u64>,
     pub(crate) from_clause: String,
-    pub(crate) where_clause: Option<String>,
+    pub(crate) where_clause: Option<&'until_build conditional::Condition<'post_query>>,
     pub(crate) distinct: bool,
+    pub(crate) lookup: Vec<value::Value<'post_query>>,
 }
 
-impl<'a> SQLSelect<'a> {
+impl<'until_build, 'post_query> SQLSelect<'until_build, 'post_query> {
     /**
     Set a limit to the resulting rows.
     */
@@ -44,20 +45,12 @@ impl<'a> SQLSelect<'a> {
     }
 
     /**
-    Add an identifier to the retrieving columns.
-
-    matches:
-    SELECT {columns} FROM ...;
-    */
-    pub fn add_column(mut self, col: &'a str) -> Self {
-        self.resulting_columns.push(col);
-        return self;
-    }
-
-    /**
     Set a where clause to the query.
     */
-    pub fn where_clause(mut self, where_clause: String) -> Self {
+    pub fn where_clause(
+        mut self,
+        where_clause: &'until_build conditional::Condition<'post_query>,
+    ) -> Self {
         self.where_clause = Some(where_clause);
         return self;
     }
@@ -65,9 +58,7 @@ impl<'a> SQLSelect<'a> {
     /**
     Build the select query
     */
-    pub fn build(self) -> (String, Vec<String>) {
-        let lookup = vec![];
-
+    pub fn build(mut self) -> (String, Vec<value::Value<'post_query>>) {
         return match self.dialect {
             DBImpl::SQLite => (
                 format!(
@@ -79,12 +70,12 @@ impl<'a> SQLSelect<'a> {
                         None => {
                             "".to_string()
                         }
-                        Some(where_clause) => {
-                            format!("WHERE {}", where_clause)
+                        Some(condition) => {
+                            format!("WHERE {}", condition.build(&mut self.lookup))
                         }
                     },
                 ),
-                lookup,
+                self.lookup,
             ),
             _ => todo!("Not implemented yet!"),
         };

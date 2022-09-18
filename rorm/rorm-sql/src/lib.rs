@@ -3,6 +3,8 @@
 
 /// Implementation of SQL ALTER TABLE statements
 pub mod alter_table;
+///This module defines the conditional statements
+pub mod conditional;
 /// Implementation of SQL CREATE COLUMN statements
 pub mod create_column;
 /// Implementation of SQL CREATE INDEX statements
@@ -19,6 +21,8 @@ pub mod error;
 pub mod select;
 /// Implementation of SQL Transactions
 pub mod transaction;
+/// Implementation of supported datatypes
+pub mod value;
 
 use rorm_declaration::imr::{Annotation, DbType};
 
@@ -59,7 +63,7 @@ impl DBImpl {
                 columns: vec![],
                 if_not_exists: false,
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 
@@ -88,7 +92,7 @@ impl DBImpl {
                 operation,
                 statements: vec![],
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 
@@ -109,7 +113,7 @@ impl DBImpl {
                 columns: vec![],
                 condition: None,
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 
@@ -122,7 +126,7 @@ impl DBImpl {
                 dialect: DBImpl::SQLite,
                 statements: vec![],
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 
@@ -138,7 +142,7 @@ impl DBImpl {
                 name: name.to_string(),
                 if_exists: false,
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 
@@ -155,7 +159,7 @@ impl DBImpl {
                 name: name.to_string(),
                 operation,
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 
@@ -185,7 +189,7 @@ impl DBImpl {
                     .map(|x| SQLAnnotation { annotation: x })
                     .collect(),
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 
@@ -195,18 +199,23 @@ impl DBImpl {
     The `from_clause` specifies the FROM in sql.
     This can be a single table name or a complex query itself.
     */
-    pub fn select(&self, from_clause: &str) -> SQLSelect {
+    pub fn select<'until_build>(
+        &self,
+        columns: &'until_build [&'until_build str],
+        from_clause: &str,
+    ) -> SQLSelect<'until_build, '_> {
         match self {
             DBImpl::SQLite => SQLSelect {
                 dialect: DBImpl::SQLite,
-                resulting_columns: vec![],
+                resulting_columns: columns,
                 from_clause: from_clause.to_string(),
                 where_clause: None,
                 limit: None,
                 offset: None,
                 distinct: false,
+                lookup: vec![],
             },
-            _ => todo!("Not implemented yet!")
+            _ => todo!("Not implemented yet!"),
         }
     }
 }
