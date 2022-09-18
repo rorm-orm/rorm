@@ -3,6 +3,10 @@ This enum represents a value
  */
 #[derive(Copy, Clone)]
 pub enum Value<'a> {
+    /// Representation of an identifier, e.g. a column.
+    /// This variant will not be escaped, so do not
+    /// pass unchecked data to it.
+    Ident(&'a str),
     /// String representation
     String(&'a str),
     /// i64 representation

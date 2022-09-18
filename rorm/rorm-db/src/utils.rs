@@ -27,5 +27,6 @@ where
             static NULL: Option<bool> = None;
             query.bind(NULL)
         }
+        _ => query,
     }
 }

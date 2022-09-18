@@ -199,10 +199,13 @@ impl<'a> Condition<'a> {
             Condition::UnaryCondition(unary) => unary.build(lookup),
             Condition::BinaryCondition(binary) => binary.build(lookup),
             Condition::TernaryCondition(ternary) => ternary.build(lookup),
-            Condition::Value(expression) => {
-                lookup.push(*expression);
-                return "?".to_string();
-            }
+            Condition::Value(expression) => match expression {
+                Value::Ident(x) => x.to_string(),
+                _ => {
+                    lookup.push(*expression);
+                    return "?".to_string();
+                }
+            },
         }
     }
 }
