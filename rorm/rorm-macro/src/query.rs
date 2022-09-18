@@ -1,5 +1,5 @@
 use crate::Errors;
-use proc_macro2::{Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
+use proc_macro2::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
 use quote::quote;
 use syn::spanned::Spanned;
 
@@ -23,7 +23,8 @@ pub fn parse_condition(tokens: TokenStream, errors: &Errors) -> TokenStream {
                     let span = match value {
                         ConditionValue::Literal(literal) => literal.span(),
                         ConditionValue::Group(group) => group.span(),
-                        ConditionValue::Ident(ident) => ident.span(),
+                        ConditionValue::Column(literal) => literal.span(),
+                        ConditionValue::Variable(ident) => ident.span(),
                     };
                     errors.push_new(span, "Unexpected change in operator");
                 }
@@ -97,8 +98,8 @@ pub fn parse_condition(tokens: TokenStream, errors: &Errors) -> TokenStream {
                     ConditionOperator::LessOrEquals => "LessOrEquals",
                     ConditionOperator::Like => "Like",
                     ConditionOperator::NotLike => "NotLike",
-                    ConditionOperator::Regexp => "Regex",
-                    ConditionOperator::NotRegexp => "NotRegex",
+                    ConditionOperator::Regexp => "Regexp",
+                    ConditionOperator::NotRegexp => "NotRegexp",
                     ConditionOperator::In => "In",
                     ConditionOperator::NotIn => "NotIn",
                     _ => {
@@ -176,8 +177,9 @@ enum ConditionTree {
 
 enum ConditionValue {
     Group(Group),
-    Ident(Ident),
+    Column(Literal),
     Literal(Literal),
+    Variable(Ident),
 }
 
 impl ConditionValue {
@@ -185,12 +187,13 @@ impl ConditionValue {
         match self {
             ConditionValue::Group(group) => parse_condition(group.stream(), errors),
             ConditionValue::Literal(literal) => TokenStream::from(quote! {
-                // TODO actually implement From<T> for Value
                 ::rorm::conditional::Condition::Value(::rorm::value::Value::from(#literal))
             }),
-            ConditionValue::Ident(ident) => TokenStream::from(quote! {
-                // TODO actually implement From<T> for Value
-                ::rorm::conditional::Condition::Value(::rorm::value::Value::from(&#ident))
+            ConditionValue::Column(column) => TokenStream::from(quote! {
+                ::rorm::conditional::Condition::Value(::rorm::value::Value::Ident(#column))
+            }),
+            ConditionValue::Variable(variable) => TokenStream::from(quote! {
+                ::rorm::conditional::Condition::Value(::rorm::value::Value::from(&#variable))
             }),
         }
     }
@@ -206,9 +209,21 @@ fn collect_tokens(rust_tokens: TokenStream, errors: &Errors) -> Vec<ConditionTre
     let mut rust_tokens = rust_tokens.into_iter().peekable();
     while let Some(token) = rust_tokens.next() {
         match token {
-            TokenTree::Group(group) => {
-                tokens.push(ConditionTree::Value(ConditionValue::Group(group)))
-            }
+            TokenTree::Group(group) => match group.delimiter() {
+                Delimiter::Brace => {
+                    let mut iterator = group.stream().into_iter();
+                    if let Some(TokenTree::Ident(ident)) = iterator.next() {
+                        if iterator.next().is_none() {
+                            tokens.push(ConditionTree::Value(ConditionValue::Variable(ident)));
+                        } else {
+                            errors.push_new(group.span(), "Expected a single identifier");
+                        }
+                    } else {
+                        errors.push_new(group.span(), "Expected a single identifier");
+                    }
+                }
+                _ => tokens.push(ConditionTree::Value(ConditionValue::Group(group))),
+            },
             TokenTree::Literal(literal) => {
                 tokens.push(ConditionTree::Value(ConditionValue::Literal(literal)))
             }
@@ -379,7 +394,9 @@ fn collect_tokens(rust_tokens: TokenStream, errors: &Errors) -> Vec<ConditionTre
                     }
 
                     (None, None, _) => {
-                        tokens.push(ConditionTree::Value(ConditionValue::Ident(ident)));
+                        let mut literal = Literal::string(ident.to_string().as_str());
+                        literal.set_span(ident.span());
+                        tokens.push(ConditionTree::Value(ConditionValue::Column(literal)));
                     }
                 }
             }
