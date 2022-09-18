@@ -1,6 +1,7 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use crate::utils;
 use futures::stream::BoxStream;
 use futures::Stream;
 use rorm_sql::conditional;
@@ -22,16 +23,11 @@ impl<'post_query> QueryStream<'post_query> {
         bind_params: Vec<conditional::ConditionValue<'post_query>>,
         executor: &AnyPool,
     ) -> QueryStream<'post_query> {
-        QueryStream::new(stmt, bind_params, |x, y| {
-            let mut tmp = sqlx::query(x);
+        QueryStream::new(stmt, bind_params, |stmt, bind_params| {
+            let mut tmp = sqlx::query(stmt);
 
-            for x in y {
-                tmp = match x {
-                    conditional::ConditionValue::String(x) => tmp.bind(x),
-                    conditional::ConditionValue::I64(x) => tmp.bind(x),
-                    conditional::ConditionValue::I32(x) => tmp.bind(x),
-                    conditional::ConditionValue::I16(x) => tmp.bind(x),
-                }
+            for x in bind_params {
+                tmp = utils::bind_param(tmp, *x);
             }
 
             return tmp.fetch(executor);

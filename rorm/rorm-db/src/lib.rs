@@ -20,11 +20,12 @@ pub mod query;
 This module holds the results of a query
 */
 pub mod result;
+#[cfg(feature = "sqlx-dep")]
+mod utils;
 
 use futures::stream::BoxStream;
 use futures::StreamExt;
 pub use rorm_sql::conditional;
-use rorm_sql::conditional::ConditionValue;
 use rorm_sql::DBImpl;
 #[cfg(feature = "sqlx-dep")]
 use sqlx::any::AnyPoolOptions;
@@ -217,12 +218,7 @@ impl Database {
 
         let mut tmp = sqlx::query(query_string.as_str());
         for x in bind_params {
-            tmp = match x {
-                ConditionValue::String(x) => tmp.bind(x),
-                ConditionValue::I64(x) => tmp.bind(x),
-                ConditionValue::I32(x) => tmp.bind(x),
-                ConditionValue::I16(x) => tmp.bind(x),
-            }
+            tmp = utils::bind_param(tmp, x);
         }
 
         tmp.fetch_one(&self.pool).await
@@ -250,12 +246,7 @@ impl Database {
 
         let mut tmp = sqlx::query(query_string.as_str());
         for x in bind_params {
-            tmp = match x {
-                ConditionValue::String(x) => tmp.bind(x),
-                ConditionValue::I64(x) => tmp.bind(x),
-                ConditionValue::I32(x) => tmp.bind(x),
-                ConditionValue::I16(x) => tmp.bind(x),
-            }
+            tmp = utils::bind_param(tmp, x);
         }
 
         tmp.fetch_optional(&self.pool).await
@@ -283,12 +274,7 @@ impl Database {
 
         let mut tmp = sqlx::query(query_string.as_str());
         for x in bind_params {
-            tmp = match x {
-                ConditionValue::String(x) => tmp.bind(x),
-                ConditionValue::I64(x) => tmp.bind(x),
-                ConditionValue::I32(x) => tmp.bind(x),
-                ConditionValue::I16(x) => tmp.bind(x),
-            }
+            tmp = utils::bind_param(tmp, x);
         }
 
         tmp.fetch_all(&self.pool).await

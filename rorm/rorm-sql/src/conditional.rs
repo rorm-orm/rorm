@@ -11,6 +11,14 @@ pub enum ConditionValue<'a> {
     I32(i32),
     /// i16 representation
     I16(i16),
+    /// Bool representation
+    Bool(bool),
+    /// f64 representation
+    F64(f64),
+    /// f32 representation
+    F32(f32),
+    /// null representation
+    Null,
 }
 
 /**
