@@ -1,17 +1,19 @@
 //! Rorm is the rust implementation of the drorm project.
 #![warn(missing_docs)]
 
+use std::io::Write;
+
 pub use linkme;
+pub use model::{DbEnum, Model, ID};
 pub use rorm_db::*;
-pub use rorm_declaration::model::{DbEnum, Model, ID};
 pub use rorm_macro::*;
 
 // Reexports to be used by macro
 pub use rorm_declaration::imr;
-pub use rorm_declaration::model;
 
-use rorm_declaration::model::GetModelDefinition;
-use std::io::Write;
+/// This module holds traits and structs for working with models
+pub mod model;
+use model::GetModelDefinition;
 
 /// This slice is populated by the [`Model`] macro with all models.
 ///
