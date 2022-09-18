@@ -9,6 +9,7 @@ use quote::{quote, ToTokens};
 mod args;
 mod derive;
 mod errors;
+mod query;
 mod utils;
 use errors::Errors;
 
@@ -47,7 +48,19 @@ pub fn derive_patch(input: TokenStream) -> TokenStream {
     derive::patch(input.into()).into()
 }
 
+#[proc_macro]
+pub fn parse_condition(input: TokenStream) -> TokenStream {
+    let errors = Errors::new();
+    let output = query::parse_condition(input.into(), &errors);
+    if errors.is_empty() {
+        output.into()
+    } else {
+        errors.into_token_stream().into()
+    }
+}
+
 mod rename_linkme;
+
 #[doc(hidden)]
 #[proc_macro_attribute]
 pub fn rename_linkme(_args: TokenStream, item: TokenStream) -> TokenStream {

@@ -3,9 +3,9 @@
 use std::cell::RefCell;
 use std::fmt::Display;
 
-use proc_macro2::Span;
 use proc_macro2::TokenStream;
-use quote::ToTokens;
+use proc_macro2::{Ident, Span};
+use quote::{quote, ToTokens};
 
 /// List of errors
 ///
@@ -50,6 +50,15 @@ impl Errors {
 
     pub fn push_new<T: Display>(&self, span: Span, msg: T) {
         self.push(syn::Error::new(span, msg));
+    }
+
+    pub fn push_new_spanned<T: Display>(&self, start: Span, end: Span, msg: T) {
+        let start = Ident::new("", start);
+        let end = Ident::new("", end);
+        self.push(syn::Error::new_spanned(
+            TokenStream::from(quote! {#start #end}),
+            msg,
+        ))
     }
 
     pub fn is_empty(&self) -> bool {
