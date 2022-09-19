@@ -164,9 +164,9 @@ This enum represents a condition tree.
 */
 pub enum Condition<'a> {
     /// A list of [Condition]s, that get expanded to "{} AND {} ..."
-    Conjunction(Box<[Condition<'a>]>),
+    Conjunction(Vec<Condition<'a>>),
     /// A list of [Condition]s, that get expanded to "{} OR {} ..."
-    Disjunction(Box<[Condition<'a>]>),
+    Disjunction(Vec<Condition<'a>>),
     /// Representation of an unary condition.
     UnaryCondition(UnaryCondition<'a>),
     /// Representation of a binary condition.
