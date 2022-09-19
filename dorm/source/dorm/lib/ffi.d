@@ -16,12 +16,18 @@ struct FFIArray(T)
 	{
 		return FFIArray(data.ptr, data.length);
 	}
+
+	static FFIArray fromData(size_t n)(return ref T[n] data) nothrow pure @nogc
+	{
+		return FFIArray(data.ptr, data.length);
+	}
 }
 
 alias FFIString = FFIArray!(const(char));
 
 FFIString ffi(string s) { return FFIString.fromData(s); }
 FFIArray!T ffi(T)(T[] s) { return FFIArray!T.fromData(s); }
+FFIArray!T ffi(T, size_t)(ref T[n] s) { return FFIArray!T.fromData(s); }
 
 enum DBBackend
 {
