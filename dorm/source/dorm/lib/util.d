@@ -12,11 +12,9 @@ struct FreeableAsyncResult(T)
 	T raw_result;
 	Exception error;
 
-	static AsyncResult make()
+	static FreeableAsyncResult make()
 	{
-		AsyncResult res;
-		res.event = Event(true, false);
-		return res;
+		return FreeableAsyncResult(Event(true, false));
 	}
 
 	alias Callback = extern(C) void function(void* data, FFIResult!T result) nothrow;
@@ -25,11 +23,11 @@ struct FreeableAsyncResult(T)
 	{
 		extern(C) static void ret(void* data, FFIResult!T result) nothrow
 		{
-			auto res = cast(FFIResult*)data;
+			auto res = cast(FreeableAsyncResult*)data;
 			if (result.error.size)
 				res.error = new Exception(result.error.data.idup);
 			else
-				res.result = result.raw_result;
+				res.raw_result = result.raw_result;
 			res.event.set();
 		}
 
