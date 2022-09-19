@@ -30,8 +30,6 @@ mod utils;
 
 use futures::stream::BoxStream;
 use futures::StreamExt;
-pub use rorm_sql::conditional;
-pub use rorm_sql::value;
 use rorm_sql::DBImpl;
 #[cfg(feature = "sqlx-dep")]
 use sqlx::any::AnyPoolOptions;
@@ -41,6 +39,10 @@ use sqlx::mysql::MySqlConnectOptions;
 use sqlx::postgres::PgConnectOptions;
 #[cfg(feature = "sqlx-dep")]
 use sqlx::sqlite::SqliteConnectOptions;
+
+pub use rorm_sql::conditional;
+pub use rorm_sql::value;
+pub use rorm_sql::{and, or};
 
 use crate::error::Error;
 #[cfg(feature = "sqlx-dep")]

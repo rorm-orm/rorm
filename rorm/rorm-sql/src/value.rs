@@ -1,7 +1,7 @@
 /**
 This enum represents a value
  */
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Value<'a> {
     /// Representation of an identifier, e.g. a column.
     /// This variant will not be escaped, so do not

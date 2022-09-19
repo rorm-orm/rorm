@@ -219,37 +219,3 @@ impl DBImpl {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::DBImpl;
-
-    #[test]
-    fn sqlite_01() {
-        assert_eq!(
-            DBImpl::SQLite.create_table("test").build().unwrap(),
-            "CREATE TABLE test () STRICT;".to_string()
-        );
-    }
-
-    #[test]
-    fn sqlite_02() {
-        assert_eq!(
-            DBImpl::SQLite
-                .create_table("test")
-                .if_not_exists()
-                .build()
-                .unwrap(),
-            "CREATE TABLE IF NOT EXISTS test () STRICT;".to_string()
-        )
-    }
-
-    #[test]
-    fn sqlite_03() {}
-
-    #[test]
-    fn sqlite_04() {}
-
-    #[test]
-    fn sqlite_05() {}
-}
