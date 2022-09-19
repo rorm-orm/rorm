@@ -21,6 +21,9 @@ This module holds the results of a query
 */
 pub mod result;
 #[cfg(feature = "sqlx-dep")]
+/**
+This module defines a wrapper for sqlx's AnyRow
+*/
 pub mod row;
 #[cfg(feature = "sqlx-dep")]
 mod utils;
