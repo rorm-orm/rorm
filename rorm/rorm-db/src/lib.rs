@@ -21,6 +21,8 @@ This module holds the results of a query
 */
 pub mod result;
 #[cfg(feature = "sqlx-dep")]
+pub mod row;
+#[cfg(feature = "sqlx-dep")]
 mod utils;
 
 use futures::stream::BoxStream;
@@ -31,15 +33,11 @@ use rorm_sql::DBImpl;
 #[cfg(feature = "sqlx-dep")]
 use sqlx::any::AnyPoolOptions;
 #[cfg(feature = "sqlx-dep")]
-use sqlx::any::AnyRow;
-#[cfg(feature = "sqlx-dep")]
 use sqlx::mysql::MySqlConnectOptions;
 #[cfg(feature = "sqlx-dep")]
 use sqlx::postgres::PgConnectOptions;
 #[cfg(feature = "sqlx-dep")]
 use sqlx::sqlite::SqliteConnectOptions;
-#[cfg(feature = "sqlx-dep")]
-pub use sqlx::Row;
 
 use crate::error::Error;
 #[cfg(feature = "sqlx-dep")]
@@ -181,7 +179,7 @@ impl Database {
         model: &str,
         columns: &[&str],
         conditions: Option<&conditional::Condition<'post_query>>,
-    ) -> BoxStream<'stream, Result<AnyRow, sqlx::Error>>
+    ) -> BoxStream<'stream, Result<row::Row, sqlx::Error>>
     where
         'post_query: 'stream,
         'db: 'stream,
@@ -209,7 +207,7 @@ impl Database {
         model: &str,
         columns: &[&str],
         conditions: Option<&conditional::Condition<'_>>,
-    ) -> Result<AnyRow, sqlx::Error> {
+    ) -> Result<row::Row, sqlx::Error> {
         let mut q = self.db_impl.select(columns, model);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
@@ -222,7 +220,7 @@ impl Database {
             tmp = utils::bind_param(tmp, x);
         }
 
-        tmp.fetch_one(&self.pool).await
+        tmp.fetch_one(&self.pool).await.map(row::Row::from)
     }
 
     /**
@@ -237,7 +235,7 @@ impl Database {
         model: &str,
         columns: &[&str],
         conditions: Option<&conditional::Condition<'_>>,
-    ) -> Result<Option<AnyRow>, sqlx::Error> {
+    ) -> Result<Option<row::Row>, sqlx::Error> {
         let mut q = self.db_impl.select(columns, model);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
@@ -250,7 +248,9 @@ impl Database {
             tmp = utils::bind_param(tmp, x);
         }
 
-        tmp.fetch_optional(&self.pool).await
+        tmp.fetch_optional(&self.pool)
+            .await
+            .map(|option| option.map(row::Row::from))
     }
 
     /**
@@ -265,7 +265,7 @@ impl Database {
         model: &str,
         columns: &[&str],
         conditions: Option<&conditional::Condition<'_>>,
-    ) -> Result<Vec<AnyRow>, sqlx::Error> {
+    ) -> Result<Vec<row::Row>, sqlx::Error> {
         let mut q = self.db_impl.select(columns, model);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
@@ -278,6 +278,8 @@ impl Database {
             tmp = utils::bind_param(tmp, x);
         }
 
-        tmp.fetch_all(&self.pool).await
+        tmp.fetch_all(&self.pool)
+            .await
+            .map(|vector| vector.into_iter().map(row::Row::from).collect())
     }
 }

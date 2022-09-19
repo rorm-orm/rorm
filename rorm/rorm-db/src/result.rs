@@ -1,6 +1,7 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use crate::row::Row;
 use crate::utils;
 use futures::stream::BoxStream;
 use futures::Stream;
@@ -36,9 +37,13 @@ impl<'post_query> QueryStream<'post_query> {
 }
 
 impl Stream for QueryStream<'_> {
-    type Item = Result<AnyRow, Error>;
+    type Item = Result<Row, Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.with_stream_mut(|x| x.as_mut().poll_next(cx))
+        self.with_stream_mut(|x| {
+            x.as_mut()
+                .poll_next(cx)
+                .map(|option| option.map(|result| result.map(Row::from)))
+        })
     }
 }
