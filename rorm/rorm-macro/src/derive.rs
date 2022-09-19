@@ -127,27 +127,22 @@ pub fn model(strct: TokenStream) -> TokenStream {
         }
 
         impl ::rorm::model::Model for #strct_ident {
-            type FIELDS = #fields_strct;
+            type Fields = #fields_strct;
+            const FIELDS: Self::Fields = #fields_strct {
+                #(
+                    #field_idents: #field_defs,
+                )*
+            };
 
             fn table_name() -> &'static str {
                 #model_name
             }
 
-            fn fields() -> &'static Self::FIELDS {
-                static fields: #fields_strct = #fields_strct {
-                    #(
-                        #field_idents: #field_defs,
-                    )*
-                };
-                &fields
-            }
-
             fn get_imr() -> ::rorm::imr::Model {
-                let fields = <#strct_ident as ::rorm::model::Model>::fields();
                 ::rorm::imr::Model {
                     name: #model_name.to_string(),
                     fields: vec![#(
-                        (&fields.#field_idents).into(),
+                        (&<#strct_ident as ::rorm::model::Model>::FIELDS.#field_idents).into(),
                     )*],
                     source_defined_at: #model_source,
                 }
@@ -243,7 +238,7 @@ pub fn patch(strct: TokenStream) -> TokenStream {
         #[allow(non_snake_case)]
         fn #compile_check(model: #model_path) {
             // check if the specified model actually implements model
-            let _ = <#model_path as ::rorm::model::Model>::fields();
+            let _ = <#model_path as ::rorm::model::Model>::table_name();
 
             // check fields exist on model and match model's types
             // todo error messages for type mismatches are terrible
@@ -279,11 +274,10 @@ fn from_row(
             type Error = ::rorm::error::Error;
 
             fn try_from(row: ::rorm::row::Row) -> Result<Self, Self::Error> {
-                let fields = <#model as ::rorm::model::Model>::fields();
                 Ok(#strct {
                     #(
                         #fields: <#types as ::rorm::model::AsDbType>::from_primitive(
-                            row.get(fields.#fields.name)?
+                            row.get(<#model as ::rorm::model::Model>::FIELDS.#fields.name)?
                         ),
                     )*
                 })
@@ -360,17 +354,12 @@ fn parse_field(field: &syn::Field, errors: &Errors) -> Option<(Ident, syn::Type,
         field.ident.clone().unwrap(),
         field.ty.clone(),
         TokenStream::from(quote! {
-            /*
-            annotations.append(&mut #data_type::implicit_annotations());
-             */
             ::rorm::model::Field {
                 name: #db_name,
                 db_type: #db_type,
                 annotations: &[
                     #(#annotations),*
                 ],
-                implicit_annotations: &#data_type::implicit_annotations,
-                nullable: #data_type::IS_NULLABLE,
                 source: #source,
                 _phantom: ::std::marker::PhantomData,
             }

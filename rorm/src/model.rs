@@ -123,14 +123,21 @@ pub trait Patch {
 ///
 /// [`derive(Model)`]: crate::Model
 pub trait Model {
-    /// A struct holding data about the model's fields
-    type FIELDS;
+    /// [`FIELDS`]'s datatype
+    ///
+    /// [`FIELDS`]: Model::FIELDS
+    type Fields;
+
+    /// A struct holding the model's fields data
+    const FIELDS: Self::Fields;
+
+    /// Shorthand version of [`FIELDS`]
+    ///
+    /// [`FIELDS`]: Model::FIELDS
+    const F: Self::Fields = Self::FIELDS;
 
     /// Returns the table name of the model
     fn table_name() -> &'static str;
-
-    /// Returns a struct with all the fields' definitions
-    fn fields() -> &'static Self::FIELDS;
 
     /// Returns the model's intermediate representation
     ///
@@ -202,12 +209,6 @@ pub struct Field<T: 'static> {
     /// List of annotations this field has set
     pub annotations: &'static [Annotation],
 
-    /// Pointer to static [AsDbType::implicit_annotations] implementation
-    pub implicit_annotations: &'static (dyn Fn(&mut Vec<imr::Annotation>) + Sync),
-
-    /// Whether this field is nullable or not
-    pub nullable: bool,
-
     /// Optional definition of the location of field in the source code
     pub source: Option<Source>,
 
@@ -215,11 +216,11 @@ pub struct Field<T: 'static> {
     pub _phantom: PhantomData<&'static T>,
 }
 
-impl<T> From<&'_ Field<T>> for imr::Field {
+impl<T: AsDbType> From<&'_ Field<T>> for imr::Field {
     fn from(field: &'_ Field<T>) -> Self {
         let mut annotations: Vec<_> = field.annotations.iter().map(|&anno| anno.into()).collect();
-        (field.implicit_annotations)(&mut annotations);
-        if !field.nullable {
+        T::implicit_annotations(&mut annotations);
+        if !T::IS_NULLABLE {
             annotations.push(imr::Annotation::NotNull);
         }
         imr::Field {
