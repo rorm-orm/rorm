@@ -27,6 +27,9 @@ name = "rorm"
 path = "src/lib.rs"
 
 [dependencies]
+# Abstractions for asynchronous programming.
+futures = { version = "^0.3" }
+
 # json serialization to communicate with the migrator
 serde_json = { version = "^1.0" }
 # linker magic to create a slice containing all models defined by crates
