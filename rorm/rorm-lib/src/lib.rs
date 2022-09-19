@@ -1,24 +1,22 @@
 //! This crate is used to provide C bindings for the `rorm-db` crate.
 #![warn(missing_docs)]
 
-/**
-Utility functions and structs such as the ffi safe string implementation.
-*/
+/// Utility functions and structs such as the ffi safe string implementation.
 pub mod utils;
 
-use std::collections::HashMap;
+/// Utility module to provide errors
+pub mod errors;
+
 use std::sync::Mutex;
 use std::time::Duration;
 
-use once_cell::sync::Lazy;
 use rorm_db::{Database, DatabaseBackend, DatabaseConfiguration};
 use tokio::runtime::Runtime;
-use uuid::Uuid;
 
-use crate::utils::FFIString;
+use crate::errors::Error;
+use crate::utils::{null_ptr, FFIString, VoidPtr};
 
-static RUNTIME: Lazy<Mutex<Option<Runtime>>> =
-    Lazy::new(|| Mutex::new(Some(Runtime::new().expect("Couldn't start runtime"))));
+static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
 
 /**
 Representation of the database backend.
@@ -77,52 +75,134 @@ impl From<DBConnectOptions<'_>> for DatabaseConfiguration {
     }
 }
 
-static DB_LIST: Lazy<Mutex<HashMap<Uuid, Database>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+// ----------------------
+// FFI Functions below here.
+// ----------------------
 
 /**
-Connect to the database using the provided [DBConnectOptions].
+This function is used to initialize and start the async runtime.
 
-You must provide a callback with the following signature:
-`void (FFIString, FFIString)`.
+It is needed as rorm is completely written asynchronously.
 
-The first parameter is used as identifier for later operations.
-If it is an empty string, the second parameter will hold an error message.
-*/
+**Important**:
+Do not forget to stop the runtime using [rorm_runtime_shutdown]!
+ */
 #[no_mangle]
-pub extern "C" fn rorm_db_connect(
-    options: DBConnectOptions,
-    callback: extern "C" fn(FFIString<'_>, FFIString<'_>) -> (),
+pub extern "C" fn rorm_runtime_start(
+    callback: extern "C" fn(VoidPtr, Error) -> (),
+    context: VoidPtr,
 ) {
-    let db_options = options.into();
-
-    RUNTIME.lock().unwrap().as_ref().unwrap().spawn(async move {
-        match Database::connect(db_options).await {
-            Ok(db) => {
-                let mut l = DB_LIST.lock().unwrap();
-                let u = Uuid::new_v4();
-                l.insert(u, db);
-                let identifier = u.to_string();
-                callback(FFIString::from(identifier.as_str()), FFIString::from(""));
-            }
-            Err(e) => {
-                let error = e.to_string();
-                callback(FFIString::from(""), FFIString::from(error.as_str()));
-            }
-        };
-    });
+    match RUNTIME.lock() {
+        Ok(mut guard) => {
+            let rt_opt: &mut Option<Runtime> = &mut guard;
+            match Runtime::new() {
+                Ok(rt) => {
+                    *rt_opt = Some(rt);
+                }
+                Err(err) => callback(
+                    context,
+                    Error::RuntimeError(err.to_string().as_str().into()),
+                ),
+            };
+        }
+        Err(err) => {
+            callback(
+                context,
+                Error::RuntimeError(err.to_string().as_str().into()),
+            );
+        }
+    }
 }
 
 /**
 Shutdown the runtime.
 
 Specify the amount of time to wait in milliseconds.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_runtime_shutdown(
+    duration: u64,
+    callback: extern "C" fn(VoidPtr, Error) -> (),
+    context: VoidPtr,
+) {
+    match RUNTIME.lock() {
+        Ok(mut guard) => match guard.take() {
+            Some(rt) => {
+                rt.shutdown_timeout(Duration::from_millis(duration));
+                callback(context, Error::NoError);
+            }
+            None => callback(context, Error::MissingRuntimeError),
+        },
+        Err(err) => callback(
+            context,
+            Error::RuntimeError(err.to_string().as_str().into()),
+        ),
+    };
+}
+
+/**
+Connect to the database using the provided [DBConnectOptions].
+
+You must provide a callback with the following parameters:
+
+The first parameter is the `context` pointer.
+If it is an empty string, the second parameter will hold an error message.
+
+**Important**:
+Rust does not manage the memory of the database.
+To properly free it, use [rorm_db_free].
 */
 #[no_mangle]
-pub extern "C" fn rorm_shutdown(duration: u64) {
-    RUNTIME
-        .lock()
-        .unwrap()
-        .take()
-        .unwrap()
-        .shutdown_timeout(Duration::from_millis(duration));
+pub extern "C" fn rorm_db_connect(
+    options: DBConnectOptions,
+    callback: extern "C" fn(VoidPtr, Box<Database>, Error) -> (),
+    context: VoidPtr,
+) {
+    let db_options = options.into();
+
+    let fut = async move {
+        match Database::connect(db_options).await {
+            Ok(db) => {
+                let b = Box::new(db);
+                callback(context, b, Error::RuntimeError(FFIString::from("")))
+            }
+            Err(e) => {
+                let error = e.to_string();
+                callback(
+                    context,
+                    null_ptr(),
+                    Error::RuntimeError(FFIString::from(error.as_str())),
+                );
+            }
+        };
+    };
+
+    match RUNTIME.lock() {
+        Ok(guard) => match guard.as_ref() {
+            Some(rt) => {
+                rt.spawn(fut);
+            }
+            None => callback(
+                context,
+                null_ptr(),
+                Error::RuntimeError(FFIString::from("No runtime running.")),
+            ),
+        },
+        Err(err) => callback(
+            context,
+            null_ptr(),
+            Error::RuntimeError(err.to_string().as_str().into()),
+        ),
+    };
 }
+
+/**
+Free the connection to the database.
+
+Takes the pointer to the database instance.
+
+**Important**:
+Do not call this function more than once!
+ */
+#[no_mangle]
+pub extern "C" fn rorm_db_free(_: Box<Database>) {}

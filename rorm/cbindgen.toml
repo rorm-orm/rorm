@@ -20,7 +20,15 @@ using_namespaces = []
 sys_includes = ["stdint.h", "stddef.h"]
 includes = []
 no_includes = true
-after_includes = ""
+
+# All internal used structs belong here
+after_includes = """
+
+/**
+* Placeholder struct representing the [rorm_db::Database] struct.
+*/
+typedef struct Database () Database;
+"""
 
 ############################ Code Style Options ################################
 
@@ -44,12 +52,13 @@ usize_is_size_t = true
 
 [export]
 include = []
-exclude = []
+exclude = ["Database"]
 # prefix = "CAPI_"
 item_types = []
 renaming_overrides_prefixing = false
 
 [export.rename]
+"VoidPtr" = "void*"
 
 [export.body]
 
