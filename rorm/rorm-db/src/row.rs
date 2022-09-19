@@ -1,6 +1,7 @@
+use crate::error::Error;
 use sqlx::any::AnyRow;
 use sqlx::Any as AnyDb;
-use sqlx::{ColumnIndex, Decode, Error, Type};
+use sqlx::{ColumnIndex, Decode, Type};
 
 /// Represents a single row from the database.
 pub struct Row(AnyRow);
@@ -15,7 +16,7 @@ impl Row {
         T: Decode<'r, AnyDb> + Type<AnyDb>,
         I: ColumnIndex<AnyRow>,
     {
-        <AnyRow as sqlx::Row>::try_get(&self.0, index)
+        <AnyRow as sqlx::Row>::try_get(&self.0, index).map_err(Error::SqlxError)
     }
 }
 

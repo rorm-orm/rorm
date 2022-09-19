@@ -179,7 +179,7 @@ impl Database {
         model: &str,
         columns: &[&str],
         conditions: Option<&conditional::Condition<'post_query>>,
-    ) -> BoxStream<'stream, Result<row::Row, sqlx::Error>>
+    ) -> BoxStream<'stream, Result<row::Row, Error>>
     where
         'post_query: 'stream,
         'db: 'stream,
@@ -207,7 +207,7 @@ impl Database {
         model: &str,
         columns: &[&str],
         conditions: Option<&conditional::Condition<'_>>,
-    ) -> Result<row::Row, sqlx::Error> {
+    ) -> Result<row::Row, Error> {
         let mut q = self.db_impl.select(columns, model);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
@@ -220,7 +220,10 @@ impl Database {
             tmp = utils::bind_param(tmp, x);
         }
 
-        tmp.fetch_one(&self.pool).await.map(row::Row::from)
+        tmp.fetch_one(&self.pool)
+            .await
+            .map(row::Row::from)
+            .map_err(Error::SqlxError)
     }
 
     /**
@@ -235,7 +238,7 @@ impl Database {
         model: &str,
         columns: &[&str],
         conditions: Option<&conditional::Condition<'_>>,
-    ) -> Result<Option<row::Row>, sqlx::Error> {
+    ) -> Result<Option<row::Row>, Error> {
         let mut q = self.db_impl.select(columns, model);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
@@ -251,6 +254,7 @@ impl Database {
         tmp.fetch_optional(&self.pool)
             .await
             .map(|option| option.map(row::Row::from))
+            .map_err(Error::SqlxError)
     }
 
     /**
@@ -265,7 +269,7 @@ impl Database {
         model: &str,
         columns: &[&str],
         conditions: Option<&conditional::Condition<'_>>,
-    ) -> Result<Vec<row::Row>, sqlx::Error> {
+    ) -> Result<Vec<row::Row>, Error> {
         let mut q = self.db_impl.select(columns, model);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
@@ -281,5 +285,6 @@ impl Database {
         tmp.fetch_all(&self.pool)
             .await
             .map(|vector| vector.into_iter().map(row::Row::from).collect())
+            .map_err(Error::SqlxError)
     }
 }

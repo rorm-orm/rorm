@@ -1,13 +1,14 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use crate::error::Error;
 use crate::row::Row;
 use crate::utils;
 use futures::stream::BoxStream;
 use futures::Stream;
 use rorm_sql::value;
 use sqlx::any::AnyRow;
-use sqlx::{AnyPool, Error};
+use sqlx::AnyPool;
 
 #[ouroboros::self_referencing]
 pub struct QueryStream<'post_query> {
@@ -15,7 +16,7 @@ pub struct QueryStream<'post_query> {
     pub(crate) bind_params: Vec<value::Value<'post_query>>,
     #[borrows(query_str, bind_params)]
     #[not_covariant]
-    pub(crate) stream: BoxStream<'this, Result<AnyRow, Error>>,
+    pub(crate) stream: BoxStream<'this, Result<AnyRow, sqlx::Error>>,
 }
 
 impl<'post_query> QueryStream<'post_query> {
@@ -43,7 +44,7 @@ impl Stream for QueryStream<'_> {
         self.with_stream_mut(|x| {
             x.as_mut()
                 .poll_next(cx)
-                .map(|option| option.map(|result| result.map(Row::from)))
+                .map(|option| option.map(|result| result.map(Row::from).map_err(Error::SqlxError)))
         })
     }
 }

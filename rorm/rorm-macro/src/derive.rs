@@ -275,14 +275,16 @@ fn from_row(
     types: &[syn::Type],
 ) -> TokenStream {
     quote! {
-        #[cfg(feature = "sqlx")] // TODO decouple this from sqlx
-        impl<'r> ::sqlx::FromRow<'r, ::sqlx::any::AnyRow> for #strct {
-            fn from_row(row: &'r ::sqlx::any::AnyRow) -> Result<Self, ::sqlx::Error> {
-                use ::sqlx::Row;
+        impl TryFrom<::rorm::row::Row> for #strct {
+            type Error = ::rorm::error::Error;
+
+            fn try_from(row: ::rorm::row::Row) -> Result<Self, Self::Error> {
                 let fields = <#model as ::rorm::model::Model>::fields();
                 Ok(#strct {
                     #(
-                        #fields: <#types as ::rorm::model::AsDbType>::from_primitive(row.try_get(fields.#fields.name)?),
+                        #fields: <#types as ::rorm::model::AsDbType>::from_primitive(
+                            row.get(fields.#fields.name)?
+                        ),
                     )*
                 })
             }
