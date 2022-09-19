@@ -67,3 +67,23 @@ Event* async_call(alias fn)(Parameters!fn[0 .. $ - 2] args, void delegate(scope 
 	fn(forward!args, &callback, data);
 	return ret;
 }
+
+template ffiInto(To)
+{
+	To ffiInto(From)(From v)
+	{
+		static assert(From.tupleof.length == To.tupleof.length,
+			"FFI member fields count mismatch between "
+			~ From.stringof ~ " and " ~ To.stringof);
+
+		To ret;
+		foreach (i, ref field; ret.tupleof)
+		{
+			static if (is(typeof(field) == FFIArray!T, T))
+				field = FFIArray!T.fromData(v.tupleof[i]);
+			else
+				field = v.tupleof[i];
+		}
+		return ret;
+	}
+}
