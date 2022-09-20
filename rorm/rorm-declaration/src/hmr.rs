@@ -11,8 +11,9 @@ pub trait DbType: 'static {
 }
 
 macro_rules! impl_db_types {
-    ($($type:ident,)*) => {
+    ($(#[doc = $doc:literal] $type:ident,)*) => {
         $(
+            #[doc = $doc]
             pub struct $type;
             impl DbType for $type {
                 const IMR: imr::DbType = imr::DbType::$type;
@@ -22,6 +23,40 @@ macro_rules! impl_db_types {
 }
 
 impl_db_types!(
-    VarChar, VarBinary, Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, Float, Double, Boolean,
-    Date, Datetime, Timestamp, Time, Choices, Set,
+    /// Type level version of [`imr::DbType::VarChar`]
+    VarChar,
+    /// Type level version of [`imr::DbType::VarBinary`]
+    VarBinary,
+    /// Type level version of [`imr::DbType::Int8`]
+    Int8,
+    /// Type level version of [`imr::DbType::Int16`]
+    Int16,
+    /// Type level version of [`imr::DbType::Int32`]
+    Int32,
+    /// Type level version of [`imr::DbType::Int64`]
+    Int64,
+    /// Type level version of [`imr::DbType::UInt8`]
+    UInt8,
+    /// Type level version of [`imr::DbType::UInt16`]
+    UInt16,
+    /// Type level version of [`imr::DbType::UInt32`]
+    UInt32,
+    /// Type level version of [`imr::DbType::Float`]
+    Float,
+    /// Type level version of [`imr::DbType::Double`]
+    Double,
+    /// Type level version of [`imr::DbType::Boolean`]
+    Boolean,
+    /// Type level version of [`imr::DbType::Date`]
+    Date,
+    /// Type level version of [`imr::DbType::Datetime`]
+    Datetime,
+    /// Type level version of [`imr::DbType::Timestamp`]
+    Timestamp,
+    /// Type level version of [`imr::DbType::Time`]
+    Time,
+    /// Type level version of [`imr::DbType::Choices`]
+    Choices,
+    /// Type level version of [`imr::DbType::Set`]
+    Set,
 );

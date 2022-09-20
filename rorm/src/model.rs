@@ -195,9 +195,7 @@ impl<I: AsDbType> DerefMut for GenericId<I> {
     }
 }
 
-/// [`ModelDefinitions`]'s fields.
-///
-/// This is similar to [`imr::Field`]. See [`ModelDefinition`] for the why.
+/// All relevant information about a model's field
 #[derive(Copy, Clone)]
 pub struct Field<T: 'static, D: hmr::DbType> {
     /// Name of this field
@@ -254,11 +252,11 @@ impl From<Source> for imr::Source {
 /// The subset of annotations which need to be communicated with the migration tool
 #[derive(Copy, Clone)]
 pub enum Annotation {
-    /// Only for [DbType::Timestamp], [DbType::Datetime], [DbType::Time], [DbType::Date] and
-    /// [DbType::Uint64]. Will set the current time of the database when a row is created.
+    /// Only for [imr::DbType::Timestamp], [imr::DbType::Datetime], [imr::DbType::Time] and [imr::DbType::Date].
+    /// Will set the current time of the database when a row is created.
     AutoCreateTime,
-    /// Only for [DbType::Timestamp], [DbType::Datetime], [DbType::Time], [DbType::Date] and
-    /// [DbType::Uint64]. Will set the current time of the database when a row is updated.
+    /// Only for [imr::DbType::Timestamp], [imr::DbType::Datetime], [imr::DbType::Time] and [imr::DbType::Date].
+    /// Will set the current time of the database when a row is updated.
     AutoUpdateTime,
     /// AUTO_INCREMENT constraint
     AutoIncrement,
@@ -266,7 +264,7 @@ pub enum Annotation {
     Choices(&'static [&'static str]),
     /// DEFAULT constraint
     DefaultValue(DefaultValue),
-    /// Create an index. The optional [IndexValue] can be used, to build more complex indexes.
+    /// Create an index. The optional [imr::IndexValue] can be used, to build more complex indexes.
     Index(Option<IndexValue>),
     /// Only for VARCHAR. Specifies the maximum length of the column's content.
     MaxLength(i32),
