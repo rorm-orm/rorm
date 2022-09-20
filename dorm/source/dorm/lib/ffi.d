@@ -12,6 +12,8 @@ struct FFIArray(T)
 		return content[0 .. size];
 	}
 
+	alias opSlice = data;
+
 	static FFIArray fromData(return T[] data) nothrow pure @nogc
 	{
 		return FFIArray(data.ptr, data.length);
@@ -73,16 +75,12 @@ struct FFIResult(T)
 
 void rorm_db_discconnect(DBHandle handle);
 
-struct ConditionTree
-{
-	FFIArray!Condition conditions;
-	int startIndex;
-}
-
-struct Condition
+struct FFICondition
 {
 	enum Type
 	{
+		Conjunction,
+		Disjunction,
 		UnaryCondition,
 		BinaryCondition,
 		TernaryCondition,
@@ -92,14 +90,18 @@ struct Condition
 
 	union
 	{
-		UnaryCondition unaryCondition;
-		BinaryCondition binaryCondition;
-		TernaryCondition ternaryCondition;
+		FFIArray!FFICondition conjunction;
+		FFIArray!FFICondition disjunction;
+		FFIUnaryCondition unaryCondition;
+		FFIBinaryCondition binaryCondition;
+		FFITernaryCondition ternaryCondition;
 		ConditionValue value;
 	}
 }
 
-struct UnaryCondition
+
+
+struct FFIUnaryCondition
 {
 	enum Type
 	{
@@ -111,15 +113,13 @@ struct UnaryCondition
 	}
 	Type type;
 
-	Condition* condition;
+	FFICondition* condition;
 }
 
-struct BinaryCondition
+struct FFIBinaryCondition
 {
 	enum Type
 	{
-		And,
-		Or,
 		Equals,
 		NotEquals,
 		Greater,
@@ -135,11 +135,11 @@ struct BinaryCondition
 	}
 	Type type;
 
-	Condition* lhs;
-	Condition* rhs;
+	FFICondition* lhs;
+	FFICondition* rhs;
 }
 
-struct TernaryCondition
+struct FFITernaryCondition
 {
 	enum Type
 	{
@@ -148,9 +148,9 @@ struct TernaryCondition
 	}
 	Type type;
 
-	Condition* first;
-	Condition* second;
-	Condition* third;
+	FFICondition* first;
+	FFICondition* second;
+	FFICondition* third;
 }
 
 struct ConditionValue
@@ -189,7 +189,7 @@ struct ConditionValue
 alias DBRowHandle = void*;
 alias DBStreamHandle = void*;
 
-DBStreamHandle rorm_db_query_stream(DBHandle handle, FFIString model, FFIArray!FFIString columns, ConditionTree conditionTree);
+DBStreamHandle rorm_db_query_stream(DBHandle handle, FFIString model, FFIArray!FFIString columns, FFICondition* conditionTree);
 
 /// Returns true if the stream pointed to by the handle is invalid or empty.
 bool rorm_stream_empty(DBStreamHandle handle);
