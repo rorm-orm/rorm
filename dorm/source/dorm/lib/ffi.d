@@ -73,12 +73,16 @@ struct FFIResult(T)
 
 void rorm_db_discconnect(DBHandle handle);
 
+struct ConditionTree
+{
+	FFIArray!Condition conditions;
+	int startIndex;
+}
+
 struct Condition
 {
 	enum Type
 	{
-		Conjunction,
-		Disjunction,
 		UnaryCondition,
 		BinaryCondition,
 		TernaryCondition,
@@ -88,11 +92,9 @@ struct Condition
 
 	union
 	{
-		FFIArray!Condition conjunction;
-		FFIArray!Condition disjunction;
-		UnaryCondition* unaryCondition;
-		BinaryCondition* binaryCondition;
-		TernaryCondition* ternaryCondition;
+		UnaryCondition unaryCondition;
+		BinaryCondition binaryCondition;
+		TernaryCondition ternaryCondition;
 		ConditionValue value;
 	}
 }
@@ -104,17 +106,20 @@ struct UnaryCondition
 		IsNull,
 		IsNotNull,
 		Exists,
-		NotExists
+		NotExists,
+		Not
 	}
 	Type type;
 
-	Condition condition;
+	Condition* condition;
 }
 
 struct BinaryCondition
 {
 	enum Type
 	{
+		And,
+		Or,
 		Equals,
 		NotEquals,
 		Greater,
@@ -130,8 +135,8 @@ struct BinaryCondition
 	}
 	Type type;
 
-	Condition lhs;
-	Condition rhs;
+	Condition* lhs;
+	Condition* rhs;
 }
 
 struct TernaryCondition
@@ -143,9 +148,9 @@ struct TernaryCondition
 	}
 	Type type;
 
-	Condition first;
-	Condition second;
-	Condition third;
+	Condition* first;
+	Condition* second;
+	Condition* third;
 }
 
 struct ConditionValue
@@ -155,7 +160,9 @@ struct ConditionValue
 		Identifier,
 		String,
 		I64,
+		U32,
 		I32,
+		U16,
 		I16,
 		Bool,
 		F64,
@@ -168,19 +175,21 @@ struct ConditionValue
 	{
 		FFIString identifier;
 		FFIString string;
-		FFIString i64;
-		FFIString i32;
-		FFIString i16;
-		FFIString boolean;
-		FFIString f64;
-		FFIString f32;
+		long i64;
+		uint u32;
+		int i32;
+		ushort u16;
+		short i16;
+		bool boolean;
+		double f64;
+		float f32;
 	}
 }
 
 alias DBRowHandle = void*;
 alias DBStreamHandle = void*;
 
-DBStreamHandle rorm_db_query_stream(DBHandle handle, FFIString model, FFIArray!FFIString columns);
+DBStreamHandle rorm_db_query_stream(DBHandle handle, FFIString model, FFIArray!FFIString columns, ConditionTree conditionTree);
 
 /// Returns true if the stream pointed to by the handle is invalid or empty.
 bool rorm_stream_empty(DBStreamHandle handle);
