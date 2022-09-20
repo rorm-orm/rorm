@@ -102,35 +102,55 @@ pub fn model(strct: TokenStream) -> TokenStream {
     model_name.make_ascii_lowercase();
     let model_name = syn::LitStr::new(&model_name, strct.ident.span());
     let model_source = get_source(&strct);
-    let mut field_idents = Vec::new();
-    let mut field_types = Vec::new();
-    let mut field_defs = Vec::new();
-    for field in strct.fields.iter() {
-        if let Some((ident, ty, def)) = parse_field(field, &errors) {
-            field_idents.push(ident);
-            field_types.push(ty);
-            field_defs.push(def);
-        }
+
+    macro_rules! unpack_field {
+        ($($field:ident, $vector:ident),*) => {
+            $(
+                let mut $vector = Vec::new();
+            )*
+            for field in strct.fields.iter() {
+                if let Some(ParsedField {$($field),*}) = parse_field(field, &errors) {
+                    $(
+                        $vector.push($field);
+                    )*
+                }
+            }
+        };
     }
+    unpack_field!(
+        ident,
+        fields_ident,
+        value_type,
+        fields_value_type,
+        struct_type,
+        fields_struct_type,
+        constructor_expression,
+        fields_constr_expr
+    );
 
     // Static reference pointing to Model::get_imr
     let static_get_imr = Ident::new(&format!("__{}_get_imr", strct.ident), span);
 
     let strct_ident = strct.ident;
-    let field_literals = field_idents
+    let field_literals = fields_ident
         .iter()
         .map(|ident| syn::LitStr::new(&ident.to_string(), ident.span()));
-    let impl_from_row = from_row(&strct_ident, &strct_ident, &field_idents, &field_types);
+    let impl_from_row = from_row(
+        &strct_ident,
+        &strct_ident,
+        &fields_ident,
+        &fields_value_type,
+    );
     TokenStream::from(quote! {
         pub struct #fields_strct {
-            #(pub #field_idents: ::rorm::model::Field<#field_types>),*
+            #(pub #fields_ident: #fields_struct_type),*
         }
 
         impl ::rorm::model::Model for #strct_ident {
             type Fields = #fields_strct;
             const FIELDS: Self::Fields = #fields_strct {
                 #(
-                    #field_idents: #field_defs,
+                    #fields_ident: #fields_constr_expr,
                 )*
             };
 
@@ -142,7 +162,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
                 ::rorm::imr::Model {
                     name: #model_name.to_string(),
                     fields: vec![#(
-                        (&<#strct_ident as ::rorm::model::Model>::FIELDS.#field_idents).into(),
+                        (&<#strct_ident as ::rorm::model::Model>::FIELDS.#fields_ident).into(),
                     )*],
                     source_defined_at: #model_source,
                 }
@@ -286,7 +306,13 @@ fn from_row(
     }
 }
 
-fn parse_field(field: &syn::Field, errors: &Errors) -> Option<(Ident, syn::Type, TokenStream)> {
+struct ParsedField {
+    ident: Ident,
+    value_type: syn::Type,
+    struct_type: TokenStream,
+    constructor_expression: TokenStream,
+}
+fn parse_field(field: &syn::Field, errors: &Errors) -> Option<ParsedField> {
     let ident = if let Some(ident) = field.ident.as_ref() {
         ident.clone()
     } else {
@@ -337,26 +363,25 @@ fn parse_field(field: &syn::Field, errors: &Errors) -> Option<(Ident, syn::Type,
         );
     }
 
-    let data_type = &field.ty;
-    let data_type = quote! { <#data_type as ::rorm::model::AsDbType> };
+    let value_type = field.ty.clone();
 
     let db_name = syn::LitStr::new(&to_db_name(ident.to_string()), field.span());
 
     let db_type = if has_choices {
-        quote! { ::rorm::imr::DbType::Choices }
+        quote! { ::rorm::hmr::Choices }
     } else {
-        quote! { #data_type::DB_TYPE }
+        quote! { <#value_type as ::rorm::model::AsDbType>::DbType }
     };
 
     let source = get_source(&field);
 
-    return Some((
-        field.ident.clone().unwrap(),
-        field.ty.clone(),
-        TokenStream::from(quote! {
+    Some(ParsedField {
+        struct_type: TokenStream::from(quote! {
+            ::rorm::model::Field<#value_type, #db_type>
+        }),
+        constructor_expression: TokenStream::from(quote! {
             ::rorm::model::Field {
                 name: #db_name,
-                db_type: #db_type,
                 annotations: &[
                     #(#annotations),*
                 ],
@@ -364,7 +389,9 @@ fn parse_field(field: &syn::Field, errors: &Errors) -> Option<(Ident, syn::Type,
                 _phantom: ::std::marker::PhantomData,
             }
         }),
-    ));
+        ident,
+        value_type,
+    })
 }
 
 /// Parse the `#[rorm(default = ..)]` annotation.

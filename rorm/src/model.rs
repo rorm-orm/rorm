@@ -1,20 +1,22 @@
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
-use crate::imr;
+use rorm_declaration::hmr;
+use rorm_declaration::imr;
 
 /// This trait maps rust types to database types
 pub trait AsDbType {
-    /// A type understood which can be retrieved from the db and then converted into Self.
-    type PRIMITIVE;
+    /// A type which can be retrieved from the db and then converted into Self.
+    type Primitive;
+
+    /// The database type as defined in the Intermediate Model Representation
+    type DbType: hmr::DbType;
+
     /// Convert the associated primitive type into `Self`.
     ///
     /// This function allows "non-primitive" types like [GenericId] or any [DbEnum] to implement
     /// their decoding without access to the underlying db details (namely `sqlx::Decode`)
-    fn from_primitive(primitive: Self::PRIMITIVE) -> Self;
-
-    /// The database type as defined in the Intermediate Model Representation
-    const DB_TYPE: imr::DbType;
+    fn from_primitive(primitive: Self::Primitive) -> Self;
 
     /// Whether this type supports null.
     const IS_NULLABLE: bool = false;
@@ -26,13 +28,14 @@ pub trait AsDbType {
 macro_rules! impl_as_db_type {
     ($type:ty, $variant:ident) => {
         impl AsDbType for $type {
-            type PRIMITIVE = Self;
+            type Primitive = Self;
+
+            type DbType = hmr::$variant;
+
             #[inline(always)]
-            fn from_primitive(primitive: Self::PRIMITIVE) -> Self {
+            fn from_primitive(primitive: Self::Primitive) -> Self {
                 primitive
             }
-
-            const DB_TYPE: imr::DbType = imr::DbType::$variant;
         }
     };
 }
@@ -41,30 +44,27 @@ impl_as_db_type!(i8, Int8);
 impl_as_db_type!(i16, Int16);
 impl_as_db_type!(i32, Int32);
 impl_as_db_type!(i64, Int64);
-impl_as_db_type!(isize, Int64);
 impl_as_db_type!(u8, UInt8);
 impl_as_db_type!(u16, UInt16);
 impl_as_db_type!(u32, UInt32);
-impl_as_db_type!(u64, UInt64);
-impl_as_db_type!(usize, UInt64);
 impl_as_db_type!(f32, Float);
 impl_as_db_type!(f64, Double);
 impl_as_db_type!(bool, Boolean);
 impl_as_db_type!(String, VarChar);
 impl<T: AsDbType> AsDbType for Option<T> {
-    type PRIMITIVE = Self;
+    type Primitive = Self;
+    type DbType = T::DbType;
+
     #[inline(always)]
-    fn from_primitive(primitive: Self::PRIMITIVE) -> Self {
+    fn from_primitive(primitive: Self::Primitive) -> Self {
         primitive
     }
+
+    const IS_NULLABLE: bool = true;
 
     fn implicit_annotations(annotations: &mut Vec<imr::Annotation>) {
         T::implicit_annotations(annotations)
     }
-
-    const DB_TYPE: imr::DbType = T::DB_TYPE;
-
-    const IS_NULLABLE: bool = true;
 }
 
 /// Map a rust enum, whose variant don't hold any data, into a database enum
@@ -94,16 +94,16 @@ pub trait DbEnum {
     fn as_choices() -> Vec<String>;
 }
 impl<E: DbEnum> AsDbType for E {
-    type PRIMITIVE = String;
-    fn from_primitive(primitive: Self::PRIMITIVE) -> Self {
+    type Primitive = String;
+    type DbType = hmr::Choices;
+
+    fn from_primitive(primitive: Self::Primitive) -> Self {
         E::from_str(&primitive)
     }
 
     fn implicit_annotations(annotations: &mut Vec<imr::Annotation>) {
         annotations.push(imr::Annotation::Choices(E::as_choices()));
     }
-
-    const DB_TYPE: imr::DbType = imr::DbType::Choices;
 }
 
 /// Trait implemented on Patches i.e. a subset of a model's fields.
@@ -163,12 +163,12 @@ pub type ID = GenericId<i64>;
 pub struct GenericId<I: AsDbType>(pub I);
 
 impl<I: AsDbType> AsDbType for GenericId<I> {
-    type PRIMITIVE = I;
-    fn from_primitive(primitive: Self::PRIMITIVE) -> Self {
+    type Primitive = I;
+    type DbType = I::DbType;
+
+    fn from_primitive(primitive: Self::Primitive) -> Self {
         GenericId(primitive)
     }
-
-    const DB_TYPE: imr::DbType = I::DB_TYPE;
 
     fn implicit_annotations(annotations: &mut Vec<imr::Annotation>) {
         I::implicit_annotations(annotations);
@@ -199,12 +199,9 @@ impl<I: AsDbType> DerefMut for GenericId<I> {
 ///
 /// This is similar to [`imr::Field`]. See [`ModelDefinition`] for the why.
 #[derive(Copy, Clone)]
-pub struct Field<T: 'static> {
+pub struct Field<T: 'static, D: hmr::DbType> {
     /// Name of this field
     pub name: &'static str,
-
-    /// [imr::DbType] of this field
-    pub db_type: imr::DbType,
 
     /// List of annotations this field has set
     pub annotations: &'static [Annotation],
@@ -213,11 +210,11 @@ pub struct Field<T: 'static> {
     pub source: Option<Source>,
 
     #[doc(hidden)]
-    pub _phantom: PhantomData<&'static T>,
+    pub _phantom: PhantomData<&'static (T, D)>,
 }
 
-impl<T: AsDbType> From<&'_ Field<T>> for imr::Field {
-    fn from(field: &'_ Field<T>) -> Self {
+impl<T: AsDbType, D: hmr::DbType> From<&'_ Field<T, D>> for imr::Field {
+    fn from(field: &'_ Field<T, D>) -> Self {
         let mut annotations: Vec<_> = field.annotations.iter().map(|&anno| anno.into()).collect();
         T::implicit_annotations(&mut annotations);
         if !T::IS_NULLABLE {
@@ -225,7 +222,7 @@ impl<T: AsDbType> From<&'_ Field<T>> for imr::Field {
         }
         imr::Field {
             name: field.name.to_string(),
-            db_type: field.db_type,
+            db_type: D::IMR,
             annotations,
             source_defined_at: field.source.map(Into::into),
         }

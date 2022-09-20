@@ -82,7 +82,6 @@ impl SQLCreateColumn {
                     | DbType::UInt8
                     | DbType::UInt16
                     | DbType::UInt32
-                    | DbType::UInt64
                     | DbType::Boolean => "INTEGER",
                     DbType::Float | DbType::Double => "REAL",
                     _ => {

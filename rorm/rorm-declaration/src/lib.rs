@@ -7,3 +7,5 @@ pub mod imr;
 
 /// This module holds the definition of migration files
 pub mod migration;
+
+pub mod hmr;
