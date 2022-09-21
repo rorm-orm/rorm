@@ -1,6 +1,7 @@
-use crate::{FFISlice, FFIString};
 use core::str::Utf8Error;
 use std::ops::Deref;
+
+use crate::{FFISlice, FFIString};
 
 /**
 This enum represents a value

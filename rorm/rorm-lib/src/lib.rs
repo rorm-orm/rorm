@@ -13,6 +13,8 @@ use std::str::Utf8Error;
 use std::sync::Mutex;
 use std::time::Duration;
 
+use futures::TryStreamExt;
+use rorm_db::row::Row;
 use rorm_db::{Database, DatabaseBackend, DatabaseConfiguration};
 use tokio::runtime::Runtime;
 
@@ -264,7 +266,7 @@ Returns a pointer to the created stream.
 - `model`: Name of the table to query.
 - `columns`: Array of columns to retrieve from the database.
 - `condition`: Pointer to a [Condition].
-- `callback`: callback function. Takes the `context`, a stream pointer and the [Error].
+- `callback`: callback function. Takes the `context`, a stream pointer and a [Error].
 - `context`: Pass through void pointer.
 
 This function is called completely synchronously.
@@ -328,3 +330,74 @@ This function is called completely synchronously.
 */
 #[no_mangle]
 pub extern "C" fn rorm_stream_free(_: Box<Stream>) {}
+
+/**
+Use this function to retrieve a pointer to a row on a stream.
+
+**Parameter**:
+- `stream_ptr`: Mutable pointer to the stream that is obtained from [rorm_db_query_stream].
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer
+
+**Important**:
+- Do not call this function multiple times on the same stream, unless all given callbacks have
+returned successfully. Calling the function multiple times on the same stream will result in
+undefined behaviour!
+- Do not call this function on the same stream if the previous call
+returned a [Error::NoRowsLeftInStream].
+- Do not use pass the stream to another function unless the callback of the current call is finished
+
+This function is called from an asynchronous context.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_stream_get_row(
+    stream_ptr: &'static mut Stream,
+    callback: extern "C" fn(VoidPtr, Box<Row>, Error) -> (),
+    context: VoidPtr,
+) {
+    let fut = async move {
+        let row_res = stream_ptr.try_next().await;
+        if row_res.is_err() {
+            callback(
+                context,
+                null_ptr(),
+                Error::DatabaseError(row_res.err().unwrap().to_string().as_str().into()),
+            );
+            return;
+        }
+        let row_opt = row_res.unwrap();
+        if row_opt.is_none() {
+            callback(context, null_ptr(), Error::NoRowsLeftInStream);
+            return;
+        }
+        let row = row_opt.unwrap();
+        callback(context, Box::new(row), Error::NoError);
+    };
+
+    match RUNTIME.lock() {
+        Ok(guard) => match guard.as_ref() {
+            Some(rt) => {
+                rt.spawn(fut);
+            }
+            None => callback(context, null_ptr(), Error::MissingRuntimeError),
+        },
+        Err(err) => callback(
+            context,
+            null_ptr(),
+            Error::RuntimeError(err.to_string().as_str().into()),
+        ),
+    }
+}
+
+/**
+Frees the row given as parameter.
+
+The function panics if the provided pointer is invalid.
+
+**Important**:
+Do not call this function on the same pointer more than once!
+
+This function is called completely synchronously.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_row_free(_: Box<Row>) {}

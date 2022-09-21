@@ -16,4 +16,8 @@ pub enum Error<'a> {
     InvalidStringError,
     /// Configuration error
     ConfigurationError(FFIString<'a>),
+    /// Database error
+    DatabaseError(FFIString<'a>),
+    /// There are no rows left in the stream
+    NoRowsLeftInStream,
 }

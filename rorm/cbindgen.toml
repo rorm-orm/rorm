@@ -34,6 +34,11 @@ typedef struct Database_ Database;
 * Placeholder struct representing the stream result from a query.
 */
 typedef struct Stream_ Stream;
+
+/**
+* Placeholder struct representing the row gathered from a stream.
+*/
+typedef struct Row_ Row;
 """
 
 ############################ Code Style Options ################################
