@@ -8,6 +8,7 @@ pub mod representations;
 /// Utility functions and structs such as the ffi safe string implementation.
 pub mod utils;
 
+use std::ops::Deref;
 use std::str::Utf8Error;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -205,7 +206,7 @@ pub extern "C" fn rorm_db_connect(
         match Database::connect(db_options).await {
             Ok(db) => {
                 let b = Box::new(db);
-                callback(context, b, Error::NoError)
+                callback(context, b, Error::NoError);
             }
             Err(e) => {
                 let error = e.to_string();
@@ -219,17 +220,19 @@ pub extern "C" fn rorm_db_connect(
     };
 
     match RUNTIME.lock() {
-        Ok(guard) => match guard.as_ref() {
-            Some(rt) => {
-                rt.spawn(fut);
+        Ok(guard) => {
+            let g: &Option<Runtime> = guard.deref();
+            match g.as_ref() {
+                Some(rt) => {
+                    rt.spawn(fut);
+                }
+                None => callback(
+                    context,
+                    null_ptr(),
+                    Error::RuntimeError(FFIString::from("No runtime running.")),
+                ),
             }
-            None => callback(
-                context,
-                null_ptr(),
-                Error::RuntimeError(FFIString::from("No runtime running.")),
-            ),
-        },
-
+        }
         Err(err) => callback(
             context,
             null_ptr(),
@@ -268,7 +271,7 @@ This function is called completely synchronously.
 */
 #[no_mangle]
 pub extern "C" fn rorm_db_query_stream(
-    db: Box<Database>,
+    db: &Database,
     model: FFIString,
     columns: FFISlice<FFIString>,
     condition: Option<&Condition>,

@@ -19,7 +19,7 @@ crate-type = ["staticlib", "cdylib"]
 rorm-db = { version = "0.1.0", path = "../rorm-db" }
 
 # Runtime to execute the async context in
-tokio = { version = "1.20" }
+tokio = { version = "^1.21" }
 
 # Async wrapper
 futures = { version = "^0.3" }
