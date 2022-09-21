@@ -11,4 +11,6 @@ pub enum Error<'a> {
     MissingRuntimeError,
     /// An error occurred while getting or accessing the runtime.
     RuntimeError(FFIString<'a>),
+    /// An error occurred while trying to convert a FFIString into a &str
+    InvalidStringError,
 }

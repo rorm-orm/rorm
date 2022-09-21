@@ -1,12 +1,14 @@
 //! This crate is used to provide C bindings for the `rorm-db` crate.
 #![warn(missing_docs)]
 
+/// Utility module to provide errors
+pub mod errors;
+/// Module that holds the definitions for conditions.
+pub mod representations;
 /// Utility functions and structs such as the ffi safe string implementation.
 pub mod utils;
 
-/// Utility module to provide errors
-pub mod errors;
-
+use std::str::Utf8Error;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -14,7 +16,8 @@ use rorm_db::{Database, DatabaseBackend, DatabaseConfiguration};
 use tokio::runtime::Runtime;
 
 use crate::errors::Error;
-use crate::utils::{null_ptr, FFIString, VoidPtr};
+use crate::representations::Condition;
+use crate::utils::{null_ptr, FFISlice, FFIString, StreamPtr, VoidPtr};
 
 static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
 
@@ -206,3 +209,74 @@ Do not call this function more than once!
  */
 #[no_mangle]
 pub extern "C" fn rorm_db_free(_: Box<Database>) {}
+
+/**
+This function queries the database given the provided parameter.
+
+Returns a pointer to the created stream.
+
+**Parameter**:
+- `box`: Reference to the Database, provided by [rorm_db_connect].
+- `model`: Name of the table to query.
+- `columns`: Array of columns to retrieve from the database.
+- `condition`: Pointer to a [Condition].
+- `callback`: callback function. Takes the `context`, a stream pointer and the [Error].
+- `context`: Pass through void pointer.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_db_query_stream(
+    db: Box<Database>,
+    model: FFIString,
+    columns: FFISlice<FFIString>,
+    condition: Option<&Condition>,
+    callback: extern "C" fn(VoidPtr, Box<StreamPtr>, Error) -> (),
+    context: VoidPtr,
+) {
+    let model_conv: Result<&str, Utf8Error> = model.try_into();
+    if model_conv.is_err() {
+        callback(context, null_ptr(), Error::InvalidStringError);
+        return;
+    }
+
+    let column_slice: &[FFIString] = columns.into();
+    let mut column_vec = vec![];
+    for &x in column_slice {
+        let x_conv: Result<&str, Utf8Error> = x.try_into();
+        if x_conv.is_err() {
+            callback(context, null_ptr(), Error::InvalidStringError);
+            return;
+        }
+        column_vec.push(x_conv.unwrap());
+    }
+
+    let query_stream;
+    match condition {
+        None => {
+            query_stream = db.query_stream(model_conv.unwrap(), column_vec.as_slice(), None);
+        }
+        Some(c) => {
+            let cond_conv: Result<rorm_db::conditional::Condition, Utf8Error> = c.try_into();
+            if cond_conv.is_err() {
+                callback(context, null_ptr(), Error::InvalidStringError);
+                return;
+            }
+            query_stream = db.query_stream(
+                model_conv.unwrap(),
+                column_vec.as_slice(),
+                Some(&cond_conv.unwrap()),
+            );
+        }
+    };
+    callback(context, Box::new(query_stream), Error::NoError);
+}
+
+/**
+Frees the stream given as parameter.
+
+This function panics if the pointer to the stream is invalid.
+
+**Important**:
+Do not call this function more than once!
+*/
+#[no_mangle]
+pub extern "C" fn rorm_stream_free(_: Box<StreamPtr>) {}

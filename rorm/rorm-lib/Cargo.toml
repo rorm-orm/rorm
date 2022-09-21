@@ -21,6 +21,9 @@ rorm-db = { version = "0.1.0", path = "../rorm-db" }
 # Runtime to execute the async context in
 tokio = { version = "1.20" }
 
+# Async wrapper
+futures = { version = "^0.3" }
+
 [features]
 default = [
     "rorm-db/tokio-rustls",

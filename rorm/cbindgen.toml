@@ -27,7 +27,7 @@ after_includes = """
 /**
 * Placeholder struct representing the [rorm_db::Database] struct.
 */
-typedef struct Database () Database;
+typedef struct Database_ Database;
 """
 
 ############################ Code Style Options ################################
@@ -52,7 +52,7 @@ usize_is_size_t = true
 
 [export]
 include = []
-exclude = ["Database"]
+exclude = ["Database", "VoidPtr"]
 # prefix = "CAPI_"
 item_types = []
 renaming_overrides_prefixing = false
