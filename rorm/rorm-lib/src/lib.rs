@@ -122,6 +122,7 @@ pub extern "C" fn rorm_runtime_start(
             match Runtime::new() {
                 Ok(rt) => {
                     *rt_opt = Some(rt);
+
                     callback(context, Error::NoError);
                 }
                 Err(err) => callback(
@@ -204,7 +205,7 @@ pub extern "C" fn rorm_db_connect(
         match Database::connect(db_options).await {
             Ok(db) => {
                 let b = Box::new(db);
-                callback(context, b, Error::RuntimeError(FFIString::from("")))
+                callback(context, b, Error::NoError)
             }
             Err(e) => {
                 let error = e.to_string();
@@ -218,7 +219,7 @@ pub extern "C" fn rorm_db_connect(
     };
 
     match RUNTIME.lock() {
-        Ok(guard) => match guard.as_ref() {
+        Ok(guard) => match guard {
             Some(rt) => {
                 rt.spawn(fut);
             }
