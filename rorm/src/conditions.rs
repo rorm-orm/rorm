@@ -116,7 +116,7 @@ impl<T, D: DbType> Field<T, D> {
     }
 
     /// Check if this field's value is greater than or equal to another value
-    pub fn greater_or_else<'a>(&self, value: impl IntoCondValue<'a, D>) -> Condition<'a> {
+    pub fn greater_or_equals<'a>(&self, value: impl IntoCondValue<'a, D>) -> Condition<'a> {
         self.__binary(BinaryCondition::GreaterOrEquals, value.into_value())
     }
 
@@ -126,7 +126,7 @@ impl<T, D: DbType> Field<T, D> {
     }
 
     /// Check if this field's value is less than or equal to another value
-    pub fn less_or_else<'a>(&self, value: impl IntoCondValue<'a, D>) -> Condition<'a> {
+    pub fn less_or_equals<'a>(&self, value: impl IntoCondValue<'a, D>) -> Condition<'a> {
         self.__binary(BinaryCondition::LessOrEquals, value.into_value())
     }
 
