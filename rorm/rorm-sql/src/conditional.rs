@@ -48,11 +48,13 @@ impl<'a> BuildCondition<'a> for TernaryCondition<'a> {
             TernaryCondition::Between(params) => ("BETWEEN", params.as_ref()),
             TernaryCondition::NotBetween(params) => ("NOT BETWEEN", params.as_ref()),
         };
+        write!(writer, "(")?;
         lhs.build_to_writer(writer, lookup)?;
         write!(writer, " {} ", keyword)?;
         mhs.build_to_writer(writer, lookup)?;
         write!(writer, " AND ")?;
         rhs.build_to_writer(writer, lookup)?;
+        write!(writer, ")")?;
         Ok(())
     }
 }
@@ -108,9 +110,11 @@ impl<'a> BuildCondition<'a> for BinaryCondition<'a> {
             BinaryCondition::In(params) => ("IN", params.as_ref()),
             BinaryCondition::NotIn(params) => ("NOT IN", params.as_ref()),
         };
+        write!(writer, "(")?;
         lhs.build_to_writer(writer, lookup)?;
         write!(writer, " {} ", keyword)?;
         rhs.build_to_writer(writer, lookup)?;
+        write!(writer, ")")?;
         Ok(())
     }
 }
@@ -145,6 +149,7 @@ impl<'a> BuildCondition<'a> for UnaryCondition<'a> {
             UnaryCondition::NotExists(value) => (false, "NOT EXISTS", value.as_ref()),
             UnaryCondition::Not(value) => (false, "NOT", value.as_ref()),
         };
+        write!(writer, "(")?;
         if postfix {
             value.build_to_writer(writer, lookup)?;
             write!(writer, " {}", keyword)?;
@@ -152,6 +157,7 @@ impl<'a> BuildCondition<'a> for UnaryCondition<'a> {
             write!(writer, "{} ", keyword)?;
             value.build_to_writer(writer, lookup)?;
         }
+        write!(writer, ")")?;
         Ok(())
     }
 }
