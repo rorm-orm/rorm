@@ -219,7 +219,7 @@ pub extern "C" fn rorm_db_connect(
     };
 
     match RUNTIME.lock() {
-        Ok(guard) => match guard {
+        Ok(guard) => match guard.as_ref() {
             Some(rt) => {
                 rt.spawn(fut);
             }
@@ -229,6 +229,7 @@ pub extern "C" fn rorm_db_connect(
                 Error::RuntimeError(FFIString::from("No runtime running.")),
             ),
         },
+
         Err(err) => callback(
             context,
             null_ptr(),
