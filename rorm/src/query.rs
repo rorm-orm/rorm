@@ -16,7 +16,7 @@ use std::marker::PhantomData;
 ///     - [`QueryBuilder::stream`] to get all rows in a stream
 ///     - [`QueryBuilder::one`] to get a single row
 ///     - [`QueryBuilder::optional`] to get an optional single row
-pub struct QueryBuilder<'a, M: Model, C: ConditionMarker> {
+pub struct QueryBuilder<'a, M: Model, C: ConditionMarker<'a>> {
     db: &'a Database,
     columns: &'a [&'a str],
     _phantom: PhantomData<*const M>,
@@ -52,7 +52,7 @@ impl<'a, M: Model> QueryBuilder<'a, M, ()> {
 
 impl<'a, M: Model> QueryBuilder<'a, M, ()> {
     /// Add a condition to the query
-    pub fn condition(&self, condition: Condition<'a>) -> QueryBuilder<'a, M, Condition> {
+    pub fn condition(&self, condition: Condition<'a>) -> QueryBuilder<'a, M, Condition<'a>> {
         QueryBuilder {
             db: self.db,
             columns: self.columns,
@@ -63,7 +63,7 @@ impl<'a, M: Model> QueryBuilder<'a, M, ()> {
     }
 }
 
-impl<'a, M: Model, C: ConditionMarker> QueryBuilder<'a, M, C> {
+impl<'a, M: Model, C: ConditionMarker<'a>> QueryBuilder<'a, M, C> {
     /// Retrieve all matching rows
     pub async fn all(&self) -> Result<Vec<Row>, Error> {
         self.db
@@ -81,7 +81,7 @@ impl<'a, M: Model, C: ConditionMarker> QueryBuilder<'a, M, C> {
     }
 
     /// Retrieve the query as a stream of rows
-    pub async fn stream(&self) -> BoxStream<'_, Result<Row, Error>> {
+    pub fn stream(&self) -> BoxStream<'a, Result<Row, Error>> {
         self.db
             .query_stream(M::table_name(), self.columns, self.condition.as_option())
     }
@@ -102,24 +102,24 @@ use private::Private;
 use rorm_db::conditional::Condition;
 
 #[doc(hidden)]
-pub trait ConditionMarker {
+pub trait ConditionMarker<'a>: 'a {
     fn __private<P: Private>() {}
 
-    fn as_option(&self) -> Option<&Condition>;
+    fn as_option(&self) -> Option<&Condition<'a>>;
 }
 
-impl ConditionMarker for () {
+impl<'a> ConditionMarker<'a> for () {
     fn __private<P: Private>() {}
 
-    fn as_option(&self) -> Option<&Condition> {
+    fn as_option(&self) -> Option<&Condition<'a>> {
         None
     }
 }
 
-impl ConditionMarker for Condition<'_> {
+impl<'a> ConditionMarker<'a> for Condition<'a> {
     fn __private<P: Private>() {}
 
-    fn as_option(&self) -> Option<&Condition> {
+    fn as_option(&self) -> Option<&Condition<'a>> {
         Some(self)
     }
 }
