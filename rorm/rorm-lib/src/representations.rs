@@ -254,7 +254,7 @@ pub enum Condition<'a> {
     Conjunction(FFISlice<'a, Condition<'a>>),
     /// A list of [Condition]s, that get expanded to "{} OR {} ..."
     Disjunction(FFISlice<'a, Condition<'a>>),
-    /// Representation of an unary condition.
+    /// Representation of a unary condition.
     UnaryCondition(UnaryCondition<'a>),
     /// Representation of a binary condition.
     BinaryCondition(BinaryCondition<'a>),

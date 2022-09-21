@@ -98,7 +98,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                     .add_column(DBImpl::SQLite.create_column(
                         db_conf.last_migration_table_name.as_str(),
                         "id",
-                        DbType::UInt64,
+                        DbType::Int64,
                         vec![
                             Annotation::NotNull,
                             Annotation::PrimaryKey,
