@@ -94,6 +94,14 @@ impl<'a, M: Model, C: ConditionMarker<'a>> QueryBuilder<'a, M, C> {
     }
 }
 
+/// Slightly less verbose macro to start a [`QueryBuilder`] from a model or patch
+#[macro_export]
+macro_rules! query {
+    ($db:expr, $patch:path) => {
+        $crate::QueryBuilder::select_patch::<$patch>(&$db)
+    };
+}
+
 #[doc(hidden)]
 pub(crate) mod private {
     pub trait Private {}
