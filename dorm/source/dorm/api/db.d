@@ -37,7 +37,7 @@ struct DormDB
 
 	~this()
 	{
-		ffi.rorm_db_discconnect(handle);
+		ffi.rorm_db_free(handle);
 	}
 
 	@disable this(this);

@@ -17,17 +17,17 @@ struct FreeableAsyncResult(T)
 		return FreeableAsyncResult(Event(true, false));
 	}
 
-	alias Callback = extern(C) void function(void* data, FFIResult!T result) nothrow;
+	alias Callback = extern(C) void function(void* data, T result, scope RormError error) nothrow;
 
 	Tuple!(Callback, void*) callback() return
 	{
-		extern(C) static void ret(void* data, FFIResult!T result) nothrow
+		extern(C) static void ret(void* data, T result, scope RormError error) nothrow
 		{
 			auto res = cast(FreeableAsyncResult*)data;
-			if (result.error.size)
-				res.error = new Exception(result.error.data.idup);
+			if (error)
+				res.error = error.makeException;
 			else
-				res.raw_result = result.raw_result;
+				res.raw_result = result;
 			res.event.set();
 		}
 
