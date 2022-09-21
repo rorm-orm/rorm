@@ -12,6 +12,9 @@ pub use rorm_macro::*;
 // Reexports to be used by macro
 pub use rorm_declaration::imr;
 
+/// Module implementing methods to [`Condition`] based on [`Field<T>`]
+mod conditions;
+
 /// This module holds traits and structs for working with models
 pub mod model;
 /// Query Builder
