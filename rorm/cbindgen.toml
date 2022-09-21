@@ -28,6 +28,12 @@ after_includes = """
 * Placeholder struct representing the [rorm_db::Database] struct.
 */
 typedef struct Database_ Database;
+
+
+/**
+* Placeholder struct representing the stream result from a query.
+*/
+typedef struct Stream_ Stream;
 """
 
 ############################ Code Style Options ################################
@@ -59,6 +65,7 @@ renaming_overrides_prefixing = false
 
 [export.rename]
 "VoidPtr" = "void*"
+"StreamPtr" = "void*"
 
 [export.body]
 

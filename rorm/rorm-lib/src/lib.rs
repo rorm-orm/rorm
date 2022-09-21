@@ -1,5 +1,5 @@
 //! This crate is used to provide C bindings for the `rorm-db` crate.
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 
 /// Utility module to provide errors
 pub mod errors;
@@ -17,7 +17,7 @@ use tokio::runtime::Runtime;
 
 use crate::errors::Error;
 use crate::representations::Condition;
-use crate::utils::{null_ptr, FFISlice, FFIString, StreamPtr, VoidPtr};
+use crate::utils::{null_ptr, FFISlice, FFIString, Stream, VoidPtr};
 
 static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
 
@@ -28,6 +28,9 @@ This is used to determine the correct driver and the correct dialect to use.
 */
 #[repr(i32)]
 pub enum DBBackend {
+    /// This exists to forbid default initializations with 0 on C side.
+    /// Using this type will result in an [crate::errors::Error::ConfigurationError]
+    Invalid,
     /// SQLite backend
     SQLite,
     /// MySQL / MariaDB backend
@@ -36,12 +39,15 @@ pub enum DBBackend {
     Postgres,
 }
 
-impl From<DBBackend> for DatabaseBackend {
-    fn from(backend: DBBackend) -> Self {
-        match backend {
-            DBBackend::SQLite => Self::SQLite,
-            DBBackend::Postgres => Self::Postgres,
-            DBBackend::MySQL => Self::MySQL,
+impl From<DBBackend> for Result<DatabaseBackend, Error<'_>> {
+    fn from(value: DBBackend) -> Self {
+        match value {
+            DBBackend::Invalid => Err(Error::ConfigurationError(FFIString::from(
+                "Invalid database backend selected",
+            ))),
+            DBBackend::SQLite => Ok(DatabaseBackend::SQLite),
+            DBBackend::Postgres => Ok(DatabaseBackend::Postgres),
+            DBBackend::MySQL => Ok(DatabaseBackend::MySQL),
         }
     }
 }
@@ -50,6 +56,8 @@ impl From<DBBackend> for DatabaseBackend {
 Configuration operation to connect to a database.
 
 Will be converted into [rorm_db::DatabaseConfiguration].
+
+`min_connections` and `max_connections` must not be 0.
 */
 #[repr(C)]
 pub struct DBConnectOptions<'a> {
@@ -63,10 +71,21 @@ pub struct DBConnectOptions<'a> {
     max_connections: u32,
 }
 
-impl From<DBConnectOptions<'_>> for DatabaseConfiguration {
+impl From<DBConnectOptions<'_>> for Result<DatabaseConfiguration, Error<'_>> {
     fn from(config: DBConnectOptions) -> Self {
-        Self {
-            backend: config.backend.into(),
+        let db_backend_res: Result<DatabaseBackend, Error> = config.backend.into();
+        if db_backend_res.is_err() {
+            return Err(db_backend_res.err().unwrap());
+        }
+        let db_backend: DatabaseBackend = db_backend_res.unwrap();
+        if config.min_connections == 0 || config.max_connections == 0 {
+            return Err(Error::ConfigurationError(FFIString::from(
+                "DBConnectOptions.min_connections and DBConnectOptions.max_connections must not be 0",
+            )));
+        }
+
+        Ok(DatabaseConfiguration {
+            backend: db_backend,
             name: <&str>::try_from(config.name).unwrap().to_owned(),
             host: <&str>::try_from(config.host).unwrap().to_owned(),
             port: config.port,
@@ -74,7 +93,7 @@ impl From<DBConnectOptions<'_>> for DatabaseConfiguration {
             password: <&str>::try_from(config.password).unwrap().to_owned(),
             min_connections: config.min_connections,
             max_connections: config.max_connections,
-        }
+        })
     }
 }
 
@@ -89,6 +108,8 @@ It is needed as rorm is completely written asynchronously.
 
 **Important**:
 Do not forget to stop the runtime using [rorm_runtime_shutdown]!
+
+This function is called completely synchronously.
  */
 #[no_mangle]
 pub extern "C" fn rorm_runtime_start(
@@ -121,6 +142,12 @@ pub extern "C" fn rorm_runtime_start(
 Shutdown the runtime.
 
 Specify the amount of time to wait in milliseconds.
+
+If no runtime is currently existing, a [Error::MissingRuntimeError] will be returned.
+If the runtime could not be locked, a [Error::RuntimeError]
+containing further information will be returned.
+
+This function is called completely synchronously.
  */
 #[no_mangle]
 pub extern "C" fn rorm_runtime_shutdown(
@@ -149,11 +176,15 @@ Connect to the database using the provided [DBConnectOptions].
 You must provide a callback with the following parameters:
 
 The first parameter is the `context` pointer.
-If it is an empty string, the second parameter will hold an error message.
+The second parameter will be a pointer to the Database connection.
+It will be needed to make queries.
+The last parameter holds an [Error] enum.
 
 **Important**:
 Rust does not manage the memory of the database.
 To properly free it, use [rorm_db_free].
+
+This function is called from an asynchronous context.
 */
 #[no_mangle]
 pub extern "C" fn rorm_db_connect(
@@ -161,7 +192,12 @@ pub extern "C" fn rorm_db_connect(
     callback: extern "C" fn(VoidPtr, Box<Database>, Error) -> (),
     context: VoidPtr,
 ) {
-    let db_options = options.into();
+    let db_options_conv: Result<DatabaseConfiguration, Error> = options.into();
+    if db_options_conv.is_err() {
+        callback(context, null_ptr(), db_options_conv.err().unwrap());
+        return;
+    }
+    let db_options = db_options_conv.unwrap();
 
     let fut = async move {
         match Database::connect(db_options).await {
@@ -206,6 +242,8 @@ Takes the pointer to the database instance.
 
 **Important**:
 Do not call this function more than once!
+
+This function is called completely synchronously.
  */
 #[no_mangle]
 pub extern "C" fn rorm_db_free(_: Box<Database>) {}
@@ -222,6 +260,8 @@ Returns a pointer to the created stream.
 - `condition`: Pointer to a [Condition].
 - `callback`: callback function. Takes the `context`, a stream pointer and the [Error].
 - `context`: Pass through void pointer.
+
+This function is called completely synchronously.
 */
 #[no_mangle]
 pub extern "C" fn rorm_db_query_stream(
@@ -229,7 +269,7 @@ pub extern "C" fn rorm_db_query_stream(
     model: FFIString,
     columns: FFISlice<FFIString>,
     condition: Option<&Condition>,
-    callback: extern "C" fn(VoidPtr, Box<StreamPtr>, Error) -> (),
+    callback: extern "C" fn(VoidPtr, Box<Stream>, Error) -> (),
     context: VoidPtr,
 ) {
     let model_conv: Result<&str, Utf8Error> = model.try_into();
@@ -277,6 +317,8 @@ This function panics if the pointer to the stream is invalid.
 
 **Important**:
 Do not call this function more than once!
+
+This function is called completely synchronously.
 */
 #[no_mangle]
-pub extern "C" fn rorm_stream_free(_: Box<StreamPtr>) {}
+pub extern "C" fn rorm_stream_free(_: Box<Stream>) {}
