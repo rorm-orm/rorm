@@ -65,20 +65,10 @@ ConditionValue conditionValue(T)(T c)
 		ret.type = ConditionValue.Type.I16;
 		ret.i16 = c;
 	}
-	else static if (is(T == ushort))
-	{
-		ret.type = ConditionValue.Type.U16;
-		ret.u16 = c;
-	}
 	else static if (is(T == int))
 	{
 		ret.type = ConditionValue.Type.I32;
 		ret.i32 = c;
-	}
-	else static if (is(T == uint))
-	{
-		ret.type = ConditionValue.Type.U32;
-		ret.u32 = c;
 	}
 	else static if (isIntegral!T && is(T : long))
 	{
@@ -290,9 +280,7 @@ unittest
 				case ConditionValue.Type.Identifier: query ~= "ident:" ~ c.value.identifier.to!string; break;
 				case ConditionValue.Type.Bool: query ~= c.value.boolean.to!string; break;
 				case ConditionValue.Type.I16: query ~= "i16:" ~ c.value.i16.to!string; break;
-				case ConditionValue.Type.U16: query ~= "u16:" ~ c.value.u16.to!string; break;
 				case ConditionValue.Type.I32: query ~= "i32:" ~ c.value.i32.to!string; break;
-				case ConditionValue.Type.U32: query ~= "u32:" ~ c.value.u32.to!string; break;
 				case ConditionValue.Type.I64: query ~= "i64:" ~ c.value.i64.to!string; break;
 				case ConditionValue.Type.F32: query ~= "f32:" ~ c.value.f32.to!string; break;
 				case ConditionValue.Type.F64: query ~= "f64:" ~ c.value.f64.to!string; break;
@@ -386,16 +374,16 @@ unittest
 		case ffi.FFICondition.Type.Conjunction:
 		case ffi.FFICondition.Type.Disjunction:
 			string op = c.type == ffi.FFICondition.Type.Conjunction ? " AND" : " OR";
-			query ~= "(";
+			query ~= " (";
 			foreach (i, ref subc; c.conjunction.data)
 			{
 				if (i != 0) query ~= op;
 				recurse(subc);
 			}
-			query ~= ")";
+			query ~= " )";
 			break;
 		}
 	}
 	recurse(tree[0]);
-	assert(false, query.data);
+	// assert(false, query.data);
 }

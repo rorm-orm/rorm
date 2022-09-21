@@ -486,6 +486,40 @@ alias DbQueryStreamCallback = extern(C) void function(void* context, DBStreamHan
  */
 void rorm_stream_free(DBStreamHandle handle);
 
+unittest
+{
+	import dorm.lib.util;
+
+	sync_call!rorm_runtime_start();
+	scope (exit)
+		sync_call!rorm_runtime_shutdown(1000);
+
+	DBConnectOptions options = {
+		backend: DBBackend.SQLite,
+		name: "foo.sqlite3".ffi,
+	};
+	scope dbHandleAsync = FreeableAsyncResult!DBHandle.make;
+	rorm_db_connect(options, dbHandleAsync.callback.expand);
+	scope dbHandle = dbHandleAsync.result;
+	scope (exit)
+		rorm_db_free(dbHandle);
+
+	scope stream1 = sync_call!rorm_db_query_stream(dbHandle, "foo".ffi, ["name".ffi].ffi, null);
+	scope (exit)
+		rorm_stream_free(stream1);
+
+	scope stream2 = sync_call!rorm_db_query_stream(dbHandle, "foo".ffi, ["name".ffi].ffi, null);
+	scope (exit)
+		rorm_stream_free(stream2);
+
+	// while (!rorm_stream_empty(stream))
+	// {
+	// 	async_call!rorm_stream_next(stream, (rowResult) {
+	// 		writeln("Hello ", rorm_row_get_data_varchar(rowResult.expect, 0));
+	// 	}).wait;
+	// }
+}
+
 // ----------------------------------------------------------------------------
 // future hypothetical things:
 version (none):
@@ -532,30 +566,3 @@ void rorm_row_get_data_time(DBRowHandle handle, size_t columnIndex); /// ditto
 
 /// Frees a row handle memory. It may not be read from afterwards anymore.
 void rorm_free_row(DBRowHandle handle);
-
-version(none) unittest
-{
-	import dorm.lib.util;
-
-	DBConnectOptions options = {
-		backend: DBBackend.Postgres,
-		name: "users".ffi,
-		host: "127.0.0.1".ffi
-	};
-	scope dbHandleAsync = FreeableAsyncResult!DBHandle.make;
-	rorm_db_connect(options, dbHandleAsync.callback.expand);
-	scope dbHandle = dbHandleAsync.result;
-	scope (exit)
-		rorm_db_disconnect(dbHandle);
-
-	scope stream = rorm_db_query_stream(dbHandle, "foo".ffi, ["name".ffi].ffi);
-	scope (exit)
-		rorm_stream_free(stream);
-
-	while (!rorm_stream_empty(stream))
-	{
-		async_call!rorm_stream_next(stream, (rowResult) {
-			writeln("Hello ", rorm_row_get_data_varchar(rowResult.expect, 0));
-		}).wait;
-	}
-}
