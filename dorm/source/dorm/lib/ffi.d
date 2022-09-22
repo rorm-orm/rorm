@@ -54,7 +54,7 @@ FFIString ffi(string s) { return FFIString.fromData(s); }
 /// ditto
 FFIArray!T ffi(T)(T[] s) { return FFIArray!T.fromData(s); }
 /// ditto
-FFIArray!T ffi(T, size_t)(ref T[n] s) { return FFIArray!T.fromData(s); }
+FFIArray!T ffi(T, size_t n)(ref T[n] s) { return FFIArray!T.fromData(s); }
 
 /**
  * Representation of the database backend.
