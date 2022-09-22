@@ -311,9 +311,52 @@ impl Database {
         columns: &[&str],
         values: &[value::Value<'_>],
     ) -> Result<(), Error> {
-        let q = self.db_impl.insert(model, columns, values);
+        let value_rows = &[values];
+        let q = self.db_impl.insert(model, columns, value_rows);
 
         let (query_string, bind_params) = q.build();
+
+        let mut tmp = sqlx::query(query_string.as_str());
+        for x in bind_params {
+            tmp = utils::bind_param(tmp, x);
+        }
+
+        match tmp.execute(&self.pool).await {
+            Ok(_) => Ok(()),
+            Err(err) => Err(Error::SqlxError(err)),
+        }
+    }
+
+    /**
+    This method is used to bulk insert rows.
+
+    If one insert statement fails, the complete operation will be rolled back.
+
+    **Parameter**:
+    - `model`: Table to insert to
+    - `columns`: Columns to set `rows` for.
+    - `rows`: List of values to bind to the corresponding columns.
+    */
+    pub async fn insert_bulk(
+        &self,
+        model: &str,
+        columns: &[&str],
+        rows: &[&[value::Value<'_>]],
+    ) -> Result<(), Error> {
+        let mut t = self.db_impl.start_transaction();
+
+        let mut bind_params = vec![];
+        for chunk in rows.chunks(25) {
+            let mut q = self.db_impl.insert(model, columns, chunk);
+            q = q.rollback_transaction();
+            let (insert_query, insert_params) = q.build();
+            t = t.add_statement(insert_query);
+            bind_params.extend(insert_params);
+        }
+
+        let query_string = t.finish();
+
+        println!("{}", query_string);
 
         let mut tmp = sqlx::query(query_string.as_str());
         for x in bind_params {
