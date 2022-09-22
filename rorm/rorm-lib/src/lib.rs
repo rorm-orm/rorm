@@ -20,7 +20,7 @@ use tokio::runtime::Runtime;
 
 use crate::errors::Error;
 use crate::representations::Condition;
-use crate::utils::{null_ptr, FFISlice, FFIString, Stream, VoidPtr};
+use crate::utils::{null_ptr, FFIOption, FFISlice, FFIString, Stream, VoidPtr};
 
 static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
 
@@ -546,27 +546,212 @@ pub extern "C" fn rorm_row_get_str(
     callback: extern "C" fn(VoidPtr, FFIString, Error),
     context: VoidPtr,
 ) {
+    get_data_from_row!(&str, FFIString::from(""), row_ptr, index, callback, context);
+}
+
+/**
+Tries to retrieve a nullable bool from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_null_bool(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    callback: extern "C" fn(VoidPtr, FFIOption<bool>, Error),
+    context: VoidPtr,
+) {
+    get_data_from_row!(
+        Option<bool>,
+        FFIOption::None,
+        row_ptr,
+        index,
+        callback,
+        context
+    );
+}
+
+/**
+Tries to retrieve a nullable i64 from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_null_i64(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    callback: extern "C" fn(VoidPtr, FFIOption<i64>, Error),
+    context: VoidPtr,
+) {
+    get_data_from_row!(
+        Option<i64>,
+        FFIOption::None,
+        row_ptr,
+        index,
+        callback,
+        context
+    );
+}
+
+/**
+Tries to retrieve a nullable i32 from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_null_i32(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    callback: extern "C" fn(VoidPtr, FFIOption<i32>, Error),
+    context: VoidPtr,
+) {
+    get_data_from_row!(
+        Option<i32>,
+        FFIOption::None,
+        row_ptr,
+        index,
+        callback,
+        context
+    );
+}
+
+/**
+Tries to retrieve a nullable i16 from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_null_i16(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    callback: extern "C" fn(VoidPtr, FFIOption<i16>, Error),
+    context: VoidPtr,
+) {
+    get_data_from_row!(
+        Option<i16>,
+        FFIOption::None,
+        row_ptr,
+        index,
+        callback,
+        context
+    );
+}
+
+/**
+Tries to retrieve a nullable f32 from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_null_f32(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    callback: extern "C" fn(VoidPtr, FFIOption<f32>, Error),
+    context: VoidPtr,
+) {
+    get_data_from_row!(
+        Option<f32>,
+        FFIOption::None,
+        row_ptr,
+        index,
+        callback,
+        context
+    );
+}
+
+/**
+Tries to retrieve a nullable f64 from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_null_f64(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    callback: extern "C" fn(VoidPtr, FFIOption<f64>, Error),
+    context: VoidPtr,
+) {
+    get_data_from_row!(
+        Option<f64>,
+        FFIOption::None,
+        row_ptr,
+        index,
+        callback,
+        context
+    );
+}
+
+/**
+Tries to retrieve a nullable FFIString from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_null_str(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    callback: extern "C" fn(VoidPtr, FFIOption<FFIString>, Error),
+    context: VoidPtr,
+) {
     let index_conv: Result<&str, Utf8Error> = index.try_into();
     if index_conv.is_err() {
-        callback(context, FFIString::from(""), Error::InvalidStringError);
+        callback(context, FFIOption::None, Error::InvalidStringError);
         return;
     }
-    let value_res: Result<&str, rorm_db::error::Error> = row_ptr.get(index_conv.unwrap());
+    let value_res: Result<Option<&str>, rorm_db::error::Error> = row_ptr.get(index_conv.unwrap());
     if value_res.is_err() {
         match value_res.err().unwrap() {
             rorm_db::error::Error::SqlxError(err) => match err {
                 sqlx::Error::ColumnIndexOutOfBounds { .. } => {
-                    callback(
-                        context,
-                        FFIString::from(""),
-                        Error::ColumnIndexOutOfBoundsError,
-                    );
+                    callback(context, FFIOption::None, Error::ColumnIndexOutOfBoundsError);
                 }
                 sqlx::Error::ColumnNotFound(_) => {
-                    callback(context, FFIString::from(""), Error::ColumnNotFoundError);
+                    callback(context, FFIOption::None, Error::ColumnNotFoundError);
                 }
                 sqlx::Error::ColumnDecode { .. } => {
-                    callback(context, FFIString::from(""), Error::ColumnDecodeError);
+                    callback(context, FFIOption::None, Error::ColumnDecodeError);
                 }
                 _ => todo!("This error case should never occur"),
             },
@@ -574,5 +759,12 @@ pub extern "C" fn rorm_row_get_str(
         };
         return;
     }
-    callback(context, value_res.unwrap().into(), Error::NoError);
+
+    match value_res.unwrap() {
+        None => callback(context, FFIOption::None, Error::NoError),
+        Some(v) => match v.try_into() {
+            Err(_) => callback(context, FFIOption::None, Error::InvalidStringError),
+            Ok(v) => callback(context, FFIOption::Some(v), Error::NoError),
+        },
+    };
 }

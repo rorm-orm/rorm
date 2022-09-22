@@ -91,6 +91,26 @@ pub(crate) fn null_ptr<T>() -> Box<T> {
 }
 
 /**
+Helper type to wrap [Option] ffi safe.
+*/
+#[repr(C)]
+pub enum FFIOption<T> {
+    /// None value
+    None,
+    /// Some value
+    Some(T),
+}
+
+impl<T> From<Option<T>> for FFIOption<T> {
+    fn from(option: Option<T>) -> Self {
+        match option {
+            None => FFIOption::None,
+            Some(v) => FFIOption::Some(v),
+        }
+    }
+}
+
+/**
 This macro is used to simplify the retrieval of cells from a row.
 
 **Parameter**:
@@ -129,6 +149,7 @@ macro_rules! get_data_from_row {
             };
             return;
         }
-        $callback($context, value_res.unwrap(), Error::NoError);
+
+        $callback($context, value_res.unwrap().into(), Error::NoError);
     }};
 }
