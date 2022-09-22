@@ -89,3 +89,46 @@ pub(crate) type Stream<'a> = BoxStream<'a, Result<rorm_db::row::Row, rorm_db::er
 pub(crate) fn null_ptr<T>() -> Box<T> {
     unsafe { Box::from_raw(ptr::null_mut()) }
 }
+
+/**
+This macro is used to simplify the retrieval of cells from a row.
+
+**Parameter**:
+- `$data_type`: The type to build the conversion for.
+- `$default_value`: The default value to insert in case of an error.
+- `$row_ptr`: The pointer to a row
+- `$index`: Name of the column to retrieve the value from
+- `$callback`: The callback to execute. Must be of the form fn(VoidPtr, $data_type, Error) -> ()
+- `$context`: Pass through void pointer
+*/
+#[macro_export]
+macro_rules! get_data_from_row {
+    ($data_type:ty, $default_value:expr, $row_ptr:expr, $index:expr, $callback:expr, $context:expr) => {{
+        let index_conv: Result<&str, Utf8Error> = $index.try_into();
+        if index_conv.is_err() {
+            $callback($context, $default_value, Error::InvalidStringError);
+            return;
+        }
+        let value_res: Result<$data_type, rorm_db::error::Error> =
+            $row_ptr.get(index_conv.unwrap());
+        if value_res.is_err() {
+            match value_res.err().unwrap() {
+                rorm_db::error::Error::SqlxError(err) => match err {
+                    sqlx::Error::ColumnIndexOutOfBounds { .. } => {
+                        $callback($context, $default_value, Error::ColumnIndexOutOfBoundsError);
+                    }
+                    sqlx::Error::ColumnNotFound(_) => {
+                        $callback($context, $default_value, Error::ColumnNotFoundError);
+                    }
+                    sqlx::Error::ColumnDecode { .. } => {
+                        $callback($context, $default_value, Error::ColumnDecodeError);
+                    }
+                    _ => todo!("This error case should never occur"),
+                },
+                _ => todo!("This error case should never occur"),
+            };
+            return;
+        }
+        $callback($context, value_res.unwrap(), Error::NoError);
+    }};
+}

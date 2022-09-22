@@ -401,3 +401,178 @@ This function is called completely synchronously.
 */
 #[no_mangle]
 pub extern "C" fn rorm_row_free(_: Box<Row>) {}
+
+/**
+Tries to retrieve a bool from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_row_get_bool(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    callback: extern "C" fn(VoidPtr, bool, Error),
+    context: VoidPtr,
+) {
+    get_data_from_row!(bool, false, row_ptr, index, callback, context);
+}
+
+/**
+Tries to retrieve an i64 from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_i64(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    callback: extern "C" fn(VoidPtr, i64, Error),
+    context: VoidPtr,
+) {
+    get_data_from_row!(i64, 0, row_ptr, index, callback, context);
+}
+
+/**
+Tries to retrieve an i32 from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_i32(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    callback: extern "C" fn(VoidPtr, i32, Error),
+    context: VoidPtr,
+) {
+    get_data_from_row!(i32, 0, row_ptr, index, callback, context);
+}
+
+/**
+Tries to retrieve an i16 from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_i16(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    callback: extern "C" fn(VoidPtr, i16, Error),
+    context: VoidPtr,
+) {
+    get_data_from_row!(i16, 0, row_ptr, index, callback, context);
+}
+
+/**
+Tries to retrieve an f32 from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_f32(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    callback: extern "C" fn(VoidPtr, f32, Error),
+    context: VoidPtr,
+) {
+    get_data_from_row!(f32, 0.0, row_ptr, index, callback, context);
+}
+
+/**
+Tries to retrieve an f64 from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_f64(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    callback: extern "C" fn(VoidPtr, f64, Error),
+    context: VoidPtr,
+) {
+    get_data_from_row!(f64, 0.0, row_ptr, index, callback, context);
+}
+
+/**
+Tries to retrieve an FFIString from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_str(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    callback: extern "C" fn(VoidPtr, FFIString, Error),
+    context: VoidPtr,
+) {
+    let index_conv: Result<&str, Utf8Error> = index.try_into();
+    if index_conv.is_err() {
+        callback(context, FFIString::from(""), Error::InvalidStringError);
+        return;
+    }
+    let value_res: Result<&str, rorm_db::error::Error> = row_ptr.get(index_conv.unwrap());
+    if value_res.is_err() {
+        match value_res.err().unwrap() {
+            rorm_db::error::Error::SqlxError(err) => match err {
+                sqlx::Error::ColumnIndexOutOfBounds { .. } => {
+                    callback(
+                        context,
+                        FFIString::from(""),
+                        Error::ColumnIndexOutOfBoundsError,
+                    );
+                }
+                sqlx::Error::ColumnNotFound(_) => {
+                    callback(context, FFIString::from(""), Error::ColumnNotFoundError);
+                }
+                sqlx::Error::ColumnDecode { .. } => {
+                    callback(context, FFIString::from(""), Error::ColumnDecodeError);
+                }
+                _ => todo!("This error case should never occur"),
+            },
+            _ => todo!("This error case should never occur"),
+        };
+        return;
+    }
+    callback(context, value_res.unwrap().into(), Error::NoError);
+}

@@ -20,4 +20,10 @@ pub enum Error<'a> {
     DatabaseError(FFIString<'a>),
     /// There are no rows left in the stream
     NoRowsLeftInStream,
+    /// Column could not be converted in the given type
+    ColumnDecodeError,
+    /// Column was not found in row
+    ColumnNotFoundError,
+    /// The index in the row was out of bounds
+    ColumnIndexOutOfBoundsError,
 }
