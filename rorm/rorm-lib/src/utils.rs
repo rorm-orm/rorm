@@ -123,11 +123,11 @@ This macro is used to simplify the retrieval of cells from a row.
 */
 #[macro_export]
 macro_rules! get_data_from_row {
-    ($data_type:ty, $default_value:expr, $row_ptr:expr, $index:expr, $callback:expr, $context:expr) => {{
+    ($data_type:ty, $default_value:expr, $row_ptr:expr, $index:expr, $error:expr) => {{
         let index_conv: Result<&str, Utf8Error> = $index.try_into();
         if index_conv.is_err() {
-            $callback($context, $default_value, Error::InvalidStringError);
-            return;
+            *$error = Error::InvalidStringError;
+            return $default_value;
         }
         let value_res: Result<$data_type, rorm_db::error::Error> =
             $row_ptr.get(index_conv.unwrap());
@@ -135,21 +135,21 @@ macro_rules! get_data_from_row {
             match value_res.err().unwrap() {
                 rorm_db::error::Error::SqlxError(err) => match err {
                     sqlx::Error::ColumnIndexOutOfBounds { .. } => {
-                        $callback($context, $default_value, Error::ColumnIndexOutOfBoundsError);
+                        *$error = Error::ColumnIndexOutOfBoundsError;
                     }
                     sqlx::Error::ColumnNotFound(_) => {
-                        $callback($context, $default_value, Error::ColumnNotFoundError);
+                        *$error = Error::ColumnNotFoundError;
                     }
                     sqlx::Error::ColumnDecode { .. } => {
-                        $callback($context, $default_value, Error::ColumnDecodeError);
+                        *$error = Error::ColumnDecodeError;
                     }
                     _ => todo!("This error case should never occur"),
                 },
                 _ => todo!("This error case should never occur"),
             };
-            return;
+            return $default_value;
         }
 
-        $callback($context, value_res.unwrap().into(), Error::NoError);
+        return value_res.unwrap().into();
     }};
 }

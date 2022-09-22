@@ -408,8 +408,7 @@ Tries to retrieve a bool from the given row pointer.
 **Parameter**:
 - `row_ptr`: Pointer to a row.
 - `index`: Name of the column to retrieve from the row.
-- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
-- `context`: Pass through void pointer.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
 
 This function is called completely synchronously.
 */
@@ -417,10 +416,9 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_row_get_bool(
     row_ptr: &Row,
     index: FFIString<'_>,
-    callback: extern "C" fn(VoidPtr, bool, Error),
-    context: VoidPtr,
-) {
-    get_data_from_row!(bool, false, row_ptr, index, callback, context);
+    error_ptr: &mut Error,
+) -> bool {
+    get_data_from_row!(bool, false, row_ptr, index, error_ptr);
 }
 
 /**
@@ -429,8 +427,7 @@ Tries to retrieve an i64 from the given row pointer.
 **Parameter**:
 - `row_ptr`: Pointer to a row.
 - `index`: Name of the column to retrieve from the row.
-- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
-- `context`: Pass through void pointer.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
 
 This function is called completely synchronously.
  */
@@ -438,10 +435,9 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_row_get_i64(
     row_ptr: &Row,
     index: FFIString<'_>,
-    callback: extern "C" fn(VoidPtr, i64, Error),
-    context: VoidPtr,
-) {
-    get_data_from_row!(i64, 0, row_ptr, index, callback, context);
+    error_ptr: &mut Error,
+) -> i64 {
+    get_data_from_row!(i64, i64::MAX, row_ptr, index, error_ptr);
 }
 
 /**
@@ -450,8 +446,7 @@ Tries to retrieve an i32 from the given row pointer.
 **Parameter**:
 - `row_ptr`: Pointer to a row.
 - `index`: Name of the column to retrieve from the row.
-- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
-- `context`: Pass through void pointer.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
 
 This function is called completely synchronously.
  */
@@ -459,10 +454,9 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_row_get_i32(
     row_ptr: &Row,
     index: FFIString<'_>,
-    callback: extern "C" fn(VoidPtr, i32, Error),
-    context: VoidPtr,
-) {
-    get_data_from_row!(i32, 0, row_ptr, index, callback, context);
+    error_ptr: &mut Error,
+) -> i32 {
+    get_data_from_row!(i32, i32::MAX, row_ptr, index, error_ptr);
 }
 
 /**
@@ -471,8 +465,7 @@ Tries to retrieve an i16 from the given row pointer.
 **Parameter**:
 - `row_ptr`: Pointer to a row.
 - `index`: Name of the column to retrieve from the row.
-- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
-- `context`: Pass through void pointer.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
 
 This function is called completely synchronously.
  */
@@ -480,10 +473,9 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_row_get_i16(
     row_ptr: &Row,
     index: FFIString<'_>,
-    callback: extern "C" fn(VoidPtr, i16, Error),
-    context: VoidPtr,
-) {
-    get_data_from_row!(i16, 0, row_ptr, index, callback, context);
+    error_ptr: &mut Error,
+) -> i16 {
+    get_data_from_row!(i16, i16::MAX, row_ptr, index, error_ptr);
 }
 
 /**
@@ -492,8 +484,7 @@ Tries to retrieve an f32 from the given row pointer.
 **Parameter**:
 - `row_ptr`: Pointer to a row.
 - `index`: Name of the column to retrieve from the row.
-- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
-- `context`: Pass through void pointer.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
 
 This function is called completely synchronously.
  */
@@ -501,10 +492,9 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_row_get_f32(
     row_ptr: &Row,
     index: FFIString<'_>,
-    callback: extern "C" fn(VoidPtr, f32, Error),
-    context: VoidPtr,
-) {
-    get_data_from_row!(f32, 0.0, row_ptr, index, callback, context);
+    error_ptr: &mut Error,
+) -> f32 {
+    get_data_from_row!(f32, f32::NAN, row_ptr, index, error_ptr);
 }
 
 /**
@@ -513,8 +503,7 @@ Tries to retrieve an f64 from the given row pointer.
 **Parameter**:
 - `row_ptr`: Pointer to a row.
 - `index`: Name of the column to retrieve from the row.
-- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
-- `context`: Pass through void pointer.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
 
 This function is called completely synchronously.
  */
@@ -522,10 +511,9 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_row_get_f64(
     row_ptr: &Row,
     index: FFIString<'_>,
-    callback: extern "C" fn(VoidPtr, f64, Error),
-    context: VoidPtr,
-) {
-    get_data_from_row!(f64, 0.0, row_ptr, index, callback, context);
+    error_ptr: &mut Error,
+) -> f64 {
+    get_data_from_row!(f64, 0.0, row_ptr, index, error_ptr);
 }
 
 /**
@@ -534,19 +522,17 @@ Tries to retrieve an FFIString from the given row pointer.
 **Parameter**:
 - `row_ptr`: Pointer to a row.
 - `index`: Name of the column to retrieve from the row.
-- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
-- `context`: Pass through void pointer.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
 
 This function is called completely synchronously.
  */
 #[no_mangle]
-pub extern "C" fn rorm_row_get_str(
-    row_ptr: &Row,
+pub extern "C" fn rorm_row_get_str<'a, 'b>(
+    row_ptr: &'a Row,
     index: FFIString<'_>,
-    callback: extern "C" fn(VoidPtr, FFIString, Error),
-    context: VoidPtr,
-) {
-    get_data_from_row!(&str, FFIString::from(""), row_ptr, index, callback, context);
+    error_ptr: &'b mut Error,
+) -> FFIString<'a> {
+    get_data_from_row!(&str, FFIString::from(""), row_ptr, index, error_ptr);
 }
 
 /**
@@ -555,8 +541,7 @@ Tries to retrieve a nullable bool from the given row pointer.
 **Parameter**:
 - `row_ptr`: Pointer to a row.
 - `index`: Name of the column to retrieve from the row.
-- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
-- `context`: Pass through void pointer.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
 
 This function is called completely synchronously.
  */
@@ -564,17 +549,9 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_row_get_null_bool(
     row_ptr: &Row,
     index: FFIString<'_>,
-    callback: extern "C" fn(VoidPtr, FFIOption<bool>, Error),
-    context: VoidPtr,
-) {
-    get_data_from_row!(
-        Option<bool>,
-        FFIOption::None,
-        row_ptr,
-        index,
-        callback,
-        context
-    );
+    error_ptr: &mut Error,
+) -> FFIOption<bool> {
+    get_data_from_row!(Option<bool>, FFIOption::None, row_ptr, index, error_ptr);
 }
 
 /**
@@ -583,8 +560,7 @@ Tries to retrieve a nullable i64 from the given row pointer.
 **Parameter**:
 - `row_ptr`: Pointer to a row.
 - `index`: Name of the column to retrieve from the row.
-- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
-- `context`: Pass through void pointer.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
 
 This function is called completely synchronously.
  */
@@ -592,17 +568,9 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_row_get_null_i64(
     row_ptr: &Row,
     index: FFIString<'_>,
-    callback: extern "C" fn(VoidPtr, FFIOption<i64>, Error),
-    context: VoidPtr,
-) {
-    get_data_from_row!(
-        Option<i64>,
-        FFIOption::None,
-        row_ptr,
-        index,
-        callback,
-        context
-    );
+    error_ptr: &mut Error,
+) -> FFIOption<i64> {
+    get_data_from_row!(Option<i64>, FFIOption::None, row_ptr, index, error_ptr);
 }
 
 /**
@@ -611,8 +579,7 @@ Tries to retrieve a nullable i32 from the given row pointer.
 **Parameter**:
 - `row_ptr`: Pointer to a row.
 - `index`: Name of the column to retrieve from the row.
-- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
-- `context`: Pass through void pointer.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
 
 This function is called completely synchronously.
  */
@@ -620,17 +587,9 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_row_get_null_i32(
     row_ptr: &Row,
     index: FFIString<'_>,
-    callback: extern "C" fn(VoidPtr, FFIOption<i32>, Error),
-    context: VoidPtr,
-) {
-    get_data_from_row!(
-        Option<i32>,
-        FFIOption::None,
-        row_ptr,
-        index,
-        callback,
-        context
-    );
+    error_ptr: &mut Error,
+) -> FFIOption<i32> {
+    get_data_from_row!(Option<i32>, FFIOption::None, row_ptr, index, error_ptr);
 }
 
 /**
@@ -639,8 +598,7 @@ Tries to retrieve a nullable i16 from the given row pointer.
 **Parameter**:
 - `row_ptr`: Pointer to a row.
 - `index`: Name of the column to retrieve from the row.
-- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
-- `context`: Pass through void pointer.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
 
 This function is called completely synchronously.
  */
@@ -648,17 +606,9 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_row_get_null_i16(
     row_ptr: &Row,
     index: FFIString<'_>,
-    callback: extern "C" fn(VoidPtr, FFIOption<i16>, Error),
-    context: VoidPtr,
-) {
-    get_data_from_row!(
-        Option<i16>,
-        FFIOption::None,
-        row_ptr,
-        index,
-        callback,
-        context
-    );
+    error_ptr: &mut Error,
+) -> FFIOption<i16> {
+    get_data_from_row!(Option<i16>, FFIOption::None, row_ptr, index, error_ptr);
 }
 
 /**
@@ -667,8 +617,7 @@ Tries to retrieve a nullable f32 from the given row pointer.
 **Parameter**:
 - `row_ptr`: Pointer to a row.
 - `index`: Name of the column to retrieve from the row.
-- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
-- `context`: Pass through void pointer.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
 
 This function is called completely synchronously.
  */
@@ -676,17 +625,9 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_row_get_null_f32(
     row_ptr: &Row,
     index: FFIString<'_>,
-    callback: extern "C" fn(VoidPtr, FFIOption<f32>, Error),
-    context: VoidPtr,
-) {
-    get_data_from_row!(
-        Option<f32>,
-        FFIOption::None,
-        row_ptr,
-        index,
-        callback,
-        context
-    );
+    error_ptr: &mut Error,
+) -> FFIOption<f32> {
+    get_data_from_row!(Option<f32>, FFIOption::None, row_ptr, index, error_ptr);
 }
 
 /**
@@ -695,8 +636,7 @@ Tries to retrieve a nullable f64 from the given row pointer.
 **Parameter**:
 - `row_ptr`: Pointer to a row.
 - `index`: Name of the column to retrieve from the row.
-- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
-- `context`: Pass through void pointer.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
 
 This function is called completely synchronously.
  */
@@ -704,17 +644,9 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_row_get_null_f64(
     row_ptr: &Row,
     index: FFIString<'_>,
-    callback: extern "C" fn(VoidPtr, FFIOption<f64>, Error),
-    context: VoidPtr,
-) {
-    get_data_from_row!(
-        Option<f64>,
-        FFIOption::None,
-        row_ptr,
-        index,
-        callback,
-        context
-    );
+    error_ptr: &mut Error,
+) -> FFIOption<f64> {
+    get_data_from_row!(Option<f64>, FFIOption::None, row_ptr, index, error_ptr);
 }
 
 /**
@@ -723,48 +655,49 @@ Tries to retrieve a nullable FFIString from the given row pointer.
 **Parameter**:
 - `row_ptr`: Pointer to a row.
 - `index`: Name of the column to retrieve from the row.
-- `callback`: callback function. Takes the `context`, a row pointer and a [Error].
-- `context`: Pass through void pointer.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
 
 This function is called completely synchronously.
  */
 #[no_mangle]
-pub extern "C" fn rorm_row_get_null_str(
-    row_ptr: &Row,
+pub extern "C" fn rorm_row_get_null_str<'a, 'b>(
+    row_ptr: &'a Row,
     index: FFIString<'_>,
-    callback: extern "C" fn(VoidPtr, FFIOption<FFIString>, Error),
-    context: VoidPtr,
-) {
+    error_ptr: &'b mut Error,
+) -> FFIOption<FFIString<'a>> {
     let index_conv: Result<&str, Utf8Error> = index.try_into();
     if index_conv.is_err() {
-        callback(context, FFIOption::None, Error::InvalidStringError);
-        return;
+        *error_ptr = Error::InvalidStringError;
+        return FFIOption::None;
     }
     let value_res: Result<Option<&str>, rorm_db::error::Error> = row_ptr.get(index_conv.unwrap());
     if value_res.is_err() {
         match value_res.err().unwrap() {
             rorm_db::error::Error::SqlxError(err) => match err {
                 sqlx::Error::ColumnIndexOutOfBounds { .. } => {
-                    callback(context, FFIOption::None, Error::ColumnIndexOutOfBoundsError);
+                    *error_ptr = Error::ColumnIndexOutOfBoundsError;
                 }
                 sqlx::Error::ColumnNotFound(_) => {
-                    callback(context, FFIOption::None, Error::ColumnNotFoundError);
+                    *error_ptr = Error::ColumnNotFoundError;
                 }
                 sqlx::Error::ColumnDecode { .. } => {
-                    callback(context, FFIOption::None, Error::ColumnDecodeError);
+                    *error_ptr = Error::ColumnDecodeError;
                 }
                 _ => todo!("This error case should never occur"),
             },
             _ => todo!("This error case should never occur"),
         };
-        return;
+        return FFIOption::None;
     }
 
-    match value_res.unwrap() {
-        None => callback(context, FFIOption::None, Error::NoError),
+    return match value_res.unwrap() {
+        None => FFIOption::None,
         Some(v) => match v.try_into() {
-            Err(_) => callback(context, FFIOption::None, Error::InvalidStringError),
-            Ok(v) => callback(context, FFIOption::Some(v), Error::NoError),
+            Err(_) => {
+                *error_ptr = Error::InvalidStringError;
+                return FFIOption::None;
+            }
+            Ok(v) => FFIOption::Some(v),
         },
     };
 }
