@@ -356,8 +356,6 @@ impl Database {
 
         let query_string = t.finish();
 
-        println!("{}", query_string);
-
         let mut tmp = sqlx::query(query_string.as_str());
         for x in bind_params {
             tmp = utils::bind_param(tmp, x);
