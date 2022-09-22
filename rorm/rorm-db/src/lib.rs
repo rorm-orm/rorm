@@ -175,6 +175,7 @@ impl Database {
     /**
     This method is used to retrieve a stream of rows that matched the applied conditions.
 
+    **Parameter**:
     `model`: Name of the table.
     `columns`: Columns to retrieve values from.
     `conditions`: Optional conditions to apply.
@@ -203,6 +204,7 @@ impl Database {
     This method is used to retrieve exactly one row from the table.
     An error is returned if no value could be retrieved.
 
+    **Parameter**:
     `model`: Model to query.
     `columns`: Columns to retrieve values from.
     `conditions`: Optional conditions to apply.
@@ -234,6 +236,7 @@ impl Database {
     /**
     This method is used to retrieve an optional row from the table.
 
+    **Parameter**:
     `model`: Model to query.
     `columns`: Columns to retrieve values from.
     `conditions`: Optional conditions to apply.
@@ -265,6 +268,7 @@ impl Database {
     /**
     This method is used to retrieve all rows that match the provided query.
 
+    **Parameter**:
     `model`: Model to query.
     `columns`: Columns to retrieve values from.
     `conditions`: Optional conditions to apply.
@@ -291,5 +295,34 @@ impl Database {
             .await
             .map(|vector| vector.into_iter().map(row::Row::from).collect())
             .map_err(Error::SqlxError)
+    }
+
+    /**
+    This method is used to insert into a table.
+
+    **Parameter**:
+    - `model`: Table to insert to
+    - `columns`: Columns to set `values` for.
+    - `values`: Values to bind to the corresponding columns.
+    */
+    pub async fn insert(
+        &self,
+        model: &str,
+        columns: &[&str],
+        values: &[value::Value<'_>],
+    ) -> Result<(), Error> {
+        let q = self.db_impl.insert(model, columns, values);
+
+        let (query_string, bind_params) = q.build();
+
+        let mut tmp = sqlx::query(query_string.as_str());
+        for x in bind_params {
+            tmp = utils::bind_param(tmp, x);
+        }
+
+        match tmp.execute(&self.pool).await {
+            Ok(_) => Ok(()),
+            Err(err) => Err(Error::SqlxError(err)),
+        }
     }
 }

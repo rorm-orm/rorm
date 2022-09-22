@@ -17,6 +17,8 @@ pub mod create_trigger;
 pub mod drop_table;
 /// Definition of error types that can occur.
 pub mod error;
+/// Implementation of SQL INSERT statements
+pub mod insert;
 /// Implementation of SQL SELECT statements
 pub mod select;
 /// Implementation of SQL Transactions
@@ -34,8 +36,10 @@ use crate::create_trigger::{
     SQLCreateTrigger, SQLCreateTriggerOperation, SQLCreateTriggerPointInTime,
 };
 use crate::drop_table::SQLDropTable;
+use crate::insert::SQLInsert;
 use crate::select::SQLSelect;
 use crate::transaction::SQLTransaction;
+use crate::value::Value;
 
 /**
 The main interface for creating sql strings
@@ -196,8 +200,9 @@ impl DBImpl {
     /**
     Build a select query.
 
-    The `from_clause` specifies the FROM in sql.
-    This can be a single table name or a complex query itself.
+    **Parameter**:
+    - `columns`: The columns to select.
+    - `from_clause` specifies from what to select. This can be a table name or another query itself.
     */
     pub fn select<'until_build>(
         &self,
@@ -213,6 +218,32 @@ impl DBImpl {
                 limit: None,
                 offset: None,
                 distinct: false,
+                lookup: vec![],
+            },
+            _ => todo!("Not implemented yet!"),
+        }
+    }
+
+    /**
+    Build an INSERT query.
+
+    **Parameter**:
+    - `into_clause`: The table to insert into.
+    - `insert_columns`: The column names to insert into.
+    - `insert_values`: The values to insert.
+    */
+    pub fn insert<'until_build, 'post_build>(
+        &self,
+        into_clause: &str,
+        insert_columns: &'until_build [&'until_build str],
+        insert_values: &'until_build [Value<'post_build>],
+    ) -> SQLInsert<'until_build, 'post_build> {
+        match self {
+            DBImpl::SQLite => SQLInsert {
+                dialect: DBImpl::SQLite,
+                into_clause: into_clause.to_string(),
+                columns: insert_columns,
+                values: insert_values,
                 lookup: vec![],
             },
             _ => todo!("Not implemented yet!"),
