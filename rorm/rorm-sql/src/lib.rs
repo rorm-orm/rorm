@@ -19,6 +19,8 @@ pub mod drop_table;
 pub mod error;
 /// Implementation of SQL INSERT statements
 pub mod insert;
+/// Implementation of SQL ON CONFLICT extensions
+pub mod on_conflict;
 /// Implementation of SQL SELECT statements
 pub mod select;
 /// Implementation of SQL Transactions
@@ -37,6 +39,7 @@ use crate::create_trigger::{
 };
 use crate::drop_table::SQLDropTable;
 use crate::insert::SQLInsert;
+use crate::on_conflict::OnConflict;
 use crate::select::SQLSelect;
 use crate::transaction::SQLTransaction;
 use crate::value::Value;
@@ -236,15 +239,16 @@ impl DBImpl {
         &self,
         into_clause: &str,
         insert_columns: &'until_build [&'until_build str],
-        insert_values: &'until_build [Value<'post_build>],
+        insert_values: &'until_build [&'until_build [Value<'post_build>]],
     ) -> SQLInsert<'until_build, 'post_build> {
         match self {
             DBImpl::SQLite => SQLInsert {
                 dialect: DBImpl::SQLite,
                 into_clause: into_clause.to_string(),
                 columns: insert_columns,
-                values: insert_values,
+                row_values: insert_values,
                 lookup: vec![],
+                on_conflict: OnConflict::ABORT,
             },
             _ => todo!("Not implemented yet!"),
         }
