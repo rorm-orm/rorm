@@ -479,6 +479,26 @@ pub extern "C" fn rorm_row_get_i16(
 }
 
 /**
+Tries to retrieve an FFISlice of a u8 from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
+
+This function is called completely synchronously.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_row_get_binary<'a>(
+    row_ptr: &'a Row,
+    index: FFIString<'a>,
+    error_ptr: &mut Error,
+) -> FFISlice<'a, u8> {
+    let s: &[u8] = &[];
+    get_data_from_row!(&[u8], FFISlice::from(s), row_ptr, index, error_ptr);
+}
+
+/**
 Tries to retrieve an f32 from the given row pointer.
 
 **Parameter**:
@@ -609,6 +629,53 @@ pub extern "C" fn rorm_row_get_null_i16(
     error_ptr: &mut Error,
 ) -> FFIOption<i16> {
     get_data_from_row!(Option<i16>, FFIOption::None, row_ptr, index, error_ptr);
+}
+
+/**
+Tries to retrieve a nullable FFISlice of a u8 from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_null_binary<'a>(
+    row_ptr: &'a Row,
+    index: FFIString<'a>,
+    error_ptr: &mut Error,
+) -> FFIOption<FFISlice<'a, u8>> {
+    let index_conv: Result<&str, Utf8Error> = index.try_into();
+    if index_conv.is_err() {
+        *error_ptr = Error::InvalidStringError;
+        return FFIOption::None;
+    }
+    let value_res: Result<Option<&[u8]>, rorm_db::error::Error> = row_ptr.get(index_conv.unwrap());
+    if value_res.is_err() {
+        match value_res.err().unwrap() {
+            rorm_db::error::Error::SqlxError(err) => match err {
+                sqlx::Error::ColumnIndexOutOfBounds { .. } => {
+                    *error_ptr = Error::ColumnIndexOutOfBoundsError;
+                }
+                sqlx::Error::ColumnNotFound(_) => {
+                    *error_ptr = Error::ColumnNotFoundError;
+                }
+                sqlx::Error::ColumnDecode { .. } => {
+                    *error_ptr = Error::ColumnDecodeError;
+                }
+                _ => todo!("This error case should never occur"),
+            },
+            _ => todo!("This error case should never occur"),
+        };
+        return FFIOption::None;
+    }
+
+    return match value_res.unwrap() {
+        None => FFIOption::None,
+        Some(v) => FFIOption::Some(v.into()),
+    };
 }
 
 /**
