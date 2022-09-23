@@ -16,6 +16,18 @@ struct FFIArray(T)
 	 */
 	size_t size;
 
+	this(typeof(null))
+	{
+		this.content = null;
+		this.size = 0;
+	}
+
+	this(T* content, size_t size)
+	{
+		this.content = content;
+		this.size = size;
+	}
+
 	/**
 	 * Does a zero-copy conversion of this FFIArray to a D slice. Regular slice
 	 * ownership semantics, e.g. variable lifetime, still apply. DIP1000 should
@@ -55,6 +67,51 @@ FFIString ffi(string s) { return FFIString.fromData(s); }
 FFIArray!T ffi(T)(T[] s) { return FFIArray!T.fromData(s); }
 /// ditto
 FFIArray!T ffi(T, size_t n)(ref T[n] s) { return FFIArray!T.fromData(s); }
+
+/** 
+ * optional value returned by rorm functions.
+ */
+struct FFIOption(T)
+{
+	import std.typecons : Nullable;
+
+	/// tagged union type
+	enum State
+	{
+		/// raw_value is not valid (no value inside FFIOption)
+		none,
+		/// raw_value is the effective value
+		some
+	}
+
+	/// raw state access
+	State state;
+	/// raw value access
+	T raw_value;
+
+	/// Returns true if the value is set, otherwise false.
+	bool opCast(T : bool)() const
+	{
+		return state != State.none;
+	}
+
+	alias asNullable this;
+	/// Converts the FFIOption to a std Nullable!T
+	Nullable!(T) asNullable() const
+	{
+		return state == State.none
+			? typeof(return).init
+			: typeof(return)(raw_value);
+	}
+
+	static if (__traits(compiles, { T v = null; }))
+	{
+		T embedNull() const
+		{
+			return state == State.none ? T(null) : raw_value;
+		}
+	}
+}
 
 /**
  * Representation of the database backend.
@@ -331,6 +388,26 @@ struct RormError
 		 * Configuration error
 		 */
 		ConfigurationError,
+		/**
+		 * Database error
+		 */
+		DatabaseError,
+		/**
+		 * There are no rows left in the stream
+		 */
+		NoRowsLeftInStream,
+		/**
+		 * Column could not be converted in the given type
+		 */
+		ColumnDecodeError,
+		/**
+		 * Column was not found in row
+		 */
+		ColumnNotFoundError,
+		/**
+		 * The index in the row was out of bounds
+		 */
+		ColumnIndexOutOfBoundsError,
 	}
 	/// ditto
 	Tag tag;
@@ -340,6 +417,8 @@ struct RormError
 		FFIString runtime_error;
 		/// Error message for tag == Tag.ConfigurationError
 		FFIString configuration_error;
+		/// Error message for tag == Tag.DatabaseError
+		FFIString database_error;
 	}
 
 	/**
@@ -380,6 +459,17 @@ struct RormError
 			case Tag.ConfigurationError:
 				return new Exception(
 					text("passed invalid configuration: ", (() @trusted => this.configuration_error.data)()));
+			case Tag.DatabaseError:
+				return new Exception(
+					text("database error: ", (() @trusted => this.database_error.data)()));
+			case Tag.NoRowsLeftInStream:
+				return new Exception("There are no rows left in the stream");
+			case Tag.ColumnDecodeError:
+				return new Exception("Column could not be converted in the given type");
+			case Tag.ColumnNotFoundError:
+				return new Exception("Column was not found in row");
+			case Tag.ColumnIndexOutOfBoundsError:
+				return new Exception("The index in the row was out of bounds");
 		}
 	}
 }
@@ -432,7 +522,7 @@ alias RuntimeShutdownCallback = extern(C) void function(void* context, scope Ror
  *       error = if not successful, error information what exactly happened.
  *     context = context pointer to pass through as-is into the callback.
  *
- * This function is called from an asynchronous context.
+ * This function is running in an asynchronous context.
  */
 void rorm_db_connect(DBConnectOptions options, DBConnectCallback callback, void* context);
 /// ditto
@@ -486,53 +576,32 @@ alias DbQueryStreamCallback = extern(C) void function(void* context, DBStreamHan
  */
 void rorm_stream_free(DBStreamHandle handle);
 
-unittest
-{
-	import dorm.lib.util;
+/**
+ * Fetches the next row from the stream. Must not be called in parallel on the
+ * same stream. Returns Error.NoRowsLeftInStream when the stream is finished.
+ *
+ * Params:
+ *     stream = handle of a queried stream. (must have ownership)
+ *     callback = called when a row is fetched, contains either an error that
+ *         can be accessed within the callback or a row handle that can be moved
+ *         out the callback, but must be freed with $(LREF rorm_row_free).
+ *     context = context pointer to pass through as-is into the callback.
+ *
+ * This function is running in an asynchronous context.
+ */
+void rorm_stream_get_row(DBStreamHandle stream, DbStreamGetRowCallback callback, void* context);
+/// ditto
+alias DbStreamGetRowCallback = extern(C) void function(void* context, DBRowHandle row, scope RormError);
 
-	sync_call!rorm_runtime_start();
-	scope (exit)
-		sync_call!rorm_runtime_shutdown(1000);
-
-	DBConnectOptions options = {
-		backend: DBBackend.SQLite,
-		name: "foo.sqlite3".ffi,
-	};
-	scope dbHandleAsync = FreeableAsyncResult!DBHandle.make;
-	rorm_db_connect(options, dbHandleAsync.callback.expand);
-	scope dbHandle = dbHandleAsync.result;
-	scope (exit)
-		rorm_db_free(dbHandle);
-
-	scope stream1 = sync_call!rorm_db_query_stream(dbHandle, "foo".ffi, ["name".ffi].ffi, null);
-	scope (exit)
-		rorm_stream_free(stream1);
-
-	scope stream2 = sync_call!rorm_db_query_stream(dbHandle, "foo".ffi, ["name".ffi].ffi, null);
-	scope (exit)
-		rorm_stream_free(stream2);
-
-	// while (!rorm_stream_empty(stream))
-	// {
-	// 	async_call!rorm_stream_next(stream, (rowResult) {
-	// 		writeln("Hello ", rorm_row_get_data_varchar(rowResult.expect, 0));
-	// 	}).wait;
-	// }
-}
-
-// ----------------------------------------------------------------------------
-// future hypothetical things:
-version (none):
-
-/// Returns true if the stream pointed to by the handle is invalid or empty.
-bool rorm_stream_empty(DBStreamHandle handle);
-
-alias StreamRowCallback = extern(C) void function(void* context, scope FFIResult!DBRowHandle row);
-
-/// Returns the current item pointed to by the stream and advances it. If
-/// already past the end or on an invalid stream, an error is passed in in the
-/// result. The callback is called synchronously 
-void rorm_stream_next(DBStreamHandle handle, StreamRowCallback callback, void* context);
+/**
+ * Frees the row handle given as parameter.
+ *
+ * **Important**: Do not call this function more than once or with an invalid
+ * row handle!
+ *
+ * This function is called completely synchronously.
+ */
+void rorm_row_free(DBRowHandle row);
 
 /**
 Params:
@@ -545,24 +614,107 @@ Returns:
 	FFIString values must be copied if using them outside the lifetime of the
 	row.
 */
-byte rorm_row_get_data_int8(DBRowHandle handle, size_t columnIndex);
-short rorm_row_get_data_int16(DBRowHandle handle, size_t columnIndex); /// ditto
-int rorm_row_get_data_int32(DBRowHandle handle, size_t columnIndex); /// ditto
-long rorm_row_get_data_int64(DBRowHandle handle, size_t columnIndex); /// ditto
-ubyte rorm_row_get_data_uint8(DBRowHandle handle, size_t columnIndex); /// ditto
-ushort rorm_row_get_data_uint16(DBRowHandle handle, size_t columnIndex); /// ditto
-uint rorm_row_get_data_uint32(DBRowHandle handle, size_t columnIndex); /// ditto
-ulong rorm_row_get_data_uint64(DBRowHandle handle, size_t columnIndex); /// ditto
-float rorm_row_get_data_float_number(DBRowHandle handle, size_t columnIndex); /// ditto
-double rorm_row_get_data_double_number(DBRowHandle handle, size_t columnIndex); /// ditto
-bool rorm_row_get_data_boolean(DBRowHandle handle, size_t columnIndex); /// ditto
-FFIString rorm_row_get_data_varchar(DBRowHandle handle, size_t columnIndex); /// ditto
-FFIArray!(const(ubyte)) rorm_row_get_data_varbinary(DBRowHandle handle, size_t columnIndex); /// ditto
-// todo:
-void rorm_row_get_data_date(DBRowHandle handle, size_t columnIndex); /// ditto
-void rorm_row_get_data_datetime(DBRowHandle handle, size_t columnIndex); /// ditto
-void rorm_row_get_data_timestamp(DBRowHandle handle, size_t columnIndex); /// ditto
-void rorm_row_get_data_time(DBRowHandle handle, size_t columnIndex); /// ditto
+short rorm_row_get_i16(DBRowHandle handle, FFIString column, ref RormError ref_error);
+int rorm_row_get_i32(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+long rorm_row_get_i64(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+float rorm_row_get_f32(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+double rorm_row_get_f64(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+bool rorm_row_get_bool(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFIString rorm_row_get_str(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFIOption!short rorm_row_get_null_i16(DBRowHandle handle, FFIString column, ref RormError ref_error);
+FFIOption!int rorm_row_get_null_i32(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFIOption!long rorm_row_get_null_i64(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFIOption!float rorm_row_get_null_f32(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFIOption!double rorm_row_get_null_f64(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFIOption!bool rorm_row_get_null_bool(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFIOption!FFIString rorm_row_get_null_str(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 
-/// Frees a row handle memory. It may not be read from afterwards anymore.
-void rorm_free_row(DBRowHandle handle);
+version (none)
+{
+	// todo:
+	FFIArray!(const(ubyte)) rorm_row_get_varbinary(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+	void rorm_row_get_date(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+	void rorm_row_get_datetime(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+	void rorm_row_get_timestamp(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+	void rorm_row_get_time(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+}
+
+
+unittest
+{
+	import dorm.lib.util;
+
+	sync_call!rorm_runtime_start();
+	scope (exit)
+		sync_call!rorm_runtime_shutdown(1000);
+
+	DBConnectOptions options = {
+		backend: DBBackend.SQLite,
+		name: "test_read.sqlite3".ffi,
+	};
+	scope dbHandleAsync = FreeableAsyncResult!DBHandle.make;
+	rorm_db_connect(options, dbHandleAsync.callback.expand);
+	scope dbHandle = dbHandleAsync.result;
+	scope (exit)
+		rorm_db_free(dbHandle);
+
+	scope stream = sync_call!rorm_db_query_stream(dbHandle, "foo".ffi, ["name".ffi, "notes".ffi].ffi, null);
+	scope (exit)
+		rorm_stream_free(stream);
+
+	import std.stdio;
+	writeln("| Name \t| Notes \t|");
+
+	Exception e;
+	while (true)
+	{
+		scope rowHandleAsync = RowHandleState(FreeableAsyncResult!DBRowHandle.make);
+		rorm_stream_get_row(stream, &rowCallback, cast(void*)&rowHandleAsync);
+		scope rowHandle = rowHandleAsync.result;
+		if (rowHandleAsync.done)
+			break;
+		scope (exit)
+			rorm_row_free(rowHandle);
+
+		RormError rowError;
+		auto name = rorm_row_get_str(rowHandle, "name".ffi, rowError);
+		auto notes = rorm_row_get_null_str(rowHandle, "notes".ffi, rowError).embedNull;
+		if (rowError)
+		{
+			e = rowError.makeException;
+			break;
+		}
+		writefln("| %s\t| %s\t|", name[], notes[]);
+	}
+
+	// while (!rorm_stream_empty(stream))
+	// {
+	// 	async_call!rorm_stream_next(stream, (rowResult) {
+	// 		writeln("Hello ", rorm_row_get_data_varchar(rowResult.expect, FFIString)column, ref RormError ref_error
+	// 	}).wait;
+	// }
+}
+
+version (unittest)
+{
+	import dorm.lib.util;
+
+	private struct RowHandleState
+	{
+		FreeableAsyncResult!DBRowHandle impl;
+		alias impl this;
+		bool done;
+	}
+
+	extern(C) private static void rowCallback(void* data, DBRowHandle result, scope RormError error) nothrow
+	{
+		auto res = cast(RowHandleState*)data;
+		if (error.tag == RormError.Tag.NoRowsLeftInStream)
+			res.done = true;
+		else if (error)
+			res.error = error.makeException;
+		else
+			res.raw_result = result;
+		res.event.set();
+	}
+}
