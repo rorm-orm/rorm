@@ -9,7 +9,7 @@
 	"dependencies": {
 		"mir-ion": "~>1.1.0-rc3"
 	},
-	"copyFiles": ["../rorm/target/release/librorm.a"],
+	"preBuildCommands": ["cp ../rorm/target/release/librorm.a ."],
 	"libs": ["rorm"],
 	"lflags": ["-L$PACKAGE_DIR", "-R$PACKAGE_DIR"],
 	"description": "A D ORM.",
