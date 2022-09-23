@@ -1,14 +1,15 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use crate::error::Error;
-use crate::row::Row;
-use crate::utils;
 use futures::stream::BoxStream;
 use futures::Stream;
 use rorm_sql::value;
 use sqlx::any::AnyRow;
 use sqlx::AnyPool;
+
+use crate::error::Error;
+use crate::row::Row;
+use crate::utils;
 
 #[ouroboros::self_referencing]
 pub struct QueryStream<'post_query> {
