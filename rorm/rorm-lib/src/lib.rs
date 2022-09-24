@@ -13,7 +13,7 @@ use std::str::Utf8Error;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use futures::TryStreamExt;
+use futures::StreamExt;
 use rorm_db::row::Row;
 use rorm_db::{Database, DatabaseBackend, DatabaseConfiguration};
 use tokio::runtime::Runtime;
@@ -384,27 +384,23 @@ pub extern "C" fn rorm_stream_get_row(
     let cb = callback.expect("Callback must not be null");
 
     let fut = async move {
-        let row_res = stream_ptr.try_next().await;
-        if row_res.is_err() {
-            unsafe {
-                cb(
-                    context,
-                    null_ptr(),
-                    Error::DatabaseError(row_res.err().unwrap().to_string().as_str().into()),
-                );
-            }
-            return;
-        }
-        let row_opt = row_res.unwrap();
-        if row_opt.is_none() {
-            unsafe {
+        let row_opt = stream_ptr.next().await;
+        match row_opt {
+            None => unsafe {
                 cb(context, null_ptr(), Error::NoRowsLeftInStream);
-            }
-            return;
-        }
-        let row = row_opt.unwrap();
-        unsafe {
-            cb(context, Box::new(row), Error::NoError);
+            },
+            Some(row_res) => match row_res {
+                Err(err) => unsafe {
+                    cb(
+                        context,
+                        null_ptr(),
+                        Error::DatabaseError(err.to_string().as_str().into()),
+                    );
+                },
+                Ok(row) => unsafe {
+                    cb(context, Box::new(row), Error::NoError);
+                },
+            },
         }
     };
 
