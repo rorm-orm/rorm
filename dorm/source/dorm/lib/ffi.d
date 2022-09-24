@@ -308,6 +308,8 @@ struct ConditionValue
 	/// tagged union type
 	enum Type
 	{
+		/// This represents `NULL` in SQL.
+		Null,
 		/// Representation of an identifier, e.g. a column name.
 		/// The value will not be escaped, so do not pass unchecked data to it.
 		Identifier,
@@ -325,8 +327,8 @@ struct ConditionValue
 		F64,
 		/// The value represents a 32 bit floating point value
 		F32,
-		/// This represents `NULL` in SQL.
-		Null
+		/// Binary representation
+		Binary,
 	}
 	/// ditto
 	Type type;
@@ -349,6 +351,8 @@ struct ConditionValue
 		double f64;
 		/// Corresponds to Type.F32
 		float f32;
+		/// Corresponds to Type.Binary
+		FFIArray!ubyte binary;
 	}
 }
 
@@ -589,9 +593,9 @@ void rorm_stream_free(DBStreamHandle handle);
  *
  * This function is running in an asynchronous context.
  */
-void rorm_stream_get_row(DBStreamHandle stream, DbStreamGetRowCallback callback, void* context);
+void rorm_stream_get_row(DBStreamHandle stream, scope DbStreamGetRowCallback callback, void* context);
 /// ditto
-alias DbStreamGetRowCallback = extern(C) void function(void* context, DBRowHandle row, scope RormError);
+alias DbStreamGetRowCallback = extern(C) void function(void* context, DBRowHandle row, scope RormError) nothrow;
 
 /**
  * Frees the row handle given as parameter.
@@ -621,6 +625,7 @@ float rorm_row_get_f32(DBRowHandle handle, FFIString column, ref RormError ref_e
 double rorm_row_get_f64(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 bool rorm_row_get_bool(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 FFIString rorm_row_get_str(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFIArray!(const ubyte) rorm_row_get_binary(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 FFIOption!short rorm_row_get_null_i16(DBRowHandle handle, FFIString column, ref RormError ref_error);
 FFIOption!int rorm_row_get_null_i32(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 FFIOption!long rorm_row_get_null_i64(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
@@ -628,6 +633,7 @@ FFIOption!float rorm_row_get_null_f32(DBRowHandle handle, FFIString column, ref 
 FFIOption!double rorm_row_get_null_f64(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 FFIOption!bool rorm_row_get_null_bool(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 FFIOption!FFIString rorm_row_get_null_str(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFIOption!(FFIArray!(const ubyte)) rorm_row_get_null_binary(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 
 version (none)
 {

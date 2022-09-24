@@ -285,6 +285,7 @@ unittest
 				case ConditionValue.Type.F32: query ~= "f32:" ~ c.value.f32.to!string; break;
 				case ConditionValue.Type.F64: query ~= "f64:" ~ c.value.f64.to!string; break;
 				case ConditionValue.Type.Null: query ~= "[null]"; break;
+				case ConditionValue.Type.Binary: query ~= "(binary)"; break;
 			}
 			query ~= ")";
 			break;
