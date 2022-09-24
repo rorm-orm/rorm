@@ -333,8 +333,97 @@ pub extern "C" fn rorm_db_query_stream(
             );
         }
     };
-    unsafe {
-        cb(context, Some(Box::new(query_stream)), Error::NoError);
+    unsafe { cb(context, Some(Box::new(query_stream)), Error::NoError) }
+}
+
+/**
+This function inserts a row into the database.
+
+**Parameter**:
+- `db`: Reference to the Database, provided by [rorm_db_connect].
+- `model`: Name of the table to query.
+- `columns`: Array of columns to insert to the table.
+- `row`: List of values to insert. Must be of the same length as `columns`.
+- `callback`: callback function. Takes the `context` and an [Error].
+- `context`: Pass through void pointer.
+
+**Important**:
+- Make sure that `db`, `model`, `columns` and `row` are allocated until the callback is executed.
+
+This function is called from an asynchronous context.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_db_insert(
+    db: &'static Database,
+    model: FFIString<'static>,
+    columns: FFISlice<'static, FFIString<'static>>,
+    row: FFISlice<'static, FFIValue<'static>>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, Error) -> ()>,
+    context: VoidPtr,
+) {
+    let cb = callback.expect("Callback must not be empty");
+
+    let model_conv = model.try_into();
+    if model_conv.is_err() {
+        unsafe { cb(context, Error::InvalidStringError) };
+        return;
+    }
+    let model = model_conv.unwrap();
+
+    let mut column_vec = vec![];
+    {
+        let column_slice: &[FFIString] = columns.into();
+        for &x in column_slice {
+            let x_conv = x.try_into();
+            if x_conv.is_err() {
+                unsafe { cb(context, Error::InvalidStringError) };
+                return;
+            }
+            column_vec.push(x_conv.unwrap());
+        }
+    }
+
+    let mut value_vec = vec![];
+    {
+        let value_slice: &[FFIValue] = row.into();
+        for x in value_slice {
+            let x_conv = x.try_into();
+            if x_conv.is_err() {
+                unsafe { cb(context, Error::InvalidStringError) };
+                return;
+            }
+            value_vec.push(x_conv.unwrap());
+        }
+    }
+
+    let fut = async move {
+        match db
+            .insert(model, column_vec.as_slice(), value_vec.as_slice())
+            .await
+        {
+            Err(err) => unsafe {
+                cb(
+                    context,
+                    Error::DatabaseError(err.to_string().as_str().into()),
+                )
+            },
+            Ok(_) => unsafe { cb(context, Error::NoError) },
+        };
+    };
+
+    match RUNTIME.lock() {
+        Ok(guard) => match guard.as_ref() {
+            Some(rt) => {
+                rt.spawn(fut);
+            }
+            None => unsafe { cb(context, Error::MissingRuntimeError) },
+        },
+        Err(err) => unsafe {
+            cb(
+                context,
+                Error::RuntimeError(err.to_string().as_str().into()),
+            )
+        },
     }
 }
 
