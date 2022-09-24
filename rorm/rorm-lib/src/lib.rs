@@ -533,7 +533,7 @@ pub extern "C" fn rorm_row_get_f64(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> f64 {
-    get_data_from_row!(f64, 0.0, row_ptr, index, error_ptr);
+    get_data_from_row!(f64, f64::NAN, row_ptr, index, error_ptr);
 }
 
 /**
