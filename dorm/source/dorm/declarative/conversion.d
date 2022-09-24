@@ -43,9 +43,14 @@ SerializedModels processModelsToDeclarations(alias mod)()
 private void processModel(TModel : Model, SourceLocation loc)(
 	ref SerializedModels models)
 {
-	ModelFormat serialized;
-	serialized.name = TModel.stringof.toSnakeCase;
+	ModelFormat serialized = DormLayout!TModel;
 	serialized.definedAt = loc;
+	models.models ~= serialized;
+}
+
+enum DormLayout(TModel : Model) = delegate() {
+	ModelFormat serialized;
+	serialized.tableName = TModel.stringof.toSnakeCase;
 
 	alias attributes = __traits(getAttributes, TModel);
 
@@ -62,12 +67,14 @@ private void processModel(TModel : Model, SourceLocation loc)(
 		static if (is(typeof(__traits(getMember, TModel, field)))
 			&& !isCallable!(__traits(getMember, TModel, field)))
 		{
-			processField!(TModel, field)(models, serialized);
+			processField!(TModel, field)(serialized);
 		}
 	}
 
-	models.models ~= serialized;
-}
+	return serialized;
+}();
+
+enum DormFields(TModel : Model) = DormLayout!TModel.fields;
 
 template LogicalFields(TModel)
 {
@@ -78,7 +85,7 @@ template LogicalFields(TModel)
 		LogicalFields = AliasSeq!(LogicalFields, __traits(derivedMembers, Class));
 }
 
-private void processField(TModel, string fieldName)(ref SerializedModels models, ref ModelFormat serialized)
+private void processField(TModel, string fieldName)(ref ModelFormat serialized)
 {
 	import uda = dorm.annotations;
 
@@ -90,7 +97,8 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 	ModelFormat.Field field;
 
 	field.definedAt = SourceLocation(__traits(getLocation, fieldAlias));
-	field.name = fieldName.toSnakeCase;
+	field.columnName = fieldName.toSnakeCase;
+	field.sourceColumn = fieldName;
 	field.type = guessDBType!(typeof(fieldAlias));
 
 	bool nullable = false;
@@ -167,7 +175,7 @@ private void processField(TModel, string fieldName)(ref SerializedModels models,
 		}
 		else static if (is(typeof(attribute) == columnName))
 		{
-			field.name = attribute.name;
+			field.columnName = attribute.name;
 		}
 		else static if (isDBAttribute!attribute)
 		{
@@ -437,75 +445,75 @@ unittest
 	assert(m.fields.length == 20);
 
 	// field[0] gets added by dorm.model.Model
-	assert(m.fields[0].name == "id");
+	assert(m.fields[0].columnName == "id");
 	assert(m.fields[0].type == ModelFormat.Field.DBType.int64);
 	assert(m.fields[0].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
-	assert(m.fields[1].name == "username");
+	assert(m.fields[1].columnName == "username");
 	assert(m.fields[1].type == ModelFormat.Field.DBType.varchar);
 	assert(m.fields[1].annotations == [DBAnnotation(maxLength(255)), DBAnnotation(AnnotationFlag.notNull)]);
 
-	assert(m.fields[2].name == "password");
+	assert(m.fields[2].columnName == "password");
 	assert(m.fields[2].type == ModelFormat.Field.DBType.varchar);
 	assert(m.fields[2].annotations == [DBAnnotation(maxLength(255)), DBAnnotation(AnnotationFlag.notNull)]);
 
-	assert(m.fields[3].name == "email");
+	assert(m.fields[3].columnName == "email");
 	assert(m.fields[3].type == ModelFormat.Field.DBType.varchar);
 	assert(m.fields[3].annotations == [DBAnnotation(maxLength(255))]);
 
-	assert(m.fields[4].name == "age");
+	assert(m.fields[4].columnName == "age");
 	assert(m.fields[4].type == ModelFormat.Field.DBType.uint8);
 	assert(m.fields[4].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
-	assert(m.fields[5].name == "birthday");
+	assert(m.fields[5].columnName == "birthday");
 	assert(m.fields[5].type == ModelFormat.Field.DBType.datetime);
 	assert(m.fields[5].annotations == []);
 
-	assert(m.fields[6].name == "created_at");
+	assert(m.fields[6].columnName == "created_at");
 	assert(m.fields[6].type == ModelFormat.Field.DBType.timestamp);
 	assert(m.fields[6].annotations == [
 			DBAnnotation(AnnotationFlag.autoCreateTime),
 			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
-	assert(m.fields[7].name == "updated_at");
+	assert(m.fields[7].columnName == "updated_at");
 	assert(m.fields[7].type == ModelFormat.Field.DBType.timestamp);
 	assert(m.fields[7].annotations == [
 			DBAnnotation(AnnotationFlag.autoUpdateTime)
 		]);
 
-	assert(m.fields[8].name == "created_at_2");
+	assert(m.fields[8].columnName == "created_at_2");
 	assert(m.fields[8].type == ModelFormat.Field.DBType.timestamp);
 	assert(m.fields[8].annotations == [
 			DBAnnotation(AnnotationFlag.autoCreateTime),
 			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
-	assert(m.fields[9].name == "updated_at_2");
+	assert(m.fields[9].columnName == "updated_at_2");
 	assert(m.fields[9].type == ModelFormat.Field.DBType.timestamp);
 	assert(m.fields[9].annotations == [
 			DBAnnotation(AnnotationFlag.autoUpdateTime)
 		]);
 
-	assert(m.fields[10].name == "state");
+	assert(m.fields[10].columnName == "state");
 	assert(m.fields[10].type == ModelFormat.Field.DBType.choices);
 	assert(m.fields[10].annotations == [
 			DBAnnotation(Choices(["ok", "warn", "critical", "unknown"])),
 			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
-	assert(m.fields[11].name == "state_2");
+	assert(m.fields[11].columnName == "state_2");
 	assert(m.fields[11].type == ModelFormat.Field.DBType.choices);
 	assert(m.fields[11].annotations == [
 			DBAnnotation(Choices(["ok", "warn", "critical", "unknown"])),
 			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
-	assert(m.fields[12].name == "admin");
+	assert(m.fields[12].columnName == "admin");
 	assert(m.fields[12].type == ModelFormat.Field.DBType.boolean);
 	assert(m.fields[12].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
-	assert(m.fields[13].name == "valid_until");
+	assert(m.fields[13].columnName == "valid_until");
 	assert(m.fields[13].type == ModelFormat.Field.DBType.timestamp);
 	assert(m.fields[13].annotations == [
 			DBAnnotation(AnnotationFlag.notNull)
@@ -513,7 +521,7 @@ unittest
 	assert(m.fields[13].internalAnnotations.length == 1);
 	assert(m.fields[13].internalAnnotations[0].match!((ConstructValueRef r) => true, _ => false));
 
-	assert(m.fields[14].name == "comment");
+	assert(m.fields[14].columnName == "comment");
 	assert(m.fields[14].type == ModelFormat.Field.DBType.varchar);
 	assert(m.fields[14].annotations == [
 			DBAnnotation(maxLength(255)),
@@ -521,32 +529,32 @@ unittest
 			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
-	assert(m.fields[15].name == "counter");
+	assert(m.fields[15].columnName == "counter");
 	assert(m.fields[15].type == ModelFormat.Field.DBType.int32);
 	assert(m.fields[15].annotations == [
 			DBAnnotation(defaultValue(1337)),
 			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
-	assert(m.fields[16].name == "own_primary_key");
+	assert(m.fields[16].columnName == "own_primary_key");
 	assert(m.fields[16].type == ModelFormat.Field.DBType.int64);
 	assert(m.fields[16].annotations == [
 			DBAnnotation(AnnotationFlag.primaryKey),
 			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
-	assert(m.fields[17].name == "creation_time");
+	assert(m.fields[17].columnName == "creation_time");
 	assert(m.fields[17].type == ModelFormat.Field.DBType.timestamp);
 	assert(m.fields[17].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
-	assert(m.fields[18].name == "uuid");
+	assert(m.fields[18].columnName == "uuid");
 	assert(m.fields[18].type == ModelFormat.Field.DBType.int32);
 	assert(m.fields[18].annotations == [
 			DBAnnotation(AnnotationFlag.unique),
 			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
-	assert(m.fields[19].name == "some_int");
+	assert(m.fields[19].columnName == "some_int");
 	assert(m.fields[19].type == ModelFormat.Field.DBType.int32);
 	assert(m.fields[19].annotations == [
 			DBAnnotation(AnnotationFlag.notNull)
@@ -575,10 +583,10 @@ unittest
 	assert(mod.models.length == 1);
 
 	auto m = mod.models[0];
-	assert(m.name == "user");
+	assert(m.tableName == "user");
 	// As Model also adds the id field, length is 3
 	assert(m.fields.length == 3);
-	assert(m.fields[0].name == "id");
-	assert(m.fields[1].name == "name");
-	assert(m.fields[2].name == "age");
+	assert(m.fields[0].columnName == "id");
+	assert(m.fields[1].columnName == "name");
+	assert(m.fields[2].columnName == "age");
 }

@@ -75,7 +75,10 @@ struct ModelFormat
 		/// The exact name of the column later used in the DB, not neccessarily
 		/// corresponding to the D field name anymore.
 		@serdeKeys("Name")
-		string name;
+		string columnName;
+		/// Name of the field inside the D source code.
+		@serdeIgnore
+		string sourceColumn;
 		/// The generic column type that is later translated to a concrete SQL
 		/// type by a driver.
 		@serdeKeys("Type")
@@ -97,7 +100,7 @@ struct ModelFormat
 	/// The exact name of the table later used in the DB, not neccessarily
 	/// corresponding to the D class name anymore.
 	@serdeKeys("Name")
-	string name;
+	string tableName;
 	/// For debugging purposes this is the D source code location where this
 	/// field is defined from. This can be used in error messages.
 	@serdeKeys("SourceDefinedAt")
@@ -108,6 +111,9 @@ struct ModelFormat
 	/// the actual driver implementation.
 	@serdeKeys("Fields")
 	Field[] fields;
+	/// Lists the source field names for embedded structs, recursively.
+	@serdeIgnore
+	string[] embeddedStructs;
 }
 
 /**
@@ -319,10 +325,10 @@ unittest
 
 	SerializedModels models;
 	ModelFormat m;
-	m.name = "foo";
+	m.tableName = "foo";
 	m.definedAt = SourceLocation("file.d", 140, 10);
 	ModelFormat.Field f;
-	f.name = "foo";
+	f.columnName = "foo";
 	f.type = ModelFormat.Field.DBType.varchar;
 	f.definedAt = SourceLocation("file.d", 142, 12);
 	f.annotations = [
