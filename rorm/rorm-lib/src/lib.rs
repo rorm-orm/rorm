@@ -378,14 +378,16 @@ This function is called from an asynchronous context.
 #[no_mangle]
 pub extern "C" fn rorm_stream_get_row(
     stream_ptr: &'static mut Stream,
-    callback: unsafe extern "C" fn(VoidPtr, Box<Row>, Error) -> (),
+    callback: Option<unsafe extern "C" fn(VoidPtr, Box<Row>, Error) -> ()>,
     context: VoidPtr,
 ) {
+    let cb = callback.expect("Callback must not be null");
+
     let fut = async move {
         let row_res = stream_ptr.try_next().await;
         if row_res.is_err() {
             unsafe {
-                callback(
+                cb(
                     context,
                     null_ptr(),
                     Error::DatabaseError(row_res.err().unwrap().to_string().as_str().into()),
@@ -396,13 +398,13 @@ pub extern "C" fn rorm_stream_get_row(
         let row_opt = row_res.unwrap();
         if row_opt.is_none() {
             unsafe {
-                callback(context, null_ptr(), Error::NoRowsLeftInStream);
+                cb(context, null_ptr(), Error::NoRowsLeftInStream);
             }
             return;
         }
         let row = row_opt.unwrap();
         unsafe {
-            callback(context, Box::new(row), Error::NoError);
+            cb(context, Box::new(row), Error::NoError);
         }
     };
 
@@ -411,10 +413,10 @@ pub extern "C" fn rorm_stream_get_row(
             Some(rt) => {
                 rt.spawn(fut);
             }
-            None => unsafe { callback(context, null_ptr(), Error::MissingRuntimeError) },
+            None => unsafe { cb(context, null_ptr(), Error::MissingRuntimeError) },
         },
         Err(err) => unsafe {
-            callback(
+            cb(
                 context,
                 null_ptr(),
                 Error::RuntimeError(err.to_string().as_str().into()),
