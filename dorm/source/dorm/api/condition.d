@@ -276,8 +276,8 @@ unittest
 			query ~= " Value(";
 			final switch (c.value.type)
 			{
-				case ConditionValue.Type.String: query ~= '`' ~ c.value.string.to!string ~ '`'; break;
-				case ConditionValue.Type.Identifier: query ~= "ident:" ~ c.value.identifier.to!string; break;
+				case ConditionValue.Type.String: query ~= '`' ~ c.value.string[] ~ '`'; break;
+				case ConditionValue.Type.Identifier: query ~= "ident:" ~ c.value.identifier[]; break;
 				case ConditionValue.Type.Bool: query ~= c.value.boolean.to!string; break;
 				case ConditionValue.Type.I16: query ~= "i16:" ~ c.value.i16.to!string; break;
 				case ConditionValue.Type.I32: query ~= "i32:" ~ c.value.i32.to!string; break;
@@ -386,5 +386,5 @@ unittest
 		}
 	}
 	recurse(tree[0]);
-	// assert(false, query.data);
+	assert(query.data == "WHERE ( Value(ident:foo) = Value(`wert`) AND Value(ident:bar) > Value(i32:5) AND NOT ( Value(ident:baz) = Value(i32:1) OR Value(ident:baz) = Value(i32:4) ) )");
 }
