@@ -8,7 +8,7 @@ This enum represents a value
  */
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub enum Value<'a> {
+pub enum FFIValue<'a> {
     /// null representation
     Null,
     /// Representation of an identifier, e.g. a column.
@@ -33,21 +33,21 @@ pub enum Value<'a> {
     Binary(FFISlice<'a, u8>),
 }
 
-impl<'a> TryFrom<&Value<'a>> for rorm_db::value::Value<'a> {
+impl<'a> TryFrom<&FFIValue<'a>> for rorm_db::value::Value<'a> {
     type Error = Utf8Error;
 
-    fn try_from(value: &Value<'a>) -> Result<Self, Self::Error> {
+    fn try_from(value: &FFIValue<'a>) -> Result<Self, Self::Error> {
         match value {
-            Value::Null => Ok(rorm_db::value::Value::Null),
-            Value::Ident(x) => Ok(rorm_db::value::Value::Ident(x.try_into()?)),
-            Value::String(x) => Ok(rorm_db::value::Value::String(x.try_into()?)),
-            Value::I64(x) => Ok(rorm_db::value::Value::I64(*x)),
-            Value::I32(x) => Ok(rorm_db::value::Value::I32(*x)),
-            Value::I16(x) => Ok(rorm_db::value::Value::I16(*x)),
-            Value::Bool(x) => Ok(rorm_db::value::Value::Bool(*x)),
-            Value::F64(x) => Ok(rorm_db::value::Value::F64(*x)),
-            Value::F32(x) => Ok(rorm_db::value::Value::F32(*x)),
-            Value::Binary(x) => Ok(rorm_db::value::Value::Binary(x.into())),
+            FFIValue::Null => Ok(rorm_db::value::Value::Null),
+            FFIValue::Ident(x) => Ok(rorm_db::value::Value::Ident(x.try_into()?)),
+            FFIValue::String(x) => Ok(rorm_db::value::Value::String(x.try_into()?)),
+            FFIValue::I64(x) => Ok(rorm_db::value::Value::I64(*x)),
+            FFIValue::I32(x) => Ok(rorm_db::value::Value::I32(*x)),
+            FFIValue::I16(x) => Ok(rorm_db::value::Value::I16(*x)),
+            FFIValue::Bool(x) => Ok(rorm_db::value::Value::Bool(*x)),
+            FFIValue::F64(x) => Ok(rorm_db::value::Value::F64(*x)),
+            FFIValue::F32(x) => Ok(rorm_db::value::Value::F32(*x)),
+            FFIValue::Binary(x) => Ok(rorm_db::value::Value::Binary(x.into())),
         }
     }
 }
@@ -265,7 +265,7 @@ pub enum Condition<'a> {
     /// Representation of a ternary condition.
     TernaryCondition(TernaryCondition<'a>),
     /// Representation of a value.
-    Value(Value<'a>),
+    Value(FFIValue<'a>),
 }
 
 impl<'a> TryFrom<&Condition<'a>> for rorm_db::conditional::Condition<'a> {

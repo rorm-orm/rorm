@@ -19,7 +19,7 @@ use rorm_db::{Database, DatabaseBackend, DatabaseConfiguration};
 use tokio::runtime::Runtime;
 
 use crate::errors::Error;
-use crate::representations::Condition;
+use crate::representations::{Condition, FFIValue};
 use crate::utils::{FFIOption, FFISlice, FFIString, Stream, VoidPtr};
 
 static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
