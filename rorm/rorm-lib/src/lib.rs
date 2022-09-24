@@ -20,7 +20,7 @@ use tokio::runtime::Runtime;
 
 use crate::errors::Error;
 use crate::representations::Condition;
-use crate::utils::{null_ptr, FFIOption, FFISlice, FFIString, Stream, VoidPtr};
+use crate::utils::{FFIOption, FFISlice, FFIString, Stream, VoidPtr};
 
 static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
 
@@ -116,9 +116,11 @@ This function is called completely synchronously.
  */
 #[no_mangle]
 pub extern "C" fn rorm_runtime_start(
-    callback: unsafe extern "C" fn(VoidPtr, Error) -> (),
+    callback: Option<unsafe extern "C" fn(VoidPtr, Error) -> ()>,
     context: VoidPtr,
 ) {
+    let cb = callback.expect("Callback must not be null");
+
     match RUNTIME.lock() {
         Ok(mut guard) => {
             let rt_opt: &mut Option<Runtime> = &mut guard;
@@ -127,11 +129,11 @@ pub extern "C" fn rorm_runtime_start(
                     *rt_opt = Some(rt);
 
                     unsafe {
-                        callback(context, Error::NoError);
+                        cb(context, Error::NoError);
                     }
                 }
                 Err(err) => unsafe {
-                    callback(
+                    cb(
                         context,
                         Error::RuntimeError(err.to_string().as_str().into()),
                     )
@@ -139,7 +141,7 @@ pub extern "C" fn rorm_runtime_start(
             };
         }
         Err(err) => unsafe {
-            callback(
+            cb(
                 context,
                 Error::RuntimeError(err.to_string().as_str().into()),
             );
@@ -161,21 +163,23 @@ This function is called completely synchronously.
 #[no_mangle]
 pub extern "C" fn rorm_runtime_shutdown(
     duration: u64,
-    callback: unsafe extern "C" fn(VoidPtr, Error) -> (),
+    callback: Option<unsafe extern "C" fn(VoidPtr, Error) -> ()>,
     context: VoidPtr,
 ) {
+    let cb = callback.expect("Callback must not be null");
+
     match RUNTIME.lock() {
         Ok(mut guard) => match guard.take() {
             Some(rt) => {
                 rt.shutdown_timeout(Duration::from_millis(duration));
                 unsafe {
-                    callback(context, Error::NoError);
+                    cb(context, Error::NoError);
                 }
             }
-            None => unsafe { callback(context, Error::MissingRuntimeError) },
+            None => unsafe { cb(context, Error::MissingRuntimeError) },
         },
         Err(err) => unsafe {
-            callback(
+            cb(
                 context,
                 Error::RuntimeError(err.to_string().as_str().into()),
             )
@@ -202,13 +206,15 @@ This function is called from an asynchronous context.
 #[no_mangle]
 pub extern "C" fn rorm_db_connect(
     options: DBConnectOptions,
-    callback: unsafe extern "C" fn(VoidPtr, Box<Database>, Error) -> (),
+    callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Database>>, Error) -> ()>,
     context: VoidPtr,
 ) {
+    let cb = callback.expect("Callback must not be null");
+
     let db_options_conv: Result<DatabaseConfiguration, Error> = options.into();
     if db_options_conv.is_err() {
         unsafe {
-            callback(context, null_ptr(), db_options_conv.err().unwrap());
+            cb(context, None, db_options_conv.err().unwrap());
         }
         return;
     }
@@ -219,15 +225,15 @@ pub extern "C" fn rorm_db_connect(
             Ok(db) => {
                 let b = Box::new(db);
                 unsafe {
-                    callback(context, b, Error::NoError);
+                    cb(context, Some(b), Error::NoError);
                 }
             }
             Err(e) => {
                 let error = e.to_string();
                 unsafe {
-                    callback(
+                    cb(
                         context,
-                        null_ptr(),
+                        None,
                         Error::RuntimeError(FFIString::from(error.as_str())),
                     );
                 }
@@ -243,18 +249,18 @@ pub extern "C" fn rorm_db_connect(
                     rt.spawn(fut);
                 }
                 None => unsafe {
-                    callback(
+                    cb(
                         context,
-                        null_ptr(),
+                        None,
                         Error::RuntimeError(FFIString::from("No runtime running.")),
                     )
                 },
             }
         }
         Err(err) => unsafe {
-            callback(
+            cb(
                 context,
-                null_ptr(),
+                None,
                 Error::RuntimeError(err.to_string().as_str().into()),
             )
         },
@@ -295,13 +301,15 @@ pub extern "C" fn rorm_db_query_stream(
     model: FFIString,
     columns: FFISlice<FFIString>,
     condition: Option<&Condition>,
-    callback: unsafe extern "C" fn(VoidPtr, Box<Stream>, Error) -> (),
+    callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Stream>>, Error) -> ()>,
     context: VoidPtr,
 ) {
+    let cb = callback.expect("Callback must not be null");
+
     let model_conv: Result<&str, Utf8Error> = model.try_into();
     if model_conv.is_err() {
         unsafe {
-            callback(context, null_ptr(), Error::InvalidStringError);
+            cb(context, None, Error::InvalidStringError);
         }
         return;
     }
@@ -312,7 +320,7 @@ pub extern "C" fn rorm_db_query_stream(
         let x_conv: Result<&str, Utf8Error> = x.try_into();
         if x_conv.is_err() {
             unsafe {
-                callback(context, null_ptr(), Error::InvalidStringError);
+                cb(context, None, Error::InvalidStringError);
             }
             return;
         }
@@ -328,7 +336,7 @@ pub extern "C" fn rorm_db_query_stream(
             let cond_conv: Result<rorm_db::conditional::Condition, Utf8Error> = c.try_into();
             if cond_conv.is_err() {
                 unsafe {
-                    callback(context, null_ptr(), Error::InvalidStringError);
+                    cb(context, None, Error::InvalidStringError);
                 }
                 return;
             }
@@ -340,7 +348,7 @@ pub extern "C" fn rorm_db_query_stream(
         }
     };
     unsafe {
-        callback(context, Box::new(query_stream), Error::NoError);
+        cb(context, Some(Box::new(query_stream)), Error::NoError);
     }
 }
 
@@ -378,7 +386,7 @@ This function is called from an asynchronous context.
 #[no_mangle]
 pub extern "C" fn rorm_stream_get_row(
     stream_ptr: &'static mut Stream,
-    callback: Option<unsafe extern "C" fn(VoidPtr, Box<Row>, Error) -> ()>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Row>>, Error) -> ()>,
     context: VoidPtr,
 ) {
     let cb = callback.expect("Callback must not be null");
@@ -387,18 +395,18 @@ pub extern "C" fn rorm_stream_get_row(
         let row_opt = stream_ptr.next().await;
         match row_opt {
             None => unsafe {
-                cb(context, null_ptr(), Error::NoRowsLeftInStream);
+                cb(context, None, Error::NoRowsLeftInStream);
             },
             Some(row_res) => match row_res {
                 Err(err) => unsafe {
                     cb(
                         context,
-                        null_ptr(),
+                        None,
                         Error::DatabaseError(err.to_string().as_str().into()),
                     );
                 },
                 Ok(row) => unsafe {
-                    cb(context, Box::new(row), Error::NoError);
+                    cb(context, Some(Box::new(row)), Error::NoError);
                 },
             },
         }
@@ -409,12 +417,12 @@ pub extern "C" fn rorm_stream_get_row(
             Some(rt) => {
                 rt.spawn(fut);
             }
-            None => unsafe { cb(context, null_ptr(), Error::MissingRuntimeError) },
+            None => unsafe { cb(context, None, Error::MissingRuntimeError) },
         },
         Err(err) => unsafe {
             cb(
                 context,
-                null_ptr(),
+                None,
                 Error::RuntimeError(err.to_string().as_str().into()),
             )
         },

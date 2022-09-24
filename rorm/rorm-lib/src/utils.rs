@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-use std::ptr;
 use std::slice::from_raw_parts;
 use std::str::{from_utf8, Utf8Error};
 
@@ -83,12 +82,6 @@ pub(crate) type VoidPtr = usize;
 /// This type alias purely exists only for cbindgen.
 /// cbindgen:ignore
 pub(crate) type Stream<'a> = BoxStream<'a, Result<rorm_db::row::Row, rorm_db::error::Error>>;
-
-/// Security:
-/// Create empty Box, to satisfy callback signature
-pub(crate) fn null_ptr<T>() -> Box<T> {
-    unsafe { Box::from_raw(ptr::null_mut()) }
-}
 
 /**
 Helper type to wrap [Option] ffi safe.
