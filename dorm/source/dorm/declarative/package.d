@@ -61,7 +61,6 @@ struct ModelFormat
 			uint8, /// inferred from `ubyte`
 			uint16, /// inferred from `ushort`
 			uint32, /// inferred from `uint`
-			uint64, /// inferred from `ulong`
 			floatNumber, /// inferred from `float`
 			doubleNumber, /// inferred from `double`
 			boolean, /// inferred from `bool`
@@ -71,7 +70,6 @@ struct ModelFormat
 			time, /// inferred from `std.datetime : TimeOfDay`
 			choices, /// inferred from `@choices string`, `enum T : string`
 			set, /// inferred from `BitFlags!enum`
-			not_null, /// everything that is not $(REF Nullable, std,typecons) or a Model that is not marked @notNull
 		}
 
 		/// The exact name of the column later used in the DB, not neccessarily

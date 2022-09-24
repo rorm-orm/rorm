@@ -4,5 +4,5 @@ import dorm.annotations;
 
 abstract class Model
 {
-    ulong id;
+    long id;
 }

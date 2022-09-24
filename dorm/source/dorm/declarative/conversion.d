@@ -341,7 +341,6 @@ enum guessDBTypeBase(T : long) = ModelFormat.Field.DBType.int64;
 enum guessDBTypeBase(T : ubyte) = ModelFormat.Field.DBType.uint8;
 enum guessDBTypeBase(T : ushort) = ModelFormat.Field.DBType.uint16;
 enum guessDBTypeBase(T : uint) = ModelFormat.Field.DBType.uint32;
-enum guessDBTypeBase(T : ulong) = ModelFormat.Field.DBType.uint64;
 enum guessDBTypeBase(T : float) = ModelFormat.Field.DBType.floatNumber;
 enum guessDBTypeBase(T : double) = ModelFormat.Field.DBType.doubleNumber;
 enum guessDBTypeBase(T : bool) = ModelFormat.Field.DBType.boolean;
@@ -413,7 +412,7 @@ unittest
 			int counter;
 
 			@primaryKey
-			ulong ownPrimaryKey;
+			long ownPrimaryKey;
 
 			@timestamp
 			ulong creationTime;
@@ -439,7 +438,7 @@ unittest
 
 	// field[0] gets added by dorm.model.Model
 	assert(m.fields[0].name == "id");
-	assert(m.fields[0].type == ModelFormat.Field.DBType.uint64);
+	assert(m.fields[0].type == ModelFormat.Field.DBType.int64);
 	assert(m.fields[0].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
 	assert(m.fields[1].name == "username");
@@ -530,7 +529,7 @@ unittest
 		]);
 
 	assert(m.fields[16].name == "own_primary_key");
-	assert(m.fields[16].type == ModelFormat.Field.DBType.uint64);
+	assert(m.fields[16].type == ModelFormat.Field.DBType.int64);
 	assert(m.fields[16].annotations == [
 			DBAnnotation(AnnotationFlag.primaryKey),
 			DBAnnotation(AnnotationFlag.notNull)

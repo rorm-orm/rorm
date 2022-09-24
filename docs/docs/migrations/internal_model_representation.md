@@ -194,7 +194,6 @@ map in the best case to the order of placement in the source code.
 |     `uint8`     |                                     |
 |    `uint16`     |                                     |
 |    `uint32`     |                                     |
-|    `uint64`     |                                     |
 | `float_number`  |                                     |
 | `double_number` |                                     |
 |    `boolean`    |                                     |
