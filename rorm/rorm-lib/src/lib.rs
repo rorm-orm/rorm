@@ -128,9 +128,7 @@ pub extern "C" fn rorm_runtime_start(
                 Ok(rt) => {
                     *rt_opt = Some(rt);
 
-                    unsafe {
-                        cb(context, Error::NoError);
-                    }
+                    unsafe { cb(context, Error::NoError) }
                 }
                 Err(err) => unsafe {
                     cb(
@@ -144,7 +142,7 @@ pub extern "C" fn rorm_runtime_start(
             cb(
                 context,
                 Error::RuntimeError(err.to_string().as_str().into()),
-            );
+            )
         },
     }
 }
@@ -172,9 +170,7 @@ pub extern "C" fn rorm_runtime_shutdown(
         Ok(mut guard) => match guard.take() {
             Some(rt) => {
                 rt.shutdown_timeout(Duration::from_millis(duration));
-                unsafe {
-                    cb(context, Error::NoError);
-                }
+                unsafe { cb(context, Error::NoError) }
             }
             None => unsafe { cb(context, Error::MissingRuntimeError) },
         },
@@ -213,9 +209,7 @@ pub extern "C" fn rorm_db_connect(
 
     let db_options_conv: Result<DatabaseConfiguration, Error> = options.into();
     if db_options_conv.is_err() {
-        unsafe {
-            cb(context, None, db_options_conv.err().unwrap());
-        }
+        unsafe { cb(context, None, db_options_conv.err().unwrap()) }
         return;
     }
     let db_options = db_options_conv.unwrap();
@@ -224,9 +218,7 @@ pub extern "C" fn rorm_db_connect(
         match Database::connect(db_options).await {
             Ok(db) => {
                 let b = Box::new(db);
-                unsafe {
-                    cb(context, Some(b), Error::NoError);
-                }
+                unsafe { cb(context, Some(b), Error::NoError) }
             }
             Err(e) => {
                 let error = e.to_string();
@@ -235,7 +227,7 @@ pub extern "C" fn rorm_db_connect(
                         context,
                         None,
                         Error::RuntimeError(FFIString::from(error.as_str())),
-                    );
+                    )
                 }
             }
         };
@@ -286,11 +278,11 @@ This function queries the database given the provided parameter.
 Returns a pointer to the created stream.
 
 **Parameter**:
-- `box`: Reference to the Database, provided by [rorm_db_connect].
+- `db`: Reference to the Database, provided by [rorm_db_connect].
 - `model`: Name of the table to query.
 - `columns`: Array of columns to retrieve from the database.
 - `condition`: Pointer to a [Condition].
-- `callback`: callback function. Takes the `context`, a stream pointer and a [Error].
+- `callback`: callback function. Takes the `context`, a stream pointer and an [Error].
 - `context`: Pass through void pointer.
 
 This function is called completely synchronously.
@@ -306,22 +298,18 @@ pub extern "C" fn rorm_db_query_stream(
 ) {
     let cb = callback.expect("Callback must not be null");
 
-    let model_conv: Result<&str, Utf8Error> = model.try_into();
+    let model_conv = model.try_into();
     if model_conv.is_err() {
-        unsafe {
-            cb(context, None, Error::InvalidStringError);
-        }
+        unsafe { cb(context, None, Error::InvalidStringError) };
         return;
     }
 
     let column_slice: &[FFIString] = columns.into();
     let mut column_vec = vec![];
     for &x in column_slice {
-        let x_conv: Result<&str, Utf8Error> = x.try_into();
+        let x_conv = x.try_into();
         if x_conv.is_err() {
-            unsafe {
-                cb(context, None, Error::InvalidStringError);
-            }
+            unsafe { cb(context, None, Error::InvalidStringError) };
             return;
         }
         column_vec.push(x_conv.unwrap());
@@ -335,9 +323,7 @@ pub extern "C" fn rorm_db_query_stream(
         Some(c) => {
             let cond_conv: Result<rorm_db::conditional::Condition, Utf8Error> = c.try_into();
             if cond_conv.is_err() {
-                unsafe {
-                    cb(context, None, Error::InvalidStringError);
-                }
+                unsafe { cb(context, None, Error::InvalidStringError) }
                 return;
             }
             query_stream = db.query_stream(
@@ -394,20 +380,16 @@ pub extern "C" fn rorm_stream_get_row(
     let fut = async move {
         let row_opt = stream_ptr.next().await;
         match row_opt {
-            None => unsafe {
-                cb(context, None, Error::NoRowsLeftInStream);
-            },
+            None => unsafe { cb(context, None, Error::NoRowsLeftInStream) },
             Some(row_res) => match row_res {
                 Err(err) => unsafe {
                     cb(
                         context,
                         None,
                         Error::DatabaseError(err.to_string().as_str().into()),
-                    );
+                    )
                 },
-                Ok(row) => unsafe {
-                    cb(context, Some(Box::new(row)), Error::NoError);
-                },
+                Ok(row) => unsafe { cb(context, Some(Box::new(row)), Error::NoError) },
             },
         }
     };
