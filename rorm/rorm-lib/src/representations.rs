@@ -9,6 +9,8 @@ This enum represents a value
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub enum Value<'a> {
+    /// null representation
+    Null,
     /// Representation of an identifier, e.g. a column.
     /// This variant will not be escaped, so do not
     /// pass unchecked data to it.
@@ -27,8 +29,8 @@ pub enum Value<'a> {
     F64(f64),
     /// f32 representation
     F32(f32),
-    /// null representation
-    Null,
+    /// Binary representation
+    Binary(FFISlice<'a, u8>),
 }
 
 impl<'a> TryFrom<&Value<'a>> for rorm_db::value::Value<'a> {
@@ -36,6 +38,7 @@ impl<'a> TryFrom<&Value<'a>> for rorm_db::value::Value<'a> {
 
     fn try_from(value: &Value<'a>) -> Result<Self, Self::Error> {
         match value {
+            Value::Null => Ok(rorm_db::value::Value::Null),
             Value::Ident(x) => Ok(rorm_db::value::Value::Ident(x.try_into()?)),
             Value::String(x) => Ok(rorm_db::value::Value::String(x.try_into()?)),
             Value::I64(x) => Ok(rorm_db::value::Value::I64(*x)),
@@ -44,7 +47,7 @@ impl<'a> TryFrom<&Value<'a>> for rorm_db::value::Value<'a> {
             Value::Bool(x) => Ok(rorm_db::value::Value::Bool(*x)),
             Value::F64(x) => Ok(rorm_db::value::Value::F64(*x)),
             Value::F32(x) => Ok(rorm_db::value::Value::F32(*x)),
-            Value::Null => Ok(rorm_db::value::Value::Null),
+            Value::Binary(x) => Ok(rorm_db::value::Value::Binary(x.into())),
         }
     }
 }
