@@ -616,40 +616,40 @@ private T extractField(alias field, T, string errInfo)(ffi.DBRowHandle row, ref 
 	final switch (field.type) with (ModelFormat.Field.DBType)
 	{
 		case varchar:
-			static if (is(field.type == varchar)) return fieldInto!(T, errInfo)(mixin(pre, "str", suf), error);
+			static if (field.type == varchar) return fieldInto!(T, errInfo)(mixin(pre, "str", suf), error);
 			else assert(false);
 		case varbinary:
-			static if (is(field.type == varbinary)) return fieldInto!(T, errInfo)(mixin(pre, "binary", suf), error);
+			static if (field.type == varbinary) return fieldInto!(T, errInfo)(mixin(pre, "binary", suf), error);
 			else assert(false);
 		case int8:
-			static if (is(field.type == int8)) return fieldInto!(T, errInfo)(mixin(pre, "i16", suf), error);
+			static if (field.type == int8) return fieldInto!(T, errInfo)(mixin(pre, "i16", suf), error);
 			else assert(false);
 		case int16:
-			static if (is(field.type == int16)) return fieldInto!(T, errInfo)(mixin(pre, "i16", suf), error);
+			static if (field.type == int16) return fieldInto!(T, errInfo)(mixin(pre, "i16", suf), error);
 			else assert(false);
 		case int32:
-			static if (is(field.type == int32)) return fieldInto!(T, errInfo)(mixin(pre, "i32", suf), error);
+			static if (field.type == int32) return fieldInto!(T, errInfo)(mixin(pre, "i32", suf), error);
 			else assert(false);
 		case int64:
-			static if (is(field.type == int64)) return fieldInto!(T, errInfo)(mixin(pre, "i64", suf), error);
+			static if (field.type == int64) return fieldInto!(T, errInfo)(mixin(pre, "i64", suf), error);
 			else assert(false);
 		case uint8:
-			static if (is(field.type == uint8)) return fieldInto!(T, errInfo)(mixin(pre, "i16", suf), error);
+			static if (field.type == uint8) return fieldInto!(T, errInfo)(mixin(pre, "i16", suf), error);
 			else assert(false);
 		case uint16:
-			static if (is(field.type == uint16)) return fieldInto!(T, errInfo)(mixin(pre, "i32", suf), error);
+			static if (field.type == uint16) return fieldInto!(T, errInfo)(mixin(pre, "i32", suf), error);
 			else assert(false);
 		case uint32:
-			static if (is(field.type == uint32)) return fieldInto!(T, errInfo)(mixin(pre, "i64", suf), error);
+			static if (field.type == uint32) return fieldInto!(T, errInfo)(mixin(pre, "i64", suf), error);
 			else assert(false);
 		case floatNumber:
-			static if (is(field.type == floatNumber)) return fieldInto!(T, errInfo)(mixin(pre, "f32", suf), error);
+			static if (field.type == floatNumber) return fieldInto!(T, errInfo)(mixin(pre, "f32", suf), error);
 			else assert(false);
 		case doubleNumber:
-			static if (is(field.type == doubleNumber)) return fieldInto!(T, errInfo)(mixin(pre, "f64", suf), error);
+			static if (field.type == doubleNumber) return fieldInto!(T, errInfo)(mixin(pre, "f64", suf), error);
 			else assert(false);
 		case boolean:
-			static if (is(field.type == boolean)) return fieldInto!(T, errInfo)(mixin(pre, "bool", suf), error);
+			static if (field.type == boolean) return fieldInto!(T, errInfo)(mixin(pre, "bool", suf), error);
 			else assert(false);
 
 		static assert(field.type != date &&
@@ -664,7 +664,7 @@ private T extractField(alias field, T, string errInfo)(ffi.DBRowHandle row, ref 
 		case time: assert(false);
 
 		case choices:
-			static if (is(field.type == choices)) return fieldInto!T(mixin(pre, "str", suf), error);
+			static if (field.type == choices) return fieldInto!T(mixin(pre, "str", suf), error);
 			else assert(false);
 		case set: assert(false);
 	}
