@@ -283,7 +283,7 @@ This function queries the database given the provided parameter and returns all 
 - `callback`: callback function. Takes the `context`, a pointer to a vec of rows and an [Error].
 - `context`: Pass through void pointer.
 
-This function is called completely synchronously.
+This function is called from an asynchronous context.
 */
 #[no_mangle]
 pub extern "C" fn rorm_db_query_all(
