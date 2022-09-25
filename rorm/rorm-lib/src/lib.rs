@@ -20,7 +20,7 @@ use tokio::runtime::Runtime;
 
 use crate::errors::Error;
 use crate::representations::{Condition, FFIValue};
-use crate::utils::{FFIOption, FFISlice, FFIString, Stream, VoidPtr};
+use crate::utils::{FFIOption, FFISlice, FFIString, RowList, Stream, VoidPtr};
 
 static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
 
@@ -271,6 +271,100 @@ This function is called completely synchronously.
  */
 #[no_mangle]
 pub extern "C" fn rorm_db_free(_: Box<Database>) {}
+
+/**
+This function queries the database given the provided parameter and returns all matched rows.
+
+**Parameter**:
+- `db`: Reference to the Database, provided by [rorm_db_connect].
+- `model`: Name of the table to query.
+- `columns`: Array of columns to retrieve from the database.
+- `condition`: Pointer to a [Condition].
+- `callback`: callback function. Takes the `context`, a pointer to a vec of rows and an [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_db_query_all(
+    db: &'static Database,
+    model: FFIString<'static>,
+    columns: FFISlice<'static, FFIString<'static>>,
+    condition: Option<&'static Condition>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<RowList>>, Error) -> ()>,
+    context: VoidPtr,
+) {
+    let cb = callback.expect("Callback must not be null");
+
+    let model_conv = model.try_into();
+    if model_conv.is_err() {
+        unsafe { cb(context, None, Error::InvalidStringError) };
+        return;
+    }
+
+    let mut column_vec = vec![];
+    {
+        let column_slice: &[FFIString] = columns.into();
+        for &x in column_slice {
+            let x_conv = x.try_into();
+            if x_conv.is_err() {
+                unsafe { cb(context, None, Error::InvalidStringError) };
+                return;
+            }
+            column_vec.push(x_conv.unwrap());
+        }
+    }
+
+    let cond = match condition {
+        None => None,
+        Some(cond) => {
+            let cond_conv: Result<rorm_db::conditional::Condition, Utf8Error> = cond.try_into();
+            if cond_conv.is_err() {
+                unsafe { cb(context, None, Error::InvalidStringError) };
+                return;
+            }
+            Some(cond_conv.unwrap())
+        }
+    };
+
+    let fut = async move {
+        let query_res;
+        match cond {
+            None => {
+                query_res = db
+                    .query_all(model_conv.unwrap(), column_vec.as_slice(), None)
+                    .await;
+            }
+            Some(cond) => {
+                query_res = db
+                    .query_all(model_conv.unwrap(), column_vec.as_slice(), Some(&cond))
+                    .await;
+            }
+        };
+        match query_res {
+            Ok(res) => {
+                unsafe { cb(context, Some(Box::new(res)), Error::NoError) };
+            }
+            Err(err) => {
+                let ffi_err = err.to_string();
+                unsafe { cb(context, None, Error::RuntimeError(ffi_err.as_str().into())) };
+            }
+        };
+    };
+
+    match RUNTIME.lock() {
+        Ok(guard) => match guard.as_ref() {
+            Some(rt) => {
+                rt.spawn(fut);
+            }
+            None => unsafe { cb(context, None, Error::MissingRuntimeError) },
+        },
+        Err(err) => unsafe {
+            let ffi_err = err.to_string();
+            cb(context, None, Error::RuntimeError(ffi_err.as_str().into()));
+        },
+    }
+}
 
 /**
 This function queries the database given the provided parameter.

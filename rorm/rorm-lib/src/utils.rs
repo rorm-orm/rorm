@@ -83,6 +83,10 @@ pub(crate) type VoidPtr = usize;
 /// cbindgen:ignore
 pub(crate) type Stream<'a> = BoxStream<'a, Result<rorm_db::row::Row, rorm_db::error::Error>>;
 
+/// This type alias purely exists for cbindgen.
+/// cbindgen:ignore
+pub(crate) type RowList = Vec<rorm_db::row::Row>;
+
 /**
 Helper type to wrap [Option] ffi safe.
 */
