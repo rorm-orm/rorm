@@ -1,5 +1,4 @@
 use core::str::Utf8Error;
-use std::ops::Deref;
 
 use crate::{FFISlice, FFIString};
 
@@ -58,9 +57,9 @@ This enum represents all available ternary expression.
 #[repr(C)]
 pub enum TernaryCondition<'a> {
     /// Between represents "{} BETWEEN {} AND {}" from SQL
-    Between(Box<[Condition<'a>; 3]>),
+    Between([&'a Condition<'a>; 3]),
     /// Between represents "{} NOT BETWEEN {} AND {}" from SQL
-    NotBetween(Box<[Condition<'a>; 3]>),
+    NotBetween([&'a Condition<'a>; 3]),
 }
 
 impl<'a> TryFrom<&TernaryCondition<'a>> for rorm_db::conditional::TernaryCondition<'a> {
@@ -69,15 +68,15 @@ impl<'a> TryFrom<&TernaryCondition<'a>> for rorm_db::conditional::TernaryConditi
     fn try_from(value: &TernaryCondition<'a>) -> Result<Self, Self::Error> {
         match value {
             TernaryCondition::Between(x) => {
-                let [a, b, c] = x.as_ref();
-                let x_conv = [a.try_into()?, b.try_into()?, c.try_into()?];
+                let [a, b, c] = x;
+                let x_conv = [(*a).try_into()?, (*b).try_into()?, (*c).try_into()?];
                 Ok(rorm_db::conditional::TernaryCondition::Between(Box::new(
                     x_conv,
                 )))
             }
             TernaryCondition::NotBetween(x) => {
-                let [a, b, c] = x.deref();
-                let x_conv = [a.try_into()?, b.try_into()?, c.try_into()?];
+                let [a, b, c] = x;
+                let x_conv = [(*a).try_into()?, (*b).try_into()?, (*c).try_into()?];
                 Ok(rorm_db::conditional::TernaryCondition::NotBetween(
                     Box::new(x_conv),
                 ))
@@ -92,29 +91,29 @@ This enum represents a binary expression.
 #[repr(C)]
 pub enum BinaryCondition<'a> {
     /// Representation of "{} = {}" in SQL
-    Equals(Box<[Condition<'a>; 2]>),
+    Equals([&'a Condition<'a>; 2]),
     /// Representation of "{} <> {}" in SQL
-    NotEquals(Box<[Condition<'a>; 2]>),
+    NotEquals([&'a Condition<'a>; 2]),
     /// Representation of "{} > {}" in SQL
-    Greater(Box<[Condition<'a>; 2]>),
+    Greater([&'a Condition<'a>; 2]),
     /// Representation of "{} >= {}" in SQL
-    GreaterOrEquals(Box<[Condition<'a>; 2]>),
+    GreaterOrEquals([&'a Condition<'a>; 2]),
     /// Representation of "{} < {}" in SQL
-    Less(Box<[Condition<'a>; 2]>),
+    Less([&'a Condition<'a>; 2]),
     /// Representation of "{} <= {}" in SQL
-    LessOrEquals(Box<[Condition<'a>; 2]>),
+    LessOrEquals([&'a Condition<'a>; 2]),
     /// Representation of "{} LIKE {}" in SQL
-    Like(Box<[Condition<'a>; 2]>),
+    Like([&'a Condition<'a>; 2]),
     /// Representation of "{} NOT LIKE {}" in SQL
-    NotLike(Box<[Condition<'a>; 2]>),
+    NotLike([&'a Condition<'a>; 2]),
     /// Representation of "{} REGEXP {}" in SQL
-    Regexp(Box<[Condition<'a>; 2]>),
+    Regexp([&'a Condition<'a>; 2]),
     /// Representation of "{} NOT REGEXP {}" in SQL
-    NotRegexp(Box<[Condition<'a>; 2]>),
+    NotRegexp([&'a Condition<'a>; 2]),
     /// Representation of "{} IN {}" in SQL
-    In(Box<[Condition<'a>; 2]>),
+    In([&'a Condition<'a>; 2]),
     /// Representation of "{} NOT IN {}" in SQL
-    NotIn(Box<[Condition<'a>; 2]>),
+    NotIn([&'a Condition<'a>; 2]),
 }
 
 impl<'a> TryFrom<&BinaryCondition<'a>> for rorm_db::conditional::BinaryCondition<'a> {
@@ -123,83 +122,83 @@ impl<'a> TryFrom<&BinaryCondition<'a>> for rorm_db::conditional::BinaryCondition
     fn try_from(value: &BinaryCondition<'a>) -> Result<Self, Self::Error> {
         match value {
             BinaryCondition::Equals(x) => {
-                let [a, b] = x.as_ref();
-                let x_conv = [a.try_into()?, b.try_into()?];
+                let [a, b] = x;
+                let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::Equals(Box::new(
                     x_conv,
                 )))
             }
             BinaryCondition::NotEquals(x) => {
-                let [a, b] = x.as_ref();
-                let x_conv = [a.try_into()?, b.try_into()?];
+                let [a, b] = x;
+                let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::NotEquals(Box::new(
                     x_conv,
                 )))
             }
             BinaryCondition::Greater(x) => {
-                let [a, b] = x.as_ref();
-                let x_conv = [a.try_into()?, b.try_into()?];
+                let [a, b] = x;
+                let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::Greater(Box::new(
                     x_conv,
                 )))
             }
             BinaryCondition::GreaterOrEquals(x) => {
-                let [a, b] = x.as_ref();
-                let x_conv = [a.try_into()?, b.try_into()?];
+                let [a, b] = x;
+                let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::GreaterOrEquals(
                     Box::new(x_conv),
                 ))
             }
             BinaryCondition::Less(x) => {
-                let [a, b] = x.as_ref();
-                let x_conv = [a.try_into()?, b.try_into()?];
+                let [a, b] = x;
+                let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::Less(Box::new(
                     x_conv,
                 )))
             }
             BinaryCondition::LessOrEquals(x) => {
-                let [a, b] = x.as_ref();
-                let x_conv = [a.try_into()?, b.try_into()?];
+                let [a, b] = x;
+                let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::LessOrEquals(
                     Box::new(x_conv),
                 ))
             }
             BinaryCondition::Like(x) => {
-                let [a, b] = x.as_ref();
-                let x_conv = [a.try_into()?, b.try_into()?];
+                let [a, b] = x;
+                let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::Like(Box::new(
                     x_conv,
                 )))
             }
             BinaryCondition::NotLike(x) => {
-                let [a, b] = x.as_ref();
-                let x_conv = [a.try_into()?, b.try_into()?];
+                let [a, b] = x;
+                let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::NotLike(Box::new(
                     x_conv,
                 )))
             }
             BinaryCondition::Regexp(x) => {
-                let [a, b] = x.as_ref();
-                let x_conv = [a.try_into()?, b.try_into()?];
+                let [a, b] = x;
+                let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::Regexp(Box::new(
                     x_conv,
                 )))
             }
             BinaryCondition::NotRegexp(x) => {
-                let [a, b] = x.as_ref();
-                let x_conv = [a.try_into()?, b.try_into()?];
+                let [a, b] = x;
+                let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::NotRegexp(Box::new(
                     x_conv,
                 )))
             }
             BinaryCondition::In(x) => {
-                let [a, b] = x.as_ref();
-                let x_conv = [a.try_into()?, b.try_into()?];
+                let [a, b] = x;
+                let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::In(Box::new(x_conv)))
             }
             BinaryCondition::NotIn(x) => {
-                let [a, b] = x.as_ref();
-                let x_conv = [a.try_into()?, b.try_into()?];
+                let [a, b] = x;
+                let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::NotIn(Box::new(
                     x_conv,
                 )))
@@ -214,15 +213,15 @@ This enum represents all available unary conditions.
 #[repr(C)]
 pub enum UnaryCondition<'a> {
     /// Representation of SQL's "{} IS NULL"
-    IsNull(Box<Condition<'a>>),
+    IsNull(&'a Condition<'a>),
     /// Representation of SQL's "{} IS NOT NULL"
-    IsNotNull(Box<Condition<'a>>),
+    IsNotNull(&'a Condition<'a>),
     /// Representation of SQL's "EXISTS {}"
-    Exists(Box<Condition<'a>>),
+    Exists(&'a Condition<'a>),
     /// Representation of SQL's "NOT EXISTS {}"
-    NotExists(Box<Condition<'a>>),
+    NotExists(&'a Condition<'a>),
     /// Representation of SQL's "NOT {}"
-    Not(Box<Condition<'a>>),
+    Not(&'a Condition<'a>),
 }
 
 impl<'a> TryFrom<&UnaryCondition<'a>> for rorm_db::conditional::UnaryCondition<'a> {
@@ -231,19 +230,19 @@ impl<'a> TryFrom<&UnaryCondition<'a>> for rorm_db::conditional::UnaryCondition<'
     fn try_from(value: &UnaryCondition<'a>) -> Result<Self, Self::Error> {
         match value {
             UnaryCondition::IsNull(x) => Ok(rorm_db::conditional::UnaryCondition::IsNull(
-                Box::new(x.deref().try_into()?),
+                Box::new((*x).try_into()?),
             )),
             UnaryCondition::IsNotNull(x) => Ok(rorm_db::conditional::UnaryCondition::IsNotNull(
-                Box::new(x.deref().try_into()?),
+                Box::new((*x).try_into()?),
             )),
             UnaryCondition::Exists(x) => Ok(rorm_db::conditional::UnaryCondition::Exists(
-                Box::new(x.deref().try_into()?),
+                Box::new((*x).try_into()?),
             )),
             UnaryCondition::NotExists(x) => Ok(rorm_db::conditional::UnaryCondition::NotExists(
-                Box::new(x.deref().try_into()?),
+                Box::new((*x).try_into()?),
             )),
             UnaryCondition::Not(x) => Ok(rorm_db::conditional::UnaryCondition::Not(Box::new(
-                x.deref().try_into()?,
+                (*x).try_into()?,
             ))),
         }
     }
