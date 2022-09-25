@@ -80,7 +80,10 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
     let db_conf_path = Path::new(options.database_config.as_str());
 
     if !&db_conf_path.exists() {
-        println!("Couldn't find the database configuration file, creating one and exiting");
+        println!(
+            "Couldn't find the database configuration file, created {} and exiting",
+            options.database_config.as_str()
+        );
         create_db_config(&db_conf_path)?;
         return Ok(());
     }
