@@ -1,6 +1,6 @@
-# Documentation of DORM
+# Documentation of RORM
 
-This is the documentation of [DORM](https://github.com/myOmikron/dorm). It uses `mkdocs` with the beautiful `material` theme.
+This is the documentation of [RORM](https://github.com/myOmikron/dorm). It uses `mkdocs` with the beautiful `material` theme.
 
 ## Changes
 
