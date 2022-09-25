@@ -355,70 +355,6 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_row_list_free(_: Box<RowList>) {}
 
 /**
-This function queries the database given the provided parameter.
-
-Returns a pointer to the created stream.
-
-**Parameter**:
-- `db`: Reference to the Database, provided by [rorm_db_connect].
-- `model`: Name of the table to query.
-- `columns`: Array of columns to retrieve from the database.
-- `condition`: Pointer to a [Condition].
-- `callback`: callback function. Takes the `context`, a stream pointer and an [Error].
-- `context`: Pass through void pointer.
-
-This function is called completely synchronously.
-*/
-#[no_mangle]
-pub extern "C" fn rorm_db_query_stream(
-    db: &Database,
-    model: FFIString,
-    columns: FFISlice<FFIString>,
-    condition: Option<&Condition>,
-    callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Stream>>, Error) -> ()>,
-    context: VoidPtr,
-) {
-    let cb = callback.expect("Callback must not be null");
-
-    let model_conv = model.try_into();
-    if model_conv.is_err() {
-        unsafe { cb(context, None, Error::InvalidStringError) };
-        return;
-    }
-
-    let column_slice: &[FFIString] = columns.into();
-    let mut column_vec = vec![];
-    for &x in column_slice {
-        let x_conv = x.try_into();
-        if x_conv.is_err() {
-            unsafe { cb(context, None, Error::InvalidStringError) };
-            return;
-        }
-        column_vec.push(x_conv.unwrap());
-    }
-
-    let query_stream;
-    match condition {
-        None => {
-            query_stream = db.query_stream(model_conv.unwrap(), column_vec.as_slice(), None);
-        }
-        Some(c) => {
-            let cond_conv: Result<rorm_db::conditional::Condition, Utf8Error> = c.try_into();
-            if cond_conv.is_err() {
-                unsafe { cb(context, None, Error::InvalidStringError) }
-                return;
-            }
-            query_stream = db.query_stream(
-                model_conv.unwrap(),
-                column_vec.as_slice(),
-                Some(&cond_conv.unwrap()),
-            );
-        }
-    };
-    unsafe { cb(context, Some(Box::new(query_stream)), Error::NoError) }
-}
-
-/**
 This function inserts a row into the database.
 
 **Parameter**:
@@ -497,6 +433,70 @@ pub extern "C" fn rorm_db_insert(
         unsafe { cb(context, Error::RuntimeError(err.as_str().into())) };
     };
     spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
+}
+
+/**
+This function queries the database given the provided parameter.
+
+Returns a pointer to the created stream.
+
+**Parameter**:
+- `db`: Reference to the Database, provided by [rorm_db_connect].
+- `model`: Name of the table to query.
+- `columns`: Array of columns to retrieve from the database.
+- `condition`: Pointer to a [Condition].
+- `callback`: callback function. Takes the `context`, a stream pointer and an [Error].
+- `context`: Pass through void pointer.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_db_query_stream(
+    db: &Database,
+    model: FFIString,
+    columns: FFISlice<FFIString>,
+    condition: Option<&Condition>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Stream>>, Error) -> ()>,
+    context: VoidPtr,
+) {
+    let cb = callback.expect("Callback must not be null");
+
+    let model_conv = model.try_into();
+    if model_conv.is_err() {
+        unsafe { cb(context, None, Error::InvalidStringError) };
+        return;
+    }
+
+    let column_slice: &[FFIString] = columns.into();
+    let mut column_vec = vec![];
+    for &x in column_slice {
+        let x_conv = x.try_into();
+        if x_conv.is_err() {
+            unsafe { cb(context, None, Error::InvalidStringError) };
+            return;
+        }
+        column_vec.push(x_conv.unwrap());
+    }
+
+    let query_stream;
+    match condition {
+        None => {
+            query_stream = db.query_stream(model_conv.unwrap(), column_vec.as_slice(), None);
+        }
+        Some(c) => {
+            let cond_conv: Result<rorm_db::conditional::Condition, Utf8Error> = c.try_into();
+            if cond_conv.is_err() {
+                unsafe { cb(context, None, Error::InvalidStringError) }
+                return;
+            }
+            query_stream = db.query_stream(
+                model_conv.unwrap(),
+                column_vec.as_slice(),
+                Some(&cond_conv.unwrap()),
+            );
+        }
+    };
+    unsafe { cb(context, Some(Box::new(query_stream)), Error::NoError) }
 }
 
 /**
