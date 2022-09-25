@@ -252,6 +252,79 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_db_free(_: Box<Database>) {}
 
 /**
+This function deletes rows from the database based on the given conditions.
+
+**Parameter**:
+- `db`: Reference to the Database, provided by [rorm_db_connect].
+- `model`: Name of the table to query.
+- `condition`: Pointer to a [Condition].
+- `limit`: Optional limit of deletions that should be executed.
+- `callback`: callback function. Takes the `context`, a pointer to a vec of rows and an [Error].
+- `context`: Pass through void pointer.
+
+**Important**:
+- Make sure that `db`, `model` and `condition` are
+allocated until the callback is executed.
+
+This function is called from an asynchronous context.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_db_delete(
+    db: &'static Database,
+    model: FFIString<'static>,
+    condition: Option<&'static Condition>,
+    limit: FFIOption<u64>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, Error) -> ()>,
+    context: VoidPtr,
+) {
+    let cb = callback.expect("Callback must not be null");
+
+    let model_conv = model.try_into();
+    if model_conv.is_err() {
+        unsafe { cb(context, Error::InvalidStringError) };
+        return;
+    }
+
+    let cond;
+    if condition.is_none() {
+        cond = None;
+    } else {
+        let cond_conv = condition.unwrap().try_into();
+        if cond_conv.is_err() {
+            unsafe { cb(context, Error::InvalidStringError) };
+            return;
+        }
+        cond = Some(cond_conv.unwrap());
+    }
+
+    let limit_conv = limit.into();
+
+    let fut = async move {
+        match cond {
+            None => match db.delete(model_conv.unwrap(), None, limit_conv).await {
+                Ok(_) => unsafe { cb(context, Error::NoError) },
+                Err(err) => {
+                    let ffi_err = err.to_string();
+                    unsafe { cb(context, Error::DatabaseError(ffi_err.as_str().into())) };
+                }
+            },
+            Some(v) => match db.delete(model_conv.unwrap(), Some(&v), limit_conv).await {
+                Ok(_) => unsafe { cb(context, Error::NoError) },
+                Err(err) => {
+                    let ffi_err = err.to_string();
+                    unsafe { cb(context, Error::DatabaseError(ffi_err.as_str().into())) };
+                }
+            },
+        }
+    };
+
+    let f = |err: String| {
+        unsafe { cb(context, Error::RuntimeError(err.as_str().into())) };
+    };
+    spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
+}
+
+/**
 This function queries the database given the provided parameter and returns all matched rows.
 
 **Parameter**:
@@ -298,16 +371,16 @@ pub extern "C" fn rorm_db_query_all(
         }
     }
 
-    let cond = match condition {
-        None => None,
-        Some(cond) => {
-            let cond_conv: Result<rorm_db::conditional::Condition, Utf8Error> = cond.try_into();
-            if cond_conv.is_err() {
-                unsafe { cb(context, None, Error::InvalidStringError) };
-                return;
-            }
-            Some(cond_conv.unwrap())
+    let cond;
+    if condition.is_none() {
+        cond = None;
+    } else {
+        let cond_conv = condition.unwrap().try_into();
+        if cond_conv.is_err() {
+            unsafe { cb(context, None, Error::InvalidStringError) };
+            return;
         }
+        cond = Some(cond_conv.unwrap());
     };
 
     let fut = async move {

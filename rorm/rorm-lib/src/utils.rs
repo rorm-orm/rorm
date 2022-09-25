@@ -107,6 +107,15 @@ impl<T> From<Option<T>> for FFIOption<T> {
     }
 }
 
+impl<T> From<FFIOption<T>> for Option<T> {
+    fn from(option: FFIOption<T>) -> Self {
+        match option {
+            FFIOption::None => None,
+            FFIOption::Some(v) => Some(v),
+        }
+    }
+}
+
 /**
 This macro is used to simplify pushing futures to the runtime.
 
