@@ -42,6 +42,13 @@ struct FreeableAsyncResult(T)
 			throw error;
 		return raw_result;
 	}
+
+	void reset()
+	{
+		event.reset();
+		raw_result = T.init;
+		error = null;
+	}
 }
 
 auto sync_call(alias fn)(Parameters!fn[0 .. $ - 2] args)

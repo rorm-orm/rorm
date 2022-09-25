@@ -95,6 +95,11 @@ struct FFIOption(T)
 		return state != State.none;
 	}
 
+	bool isNull() const
+	{
+		return state == State.none;
+	}
+
 	alias asNullable this;
 	/// Converts the FFIOption to a std Nullable!T
 	Nullable!(T) asNullable() const

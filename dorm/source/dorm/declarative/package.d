@@ -95,6 +95,22 @@ struct ModelFormat
 		/// field is defined from. This can be used in error messages.
 		@serdeKeys("SourceDefinedAt")
 		SourceLocation definedAt;
+
+		/// Returns true if this field does not have the `notNull` AnnotationFlag
+		/// assigned, otherwise true.
+		@serdeIgnore
+		bool isNullable() const @property
+		{
+			foreach (annotation; annotations)
+			{
+				if (annotation.value.match!(
+					(AnnotationFlag f) => f == AnnotationFlag.notNull,
+					_ => false
+				))
+					return false;
+			}
+			return true;
+		}
 	}
 
 	/// The exact name of the table later used in the DB, not neccessarily
@@ -132,6 +148,13 @@ struct SourceLocation
 	/// ditto
 	@serdeKeys("Column")
 	int sourceColumn;
+
+	string toString() const @safe
+	{
+		import std.conv : text;
+	
+		return text(sourceFile, ":", sourceLine, ":", sourceColumn);
+	}
 }
 
 /**
