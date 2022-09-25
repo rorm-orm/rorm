@@ -8,7 +8,6 @@ pub mod representations;
 /// Utility functions and structs such as the ffi safe string implementation.
 pub mod utils;
 
-use std::ops::Deref;
 use std::str::Utf8Error;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -233,30 +232,10 @@ pub extern "C" fn rorm_db_connect(
         };
     };
 
-    match RUNTIME.lock() {
-        Ok(guard) => {
-            let g: &Option<Runtime> = guard.deref();
-            match g.as_ref() {
-                Some(rt) => {
-                    rt.spawn(fut);
-                }
-                None => unsafe {
-                    cb(
-                        context,
-                        None,
-                        Error::RuntimeError(FFIString::from("No runtime running.")),
-                    )
-                },
-            }
-        }
-        Err(err) => unsafe {
-            cb(
-                context,
-                None,
-                Error::RuntimeError(err.to_string().as_str().into()),
-            )
-        },
+    let f = |err: String| {
+        unsafe { cb(context, None, Error::RuntimeError(err.as_str().into())) };
     };
+    spawn_fut!(fut, cb(context, None, Error::MissingRuntimeError), f);
 }
 
 /**
@@ -356,18 +335,10 @@ pub extern "C" fn rorm_db_query_all(
         };
     };
 
-    match RUNTIME.lock() {
-        Ok(guard) => match guard.as_ref() {
-            Some(rt) => {
-                rt.spawn(fut);
-            }
-            None => unsafe { cb(context, None, Error::MissingRuntimeError) },
-        },
-        Err(err) => unsafe {
-            let ffi_err = err.to_string();
-            cb(context, None, Error::RuntimeError(ffi_err.as_str().into()));
-        },
-    }
+    let f = |err: String| {
+        unsafe { cb(context, None, Error::RuntimeError(err.as_str().into())) };
+    };
+    spawn_fut!(fut, cb(context, None, Error::MissingRuntimeError), f);
 }
 
 /**
@@ -522,20 +493,10 @@ pub extern "C" fn rorm_db_insert(
         };
     };
 
-    match RUNTIME.lock() {
-        Ok(guard) => match guard.as_ref() {
-            Some(rt) => {
-                rt.spawn(fut);
-            }
-            None => unsafe { cb(context, Error::MissingRuntimeError) },
-        },
-        Err(err) => unsafe {
-            cb(
-                context,
-                Error::RuntimeError(err.to_string().as_str().into()),
-            )
-        },
-    }
+    let f = |err: String| {
+        unsafe { cb(context, Error::RuntimeError(err.as_str().into())) };
+    };
+    spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
 }
 
 /**
@@ -594,21 +555,10 @@ pub extern "C" fn rorm_stream_get_row(
         }
     };
 
-    match RUNTIME.lock() {
-        Ok(guard) => match guard.as_ref() {
-            Some(rt) => {
-                rt.spawn(fut);
-            }
-            None => unsafe { cb(context, None, Error::MissingRuntimeError) },
-        },
-        Err(err) => unsafe {
-            cb(
-                context,
-                None,
-                Error::RuntimeError(err.to_string().as_str().into()),
-            )
-        },
-    }
+    let f = |err: String| {
+        unsafe { cb(context, None, Error::RuntimeError(err.as_str().into())) };
+    };
+    spawn_fut!(fut, cb(context, None, Error::MissingRuntimeError), f);
 }
 
 /**

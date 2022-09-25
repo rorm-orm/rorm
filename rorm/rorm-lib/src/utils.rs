@@ -108,6 +108,33 @@ impl<T> From<Option<T>> for FFIOption<T> {
 }
 
 /**
+This macro is used to simplify pushing futures to the runtime.
+
+**Parameter**:
+- `$fut`: Future to push to the runtime.
+- `$cb_missing_rt`: Callback to execute if the runtime is missing.
+- `$cb_runtime_error`: Function to execute if the runtime could not be locked.
+Takes String as parameter.
+*/
+#[macro_export]
+macro_rules! spawn_fut {
+    ($fut:expr, $cb_missing_rt:stmt, $cb_runtime_error:expr) => {{
+        match RUNTIME.lock() {
+            Ok(guard) => match guard.as_ref() {
+                Some(rt) => {
+                    rt.spawn($fut);
+                }
+                None => unsafe { $cb_missing_rt },
+            },
+            Err(err) => {
+                let ffi_err = err.to_string();
+                $cb_runtime_error(ffi_err);
+            }
+        }
+    }};
+}
+
+/**
 This macro is used to simplify the retrieval of cells from a row.
 
 **Parameter**:
