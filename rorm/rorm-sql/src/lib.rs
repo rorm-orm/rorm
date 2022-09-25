@@ -13,6 +13,8 @@ pub mod create_index;
 pub mod create_table;
 /// Implementation of SQL CREATE TRIGGER statements
 pub mod create_trigger;
+/// Implementation of SQL DELETE operation
+pub mod delete;
 /// Implementation of SQL DROP TABLE statements
 pub mod drop_table;
 /// Definition of error types that can occur.
@@ -37,6 +39,7 @@ use crate::create_table::SQLCreateTable;
 use crate::create_trigger::{
     SQLCreateTrigger, SQLCreateTriggerOperation, SQLCreateTriggerPointInTime,
 };
+use crate::delete::SQLDelete;
 use crate::drop_table::SQLDropTable;
 use crate::insert::SQLInsert;
 use crate::on_conflict::OnConflict;
@@ -249,6 +252,27 @@ impl DBImpl {
                 row_values: insert_values,
                 lookup: vec![],
                 on_conflict: OnConflict::ABORT,
+            },
+            _ => todo!("Not implemented yet!"),
+        }
+    }
+
+    /**
+    Build a delete operation.
+
+    **Parameter**:
+    - `table_name`: Name of the table to delete from.
+    */
+    pub fn delete<'until_build, 'post_query>(
+        &self,
+        table_name: &'until_build str,
+    ) -> SQLDelete<'until_build, 'post_query> {
+        match self {
+            DBImpl::SQLite => SQLDelete {
+                dialect: DBImpl::SQLite,
+                model: table_name,
+                lookup: vec![],
+                where_clause: None,
             },
             _ => todo!("Not implemented yet!"),
         }

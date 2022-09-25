@@ -60,7 +60,7 @@ impl<'until_build, 'post_query> SQLSelect<'until_build, 'post_query> {
     Build the select query
     */
     pub fn build(mut self) -> (String, Vec<value::Value<'post_query>>) {
-        return match self.dialect {
+        match self.dialect {
             DBImpl::SQLite => (
                 format!(
                     "SELECT {} {} FROM {} {};",
@@ -79,6 +79,6 @@ impl<'until_build, 'post_query> SQLSelect<'until_build, 'post_query> {
                 self.lookup,
             ),
             _ => todo!("Not implemented yet!"),
-        };
+        }
     }
 }

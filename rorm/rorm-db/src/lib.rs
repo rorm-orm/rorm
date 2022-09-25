@@ -366,4 +366,34 @@ impl Database {
             Err(err) => Err(Error::SqlxError(err)),
         }
     }
+
+    /**
+    This method is used to delete rows from a table.
+
+    **Parameter**:
+    - `model`: Name of the model to delete rows from
+    - `condition`: Optional condition to apply.
+    */
+    pub async fn delete<'post_build>(
+        &self,
+        model: &str,
+        condition: Option<&conditional::Condition<'post_build>>,
+    ) -> Result<(), Error> {
+        let mut q = self.db_impl.delete(model);
+        if condition.is_some() {
+            q = q.where_clause(condition.unwrap());
+        }
+
+        let (query_string, bind_params) = q.build();
+
+        let mut tmp = sqlx::query(query_string.as_str());
+        for x in bind_params {
+            tmp = utils::bind_param(tmp, x);
+        }
+
+        match tmp.execute(&self.pool).await {
+            Ok(_) => Ok(()),
+            Err(err) => Err(Error::SqlxError(err)),
+        }
+    }
 }
