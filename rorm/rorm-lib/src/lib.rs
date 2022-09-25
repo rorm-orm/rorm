@@ -367,6 +367,19 @@ pub extern "C" fn rorm_db_query_all(
 }
 
 /**
+Frees the RowList given as parameter.
+
+This function panics if the pointer to the RowList is invalid.
+
+**Important**:
+Do not call this function more than once!
+
+This function is called completely synchronously.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_row_list_free(_: Box<RowList>) {}
+
+/**
 This function queries the database given the provided parameter.
 
 Returns a pointer to the created stream.
