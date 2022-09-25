@@ -51,7 +51,7 @@ enum Commands {
         database_config: String,
 
         #[clap(long = "log-sql")]
-        #[clap(default_value = "false")]
+        #[clap(default_value_t = false)]
         #[clap(takes_value = false)]
         #[clap(help = "If turned on, all queries to the database will be logged")]
         log_queries: bool,
