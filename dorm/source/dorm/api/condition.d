@@ -10,14 +10,46 @@ alias UnaryConditionType = ffi.FFIUnaryCondition.Type;
 alias BinaryConditionType = ffi.FFIBinaryCondition.Type;
 alias TernaryConditionType = ffi.FFITernaryCondition.Type;
 
-alias Condition = SumType!(
-	ConditionValue,
-	UnaryCondition,
-	BinaryCondition,
-	TernaryCondition,
-	AndCondition,
-	OrCondition
-);
+struct Condition
+{
+	SumType!(
+		ConditionValue,
+		UnaryCondition,
+		BinaryCondition,
+		TernaryCondition,
+		AndCondition,
+		OrCondition
+	) impl;
+	alias impl this;
+
+	this(T)(T value)
+	{
+		impl = value;
+	}
+
+	auto opAssign(T)(T value)
+	{
+		impl = value;
+		return this;
+	}
+
+	static Condition and(Condition[] conditions...)
+	{
+		return Condition(AndCondition(conditions.dup));
+	}
+
+	static Condition or(Condition[] conditions...)
+	{
+		return Condition(OrCondition(conditions.dup));
+	}
+
+	Condition not() const
+	{
+		Condition* c = new Condition();
+		c.impl = impl;
+		return Condition(UnaryCondition(UnaryConditionType.Not, c));
+	}
+}
 
 struct AndCondition
 {
@@ -216,56 +248,12 @@ ffi.FFICondition[] makeTree(Condition c)
 	return ret;
 }
 
-unittest
+string dumpTree(ffi.FFICondition[] c)
 {
-	import std.array;
-
-	Condition* and(scope Condition[] conditions...)
-	{
-		return new Condition(AndCondition(conditions.dup));
-	}
-	Condition* or(scope Condition[] conditions...)
-	{
-		return new Condition(OrCondition(conditions.dup));
-	}
-
-	Condition* unary(UnaryConditionType t, Condition* c)
-	{
-		return new Condition(UnaryCondition(t, c));
-	}
-
-	Condition* binary(Condition* lhs, BinaryConditionType t, Condition* rhs)
-	{
-		return new Condition(BinaryCondition(t, lhs, rhs));
-	}
-
-	Condition* ternary(Condition* first, TernaryConditionType t, Condition* second, Condition* third)
-	{
-		return new Condition(TernaryCondition(t, first, second, third));
-	}
-
-	Condition* i(string s)
-	{
-		return new Condition(conditionIdentifier(s));
-	}
-
-	Condition* v(T)(T value)
-	{
-		return new Condition(conditionValue(value));
-	}
-
-	auto condition = and(
-		*binary(i("foo"), BinaryConditionType.Equals, v("wert")),
-		*binary(i("bar"), BinaryConditionType.Greater, v(5)),
-		*unary(UnaryConditionType.Not, or(
-			*binary(i("baz"), BinaryConditionType.Equals, v(1)),
-			*binary(i("baz"), BinaryConditionType.Equals, v(4)),
-		))
-	);
+	import std.array : appender;
 
 	auto query = appender!string;
 	query ~= "WHERE";
-	auto tree = makeTree(*condition);
 	void recurse(ref ffi.FFICondition c)
 	{
 		import std.conv;
@@ -385,6 +373,58 @@ unittest
 			break;
 		}
 	}
-	recurse(tree[0]);
-	assert(query.data == "WHERE ( Value(ident:foo) = Value(`wert`) AND Value(ident:bar) > Value(i32:5) AND NOT ( Value(ident:baz) = Value(i32:1) OR Value(ident:baz) = Value(i32:4) ) )");
+	recurse(c[0]);
+	return query.data;
+}
+
+unittest
+{
+	import std.array;
+
+	Condition* and(scope Condition[] conditions...)
+	{
+		return new Condition(AndCondition(conditions.dup));
+	}
+	Condition* or(scope Condition[] conditions...)
+	{
+		return new Condition(OrCondition(conditions.dup));
+	}
+
+	Condition* unary(UnaryConditionType t, Condition* c)
+	{
+		return new Condition(UnaryCondition(t, c));
+	}
+
+	Condition* binary(Condition* lhs, BinaryConditionType t, Condition* rhs)
+	{
+		return new Condition(BinaryCondition(t, lhs, rhs));
+	}
+
+	Condition* ternary(Condition* first, TernaryConditionType t, Condition* second, Condition* third)
+	{
+		return new Condition(TernaryCondition(t, first, second, third));
+	}
+
+	Condition* i(string s)
+	{
+		return new Condition(conditionIdentifier(s));
+	}
+
+	Condition* v(T)(T value)
+	{
+		return new Condition(conditionValue(value));
+	}
+
+	auto condition = and(
+		*binary(i("foo"), BinaryConditionType.Equals, v("wert")),
+		*binary(i("bar"), BinaryConditionType.Greater, v(5)),
+		*unary(UnaryConditionType.Not, or(
+			*binary(i("baz"), BinaryConditionType.Equals, v(1)),
+			*binary(i("baz"), BinaryConditionType.Equals, v(4)),
+		))
+	);
+
+	auto tree = makeTree(*condition);
+	auto query = dumpTree(tree);
+	assert(query == "WHERE ( Value(ident:foo) = Value(`wert`) AND Value(ident:bar) > Value(i32:5) AND NOT ( Value(ident:baz) = Value(i32:1) OR Value(ident:baz) = Value(i32:4) ) )");
 }
