@@ -45,8 +45,6 @@ default = [
     "sqlx/mysql",
     "sqlx/sqlite",
     "sqlx/postgres",
-    "sqlx/tls",
-    "tokio/rt",
     "tokio/macros",
     "serde/derive",
     "clap/derive",
