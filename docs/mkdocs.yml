@@ -43,6 +43,7 @@ nav:
     - Associations: dorm/associations.md
   - RORM:
     - Getting Started: rorm/getting_started.md
+    - Project Setup: rorm/project_setup.md
     - Model Declaration: rorm/model_declaration.md
   - Developer information:
     - Style Guidelines: developer/guidelines.md
