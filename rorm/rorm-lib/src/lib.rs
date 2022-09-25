@@ -283,6 +283,10 @@ This function queries the database given the provided parameter and returns all 
 - `callback`: callback function. Takes the `context`, a pointer to a vec of rows and an [Error].
 - `context`: Pass through void pointer.
 
+**Important**:
+- Make sure that `db`, `model`, `columns` and `condition` are
+allocated until the callback is executed.
+
 This function is called from an asynchronous context.
 */
 #[no_mangle]
