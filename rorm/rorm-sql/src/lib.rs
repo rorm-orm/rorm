@@ -273,6 +273,7 @@ impl DBImpl {
                 model: table_name,
                 lookup: vec![],
                 where_clause: None,
+                limit: None,
             },
             _ => todo!("Not implemented yet!"),
         }
