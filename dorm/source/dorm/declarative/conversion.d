@@ -67,7 +67,7 @@ enum DormLayout(TModel : Model) = delegate() {
 		static if (is(typeof(__traits(getMember, TModel, field)))
 			&& !isCallable!(__traits(getMember, TModel, field)))
 		{
-			processField!(TModel, field)(serialized);
+			processField!(TModel, field, field)(serialized);
 		}
 	}
 
@@ -78,18 +78,21 @@ enum DormFields(TModel : Model) = DormLayout!TModel.fields;
 
 template LogicalFields(TModel)
 {
-	alias Classes = AliasSeq!(TModel, BaseClassesTuple!TModel);
+	static if (is(TModel : Model))
+		alias Classes = AliasSeq!(TModel, BaseClassesTuple!TModel);
+	else
+		alias Classes = AliasSeq!(TModel);
 	alias LogicalFields = AliasSeq!();
 
 	static foreach_reverse (Class; Classes)
 		LogicalFields = AliasSeq!(LogicalFields, __traits(derivedMembers, Class));
 }
 
-private void processField(TModel, string fieldName)(ref ModelFormat serialized)
+private void processField(TModel, string fieldName, string directFieldName)(ref ModelFormat serialized)
 {
 	import uda = dorm.annotations;
 
-	alias fieldAlias = __traits(getMember, TModel, fieldName);
+	alias fieldAlias = __traits(getMember, TModel, directFieldName);
 
 	alias attributes = __traits(getAttributes, fieldAlias);
 
@@ -97,7 +100,7 @@ private void processField(TModel, string fieldName)(ref ModelFormat serialized)
 	ModelFormat.Field field;
 
 	field.definedAt = SourceLocation(__traits(getLocation, fieldAlias));
-	field.columnName = fieldName.toSnakeCase;
+	field.columnName = directFieldName.toSnakeCase;
 	field.sourceColumn = fieldName;
 	field.type = guessDBType!(typeof(fieldAlias));
 
@@ -141,7 +144,21 @@ private void processField(TModel, string fieldName)(ref ModelFormat serialized)
 		}
 		else static if (__traits(isSame, attribute, uda.embedded))
 		{
-			static assert(false, "@embedded not implemented");
+			static if (is(typeof(fieldAlias) == struct))
+			{
+				serialized.embeddedStructs ~= fieldName;
+				alias TSubModel = typeof(fieldAlias);
+				static foreach (subfield; LogicalFields!TSubModel)
+				{
+					static if (is(typeof(__traits(getMember, TSubModel, subfield)))
+						&& !isCallable!(__traits(getMember, TSubModel, subfield)))
+					{
+						processField!(TSubModel, fieldName ~ "." ~ subfield, subfield)(serialized);
+					}
+				}
+			}
+			else
+				static assert(false, "@embedded is only supported on structs");
 			include = false;
 		}
 		else static if (__traits(isSame, attribute, uda.ignored))
@@ -187,7 +204,11 @@ private void processField(TModel, string fieldName)(ref ModelFormat serialized)
 		field.annotations ~= DBAnnotation(AnnotationFlag.notNull);
 
 	if (include)
+	{
+		if (field.type == InvalidDBType)
+			throw new Exception("Cannot resolve DBType from " ~ typeof(fieldAlias).stringof);
 		serialized.fields ~= field;
+	}
 }
 
 private void makeValueConstructor(TModel, string fieldName, alias fn)(Model model)
@@ -315,13 +336,15 @@ unittest
 	assert("HTTP2foo".toSnakeCase == "http_2_foo");
 }
 
-template isDBAttribute(alias attr)
+private template isDBAttribute(alias attr)
 {
 	pragma(msg, "check " ~ attr.stringof);
 	enum isDBAttribute = true;
 }
 
-template guessDBType(T)
+private enum InvalidDBType = cast(ModelFormat.Field.DBType)int.max;
+
+private template guessDBType(T)
 {
 	static if (is(T == enum))
 		enum guessDBType = ModelFormat.Field.DBType.choices;
@@ -337,25 +360,25 @@ template guessDBType(T)
 	else static if (__traits(compiles, guessDBTypeBase!T))
 		enum guessDBType = guessDBTypeBase!T;
 	else
-		static assert(false, "cannot resolve DBType from " ~ T.stringof);
+		enum guessDBType = InvalidDBType;
 }
 
-enum guessDBTypeBase(T : const(char)[]) = ModelFormat.Field.DBType.varchar;
-enum guessDBTypeBase(T : const(ubyte)[]) = ModelFormat.Field.DBType.varbinary;
-enum guessDBTypeBase(T : byte) = ModelFormat.Field.DBType.int8;
-enum guessDBTypeBase(T : short) = ModelFormat.Field.DBType.int16;
-enum guessDBTypeBase(T : int) = ModelFormat.Field.DBType.int32;
-enum guessDBTypeBase(T : long) = ModelFormat.Field.DBType.int64;
-enum guessDBTypeBase(T : ubyte) = ModelFormat.Field.DBType.uint8;
-enum guessDBTypeBase(T : ushort) = ModelFormat.Field.DBType.uint16;
-enum guessDBTypeBase(T : uint) = ModelFormat.Field.DBType.uint32;
-enum guessDBTypeBase(T : float) = ModelFormat.Field.DBType.floatNumber;
-enum guessDBTypeBase(T : double) = ModelFormat.Field.DBType.doubleNumber;
-enum guessDBTypeBase(T : bool) = ModelFormat.Field.DBType.boolean;
-enum guessDBTypeBase(T : Date) = ModelFormat.Field.DBType.date;
-enum guessDBTypeBase(T : DateTime) = ModelFormat.Field.DBType.datetime;
-enum guessDBTypeBase(T : SysTime) = ModelFormat.Field.DBType.timestamp;
-enum guessDBTypeBase(T : TimeOfDay) = ModelFormat.Field.DBType.time;
+private enum guessDBTypeBase(T : const(char)[]) = ModelFormat.Field.DBType.varchar;
+private enum guessDBTypeBase(T : const(ubyte)[]) = ModelFormat.Field.DBType.varbinary;
+private enum guessDBTypeBase(T : byte) = ModelFormat.Field.DBType.int8;
+private enum guessDBTypeBase(T : short) = ModelFormat.Field.DBType.int16;
+private enum guessDBTypeBase(T : int) = ModelFormat.Field.DBType.int32;
+private enum guessDBTypeBase(T : long) = ModelFormat.Field.DBType.int64;
+private enum guessDBTypeBase(T : ubyte) = ModelFormat.Field.DBType.uint8;
+private enum guessDBTypeBase(T : ushort) = ModelFormat.Field.DBType.uint16;
+private enum guessDBTypeBase(T : uint) = ModelFormat.Field.DBType.uint32;
+private enum guessDBTypeBase(T : float) = ModelFormat.Field.DBType.floatNumber;
+private enum guessDBTypeBase(T : double) = ModelFormat.Field.DBType.doubleNumber;
+private enum guessDBTypeBase(T : bool) = ModelFormat.Field.DBType.boolean;
+private enum guessDBTypeBase(T : Date) = ModelFormat.Field.DBType.date;
+private enum guessDBTypeBase(T : DateTime) = ModelFormat.Field.DBType.datetime;
+private enum guessDBTypeBase(T : SysTime) = ModelFormat.Field.DBType.timestamp;
+private enum guessDBTypeBase(T : TimeOfDay) = ModelFormat.Field.DBType.time;
 
 unittest
 {
@@ -589,4 +612,45 @@ unittest
 	assert(m.fields[0].columnName == "id");
 	assert(m.fields[1].columnName == "name");
 	assert(m.fields[2].columnName == "age");
+}
+
+unittest
+{
+	struct Mod
+	{
+		struct SuperCommon
+		{
+			int superCommonField;
+		}
+
+		struct Common
+		{
+			string commonName;
+			@embedded
+			SuperCommon superCommon;
+		}
+
+		class NamedThing : Model
+		{
+			@embedded
+			Common common;
+
+			@maxLength(255)
+			string name;
+		}
+	}
+
+	auto mod = processModelsToDeclarations!Mod;
+	assert(mod.models.length == 1);
+	auto m = mod.models[0];
+	assert(m.tableName == "named_thing");
+	// As Model also adds the id field, length is 3
+	assert(m.fields.length == 4);
+	assert(m.fields[1].columnName == "common_name");
+	assert(m.fields[1].sourceColumn == "common.commonName");
+	assert(m.fields[2].columnName == "super_common_field");
+	assert(m.fields[2].sourceColumn == "common.superCommon.superCommonField");
+	assert(m.fields[3].columnName == "name");
+	assert(m.fields[3].sourceColumn == "name");
+	assert(m.embeddedStructs == ["common", "common.superCommon"]);
 }
