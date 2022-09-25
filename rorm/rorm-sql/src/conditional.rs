@@ -1,5 +1,6 @@
-use crate::value::Value;
 use std::fmt::{Debug, Error, Write};
+
+use crate::value::Value;
 
 /**
 Trait implementing constructing sql queries from a condition tree.

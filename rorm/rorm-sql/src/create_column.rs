@@ -17,34 +17,32 @@ impl SQLAnnotation {
     `dialect`: [crate::DBImpl]: dialect to use
      */
     pub fn build(&self, dialect: DBImpl) -> String {
-        match dialect {
-            DBImpl::SQLite => {
-                return match &self.annotation {
-                    Annotation::AutoIncrement => "AUTOINCREMENT".to_string(),
-                    Annotation::AutoCreateTime => "DEFAULT CURRENT_TIMESTAMP".to_string(),
-                    Annotation::DefaultValue(d) => match d {
-                        DefaultValue::String(s) => format!("DEFAULT {}", s),
-                        DefaultValue::Integer(i) => format!("DEFAULT {}", i),
-                        DefaultValue::Float(f) => format!("DEFAULT {}", f),
-                        DefaultValue::Boolean(b) => {
-                            if *b {
-                                "DEFAULT 1".to_string()
-                            } else {
-                                "DEFAULT 0".to_string()
-                            }
+        return match dialect {
+            DBImpl::SQLite => match &self.annotation {
+                Annotation::AutoIncrement => "AUTOINCREMENT".to_string(),
+                Annotation::AutoCreateTime => "DEFAULT CURRENT_TIMESTAMP".to_string(),
+                Annotation::DefaultValue(d) => match d {
+                    DefaultValue::String(s) => format!("DEFAULT {}", s),
+                    DefaultValue::Integer(i) => format!("DEFAULT {}", i),
+                    DefaultValue::Float(f) => format!("DEFAULT {}", f),
+                    DefaultValue::Boolean(b) => {
+                        if *b {
+                            "DEFAULT 1".to_string()
+                        } else {
+                            "DEFAULT 0".to_string()
                         }
-                        _ => {
-                            todo!("not intended");
-                        }
-                    },
-                    Annotation::NotNull => "NOT NULL".to_string(),
-                    Annotation::PrimaryKey => "PRIMARY KEY".to_string(),
-                    Annotation::Unique => "UNIQUE".to_string(),
-                    _ => "".to_string(),
-                };
-            }
+                    }
+                    _ => {
+                        todo!("not intended");
+                    }
+                },
+                Annotation::NotNull => "NOT NULL".to_string(),
+                Annotation::PrimaryKey => "PRIMARY KEY".to_string(),
+                Annotation::Unique => "UNIQUE".to_string(),
+                _ => "".to_string(),
+            },
             _ => todo!("Not implemented yet!"),
-        }
+        };
     }
 }
 
