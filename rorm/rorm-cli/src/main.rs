@@ -49,6 +49,12 @@ enum Commands {
         #[clap(default_value_t=String::from("./database.toml"))]
         #[clap(help = "Path to the database configuration file.")]
         database_config: String,
+
+        #[clap(long = "log-sql")]
+        #[clap(default_value = "false")]
+        #[clap(takes_value = false)]
+        #[clap(help = "If turned on, all queries to the database will be logged")]
+        log_queries: bool,
     },
 
     #[clap(about = "Squash migrations")]
@@ -90,10 +96,12 @@ async fn main() -> anyhow::Result<()> {
         Some(Commands::Migrate {
             migration_dir,
             database_config,
+            log_queries,
         }) => {
             run_migrate(MigrateOptions {
                 migration_dir,
                 database_config,
+                log_queries,
             })
             .await?;
         }

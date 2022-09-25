@@ -3,6 +3,7 @@ pub mod sql_builder;
 
 use std::path::Path;
 
+use crate::log_sql;
 use anyhow::{anyhow, Context};
 use rorm_declaration::imr::{Annotation, DbType};
 use rorm_declaration::migration::Migration;
@@ -24,6 +25,9 @@ pub struct MigrateOptions {
 
     /// Path to the database configuration file
     pub database_config: String,
+
+    /// Log all SQL statements
+    pub log_queries: bool,
 }
 
 /**
@@ -37,17 +41,21 @@ pub async fn apply_migration_sqlite(
     migration: &Migration,
     pool: &SqlitePool,
     last_migration_table_name: &str,
+    do_log: bool,
 ) -> anyhow::Result<()> {
     let q = migration_to_sql(DBImpl::SQLite, migration)?;
 
-    query(q.as_str())
+    query(log_sql!(q, do_log).as_str())
         .execute(pool)
         .await
         .with_context(|| format!("Error while applying migration {}", migration.id))?;
     query(
-        format!(
-            "INSERT INTO {} (migration_name) VALUES (?);",
-            last_migration_table_name
+        log_sql!(
+            format!(
+                "INSERT INTO {} (migration_name) VALUES (?);",
+                last_migration_table_name
+            ),
+            do_log
         )
         .as_str(),
     )
@@ -93,42 +101,48 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
             .with_context(|| "Couldn't initialize pool connection")?;
 
             query(
-                DBImpl::SQLite
-                    .create_table(db_conf.last_migration_table_name.as_str())
-                    .add_column(DBImpl::SQLite.create_column(
-                        db_conf.last_migration_table_name.as_str(),
-                        "id",
-                        DbType::Int64,
-                        vec![
-                            Annotation::NotNull,
-                            Annotation::PrimaryKey,
-                            Annotation::AutoIncrement,
-                        ],
-                    ))
-                    .add_column(DBImpl::SQLite.create_column(
-                        db_conf.last_migration_table_name.as_str(),
-                        "updated_at",
-                        DbType::VarChar,
-                        vec![Annotation::AutoUpdateTime],
-                    ))
-                    .add_column(DBImpl::SQLite.create_column(
-                        db_conf.last_migration_table_name.as_str(),
-                        "migration_name",
-                        DbType::VarChar,
-                        vec![Annotation::NotNull],
-                    ))
-                    .if_not_exists()
-                    .build()
-                    .as_str(),
+                log_sql!(
+                    DBImpl::SQLite
+                        .create_table(db_conf.last_migration_table_name.as_str())
+                        .add_column(DBImpl::SQLite.create_column(
+                            db_conf.last_migration_table_name.as_str(),
+                            "id",
+                            DbType::Int64,
+                            vec![
+                                Annotation::NotNull,
+                                Annotation::PrimaryKey,
+                                Annotation::AutoIncrement,
+                            ],
+                        ))
+                        .add_column(DBImpl::SQLite.create_column(
+                            db_conf.last_migration_table_name.as_str(),
+                            "updated_at",
+                            DbType::VarChar,
+                            vec![Annotation::AutoUpdateTime],
+                        ))
+                        .add_column(DBImpl::SQLite.create_column(
+                            db_conf.last_migration_table_name.as_str(),
+                            "migration_name",
+                            DbType::VarChar,
+                            vec![Annotation::NotNull],
+                        ))
+                        .if_not_exists()
+                        .build(),
+                    options.log_queries
+                )
+                .as_str(),
             )
             .execute(&pool)
             .await
             .with_context(|| "Couldn't create internal last migration table")?;
 
             let last_migration: Option<String> = query(
-                format!(
-                    "SELECT migration_name FROM {} ORDER BY id DESC LIMIT 1;",
-                    &db_conf.last_migration_table_name
+                log_sql!(
+                    format!(
+                        "SELECT migration_name FROM {} ORDER BY id DESC LIMIT 1;",
+                        &db_conf.last_migration_table_name
+                    ),
+                    options.log_queries
                 )
                 .as_str(),
             )
@@ -147,6 +161,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                             migration,
                             &pool,
                             db_conf.last_migration_table_name.as_str(),
+                            options.log_queries,
                         )
                         .await?;
                     }
@@ -161,6 +176,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                                     migration,
                                     &pool,
                                     db_conf.last_migration_table_name.as_str(),
+                                    options.log_queries,
                                 )
                                 .await?;
                                 continue;
