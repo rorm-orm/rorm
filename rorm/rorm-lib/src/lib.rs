@@ -326,96 +326,6 @@ pub extern "C" fn rorm_db_delete(
 }
 
 /**
-This function queries the database given the provided parameter and returns all matched rows.
-
-**Parameter**:
-- `db`: Reference to the Database, provided by [rorm_db_connect].
-- `model`: Name of the table to query.
-- `columns`: Array of columns to retrieve from the database.
-- `condition`: Pointer to a [Condition].
-- `callback`: callback function. Takes the `context`, a pointer to a vec of rows and an [Error].
-- `context`: Pass through void pointer.
-
-**Important**:
-- Make sure that `db`, `model`, `columns` and `condition` are
-allocated until the callback is executed.
-
-This function is called from an asynchronous context.
-*/
-#[no_mangle]
-pub extern "C" fn rorm_db_query_all(
-    db: &'static Database,
-    model: FFIString<'static>,
-    columns: FFISlice<'static, FFIString<'static>>,
-    condition: Option<&'static Condition>,
-    callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<RowList>>, Error) -> ()>,
-    context: VoidPtr,
-) {
-    let cb = callback.expect("Callback must not be null");
-
-    let model_conv = model.try_into();
-    if model_conv.is_err() {
-        unsafe { cb(context, None, Error::InvalidStringError) };
-        return;
-    }
-
-    let mut column_vec = vec![];
-    {
-        let column_slice: &[FFIString] = columns.into();
-        for &x in column_slice {
-            let x_conv = x.try_into();
-            if x_conv.is_err() {
-                unsafe { cb(context, None, Error::InvalidStringError) };
-                return;
-            }
-            column_vec.push(x_conv.unwrap());
-        }
-    }
-
-    let cond;
-    if condition.is_none() {
-        cond = None;
-    } else {
-        let cond_conv = condition.unwrap().try_into();
-        if cond_conv.is_err() {
-            unsafe { cb(context, None, Error::InvalidStringError) };
-            return;
-        }
-        cond = Some(cond_conv.unwrap());
-    };
-
-    let fut = async move {
-        let query_res;
-        match cond {
-            None => {
-                query_res = db
-                    .query_all(model_conv.unwrap(), column_vec.as_slice(), None)
-                    .await;
-            }
-            Some(cond) => {
-                query_res = db
-                    .query_all(model_conv.unwrap(), column_vec.as_slice(), Some(&cond))
-                    .await;
-            }
-        };
-        match query_res {
-            Ok(res) => {
-                unsafe { cb(context, Some(Box::new(res)), Error::NoError) };
-            }
-            Err(err) => {
-                let ffi_err = err.to_string();
-                unsafe { cb(context, None, Error::RuntimeError(ffi_err.as_str().into())) };
-            }
-        };
-    };
-
-    let f = |err: String| {
-        unsafe { cb(context, None, Error::RuntimeError(err.as_str().into())) };
-    };
-    spawn_fut!(fut, cb(context, None, Error::MissingRuntimeError), f);
-}
-
-/**
 Frees the RowList given as parameter.
 
 This function panics if the pointer to the RowList is invalid.
@@ -596,6 +506,96 @@ pub extern "C" fn rorm_db_insert_bulk(
         unsafe { cb(context, Error::RuntimeError(err.as_str().into())) };
     };
     spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
+}
+
+/**
+This function queries the database given the provided parameter and returns all matched rows.
+
+**Parameter**:
+- `db`: Reference to the Database, provided by [rorm_db_connect].
+- `model`: Name of the table to query.
+- `columns`: Array of columns to retrieve from the database.
+- `condition`: Pointer to a [Condition].
+- `callback`: callback function. Takes the `context`, a pointer to a vec of rows and an [Error].
+- `context`: Pass through void pointer.
+
+**Important**:
+- Make sure that `db`, `model`, `columns` and `condition` are
+allocated until the callback is executed.
+
+This function is called from an asynchronous context.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_db_query_all(
+    db: &'static Database,
+    model: FFIString<'static>,
+    columns: FFISlice<'static, FFIString<'static>>,
+    condition: Option<&'static Condition>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<RowList>>, Error) -> ()>,
+    context: VoidPtr,
+) {
+    let cb = callback.expect("Callback must not be null");
+
+    let model_conv = model.try_into();
+    if model_conv.is_err() {
+        unsafe { cb(context, None, Error::InvalidStringError) };
+        return;
+    }
+
+    let mut column_vec = vec![];
+    {
+        let column_slice: &[FFIString] = columns.into();
+        for &x in column_slice {
+            let x_conv = x.try_into();
+            if x_conv.is_err() {
+                unsafe { cb(context, None, Error::InvalidStringError) };
+                return;
+            }
+            column_vec.push(x_conv.unwrap());
+        }
+    }
+
+    let cond;
+    if condition.is_none() {
+        cond = None;
+    } else {
+        let cond_conv = condition.unwrap().try_into();
+        if cond_conv.is_err() {
+            unsafe { cb(context, None, Error::InvalidStringError) };
+            return;
+        }
+        cond = Some(cond_conv.unwrap());
+    };
+
+    let fut = async move {
+        let query_res;
+        match cond {
+            None => {
+                query_res = db
+                    .query_all(model_conv.unwrap(), column_vec.as_slice(), None)
+                    .await;
+            }
+            Some(cond) => {
+                query_res = db
+                    .query_all(model_conv.unwrap(), column_vec.as_slice(), Some(&cond))
+                    .await;
+            }
+        };
+        match query_res {
+            Ok(res) => {
+                unsafe { cb(context, Some(Box::new(res)), Error::NoError) };
+            }
+            Err(err) => {
+                let ffi_err = err.to_string();
+                unsafe { cb(context, None, Error::RuntimeError(ffi_err.as_str().into())) };
+            }
+        };
+    };
+
+    let f = |err: String| {
+        unsafe { cb(context, None, Error::RuntimeError(err.as_str().into())) };
+    };
+    spawn_fut!(fut, cb(context, None, Error::MissingRuntimeError), f);
 }
 
 /**
