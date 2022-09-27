@@ -242,7 +242,15 @@ pub extern "C" fn rorm_db_query_one(
     } else {
         let cond_conv = condition.unwrap().try_into();
         if cond_conv.is_err() {
-            unsafe { cb(context, None, Error::InvalidStringError) };
+            match cond_conv.as_ref().err().unwrap() {
+                Error::InvalidStringError
+                | Error::InvalidDateError
+                | Error::InvalidTimeError
+                | Error::InvalidDateTimeError => unsafe {
+                    cb(context, None, cond_conv.err().unwrap())
+                },
+                _ => {}
+            }
             return;
         }
         cond = Some(cond_conv.unwrap());
@@ -334,7 +342,15 @@ pub extern "C" fn rorm_db_query_all(
     } else {
         let cond_conv = condition.unwrap().try_into();
         if cond_conv.is_err() {
-            unsafe { cb(context, None, Error::InvalidStringError) };
+            match cond_conv.as_ref().err().unwrap() {
+                Error::InvalidStringError
+                | Error::InvalidDateError
+                | Error::InvalidTimeError
+                | Error::InvalidDateTimeError => unsafe {
+                    cb(context, None, cond_conv.err().unwrap())
+                },
+                _ => {}
+            }
             return;
         }
         cond = Some(cond_conv.unwrap());
@@ -548,7 +564,13 @@ pub extern "C" fn rorm_db_delete(
     } else {
         let cond_conv = condition.unwrap().try_into();
         if cond_conv.is_err() {
-            unsafe { cb(context, Error::InvalidStringError) };
+            match cond_conv.as_ref().err().unwrap() {
+                Error::InvalidStringError
+                | Error::InvalidDateError
+                | Error::InvalidTimeError
+                | Error::InvalidDateTimeError => unsafe { cb(context, cond_conv.err().unwrap()) },
+                _ => {}
+            }
             return;
         }
         cond = Some(cond_conv.unwrap());
@@ -664,7 +686,13 @@ pub extern "C" fn rorm_db_insert(
         for x in value_slice {
             let x_conv = x.try_into();
             if x_conv.is_err() {
-                unsafe { cb(context, Error::InvalidStringError) };
+                match x_conv.as_ref().err().unwrap() {
+                    Error::InvalidStringError
+                    | Error::InvalidDateError
+                    | Error::InvalidTimeError
+                    | Error::InvalidDateTimeError => unsafe { cb(context, x_conv.err().unwrap()) },
+                    _ => {}
+                }
                 return;
             }
             value_vec.push(x_conv.unwrap());
@@ -748,7 +776,13 @@ pub extern "C" fn rorm_db_insert_bulk(
             for x in row_slice {
                 let val = x.try_into();
                 if val.is_err() {
-                    unsafe { cb(context, Error::InvalidStringError) };
+                    match val.as_ref().err().unwrap() {
+                        Error::InvalidStringError
+                        | Error::InvalidDateError
+                        | Error::InvalidTimeError
+                        | Error::InvalidDateTimeError => unsafe { cb(context, val.err().unwrap()) },
+                        _ => {}
+                    }
                     return;
                 }
                 row_vec.push(val.unwrap());
