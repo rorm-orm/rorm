@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use std::slice::from_raw_parts;
 use std::str::{from_utf8, Utf8Error};
 
+use crate::Error;
 use futures::stream::BoxStream;
 
 /**
@@ -26,6 +27,17 @@ impl From<chrono::NaiveDate> for FFIDate {
     }
 }
 
+impl<'a> TryFrom<&'a FFIDate> for chrono::NaiveDate {
+    type Error = Error<'a>;
+
+    fn try_from(value: &'a FFIDate) -> Result<Self, Self::Error> {
+        match chrono::NaiveDate::from_ymd_opt(value.year, value.month, value.day) {
+            None => Err(Error::InvalidDateError),
+            Some(v) => Ok(v),
+        }
+    }
+}
+
 /**
 Representation of a [chrono::NaiveTime].
 */
@@ -43,6 +55,17 @@ impl From<chrono::NaiveTime> for FFITime {
             hour: value.hour(),
             min: value.minute(),
             sec: value.second(),
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a FFITime> for chrono::NaiveTime {
+    type Error = Error<'a>;
+
+    fn try_from(value: &'a FFITime) -> Result<Self, Self::Error> {
+        match chrono::NaiveTime::from_hms_opt(value.hour, value.min, value.sec) {
+            None => Err(Error::InvalidTimeError),
+            Some(v) => Ok(v),
         }
     }
 }
@@ -71,6 +94,22 @@ impl From<chrono::NaiveDateTime> for FFIDateTime {
             min: value.minute(),
             sec: value.second(),
         }
+    }
+}
+
+impl<'a> TryFrom<&'a FFIDateTime> for chrono::NaiveDateTime {
+    type Error = Error<'a>;
+
+    fn try_from(value: &'a FFIDateTime) -> Result<Self, Self::Error> {
+        let d = chrono::NaiveDate::from_ymd_opt(value.year, value.month, value.day);
+        if d.is_none() {
+            return Err(Error::InvalidDateTimeError);
+        }
+        let dt = d.unwrap().and_hms_opt(value.hour, value.min, value.sec);
+        if dt.is_none() {
+            return Err(Error::InvalidDateTimeError);
+        }
+        Ok(dt.unwrap())
     }
 }
 

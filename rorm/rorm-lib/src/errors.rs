@@ -26,4 +26,10 @@ pub enum Error<'a> {
     ColumnNotFoundError,
     /// The index in the row was out of bounds
     ColumnIndexOutOfBoundsError,
+    /// The provided date could not be parsed
+    InvalidDateError,
+    /// The provided time could not be parsed
+    InvalidTimeError,
+    /// The provided datetime could not be parsed
+    InvalidDateTimeError,
 }

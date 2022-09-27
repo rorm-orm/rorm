@@ -1,8 +1,6 @@
-use core::str::Utf8Error;
-
 use rorm_db::{DatabaseBackend, DatabaseConfiguration};
 
-use crate::{Error, FFISlice, FFIString};
+use crate::{Error, FFIDate, FFIDateTime, FFISlice, FFIString, FFITime};
 
 /**
 Representation of the database backend.
@@ -108,16 +106,26 @@ pub enum FFIValue<'a> {
     F32(f32),
     /// Binary representation
     Binary(FFISlice<'a, u8>),
+    /// Representation of time without timezones
+    NaiveTime(FFITime),
+    /// Representation of dates without timezones
+    NaiveDate(FFIDate),
+    /// Representation of datetimes without timezones
+    NaiveDateTime(FFIDateTime),
 }
 
-impl<'a> TryFrom<&FFIValue<'a>> for rorm_db::value::Value<'a> {
-    type Error = Utf8Error;
+impl<'a> TryFrom<&'a FFIValue<'a>> for rorm_db::value::Value<'a> {
+    type Error = Error<'a>;
 
-    fn try_from(value: &FFIValue<'a>) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a FFIValue<'a>) -> Result<Self, Self::Error> {
         match value {
             FFIValue::Null => Ok(rorm_db::value::Value::Null),
-            FFIValue::Ident(x) => Ok(rorm_db::value::Value::Ident(x.try_into()?)),
-            FFIValue::String(x) => Ok(rorm_db::value::Value::String(x.try_into()?)),
+            FFIValue::Ident(x) => Ok(rorm_db::value::Value::Ident(
+                x.try_into().map_err(|_| Error::InvalidStringError)?,
+            )),
+            FFIValue::String(x) => Ok(rorm_db::value::Value::String(
+                x.try_into().map_err(|_| Error::InvalidStringError)?,
+            )),
             FFIValue::I64(x) => Ok(rorm_db::value::Value::I64(*x)),
             FFIValue::I32(x) => Ok(rorm_db::value::Value::I32(*x)),
             FFIValue::I16(x) => Ok(rorm_db::value::Value::I16(*x)),
@@ -125,6 +133,9 @@ impl<'a> TryFrom<&FFIValue<'a>> for rorm_db::value::Value<'a> {
             FFIValue::F64(x) => Ok(rorm_db::value::Value::F64(*x)),
             FFIValue::F32(x) => Ok(rorm_db::value::Value::F32(*x)),
             FFIValue::Binary(x) => Ok(rorm_db::value::Value::Binary(x.into())),
+            FFIValue::NaiveTime(x) => Ok(rorm_db::value::Value::NaiveTime(x.try_into()?)),
+            FFIValue::NaiveDate(x) => Ok(rorm_db::value::Value::NaiveDate(x.try_into()?)),
+            FFIValue::NaiveDateTime(x) => Ok(rorm_db::value::Value::NaiveDateTime(x.try_into()?)),
         }
     }
 }
@@ -141,7 +152,7 @@ pub enum TernaryCondition<'a> {
 }
 
 impl<'a> TryFrom<&TernaryCondition<'a>> for rorm_db::conditional::TernaryCondition<'a> {
-    type Error = Utf8Error;
+    type Error = Error<'a>;
 
     fn try_from(value: &TernaryCondition<'a>) -> Result<Self, Self::Error> {
         match value {
@@ -195,7 +206,7 @@ pub enum BinaryCondition<'a> {
 }
 
 impl<'a> TryFrom<&BinaryCondition<'a>> for rorm_db::conditional::BinaryCondition<'a> {
-    type Error = Utf8Error;
+    type Error = Error<'a>;
 
     fn try_from(value: &BinaryCondition<'a>) -> Result<Self, Self::Error> {
         match value {
@@ -303,7 +314,7 @@ pub enum UnaryCondition<'a> {
 }
 
 impl<'a> TryFrom<&UnaryCondition<'a>> for rorm_db::conditional::UnaryCondition<'a> {
-    type Error = Utf8Error;
+    type Error = Error<'a>;
 
     fn try_from(value: &UnaryCondition<'a>) -> Result<Self, Self::Error> {
         match value {
@@ -345,10 +356,10 @@ pub enum Condition<'a> {
     Value(FFIValue<'a>),
 }
 
-impl<'a> TryFrom<&Condition<'a>> for rorm_db::conditional::Condition<'a> {
-    type Error = Utf8Error;
+impl<'a> TryFrom<&'a Condition<'a>> for rorm_db::conditional::Condition<'a> {
+    type Error = Error<'a>;
 
-    fn try_from(value: &Condition<'a>) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a Condition<'a>) -> Result<Self, Self::Error> {
         match value {
             Condition::Conjunction(x) => {
                 let x_conv: &[Condition] = x.into();

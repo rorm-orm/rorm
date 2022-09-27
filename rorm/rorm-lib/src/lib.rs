@@ -420,9 +420,17 @@ pub extern "C" fn rorm_db_query_stream(
             query_stream = db.query_stream(model_conv.unwrap(), column_vec.as_slice(), None);
         }
         Some(c) => {
-            let cond_conv: Result<rorm_db::conditional::Condition, Utf8Error> = c.try_into();
+            let cond_conv: Result<rorm_db::conditional::Condition, Error> = c.try_into();
             if cond_conv.is_err() {
-                unsafe { cb(context, None, Error::InvalidStringError) }
+                match cond_conv.as_ref().err().unwrap() {
+                    Error::InvalidStringError
+                    | Error::InvalidDateError
+                    | Error::InvalidTimeError
+                    | Error::InvalidDateTimeError => unsafe {
+                        cb(context, None, cond_conv.err().unwrap())
+                    },
+                    _ => {}
+                }
                 return;
             }
             query_stream = db.query_stream(

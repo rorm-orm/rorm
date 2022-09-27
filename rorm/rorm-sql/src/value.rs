@@ -28,11 +28,11 @@ pub enum Value<'a> {
     /// binary representation
     Binary(&'a [u8]),
     /// Naive Time representation
-    NaiveTime(&'a NaiveTime),
+    NaiveTime(NaiveTime),
     /// Naive Date representation
-    NaiveDate(&'a NaiveDate),
+    NaiveDate(NaiveDate),
     /// Naive DateTime representation
-    NaiveDateTime(&'a NaiveDateTime),
+    NaiveDateTime(NaiveDateTime),
 }
 
 macro_rules! impl_from_with_lft {
@@ -63,6 +63,9 @@ impl_from!(I16, i16);
 impl_from!(Bool, bool);
 impl_from!(F64, f64);
 impl_from!(F32, f32);
+impl_from!(NaiveDate, chrono::NaiveDate);
+impl_from!(NaiveTime, chrono::NaiveTime);
+impl_from!(NaiveDateTime, chrono::NaiveDateTime);
 
 impl<'a, T> From<&'a T> for Value<'static>
 where
