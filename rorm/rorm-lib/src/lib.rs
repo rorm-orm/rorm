@@ -15,90 +15,14 @@ use std::time::Duration;
 use futures::StreamExt;
 use rorm_db::row::Row;
 use rorm_db::value::Value;
-use rorm_db::{Database, DatabaseBackend, DatabaseConfiguration};
+use rorm_db::{Database, DatabaseConfiguration};
 use tokio::runtime::Runtime;
 
 use crate::errors::Error;
-use crate::representations::{Condition, FFIValue};
+use crate::representations::{Condition, DBConnectOptions, FFIValue};
 use crate::utils::{FFIOption, FFISlice, FFIString, RowList, Stream, VoidPtr};
 
 static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
-
-/**
-Representation of the database backend.
-
-This is used to determine the correct driver and the correct dialect to use.
-*/
-#[repr(i32)]
-pub enum DBBackend {
-    /// This exists to forbid default initializations with 0 on C side.
-    /// Using this type will result in an [crate::errors::Error::ConfigurationError]
-    Invalid,
-    /// SQLite backend
-    SQLite,
-    /// MySQL / MariaDB backend
-    MySQL,
-    /// Postgres backend
-    Postgres,
-}
-
-impl From<DBBackend> for Result<DatabaseBackend, Error<'_>> {
-    fn from(value: DBBackend) -> Self {
-        match value {
-            DBBackend::Invalid => Err(Error::ConfigurationError(FFIString::from(
-                "Invalid database backend selected",
-            ))),
-            DBBackend::SQLite => Ok(DatabaseBackend::SQLite),
-            DBBackend::Postgres => Ok(DatabaseBackend::Postgres),
-            DBBackend::MySQL => Ok(DatabaseBackend::MySQL),
-        }
-    }
-}
-
-/**
-Configuration operation to connect to a database.
-
-Will be converted into [rorm_db::DatabaseConfiguration].
-
-`min_connections` and `max_connections` must not be 0.
-*/
-#[repr(C)]
-pub struct DBConnectOptions<'a> {
-    backend: DBBackend,
-    name: FFIString<'a>,
-    host: FFIString<'a>,
-    port: u16,
-    user: FFIString<'a>,
-    password: FFIString<'a>,
-    min_connections: u32,
-    max_connections: u32,
-}
-
-impl From<DBConnectOptions<'_>> for Result<DatabaseConfiguration, Error<'_>> {
-    fn from(config: DBConnectOptions) -> Self {
-        let db_backend_res: Result<DatabaseBackend, Error> = config.backend.into();
-        if db_backend_res.is_err() {
-            return Err(db_backend_res.err().unwrap());
-        }
-        let db_backend: DatabaseBackend = db_backend_res.unwrap();
-        if config.min_connections == 0 || config.max_connections == 0 {
-            return Err(Error::ConfigurationError(FFIString::from(
-                "DBConnectOptions.min_connections and DBConnectOptions.max_connections must not be 0",
-            )));
-        }
-
-        Ok(DatabaseConfiguration {
-            backend: db_backend,
-            name: <&str>::try_from(config.name).unwrap().to_owned(),
-            host: <&str>::try_from(config.host).unwrap().to_owned(),
-            port: config.port,
-            user: <&str>::try_from(config.user).unwrap().to_owned(),
-            password: <&str>::try_from(config.password).unwrap().to_owned(),
-            min_connections: config.min_connections,
-            max_connections: config.max_connections,
-        })
-    }
-}
 
 // ----------------------
 // FFI Functions below here.
