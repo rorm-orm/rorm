@@ -1,3 +1,5 @@
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+
 /**
 This enum represents a value
  */
@@ -25,6 +27,12 @@ pub enum Value<'a> {
     F32(f32),
     /// binary representation
     Binary(&'a [u8]),
+    /// Naive Time representation
+    NaiveTime(&'a NaiveTime),
+    /// Naive Date representation
+    NaiveDate(&'a NaiveDate),
+    /// Naive DateTime representation
+    NaiveDateTime(&'a NaiveDateTime),
 }
 
 macro_rules! impl_from_with_lft {

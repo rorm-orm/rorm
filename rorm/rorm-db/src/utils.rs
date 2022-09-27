@@ -23,10 +23,14 @@ where
         value::Value::Bool(x) => query.bind(x),
         value::Value::F32(x) => query.bind(x),
         value::Value::F64(x) => query.bind(x),
+        value::Value::Binary(x) => query.bind(x),
+        value::Value::NaiveDate(x) => query.bind(x),
+        value::Value::NaiveTime(x) => query.bind(x),
+        value::Value::NaiveDateTime(x) => query.bind(x),
         value::Value::Null => {
             static NULL: Option<bool> = None;
             query.bind(NULL)
         }
-        _ => query,
+        value::Value::Ident(_) => query,
     }
 }

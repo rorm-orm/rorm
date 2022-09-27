@@ -12,6 +12,9 @@ license = "MIT"
 description = "The sql abstraction layer."
 
 [dependencies]
+# Date & time library
+chrono = { version = "^0.4" }
+
 # Error library to simplify the std::error::Error trait
 thiserror = { version = "^1.0" }
 
