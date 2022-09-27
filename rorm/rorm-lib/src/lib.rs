@@ -104,6 +104,9 @@ impl From<DBConnectOptions<'_>> for Result<DatabaseConfiguration, Error<'_>> {
 // FFI Functions below here.
 // ----------------------
 
+// --------
+// RUNTIME
+// --------
 /**
 This function is used to initialize and start the async runtime.
 
@@ -183,6 +186,10 @@ pub extern "C" fn rorm_runtime_shutdown(
     };
 }
 
+// --------
+// DATABASE
+// --------
+
 /**
 Connect to the database using the provided [DBConnectOptions].
 
@@ -252,261 +259,9 @@ This function is called completely synchronously.
 #[no_mangle]
 pub extern "C" fn rorm_db_free(_: Box<Database>) {}
 
-/**
-This function deletes rows from the database based on the given conditions.
-
-**Parameter**:
-- `db`: Reference to the Database, provided by [rorm_db_connect].
-- `model`: Name of the table to query.
-- `condition`: Pointer to a [Condition].
-- `limit`: Optional limit of deletions that should be executed.
-- `callback`: callback function. Takes the `context`, a pointer to a vec of rows and an [Error].
-- `context`: Pass through void pointer.
-
-**Important**:
-- Make sure that `db`, `model` and `condition` are
-allocated until the callback is executed.
-
-This function is called from an asynchronous context.
-*/
-#[no_mangle]
-pub extern "C" fn rorm_db_delete(
-    db: &'static Database,
-    model: FFIString<'static>,
-    condition: Option<&'static Condition>,
-    limit: FFIOption<u64>,
-    callback: Option<unsafe extern "C" fn(VoidPtr, Error) -> ()>,
-    context: VoidPtr,
-) {
-    let cb = callback.expect("Callback must not be null");
-
-    let model_conv = model.try_into();
-    if model_conv.is_err() {
-        unsafe { cb(context, Error::InvalidStringError) };
-        return;
-    }
-
-    let cond;
-    if condition.is_none() {
-        cond = None;
-    } else {
-        let cond_conv = condition.unwrap().try_into();
-        if cond_conv.is_err() {
-            unsafe { cb(context, Error::InvalidStringError) };
-            return;
-        }
-        cond = Some(cond_conv.unwrap());
-    }
-
-    let limit_conv = limit.into();
-
-    let fut = async move {
-        match cond {
-            None => match db.delete(model_conv.unwrap(), None, limit_conv).await {
-                Ok(_) => unsafe { cb(context, Error::NoError) },
-                Err(err) => {
-                    let ffi_err = err.to_string();
-                    unsafe { cb(context, Error::DatabaseError(ffi_err.as_str().into())) };
-                }
-            },
-            Some(v) => match db.delete(model_conv.unwrap(), Some(&v), limit_conv).await {
-                Ok(_) => unsafe { cb(context, Error::NoError) },
-                Err(err) => {
-                    let ffi_err = err.to_string();
-                    unsafe { cb(context, Error::DatabaseError(ffi_err.as_str().into())) };
-                }
-            },
-        }
-    };
-
-    let f = |err: String| {
-        unsafe { cb(context, Error::RuntimeError(err.as_str().into())) };
-    };
-    spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
-}
-
-/**
-Frees the RowList given as parameter.
-
-This function panics if the pointer to the RowList is invalid.
-
-**Important**:
-Do not call this function more than once!
-
-This function is called completely synchronously.
-*/
-#[no_mangle]
-pub extern "C" fn rorm_row_list_free(_: Box<RowList>) {}
-
-/**
-This function inserts a row into the database.
-
-**Parameter**:
-- `db`: Reference to the Database, provided by [rorm_db_connect].
-- `model`: Name of the table to query.
-- `columns`: Array of columns to insert to the table.
-- `row`: List of values to insert. Must be of the same length as `columns`.
-- `callback`: callback function. Takes the `context` and an [Error].
-- `context`: Pass through void pointer.
-
-**Important**:
-- Make sure that `db`, `model`, `columns` and `row` are allocated until the callback is executed.
-
-This function is called from an asynchronous context.
-*/
-#[no_mangle]
-pub extern "C" fn rorm_db_insert(
-    db: &'static Database,
-    model: FFIString<'static>,
-    columns: FFISlice<'static, FFIString<'static>>,
-    row: FFISlice<'static, FFIValue<'static>>,
-    callback: Option<unsafe extern "C" fn(VoidPtr, Error) -> ()>,
-    context: VoidPtr,
-) {
-    let cb = callback.expect("Callback must not be empty");
-
-    let model_conv = model.try_into();
-    if model_conv.is_err() {
-        unsafe { cb(context, Error::InvalidStringError) };
-        return;
-    }
-    let model = model_conv.unwrap();
-
-    let mut column_vec = vec![];
-    {
-        let column_slice: &[FFIString] = columns.into();
-        for &x in column_slice {
-            let x_conv = x.try_into();
-            if x_conv.is_err() {
-                unsafe { cb(context, Error::InvalidStringError) };
-                return;
-            }
-            column_vec.push(x_conv.unwrap());
-        }
-    }
-
-    let mut value_vec = vec![];
-    {
-        let value_slice: &[FFIValue] = row.into();
-        for x in value_slice {
-            let x_conv = x.try_into();
-            if x_conv.is_err() {
-                unsafe { cb(context, Error::InvalidStringError) };
-                return;
-            }
-            value_vec.push(x_conv.unwrap());
-        }
-    }
-
-    let fut = async move {
-        match db
-            .insert(model, column_vec.as_slice(), value_vec.as_slice())
-            .await
-        {
-            Err(err) => unsafe {
-                cb(
-                    context,
-                    Error::DatabaseError(err.to_string().as_str().into()),
-                )
-            },
-            Ok(_) => unsafe { cb(context, Error::NoError) },
-        };
-    };
-
-    let f = |err: String| {
-        unsafe { cb(context, Error::RuntimeError(err.as_str().into())) };
-    };
-    spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
-}
-
-/**
-This function inserts multiple rows into the database.
-
-**Parameter**:
-- `db`: Reference to the Database, provided by [rorm_db_connect].
-- `model`: Name of the table to query.
-- `columns`: Array of columns to insert to the table.
-- `rows`: List of list of values to insert. The inner lists must be of the same length as `columns`.
-- `callback`: callback function. Takes the `context` and an [Error].
-- `context`: Pass through void pointer.
-
-**Important**:
-- Make sure that `db`, `model`, `columns` and `rows` are allocated until the callback is executed.
-
-This function is called from an asynchronous context.
-*/
-#[no_mangle]
-pub extern "C" fn rorm_db_insert_bulk(
-    db: &'static Database,
-    model: FFIString<'static>,
-    columns: FFISlice<'static, FFIString<'static>>,
-    rows: FFISlice<'static, FFISlice<'static, FFIValue<'static>>>,
-    callback: Option<unsafe extern "C" fn(VoidPtr, Error) -> ()>,
-    context: VoidPtr,
-) {
-    let cb = callback.expect("Callback must not be empty");
-
-    let model_conv = model.try_into();
-    if model_conv.is_err() {
-        unsafe { cb(context, Error::InvalidStringError) };
-        return;
-    }
-    let model = model_conv.unwrap();
-
-    let mut column_vec = vec![];
-    {
-        let column_slice: &[FFIString] = columns.into();
-        for &x in column_slice {
-            let x_conv = x.try_into();
-            if x_conv.is_err() {
-                unsafe { cb(context, Error::InvalidStringError) };
-                return;
-            }
-            column_vec.push(x_conv.unwrap());
-        }
-    }
-
-    let mut rows_vec = vec![];
-    {
-        let row_slices: &[FFISlice<FFIValue>] = rows.into();
-        for row in row_slices {
-            let mut row_vec = vec![];
-            let row_slice: &[FFIValue] = row.into();
-            for x in row_slice {
-                let val = x.try_into();
-                if val.is_err() {
-                    unsafe { cb(context, Error::InvalidStringError) };
-                    return;
-                }
-                row_vec.push(val.unwrap());
-            }
-            rows_vec.push(row_vec);
-        }
-    }
-
-    let fut = async move {
-        match db
-            .insert_bulk(
-                model,
-                column_vec.as_slice(),
-                rows_vec
-                    .iter()
-                    .map(|x| x.as_slice())
-                    .collect::<Vec<&[Value]>>()
-                    .as_slice(),
-            )
-            .await
-        {
-            Ok(_) => {}
-            Err(_) => {}
-        }
-    };
-
-    let f = |err: String| {
-        unsafe { cb(context, Error::RuntimeError(err.as_str().into())) };
-    };
-    spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
-}
+// --------
+// QUERY
+// --------
 
 /**
 This function queries the database given the provided parameter and returns one matched row.
@@ -524,7 +279,7 @@ This function queries the database given the provided parameter and returns one 
 allocated until the callback is executed.
 
 This function is called from an asynchronous context.
-*/
+ */
 #[no_mangle]
 pub extern "C" fn rorm_db_query_one(
     db: &'static Database,
@@ -763,7 +518,7 @@ This function panics if the pointer to the stream is invalid.
 Do not call this function more than once!
 
 This function is called completely synchronously.
-*/
+ */
 #[no_mangle]
 pub extern "C" fn rorm_stream_free(_: Box<Stream>) {}
 
@@ -784,7 +539,7 @@ returned a [Error::NoRowsLeftInStream].
 - Do not use pass the stream to another function unless the callback of the current call is finished
 
 This function is called from an asynchronous context.
-*/
+ */
 #[no_mangle]
 pub extern "C" fn rorm_stream_get_row(
     stream_ptr: &'static mut Stream,
@@ -816,6 +571,95 @@ pub extern "C" fn rorm_stream_get_row(
     spawn_fut!(fut, cb(context, None, Error::MissingRuntimeError), f);
 }
 
+// --------
+// DELETE
+// --------
+/**
+This function deletes rows from the database based on the given conditions.
+
+**Parameter**:
+- `db`: Reference to the Database, provided by [rorm_db_connect].
+- `model`: Name of the table to query.
+- `condition`: Pointer to a [Condition].
+- `limit`: Optional limit of deletions that should be executed.
+- `callback`: callback function. Takes the `context`, a pointer to a vec of rows and an [Error].
+- `context`: Pass through void pointer.
+
+**Important**:
+- Make sure that `db`, `model` and `condition` are
+allocated until the callback is executed.
+
+This function is called from an asynchronous context.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_db_delete(
+    db: &'static Database,
+    model: FFIString<'static>,
+    condition: Option<&'static Condition>,
+    limit: FFIOption<u64>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, Error) -> ()>,
+    context: VoidPtr,
+) {
+    let cb = callback.expect("Callback must not be null");
+
+    let model_conv = model.try_into();
+    if model_conv.is_err() {
+        unsafe { cb(context, Error::InvalidStringError) };
+        return;
+    }
+
+    let cond;
+    if condition.is_none() {
+        cond = None;
+    } else {
+        let cond_conv = condition.unwrap().try_into();
+        if cond_conv.is_err() {
+            unsafe { cb(context, Error::InvalidStringError) };
+            return;
+        }
+        cond = Some(cond_conv.unwrap());
+    }
+
+    let limit_conv = limit.into();
+
+    let fut = async move {
+        match cond {
+            None => match db.delete(model_conv.unwrap(), None, limit_conv).await {
+                Ok(_) => unsafe { cb(context, Error::NoError) },
+                Err(err) => {
+                    let ffi_err = err.to_string();
+                    unsafe { cb(context, Error::DatabaseError(ffi_err.as_str().into())) };
+                }
+            },
+            Some(v) => match db.delete(model_conv.unwrap(), Some(&v), limit_conv).await {
+                Ok(_) => unsafe { cb(context, Error::NoError) },
+                Err(err) => {
+                    let ffi_err = err.to_string();
+                    unsafe { cb(context, Error::DatabaseError(ffi_err.as_str().into())) };
+                }
+            },
+        }
+    };
+
+    let f = |err: String| {
+        unsafe { cb(context, Error::RuntimeError(err.as_str().into())) };
+    };
+    spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
+}
+
+/**
+Frees the RowList given as parameter.
+
+This function panics if the pointer to the RowList is invalid.
+
+**Important**:
+Do not call this function more than once!
+
+This function is called completely synchronously.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_row_list_free(_: Box<RowList>) {}
+
 /**
 Frees the row given as parameter.
 
@@ -825,9 +669,187 @@ The function panics if the provided pointer is invalid.
 Do not call this function on the same pointer more than once!
 
 This function is called completely synchronously.
-*/
+ */
 #[no_mangle]
 pub extern "C" fn rorm_row_free(_: Box<Row>) {}
+
+// --------
+// INSERT
+// --------
+
+/**
+This function inserts a row into the database.
+
+**Parameter**:
+- `db`: Reference to the Database, provided by [rorm_db_connect].
+- `model`: Name of the table to query.
+- `columns`: Array of columns to insert to the table.
+- `row`: List of values to insert. Must be of the same length as `columns`.
+- `callback`: callback function. Takes the `context` and an [Error].
+- `context`: Pass through void pointer.
+
+**Important**:
+- Make sure that `db`, `model`, `columns` and `row` are allocated until the callback is executed.
+
+This function is called from an asynchronous context.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_db_insert(
+    db: &'static Database,
+    model: FFIString<'static>,
+    columns: FFISlice<'static, FFIString<'static>>,
+    row: FFISlice<'static, FFIValue<'static>>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, Error) -> ()>,
+    context: VoidPtr,
+) {
+    let cb = callback.expect("Callback must not be empty");
+
+    let model_conv = model.try_into();
+    if model_conv.is_err() {
+        unsafe { cb(context, Error::InvalidStringError) };
+        return;
+    }
+    let model = model_conv.unwrap();
+
+    let mut column_vec = vec![];
+    {
+        let column_slice: &[FFIString] = columns.into();
+        for &x in column_slice {
+            let x_conv = x.try_into();
+            if x_conv.is_err() {
+                unsafe { cb(context, Error::InvalidStringError) };
+                return;
+            }
+            column_vec.push(x_conv.unwrap());
+        }
+    }
+
+    let mut value_vec = vec![];
+    {
+        let value_slice: &[FFIValue] = row.into();
+        for x in value_slice {
+            let x_conv = x.try_into();
+            if x_conv.is_err() {
+                unsafe { cb(context, Error::InvalidStringError) };
+                return;
+            }
+            value_vec.push(x_conv.unwrap());
+        }
+    }
+
+    let fut = async move {
+        match db
+            .insert(model, column_vec.as_slice(), value_vec.as_slice())
+            .await
+        {
+            Err(err) => unsafe {
+                cb(
+                    context,
+                    Error::DatabaseError(err.to_string().as_str().into()),
+                )
+            },
+            Ok(_) => unsafe { cb(context, Error::NoError) },
+        };
+    };
+
+    let f = |err: String| {
+        unsafe { cb(context, Error::RuntimeError(err.as_str().into())) };
+    };
+    spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
+}
+
+/**
+This function inserts multiple rows into the database.
+
+**Parameter**:
+- `db`: Reference to the Database, provided by [rorm_db_connect].
+- `model`: Name of the table to query.
+- `columns`: Array of columns to insert to the table.
+- `rows`: List of list of values to insert. The inner lists must be of the same length as `columns`.
+- `callback`: callback function. Takes the `context` and an [Error].
+- `context`: Pass through void pointer.
+
+**Important**:
+- Make sure that `db`, `model`, `columns` and `rows` are allocated until the callback is executed.
+
+This function is called from an asynchronous context.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_db_insert_bulk(
+    db: &'static Database,
+    model: FFIString<'static>,
+    columns: FFISlice<'static, FFIString<'static>>,
+    rows: FFISlice<'static, FFISlice<'static, FFIValue<'static>>>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, Error) -> ()>,
+    context: VoidPtr,
+) {
+    let cb = callback.expect("Callback must not be empty");
+
+    let model_conv = model.try_into();
+    if model_conv.is_err() {
+        unsafe { cb(context, Error::InvalidStringError) };
+        return;
+    }
+    let model = model_conv.unwrap();
+
+    let mut column_vec = vec![];
+    {
+        let column_slice: &[FFIString] = columns.into();
+        for &x in column_slice {
+            let x_conv = x.try_into();
+            if x_conv.is_err() {
+                unsafe { cb(context, Error::InvalidStringError) };
+                return;
+            }
+            column_vec.push(x_conv.unwrap());
+        }
+    }
+
+    let mut rows_vec = vec![];
+    {
+        let row_slices: &[FFISlice<FFIValue>] = rows.into();
+        for row in row_slices {
+            let mut row_vec = vec![];
+            let row_slice: &[FFIValue] = row.into();
+            for x in row_slice {
+                let val = x.try_into();
+                if val.is_err() {
+                    unsafe { cb(context, Error::InvalidStringError) };
+                    return;
+                }
+                row_vec.push(val.unwrap());
+            }
+            rows_vec.push(row_vec);
+        }
+    }
+
+    let fut = async move {
+        match db
+            .insert_bulk(
+                model,
+                column_vec.as_slice(),
+                rows_vec
+                    .iter()
+                    .map(|x| x.as_slice())
+                    .collect::<Vec<&[Value]>>()
+                    .as_slice(),
+            )
+            .await
+        {
+            Ok(_) => {}
+            Err(_) => {}
+        }
+    };
+
+    let f = |err: String| {
+        unsafe { cb(context, Error::RuntimeError(err.as_str().into())) };
+    };
+    spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
+}
+
+// --------
+// ROW VALUE DECODING
+// --------
 
 /**
 Tries to retrieve a bool from the given row pointer.
