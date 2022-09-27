@@ -804,8 +804,11 @@ pub extern "C" fn rorm_db_insert_bulk(
             )
             .await
         {
-            Ok(_) => {}
-            Err(_) => {}
+            Ok(_) => unsafe { cb(context, Error::NoError) },
+            Err(err) => {
+                let ffi_str = err.to_string();
+                unsafe { cb(context, Error::DatabaseError(ffi_str.as_str().into())) };
+            }
         }
     };
 
