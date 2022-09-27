@@ -27,6 +27,9 @@ futures = { version = "^0.3" }
 # SQLX is only needed for error unwrapping
 sqlx = { version = "^0.6" }
 
+# Date and time library
+chrono = { version = "^0.4" }
+
 [features]
 default = [
     "rorm-db/tokio-rustls",

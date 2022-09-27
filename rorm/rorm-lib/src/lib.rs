@@ -20,7 +20,9 @@ use tokio::runtime::Runtime;
 
 use crate::errors::Error;
 use crate::representations::{Condition, DBConnectOptions, FFIValue};
-use crate::utils::{FFIOption, FFISlice, FFIString, RowList, Stream, VoidPtr};
+use crate::utils::{
+    FFIDate, FFIDateTime, FFIOption, FFISlice, FFIString, FFITime, RowList, Stream, VoidPtr,
+};
 
 static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
 
@@ -929,6 +931,96 @@ pub extern "C" fn rorm_row_get_str<'a, 'b>(
 }
 
 /**
+Tries to retrieve a FFIDate from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
+
+This function is called completely synchronously.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_row_get_date(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    error_ptr: &mut Error,
+) -> FFIDate {
+    get_data_from_row!(
+        chrono::NaiveDate,
+        FFIDate {
+            day: 0,
+            month: 0,
+            year: 0,
+        },
+        row_ptr,
+        index,
+        error_ptr
+    );
+}
+
+/**
+Tries to retrieve a FFITime from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
+
+This function is called completely synchronously.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_row_get_time(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    error_ptr: &mut Error,
+) -> FFITime {
+    get_data_from_row!(
+        chrono::NaiveTime,
+        FFITime {
+            hour: 0,
+            min: 0,
+            sec: 0,
+        },
+        row_ptr,
+        index,
+        error_ptr
+    )
+}
+
+/**
+Tries to retrieve a FFIDateTime from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
+
+This function is called completely synchronously.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_row_get_datetime(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    error_ptr: &mut Error,
+) -> FFIDateTime {
+    get_data_from_row!(
+        chrono::NaiveDateTime,
+        FFIDateTime {
+            year: 0,
+            month: 0,
+            day: 0,
+            hour: 0,
+            min: 0,
+            sec: 0,
+        },
+        row_ptr,
+        index,
+        error_ptr
+    )
+}
+
+/**
 Tries to retrieve a nullable bool from the given row pointer.
 
 **Parameter**:
@@ -1140,4 +1232,79 @@ pub extern "C" fn rorm_row_get_null_str<'a, 'b>(
             Ok(v) => FFIOption::Some(v),
         },
     };
+}
+
+/**
+Tries to retrieve a nullable FFIDate from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_null_date(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    error_ptr: &mut Error,
+) -> FFIOption<FFIDate> {
+    get_data_from_row!(
+        Option<chrono::NaiveDate>,
+        FFIOption::None,
+        row_ptr,
+        index,
+        error_ptr
+    );
+}
+
+/**
+Tries to retrieve a nullable FFITime from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_null_time(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    error_ptr: &mut Error,
+) -> FFIOption<FFITime> {
+    get_data_from_row!(
+        Option<chrono::NaiveTime>,
+        FFIOption::None,
+        row_ptr,
+        index,
+        error_ptr
+    );
+}
+
+/**
+Tries to retrieve a nullable FFIDate from the given row pointer.
+
+**Parameter**:
+- `row_ptr`: Pointer to a row.
+- `index`: Name of the column to retrieve from the row.
+- `error_ptr`: Pointer to an [Error]. Gets only written to if an error occurs.
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_row_get_null_datetime(
+    row_ptr: &Row,
+    index: FFIString<'_>,
+    error_ptr: &mut Error,
+) -> FFIOption<FFIDateTime> {
+    get_data_from_row!(
+        Option<chrono::NaiveDateTime>,
+        FFIOption::None,
+        row_ptr,
+        index,
+        error_ptr
+    );
 }

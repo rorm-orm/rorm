@@ -1,8 +1,78 @@
+use chrono::{Datelike, Timelike};
 use std::marker::PhantomData;
 use std::slice::from_raw_parts;
 use std::str::{from_utf8, Utf8Error};
 
 use futures::stream::BoxStream;
+
+/**
+Representation of a [chrono::NaiveDate]
+*/
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct FFIDate {
+    pub(crate) day: u32,
+    pub(crate) month: u32,
+    pub(crate) year: i32,
+}
+
+impl From<chrono::NaiveDate> for FFIDate {
+    fn from(value: chrono::NaiveDate) -> Self {
+        Self {
+            day: value.day(),
+            month: value.month(),
+            year: value.year(),
+        }
+    }
+}
+
+/**
+Representation of a [chrono::NaiveTime].
+*/
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct FFITime {
+    pub(crate) hour: u32,
+    pub(crate) min: u32,
+    pub(crate) sec: u32,
+}
+
+impl From<chrono::NaiveTime> for FFITime {
+    fn from(value: chrono::NaiveTime) -> Self {
+        Self {
+            hour: value.hour(),
+            min: value.minute(),
+            sec: value.second(),
+        }
+    }
+}
+
+/**
+Representation of a [chrono::DateTime].
+*/
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct FFIDateTime {
+    pub(crate) year: i32,
+    pub(crate) month: u32,
+    pub(crate) day: u32,
+    pub(crate) hour: u32,
+    pub(crate) min: u32,
+    pub(crate) sec: u32,
+}
+
+impl From<chrono::NaiveDateTime> for FFIDateTime {
+    fn from(value: chrono::NaiveDateTime) -> Self {
+        Self {
+            year: value.year(),
+            month: value.month(),
+            day: value.day(),
+            hour: value.hour(),
+            min: value.minute(),
+            sec: value.second(),
+        }
+    }
+}
 
 /**
 Representation of a string.
@@ -97,6 +167,23 @@ pub enum FFIOption<T> {
     /// Some value
     Some(T),
 }
+
+macro_rules! ffi_opt_impl {
+    ($from:ty, $to:ty) => {
+        impl From<Option<$from>> for FFIOption<$to> {
+            fn from(value: Option<$from>) -> Self {
+                match value {
+                    None => FFIOption::None,
+                    Some(v) => FFIOption::Some(v.into()),
+                }
+            }
+        }
+    };
+}
+
+ffi_opt_impl!(chrono::NaiveTime, FFITime);
+ffi_opt_impl!(chrono::NaiveDate, FFIDate);
+ffi_opt_impl!(chrono::NaiveDateTime, FFIDateTime);
 
 impl<T> From<Option<T>> for FFIOption<T> {
     fn from(option: Option<T>) -> Self {
