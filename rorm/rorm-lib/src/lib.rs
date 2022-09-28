@@ -535,6 +535,9 @@ This function deletes rows from the database based on the given conditions.
 - `callback`: callback function. Takes the `context`, a pointer to a vec of rows and an [Error].
 - `context`: Pass through void pointer.
 
+Returns the rows affected of the delete statement. Note that this also includes
+    relations, etc.
+
 **Important**:
 - Make sure that `db`, `model` and `condition` are
 allocated until the callback is executed.
@@ -547,14 +550,14 @@ pub extern "C" fn rorm_db_delete(
     model: FFIString<'static>,
     condition: Option<&'static Condition>,
     limit: FFIOption<u64>,
-    callback: Option<unsafe extern "C" fn(VoidPtr, Error) -> ()>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, u64, Error) -> ()>,
     context: VoidPtr,
 ) {
     let cb = callback.expect("Callback must not be null");
 
     let model_conv = model.try_into();
     if model_conv.is_err() {
-        unsafe { cb(context, Error::InvalidStringError) };
+        unsafe { cb(context, u64::MAX, Error::InvalidStringError) };
         return;
     }
 
@@ -568,7 +571,9 @@ pub extern "C" fn rorm_db_delete(
                 Error::InvalidStringError
                 | Error::InvalidDateError
                 | Error::InvalidTimeError
-                | Error::InvalidDateTimeError => unsafe { cb(context, cond_conv.err().unwrap()) },
+                | Error::InvalidDateTimeError => unsafe {
+                    cb(context, u64::MAX, cond_conv.err().unwrap())
+                },
                 _ => {}
             }
             return;
@@ -581,26 +586,38 @@ pub extern "C" fn rorm_db_delete(
     let fut = async move {
         match cond {
             None => match db.delete(model_conv.unwrap(), None, limit_conv).await {
-                Ok(_) => unsafe { cb(context, Error::NoError) },
+                Ok(rows_affected) => unsafe { cb(context, rows_affected, Error::NoError) },
                 Err(err) => {
                     let ffi_err = err.to_string();
-                    unsafe { cb(context, Error::DatabaseError(ffi_err.as_str().into())) };
+                    unsafe {
+                        cb(
+                            context,
+                            u64::MAX,
+                            Error::DatabaseError(ffi_err.as_str().into()),
+                        )
+                    };
                 }
             },
             Some(v) => match db.delete(model_conv.unwrap(), Some(&v), limit_conv).await {
-                Ok(_) => unsafe { cb(context, Error::NoError) },
+                Ok(rows_affected) => unsafe { cb(context, rows_affected, Error::NoError) },
                 Err(err) => {
                     let ffi_err = err.to_string();
-                    unsafe { cb(context, Error::DatabaseError(ffi_err.as_str().into())) };
+                    unsafe {
+                        cb(
+                            context,
+                            u64::MAX,
+                            Error::DatabaseError(ffi_err.as_str().into()),
+                        )
+                    };
                 }
             },
         }
     };
 
     let f = |err: String| {
-        unsafe { cb(context, Error::RuntimeError(err.as_str().into())) };
+        unsafe { cb(context, u64::MAX, Error::RuntimeError(err.as_str().into())) };
     };
-    spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
+    spawn_fut!(fut, cb(context, u64::MAX, Error::MissingRuntimeError), f);
 }
 
 /**
