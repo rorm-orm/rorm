@@ -480,15 +480,15 @@ unittest
 	// field[0] gets added by dorm.model.Model
 	assert(m.fields[0].columnName == "id");
 	assert(m.fields[0].type == ModelFormat.Field.DBType.int64);
-	assert(m.fields[0].annotations == [DBAnnotation(AnnotationFlag.autoIncrement), DBAnnotation(AnnotationFlag.primaryKey), DBAnnotation(AnnotationFlag.notNull)]);
+	assert(m.fields[0].annotations == [DBAnnotation(AnnotationFlag.notNull), DBAnnotation(AnnotationFlag.primaryKey), DBAnnotation(AnnotationFlag.autoIncrement)]);
 
 	assert(m.fields[1].columnName == "username");
 	assert(m.fields[1].type == ModelFormat.Field.DBType.varchar);
-	assert(m.fields[1].annotations == [DBAnnotation(maxLength(255)), DBAnnotation(AnnotationFlag.notNull)]);
+	assert(m.fields[1].annotations == [DBAnnotation(AnnotationFlag.notNull), DBAnnotation(maxLength(255))]);
 
 	assert(m.fields[2].columnName == "password");
 	assert(m.fields[2].type == ModelFormat.Field.DBType.varchar);
-	assert(m.fields[2].annotations == [DBAnnotation(maxLength(255)), DBAnnotation(AnnotationFlag.notNull)]);
+	assert(m.fields[2].annotations == [DBAnnotation(AnnotationFlag.notNull), DBAnnotation(maxLength(255))]);
 
 	assert(m.fields[3].columnName == "email");
 	assert(m.fields[3].type == ModelFormat.Field.DBType.varchar);
@@ -505,8 +505,8 @@ unittest
 	assert(m.fields[6].columnName == "created_at");
 	assert(m.fields[6].type == ModelFormat.Field.DBType.timestamp);
 	assert(m.fields[6].annotations == [
+			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.autoCreateTime),
-			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[7].columnName == "updated_at");
@@ -518,8 +518,8 @@ unittest
 	assert(m.fields[8].columnName == "created_at_2");
 	assert(m.fields[8].type == ModelFormat.Field.DBType.timestamp);
 	assert(m.fields[8].annotations == [
+			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.autoCreateTime),
-			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[9].columnName == "updated_at_2");
@@ -531,15 +531,15 @@ unittest
 	assert(m.fields[10].columnName == "state");
 	assert(m.fields[10].type == ModelFormat.Field.DBType.choices);
 	assert(m.fields[10].annotations == [
+			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(Choices(["ok", "warn", "critical", "unknown"])),
-			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[11].columnName == "state_2");
 	assert(m.fields[11].type == ModelFormat.Field.DBType.choices);
 	assert(m.fields[11].annotations == [
+			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(Choices(["ok", "warn", "critical", "unknown"])),
-			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[12].columnName == "admin");
@@ -557,23 +557,23 @@ unittest
 	assert(m.fields[14].columnName == "comment");
 	assert(m.fields[14].type == ModelFormat.Field.DBType.varchar);
 	assert(m.fields[14].annotations == [
+			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(maxLength(255)),
 			DBAnnotation(defaultValue("")),
-			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[15].columnName == "counter");
 	assert(m.fields[15].type == ModelFormat.Field.DBType.int32);
 	assert(m.fields[15].annotations == [
+			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(defaultValue(1337)),
-			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[16].columnName == "own_primary_key");
 	assert(m.fields[16].type == ModelFormat.Field.DBType.int64);
 	assert(m.fields[16].annotations == [
+			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.primaryKey),
-			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[17].columnName == "creation_time");
@@ -583,8 +583,8 @@ unittest
 	assert(m.fields[18].columnName == "uuid");
 	assert(m.fields[18].type == ModelFormat.Field.DBType.int32);
 	assert(m.fields[18].annotations == [
+			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.unique),
-			DBAnnotation(AnnotationFlag.notNull)
 		]);
 
 	assert(m.fields[19].columnName == "some_int");

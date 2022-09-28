@@ -1,2 +1,2 @@
 /testapp
-foo.sqlite
+*.sqlite3

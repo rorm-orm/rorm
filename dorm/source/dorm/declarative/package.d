@@ -382,10 +382,10 @@ unittest
 					"Type": "varchar",
 					"Annotations": [
 						{
-							"Type": "primary_key"
+							"Type": "not_null"
 						},
 						{
-							"Type": "not_null"
+							"Type": "primary_key"
 						},
 						{
 							"Type": "index"
