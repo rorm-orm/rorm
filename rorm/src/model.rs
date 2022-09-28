@@ -139,10 +139,25 @@ impl<E: DbEnum> AsDbType for E {
 /// Implemented by [`derive(Patch)`] as well as [`derive(Model)`].
 pub trait Patch {
     /// The model this patch is for
-    type MODEL;
+    type Model: Model;
 
     /// List of columns i.e. fields this patch contains
     const COLUMNS: &'static [&'static str];
+}
+
+/// Conversion into an [`Iterator`] with `Item=`[`Value`].
+///
+/// Implemented by [`derive(Patch)`] as well as [`derive(Model)`].
+///
+/// Logically this should be a method of [`Patch`],
+/// but since rust doesn't support generic lifetimes on associated types,
+/// it is cleaner to use a separate trait.
+pub trait IntoColumnIterator<'a> {
+    /// Patch specific iterator
+    type Iterator: Iterator<Item = Value<'a>>;
+
+    /// Creates an iterator over a patch's columns from a reference
+    fn into_column_iter(self) -> Self::Iterator;
 }
 
 /// Trait implementing most database interactions for a struct.

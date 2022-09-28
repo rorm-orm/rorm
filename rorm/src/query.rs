@@ -39,13 +39,13 @@ impl<'a, M: Model> QueryBuilder<'a, M, ()> {
     /// Start building a query which selects every column
     pub fn select_model(db: &'a Database) -> Self
     where
-        M: Patch<MODEL = M>,
+        M: Patch<Model = M>,
     {
         Self::select_patch::<M>(db)
     }
 
     /// Start building a query which selects a patch's columns
-    pub fn select_patch<P: Patch<MODEL = M>>(db: &'a Database) -> Self {
+    pub fn select_patch<P: Patch<Model = M>>(db: &'a Database) -> Self {
         Self::select_columns(db, P::COLUMNS)
     }
 }

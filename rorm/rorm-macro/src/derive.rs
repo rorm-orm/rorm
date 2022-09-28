@@ -141,6 +141,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
         &fields_ident,
         &fields_value_type,
     );
+    let impl_into_column_iter = into_column_iterator(&strct_ident, &fields_ident);
     TokenStream::from(quote! {
         pub struct #fields_strct {
             #(pub #fields_ident: #fields_struct_type),*
@@ -170,7 +171,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
         }
 
         impl ::rorm::model::Patch for #strct_ident {
-            type MODEL = #strct_ident;
+            type Model = #strct_ident;
 
             const COLUMNS: &'static [&'static str] = &[#(
                 #field_literals,
@@ -178,6 +179,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
         }
 
         #impl_from_row
+        #impl_into_column_iter
 
         #[allow(non_snake_case)]
         #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
@@ -254,6 +256,7 @@ pub fn patch(strct: TokenStream) -> TokenStream {
     );
     let patch_ident = strct.ident.clone();
     let impl_from_row = from_row(&patch_ident, &model_path, &field_idents, &field_types);
+    let impl_into_column_iter = into_column_iterator(&patch_ident, &field_idents);
     TokenStream::from(quote! {
         #[allow(non_snake_case)]
         fn #compile_check(model: #model_path) {
@@ -270,7 +273,7 @@ pub fn patch(strct: TokenStream) -> TokenStream {
         }
 
         impl ::rorm::model::Patch for #patch_ident {
-            type MODEL = #model_path;
+            type Model = #model_path;
 
             const COLUMNS: &'static [&'static str] = &[#(
                 #field_literals,
@@ -278,6 +281,7 @@ pub fn patch(strct: TokenStream) -> TokenStream {
         }
 
         #impl_from_row
+        #impl_into_column_iter
 
         #errors
     })
@@ -301,6 +305,44 @@ fn from_row(
                         ),
                     )*
                 })
+            }
+        }
+    }
+}
+
+fn into_column_iterator(patch: &Ident, columns: &[Ident]) -> TokenStream {
+    let iter_ident = quote::format_ident!("__{}Iterator", patch);
+    let index = columns
+        .iter()
+        .enumerate()
+        .map(|(index, column)| syn::LitInt::new(&index.to_string(), column.span()));
+    quote! {
+        impl<'a> ::rorm::model::IntoColumnIterator<'a> for &'a #patch {
+            type Iterator = #iter_ident<'a>;
+
+            fn into_column_iter(self) -> Self::Iterator {
+                #iter_ident {
+                    next: 0,
+                    patch: self,
+                }
+            }
+        }
+        pub struct #iter_ident<'a> {
+            next: usize,
+            patch: &'a #patch,
+        }
+        impl<'a> Iterator for #iter_ident<'a> {
+            type Item = ::rorm::value::Value<'a>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                use ::rorm::model::AsDbType;
+                self.next += 1;
+                match self.next - 1 {
+                    #(
+                        #index => Some(self.patch.#columns.as_primitive()),
+                    )*
+                    _ => None,
+                }
             }
         }
     }
