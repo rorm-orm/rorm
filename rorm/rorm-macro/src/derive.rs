@@ -103,30 +103,43 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let model_name = syn::LitStr::new(&model_name, strct.ident.span());
     let model_source = get_source(&strct);
 
-    macro_rules! unpack_field {
-        ($($field:ident, $vector:ident),*) => {
-            $(
-                let mut $vector = Vec::new();
-            )*
-            for field in strct.fields.iter() {
-                if let Some(ParsedField {$($field),*}) = parse_field(field, &errors) {
-                    $(
-                        $vector.push($field);
-                    )*
-                }
+    let mut primary_field: Option<Ident> = None;
+    let mut fields_ident = Vec::new();
+    let mut fields_value_type = Vec::new();
+    let mut fields_struct_type = Vec::new();
+    let mut fields_construction = Vec::new();
+    for field in strct.fields.iter() {
+        if let Some(ParsedField {
+            is_primary,
+            ident,
+            value_type,
+            struct_type,
+            construction,
+        }) = parse_field(field, &errors)
+        {
+            match (is_primary, primary_field.as_ref()) {
+                (true, None) => primary_field = Some(ident.clone()),
+                (true, Some(_)) => errors.push_new(
+                    field.ident.span(),
+                    "Another primary key column has already been defined.",
+                ),
+                _ => {}
             }
-        };
+            fields_ident.push(ident);
+            fields_value_type.push(value_type);
+            fields_struct_type.push(struct_type);
+            fields_construction.push(construction);
+        }
     }
-    unpack_field!(
-        ident,
-        fields_ident,
-        value_type,
-        fields_value_type,
-        struct_type,
-        fields_struct_type,
-        constructor_expression,
-        fields_constr_expr
-    );
+    let _primary_field = if let Some(primary_field) = primary_field {
+        primary_field
+    } else {
+        errors.push_new(
+            span,
+            "Missing primary key. Please annotate a field with ether `#[rorm(id)]` or `#[rorm(primary_key)]`",
+        );
+        return errors.into_token_stream();
+    };
 
     // Static reference pointing to Model::get_imr
     let static_get_imr = Ident::new(&format!("__{}_get_imr", strct.ident), span);
@@ -151,7 +164,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
             type Fields = #fields_strct;
             const FIELDS: Self::Fields = #fields_strct {
                 #(
-                    #fields_ident: #fields_constr_expr,
+                    #fields_ident: #fields_construction,
                 )*
             };
 
@@ -349,10 +362,11 @@ fn into_column_iterator(patch: &Ident, columns: &[Ident]) -> TokenStream {
 }
 
 struct ParsedField {
+    is_primary: bool,
     ident: Ident,
     value_type: syn::Type,
     struct_type: TokenStream,
-    constructor_expression: TokenStream,
+    construction: TokenStream,
 }
 fn parse_field(field: &syn::Field, errors: &Errors) -> Option<ParsedField> {
     let ident = if let Some(ident) = field.ident.as_ref() {
@@ -362,6 +376,7 @@ fn parse_field(field: &syn::Field, errors: &Errors) -> Option<ParsedField> {
         return None;
     };
 
+    let mut is_primary = false;
     let mut annotations = Vec::new();
     let mut has_choices = false;
     for meta in iter_rorm_attributes(&field.attrs, &errors) {
@@ -394,7 +409,7 @@ fn parse_field(field: &syn::Field, errors: &Errors) -> Option<ParsedField> {
         match_ident!(ident,
             "auto_create_time" => parse_anno!("auto_create_time", "AutoCreateTime"),
             "auto_update_time" => parse_anno!("auto_update_time", "AutoUpdateTime"),
-            "primary_key" => parse_anno!("primary_key", "PrimaryKey"),
+            "primary_key" => {parse_anno!("primary_key", "PrimaryKey"); is_primary = true;},
             "unique" => parse_anno!("unique", "Unique"),
             "autoincrement" => parse_anno!("autoincrement", "AutoIncrement"),
             "id" => {
@@ -405,6 +420,7 @@ fn parse_field(field: &syn::Field, errors: &Errors) -> Option<ParsedField> {
                     annotations.push(quote! {
                         ::rorm::model::Annotation::AutoIncrement
                     });
+                    is_primary = true;
                 } else {
                     errors.push_new(
                         meta.span(),
@@ -433,10 +449,11 @@ fn parse_field(field: &syn::Field, errors: &Errors) -> Option<ParsedField> {
     let source = get_source(&field);
 
     Some(ParsedField {
+        is_primary,
         struct_type: TokenStream::from(quote! {
             ::rorm::model::Field<#value_type, #db_type>
         }),
-        constructor_expression: TokenStream::from(quote! {
+        construction: TokenStream::from(quote! {
             ::rorm::model::Field {
                 name: #db_name,
                 annotations: &[
