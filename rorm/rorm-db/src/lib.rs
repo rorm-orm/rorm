@@ -376,13 +376,16 @@ impl Database {
     **Parameter**:
     - `model`: Name of the model to delete rows from
     - `condition`: Optional condition to apply.
+
+    **Returns** the rows affected of the delete statement. Note that this also includes
+    relations, etc.
     */
     pub async fn delete<'post_build>(
         &self,
         model: &str,
         condition: Option<&conditional::Condition<'post_build>>,
         limit: Option<u64>,
-    ) -> Result<(), Error> {
+    ) -> Result<u64, Error> {
         let mut q = self.db_impl.delete(model);
         if condition.is_some() {
             q = q.where_clause(condition.unwrap());
@@ -400,7 +403,7 @@ impl Database {
         }
 
         match tmp.execute(&self.pool).await {
-            Ok(_) => Ok(()),
+            Ok(qr) => Ok(qr.rows_affected()),
             Err(err) => Err(Error::SqlxError(err)),
         }
     }
