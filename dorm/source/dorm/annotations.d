@@ -62,3 +62,9 @@ struct index
 
 enum embedded;
 enum ignored;
+
+/**
+ * When saving a model, only include the annotated column if the here referenced
+ * field equals to `equalsTo`.
+ */
+struct modifiedIf { string field; bool equalsTo = true; }

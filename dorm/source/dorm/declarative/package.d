@@ -97,19 +97,39 @@ struct ModelFormat
 		SourceLocation definedAt;
 
 		/// Returns true if this field does not have the `notNull` AnnotationFlag
-		/// assigned, otherwise true.
+		/// assigned, otherwise false.
 		@serdeIgnore
 		bool isNullable() const @property
+		{
+			return !hasFlag(AnnotationFlag.notNull);
+		}
+
+		/// Returns true iff this field has the `primaryKey` AnnotationFlag.
+		@serdeIgnore
+		bool isPrimaryKey() const @property
+		{
+			return hasFlag(AnnotationFlag.primaryKey);
+		}
+
+		/// Returns true iff this field has the given AnnotationFlag assigned.
+		@serdeIgnore
+		bool hasFlag(AnnotationFlag q) const @property
 		{
 			foreach (annotation; annotations)
 			{
 				if (annotation.value.match!(
-					(AnnotationFlag f) => f == AnnotationFlag.notNull,
+					(AnnotationFlag f) => f == q,
 					_ => false
 				))
-					return false;
+					return true;
 			}
-			return true;
+			return false;
+		}
+
+		@serdeIgnore
+		bool isBuiltinId() const @property
+		{
+			return sourceColumn == "_fallbackId";
 		}
 	}
 
@@ -207,7 +227,11 @@ struct DBAnnotation
 	}
 }
 
-alias InternalAnnotation = SumType!(ConstructValueRef, ValidatorRef);
+alias InternalAnnotation = SumType!(
+	ConstructValueRef,
+	ValidatorRef,
+	modifiedIf
+);
 
 private struct IonDBAnnotation
 {

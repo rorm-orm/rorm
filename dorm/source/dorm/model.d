@@ -9,9 +9,23 @@ import std.traits : hasUDA;
 
 abstract class Model
 {
-    /// Auto- included ID field that's assigned on every model.
-    @Id
-    long id;
+    /// Auto-included ID field that's assigned on every model.
+    @Id @columnName("id") @modifiedIf("_modifiedId")
+    public long _fallbackId;
+    protected bool _modifiedId;
+
+    public long id(this This)() const @property @safe nothrow @nogc pure
+    if (DormFields!This[0].isBuiltinId)
+    {
+        return _fallbackId;
+    }
+
+    public long id(this This)(long value) @property @safe nothrow @nogc pure
+    if (DormFields!This[0].isBuiltinId)
+    {
+        _modifiedId = true;
+        return _fallbackId = value;
+    }
 
     this()
     {

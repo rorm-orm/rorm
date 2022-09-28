@@ -219,6 +219,10 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		{
 			field.columnName = attribute.name;
 		}
+		else static if (is(typeof(attribute) == modifiedIf))
+		{
+			field.internalAnnotations ~= InternalAnnotation(attribute);
+		}
 		else static if (isDBAttribute!attribute)
 		{
 			static assert(false, "Unsupported attribute " ~ attribute.stringof ~ " on " ~ TModel.stringof ~ "." ~ fieldName);
