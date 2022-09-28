@@ -65,8 +65,8 @@ impl SQLCreateColumn {
         match self.dialect {
             DBImpl::SQLite => {
                 let db_type = match self.data_type {
+                    DbType::VarBinary => "BLOB",
                     DbType::VarChar
-                    | DbType::VarBinary
                     | DbType::Date
                     | DbType::DateTime
                     | DbType::Timestamp
@@ -82,9 +82,7 @@ impl SQLCreateColumn {
                     | DbType::UInt32
                     | DbType::Boolean => "INTEGER",
                     DbType::Float | DbType::Double => "REAL",
-                    _ => {
-                        todo!("not implemented");
-                    }
+                    _ => todo!("not implemented"),
                 };
 
                 let mut annotations = vec![];
