@@ -143,6 +143,22 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		else static if (__traits(isSame, attribute, uda.primaryKey))
 		{
 			field.annotations ~= DBAnnotation(AnnotationFlag.primaryKey);
+			if (!field.isBuiltinId)
+			{
+				if (serialized.fields[0].isBuiltinId)
+					serialized.fields = serialized.fields[1 .. $];
+
+				foreach (other; serialized.fields)
+				{
+					if (other.isPrimaryKey)
+						throw new Exception("Duplicate primary key found in Model " ~ TModel.stringof
+							~ ":\n- first defined here:\n"
+							~ other.sourceColumn ~ " in " ~ other.definedAt.toString
+							~ "\n- then attempted to redefine here:\n"
+							~ typeof(fieldAlias).stringof ~ " " ~ fieldName ~ " in " ~ field.definedAt.toString
+							~ "\nMaybe you wanted to define a `TODO`?");
+				}
+			}
 		}
 		else static if (__traits(isSame, attribute, uda.autoIncrement))
 		{
@@ -394,6 +410,7 @@ private enum guessDBTypeBase(T : TimeOfDay) = ModelFormat.Field.DBType.time;
 unittest
 {
 	import std.sumtype;
+	import std.conv;
 
 	struct Mod
 	{
@@ -475,126 +492,124 @@ unittest
 
 	auto m = mod.models[0];
 
-	// Length is always len(m.fields + 1) as dorm.model.Model adds the id field
-	assert(m.fields.length == 20);
+	// Length is always len(m.fields + 1) as dorm.model.Model adds the id field,
+	// unless you define your own primary key field.
+	assert(m.fields.length == 19);
 
-	// field[0] gets added by dorm.model.Model
-	assert(m.fields[0].columnName == "id");
-	assert(m.fields[0].type == ModelFormat.Field.DBType.int64);
-	assert(m.fields[0].annotations == [DBAnnotation(AnnotationFlag.notNull), DBAnnotation(AnnotationFlag.primaryKey), DBAnnotation(AnnotationFlag.autoIncrement)]);
+	int i = 0;
 
-	assert(m.fields[1].columnName == "username");
-	assert(m.fields[1].type == ModelFormat.Field.DBType.varchar);
-	assert(m.fields[1].annotations == [DBAnnotation(AnnotationFlag.notNull), DBAnnotation(maxLength(255))]);
+	assert(m.fields[i].columnName == "username");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.varchar);
+	assert(m.fields[i].annotations == [DBAnnotation(AnnotationFlag.notNull), DBAnnotation(maxLength(255))]);
 
-	assert(m.fields[2].columnName == "password");
-	assert(m.fields[2].type == ModelFormat.Field.DBType.varchar);
-	assert(m.fields[2].annotations == [DBAnnotation(AnnotationFlag.notNull), DBAnnotation(maxLength(255))]);
+	assert(m.fields[++i].columnName == "password");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.varchar);
+	assert(m.fields[i].annotations == [DBAnnotation(AnnotationFlag.notNull), DBAnnotation(maxLength(255))]);
 
-	assert(m.fields[3].columnName == "email");
-	assert(m.fields[3].type == ModelFormat.Field.DBType.varchar);
-	assert(m.fields[3].annotations == [DBAnnotation(maxLength(255))]);
+	assert(m.fields[++i].columnName == "email");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.varchar);
+	assert(m.fields[i].annotations == [DBAnnotation(maxLength(255))]);
 
-	assert(m.fields[4].columnName == "age");
-	assert(m.fields[4].type == ModelFormat.Field.DBType.uint8);
-	assert(m.fields[4].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
+	assert(m.fields[++i].columnName == "age");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.uint8);
+	assert(m.fields[i].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
-	assert(m.fields[5].columnName == "birthday");
-	assert(m.fields[5].type == ModelFormat.Field.DBType.datetime);
-	assert(m.fields[5].annotations == []);
+	assert(m.fields[++i].columnName == "birthday");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.datetime);
+	assert(m.fields[i].annotations == []);
 
-	assert(m.fields[6].columnName == "created_at");
-	assert(m.fields[6].type == ModelFormat.Field.DBType.timestamp);
-	assert(m.fields[6].annotations == [
+	assert(m.fields[++i].columnName == "created_at");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.autoCreateTime),
 		]);
 
-	assert(m.fields[7].columnName == "updated_at");
-	assert(m.fields[7].type == ModelFormat.Field.DBType.timestamp);
-	assert(m.fields[7].annotations == [
+	assert(m.fields[++i].columnName == "updated_at");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.autoUpdateTime)
 		]);
 
-	assert(m.fields[8].columnName == "created_at_2");
-	assert(m.fields[8].type == ModelFormat.Field.DBType.timestamp);
-	assert(m.fields[8].annotations == [
+	assert(m.fields[++i].columnName == "created_at_2");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.autoCreateTime),
 		]);
 
-	assert(m.fields[9].columnName == "updated_at_2");
-	assert(m.fields[9].type == ModelFormat.Field.DBType.timestamp);
-	assert(m.fields[9].annotations == [
+	assert(m.fields[++i].columnName == "updated_at_2");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.autoUpdateTime)
 		]);
 
-	assert(m.fields[10].columnName == "state");
-	assert(m.fields[10].type == ModelFormat.Field.DBType.choices);
-	assert(m.fields[10].annotations == [
+	assert(m.fields[++i].columnName == "state");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.choices);
+	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(Choices(["ok", "warn", "critical", "unknown"])),
 		]);
 
-	assert(m.fields[11].columnName == "state_2");
-	assert(m.fields[11].type == ModelFormat.Field.DBType.choices);
-	assert(m.fields[11].annotations == [
+	assert(m.fields[++i].columnName == "state_2");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.choices);
+	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(Choices(["ok", "warn", "critical", "unknown"])),
 		]);
 
-	assert(m.fields[12].columnName == "admin");
-	assert(m.fields[12].type == ModelFormat.Field.DBType.boolean);
-	assert(m.fields[12].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
+	assert(m.fields[++i].columnName == "admin");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.boolean);
+	assert(m.fields[i].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
-	assert(m.fields[13].columnName == "valid_until");
-	assert(m.fields[13].type == ModelFormat.Field.DBType.timestamp);
-	assert(m.fields[13].annotations == [
+	assert(m.fields[++i].columnName == "valid_until");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.notNull)
 		]);
-	assert(m.fields[13].internalAnnotations.length == 1);
-	assert(m.fields[13].internalAnnotations[0].match!((ConstructValueRef r) => true, _ => false));
+	assert(m.fields[i].internalAnnotations.length == 1);
+	assert(m.fields[i].internalAnnotations[0].match!((ConstructValueRef r) => true, _ => false));
 
-	assert(m.fields[14].columnName == "comment");
-	assert(m.fields[14].type == ModelFormat.Field.DBType.varchar);
-	assert(m.fields[14].annotations == [
+	assert(m.fields[++i].columnName == "comment");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.varchar);
+	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(maxLength(255)),
 			DBAnnotation(defaultValue("")),
 		]);
 
-	assert(m.fields[15].columnName == "counter");
-	assert(m.fields[15].type == ModelFormat.Field.DBType.int32);
-	assert(m.fields[15].annotations == [
+	assert(m.fields[++i].columnName == "counter");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.int32);
+	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(defaultValue(1337)),
 		]);
 
-	assert(m.fields[16].columnName == "own_primary_key");
-	assert(m.fields[16].type == ModelFormat.Field.DBType.int64);
-	assert(m.fields[16].annotations == [
+	assert(m.fields[++i].columnName == "own_primary_key");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.int64);
+	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.primaryKey),
 		]);
 
-	assert(m.fields[17].columnName == "creation_time");
-	assert(m.fields[17].type == ModelFormat.Field.DBType.timestamp);
-	assert(m.fields[17].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
+	assert(m.fields[++i].columnName == "creation_time");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[i].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
-	assert(m.fields[18].columnName == "uuid");
-	assert(m.fields[18].type == ModelFormat.Field.DBType.int32);
-	assert(m.fields[18].annotations == [
+	assert(m.fields[++i].columnName == "uuid");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.int32);
+	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.unique),
 		]);
 
-	assert(m.fields[19].columnName == "some_int");
-	assert(m.fields[19].type == ModelFormat.Field.DBType.int32);
-	assert(m.fields[19].annotations == [
+	assert(m.fields[++i].columnName == "some_int");
+	assert(m.fields[i].type == ModelFormat.Field.DBType.int32);
+	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.notNull)
 		]);
-	assert(m.fields[19].internalAnnotations.length == 1);
-	assert(m.fields[19].internalAnnotations[0].match!((ValidatorRef r) => true, _ => false));
+	assert(m.fields[i].internalAnnotations.length == 1);
+	assert(m.fields[i].internalAnnotations[0].match!((ValidatorRef r) => true, _ => false));
 }
 
 unittest
