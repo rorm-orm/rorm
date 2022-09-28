@@ -598,7 +598,7 @@ TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row)
 	enum fields = FilterLayoutFields!(T, TSelect);
 	static foreach (field; fields)
 		mixin("res." ~ field.sourceColumn) = extractField!(field, typeof(mixin("res." ~ field.sourceColumn)),
-			text(" from model ", T.stringof, " in column ", field.sourceColumn, " in file ", field.definedAt))(row, rowError);
+			text(" from model ", T.stringof, " in column ", field.sourceColumn, " in file ", field.definedAt).idup)(row, rowError);
 	if (rowError)
 		throw rowError.makeException;
 	return res;
