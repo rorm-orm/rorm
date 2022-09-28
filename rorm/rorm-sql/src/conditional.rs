@@ -255,14 +255,10 @@ let condition = and!(
 #[macro_export]
 macro_rules! and {
     () => {{
-        use rorm::conditional::Condition;
-
-        Condition::Conjunction(vec![])
+        $crate::conditional::Condition::Conjunction(vec![])
     }};
     ($($cond:expr),+ $(,)?) => {{
-        use rorm::conditional::Condition;
-
-        Condition::Conjunction(vec![$($cond),+])
+        $crate::conditional::Condition::Conjunction(vec![$($cond),+])
     }};
 }
 
@@ -301,14 +297,10 @@ let condition = or!(
 #[macro_export]
 macro_rules! or {
     () => {{
-        use rorm::conditional::Condition;
-
-        Condition::Disjunction(vec![])
+        $crate::conditional::Condition::Disjunction(vec![])
     }};
     ($($cond:expr),+ $(,)?) => {{
-        use rorm::conditional::Condition;
-
-        Condition::Disjunction(vec![$($cond),+])
+        $crate::conditional::Condition::Disjunction(vec![$($cond),+])
     }};
 }
 
