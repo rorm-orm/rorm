@@ -215,7 +215,9 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 	if (include)
 	{
 		if (field.type == InvalidDBType)
-			throw new Exception("Cannot resolve DBType from " ~ typeof(fieldAlias).stringof);
+			throw new Exception("Cannot resolve DORM Model DBType from " ~ typeof(fieldAlias).stringof
+				~ " " ~ directFieldName ~ " in " ~ TModel.stringof
+				~ ", which is defined in " ~ SourceLocation(__traits(getLocation, fieldAlias)).toString);
 		serialized.fields ~= field;
 	}
 }
