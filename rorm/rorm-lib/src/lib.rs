@@ -1,6 +1,8 @@
 //! This crate is used to provide C bindings for the `rorm-db` crate.
 #![deny(missing_docs)]
 
+extern crate core;
+
 /// Utility module to provide errors
 pub mod errors;
 /// Module that holds the definitions for conditions.
@@ -21,7 +23,7 @@ use tokio::runtime::Runtime;
 use crate::errors::Error;
 use crate::representations::{Condition, DBConnectOptions, FFIValue};
 use crate::utils::{
-    FFIDate, FFIDateTime, FFIOption, FFISlice, FFIString, FFITime, RowList, Stream, VoidPtr,
+    FFIDate, FFIDateTime, FFIOption, FFISlice, FFIString, FFITime, Stream, VoidPtr,
 };
 
 static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
@@ -297,12 +299,13 @@ This function queries the database given the provided parameter and returns all 
 - `model`: Name of the table to query.
 - `columns`: Array of columns to retrieve from the database.
 - `condition`: Pointer to a [Condition].
-- `callback`: callback function. Takes the `context`, a pointer to a vec of rows and an [Error].
+- `callback`: callback function. Takes the `context`, a FFISlice of rows and an [Error].
 - `context`: Pass through void pointer.
 
 **Important**:
 - Make sure that `db`, `model`, `columns` and `condition` are
 allocated until the callback is executed.
+- The FFISlice returned in the callback is freed after the callback has ended.
 
 This function is called from an asynchronous context.
  */
@@ -312,14 +315,14 @@ pub extern "C" fn rorm_db_query_all(
     model: FFIString<'static>,
     columns: FFISlice<'static, FFIString<'static>>,
     condition: Option<&'static Condition>,
-    callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<RowList>>, Error) -> ()>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, FFISlice<Row>, Error) -> ()>,
     context: VoidPtr,
 ) {
     let cb = callback.expect("Callback must not be null");
 
     let model_conv = model.try_into();
     if model_conv.is_err() {
-        unsafe { cb(context, None, Error::InvalidStringError) };
+        unsafe { cb(context, FFISlice::empty(), Error::InvalidStringError) };
         return;
     }
 
@@ -329,7 +332,7 @@ pub extern "C" fn rorm_db_query_all(
         for &x in column_slice {
             let x_conv = x.try_into();
             if x_conv.is_err() {
-                unsafe { cb(context, None, Error::InvalidStringError) };
+                unsafe { cb(context, FFISlice::empty(), Error::InvalidStringError) };
                 return;
             }
             column_vec.push(x_conv.unwrap());
@@ -347,7 +350,7 @@ pub extern "C" fn rorm_db_query_all(
                 | Error::InvalidDateError
                 | Error::InvalidTimeError
                 | Error::InvalidDateTimeError => unsafe {
-                    cb(context, None, cond_conv.err().unwrap())
+                    cb(context, FFISlice::empty(), cond_conv.err().unwrap())
                 },
                 _ => {}
             }
@@ -372,19 +375,36 @@ pub extern "C" fn rorm_db_query_all(
         };
         match query_res {
             Ok(res) => {
-                unsafe { cb(context, Some(Box::new(res)), Error::NoError) };
+                let slice = res.as_slice().into();
+                unsafe { cb(context, slice, Error::NoError) };
             }
             Err(err) => {
                 let ffi_err = err.to_string();
-                unsafe { cb(context, None, Error::RuntimeError(ffi_err.as_str().into())) };
+                unsafe {
+                    cb(
+                        context,
+                        FFISlice::empty(),
+                        Error::RuntimeError(ffi_err.as_str().into()),
+                    )
+                };
             }
         };
     };
 
     let f = |err: String| {
-        unsafe { cb(context, None, Error::RuntimeError(err.as_str().into())) };
+        unsafe {
+            cb(
+                context,
+                FFISlice::empty(),
+                Error::RuntimeError(err.as_str().into()),
+            )
+        };
     };
-    spawn_fut!(fut, cb(context, None, Error::MissingRuntimeError), f);
+    spawn_fut!(
+        fut,
+        cb(context, FFISlice::empty(), Error::MissingRuntimeError),
+        f
+    );
 }
 
 /**
@@ -619,19 +639,6 @@ pub extern "C" fn rorm_db_delete(
     };
     spawn_fut!(fut, cb(context, u64::MAX, Error::MissingRuntimeError), f);
 }
-
-/**
-Frees the RowList given as parameter.
-
-This function panics if the pointer to the RowList is invalid.
-
-**Important**:
-Do not call this function more than once!
-
-This function is called completely synchronously.
-*/
-#[no_mangle]
-pub extern "C" fn rorm_row_list_free(_: Box<RowList>) {}
 
 /**
 Frees the row given as parameter.

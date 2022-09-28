@@ -161,6 +161,13 @@ pub struct FFISlice<'a, T> {
     lifetime: PhantomData<&'a ()>,
 }
 
+impl<'a, T: 'a> FFISlice<'a, T> {
+    pub(crate) fn empty() -> FFISlice<'a, T> {
+        let f: &[T] = &[];
+        return FFISlice::from(f);
+    }
+}
+
 impl<'a, T> From<FFISlice<'a, T>> for &'a [T] {
     fn from(s: FFISlice<'a, T>) -> Self {
         unsafe { from_raw_parts(s.content, s.size) }
@@ -191,10 +198,6 @@ pub(crate) type VoidPtr = usize;
 /// This type alias purely exists only for cbindgen.
 /// cbindgen:ignore
 pub(crate) type Stream<'a> = BoxStream<'a, Result<rorm_db::row::Row, rorm_db::error::Error>>;
-
-/// This type alias purely exists for cbindgen.
-/// cbindgen:ignore
-pub(crate) type RowList = Vec<rorm_db::row::Row>;
 
 /**
 Helper type to wrap [Option] ffi safe.
