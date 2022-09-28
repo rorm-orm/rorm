@@ -49,8 +49,8 @@ adding another primary is possible with the `@primaryKey` annotation.
 
 | Annotation              |               Allowed on                | Description                                                                                 |
 |:------------------------|:---------------------------------------:|---------------------------------------------------------------------------------------------|
-| `@autoCreateTime`       |          `ulong` or `SysTime`           | Sets the current time <br/> on creation of the model. [More](#auto-time-fields)             |
-| `@autoUpdateTime`       |          `ulong` or `SysTime`           | Sets the current time <br/> on update of the model. [More](#auto-time-fields)               |
+| `@autoCreateTime`       |          `long` or `SysTime`            | Sets the current time <br/> on creation of the model. [More](#auto-time-fields)             |
+| `@autoUpdateTime`       |          `long` or `SysTime`            | Sets the current time <br/> on update of the model. [More](#auto-time-fields)               |
 | `@choices(x)`           |           `string` or `enum`            | Sets a list of allowed values <br/> for the column. [More](#choices)                        |
 | `@columnName(x)`        |                   any                   | Overwrite the default <br/> generated column name. [More](#column-name)                     |
 | `@constructValue!(x)`   |                   any                   | Set a constructed default value <br/> for the column. [More](#construct-value)              |
@@ -60,7 +60,6 @@ adding another primary is possible with the `@primaryKey` annotation.
 | `@index` or `@index(x)` |                   any                   | Create an index. [More](#indexes)                                                           |
 | `@maxLength(x)`         |      `string` or `Nullable!string`      | Set the maximum length <br/> of the `VARCHAR` type. [More](#max-length)                     |
 | `@primaryKey`           |       `integer` type or `string`        | Overwrite the default primary key. [More](#primary-key)                                     |
-| `@timestamp`            |                 `ulong`                 | Set the database type <br/> to `TIMESTAMP`. [More](#timestamp)                              |
 | `@unique`               | any except ManyToMany <br/> or OneToOne | Enforce that the field value <br/> is unique throughout the column. [More](#unique)         |
 | `@validator!(x)`        |                   any                   | Set a function to validate <br/> before any database operation [More](#validator-functions) |
 
@@ -86,23 +85,30 @@ class User : Model
 
 ---
 
-if you prefer using UNIX epoch instead of a SysTime field, you can 
-just change the data type to `ulong`:
+if you prefer using [stdTime](https://dlang.org/phobos/std_datetime_systime.html#.SysTime.stdTime)
+instead of a SysTime field, you can  just change the data type to `long`:
 
 ```d
 class User : Model
 {
     @autoCreateTime
-    ulong createdAt;
+    long createdAt;
 
     @autoUpdateTime
-    Nullable!ulong updatedAt;
+    Nullable!long updatedAt;
 }
 ```
 
 !!!info
-    You don't need to set the `@timestamp` annotation. 
-    The `ulong` will be converted to `TIMESTAMP` implicitly. 
+    You don't need to set the `@timestamp` annotation. `@autoCreateTime` and
+    `autoUpdateTime` implicitly also mean `@timestamp`.
+
+## Datetime
+
+When storing `DateTime`, the value is taken and saved as-is to the database. When
+using `SysTime`, the value is first converted to UTC, then the timezone information
+is stripped and then saved into the database. All stored datetimes are retrieved
+back as UTC SysTime when queried.
 
 ## Choices
 
@@ -330,14 +336,14 @@ class User : Model
 
 ## Timestamp
 
-To save an `ulong` as `TIMSTAMP` in the database, you can set the 
-annotation `@timestamp`. 
+To save an `long` as `DATETIME` (UTC) in the database, you can set the 
+annotation `@timestamp`. The value itself is interpreted as [stdTime](https://dlang.org/phobos/std_datetime_systime.html#.SysTime.stdTime).
 
 ```d
 class User : Model
 {
     @timestamp
-    ulong creationTime;
+    long creationTime;
 }
 ```
 

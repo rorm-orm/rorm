@@ -384,9 +384,9 @@ struct FFITime {
 /// Representation of any date
 struct FFIDate {
 	///
-	uint day, month;
-	///
 	int year;
+	///
+	uint month, day;
 }
 
 /// Representation of a date and time (without timezone)
@@ -822,7 +822,7 @@ void rorm_db_delete(
 	void* context
 );
 /// ditto
-alias DBDeleteCallback = extern(C) void function(void* context, scope RormError);
+alias DBDeleteCallback = extern(C) void function(void* context, ulong rowsAffected, scope RormError);
 
 unittest
 {

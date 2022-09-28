@@ -128,17 +128,17 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 	{
 		static if (__traits(isSame, attribute, uda.autoCreateTime))
 		{
-			field.type = ModelFormat.Field.DBType.timestamp;
+			field.type = ModelFormat.Field.DBType.datetime;
 			field.annotations ~= DBAnnotation(AnnotationFlag.autoCreateTime);
 		}
 		else static if (__traits(isSame, attribute, uda.autoUpdateTime))
 		{
-			field.type = ModelFormat.Field.DBType.timestamp;
+			field.type = ModelFormat.Field.DBType.datetime;
 			field.annotations ~= DBAnnotation(AnnotationFlag.autoUpdateTime);
 		}
 		else static if (__traits(isSame, attribute, uda.timestamp))
 		{
-			field.type = ModelFormat.Field.DBType.timestamp;
+			field.type = ModelFormat.Field.DBType.datetime;
 		}
 		else static if (__traits(isSame, attribute, uda.primaryKey))
 		{
@@ -408,7 +408,7 @@ private enum guessDBTypeBase(T : double) = ModelFormat.Field.DBType.doubleNumber
 private enum guessDBTypeBase(T : bool) = ModelFormat.Field.DBType.boolean;
 private enum guessDBTypeBase(T : Date) = ModelFormat.Field.DBType.date;
 private enum guessDBTypeBase(T : DateTime) = ModelFormat.Field.DBType.datetime;
-private enum guessDBTypeBase(T : SysTime) = ModelFormat.Field.DBType.timestamp;
+private enum guessDBTypeBase(T : SysTime) = ModelFormat.Field.DBType.datetime;
 private enum guessDBTypeBase(T : TimeOfDay) = ModelFormat.Field.DBType.time;
 
 unittest
@@ -523,27 +523,27 @@ unittest
 	assert(m.fields[i].annotations == []);
 
 	assert(m.fields[++i].columnName == "created_at");
-	assert(m.fields[i].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[i].type == ModelFormat.Field.DBType.datetime);
 	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.autoCreateTime),
 		]);
 
 	assert(m.fields[++i].columnName == "updated_at");
-	assert(m.fields[i].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[i].type == ModelFormat.Field.DBType.datetime);
 	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.autoUpdateTime)
 		]);
 
 	assert(m.fields[++i].columnName == "created_at_2");
-	assert(m.fields[i].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[i].type == ModelFormat.Field.DBType.datetime);
 	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.autoCreateTime),
 		]);
 
 	assert(m.fields[++i].columnName == "updated_at_2");
-	assert(m.fields[i].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[i].type == ModelFormat.Field.DBType.datetime);
 	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.autoUpdateTime)
 		]);
@@ -567,7 +567,7 @@ unittest
 	assert(m.fields[i].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
 	assert(m.fields[++i].columnName == "valid_until");
-	assert(m.fields[i].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[i].type == ModelFormat.Field.DBType.datetime);
 	assert(m.fields[i].annotations == [
 			DBAnnotation(AnnotationFlag.notNull)
 		]);
@@ -597,7 +597,7 @@ unittest
 		]);
 
 	assert(m.fields[++i].columnName == "creation_time");
-	assert(m.fields[i].type == ModelFormat.Field.DBType.timestamp);
+	assert(m.fields[i].type == ModelFormat.Field.DBType.datetime);
 	assert(m.fields[i].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
 	assert(m.fields[++i].columnName == "uuid");

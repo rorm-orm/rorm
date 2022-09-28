@@ -594,7 +594,6 @@ TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row)
 
 	TSelect res;
 	ffi.RormError rowError;
-	enum layout = DormLayout!T;
 	enum fields = FilterLayoutFields!(T, TSelect);
 	static foreach (field; fields)
 		mixin("res." ~ field.sourceColumn) = extractField!(field, typeof(mixin("res." ~ field.sourceColumn)),
@@ -651,17 +650,19 @@ private T extractField(alias field, T, string errInfo)(ffi.DBRowHandle row, ref 
 		case boolean:
 			static if (field.type == boolean) return fieldInto!(T, errInfo)(mixin(pre, "bool", suf), error);
 			else assert(false);
+		case date:
+			static if (field.type == date) return fieldInto!(T, errInfo)(mixin(pre, "date", suf), error);
+			else assert(false);
+		case time:
+			static if (field.type == time) return fieldInto!(T, errInfo)(mixin(pre, "time", suf), error);
+			else assert(false);
+		case datetime:
+			static if (field.type == datetime) return fieldInto!(T, errInfo)(mixin(pre, "datetime", suf), error);
+			else assert(false);
 
-		static assert(field.type != date &&
-			field.type != datetime &&
-			field.type != timestamp &&
-			field.type != time &&
+		static assert(
 			field.type != set,
 			"field type " ~ field.type.to!string ~ " not yet implemented for reading");
-		case date: assert(false);
-		case datetime: assert(false);
-		case timestamp: assert(false);
-		case time: assert(false);
 
 		case choices:
 			static if (field.type == choices) return fieldInto!T(mixin(pre, "str", suf), error);
@@ -672,9 +673,12 @@ private T extractField(alias field, T, string errInfo)(ffi.DBRowHandle row, ref 
 
 private T fieldInto(T, string errInfo, From)(From v, ref ffi.RormError error)
 {
+	import std.datetime : Clock, Date, DateTime, SysTime, TimeOfDay, UTC, DateTimeException;
 	import dorm.lib.ffi : FFIArray, FFIOption;
 
-	static if (is(From == FFIArray!U, U))
+	static if (is(T == From))
+		return v;
+	else static if (is(From == FFIArray!U, U))
 	{
 		auto data = v[];
 		static if (is(T == Res[], Res))
@@ -726,6 +730,63 @@ private T fieldInto(T, string errInfo, From)(From v, ref ffi.RormError error)
 			return cast(T)v;
 		else
 			static assert(false, "can't put " ~ From.stringof ~ " into " ~ T.stringof ~ errInfo);
+	}
+	else static if (is(From : ffi.FFITime))
+	{
+		static if (is(T == TimeOfDay))
+		{
+			try
+			{
+				return TimeOfDay(cast(int)v.hour, cast(int)v.min, cast(int)v.day);
+			}
+			catch (DateTimeException)
+			{
+				error = ffi.RormError(ffi.RormError.Tag.InvalidTimeError);
+				return T.init;
+			}
+		}
+		else
+			static assert(false, "can't put " ~ From.stringof ~ " into " ~ T.stringof ~ errInfo);
+	}
+	else static if (is(From : ffi.FFIDate))
+	{
+		static if (is(T == Date))
+		{
+			try
+			{
+				return Date(cast(int)v.year, cast(int)v.month, cast(int)v.day);
+			}
+			catch (DateTimeException)
+			{
+				error = ffi.RormError(ffi.RormError.Tag.InvalidDateError);
+				return T.init;
+			}
+		}
+		else
+			static assert(false, "can't put " ~ From.stringof ~ " into " ~ T.stringof ~ errInfo);
+	}
+	else static if (is(From : ffi.FFIDateTime))
+	{
+		try
+		{
+			static if (is(T == DateTime))
+			{
+				return DateTime(cast(int)v.year, cast(int)v.month, cast(int)v.day,
+					cast(int)v.hour, cast(int)v.min, cast(int)v.day);
+			}
+			else static if (is(T == SysTime))
+			{
+				return SysTime(DateTime(cast(int)v.year, cast(int)v.month, cast(int)v.day,
+					cast(int)v.hour, cast(int)v.min, cast(int)v.day), UTC());
+			}
+			else
+				static assert(false, "can't put " ~ From.stringof ~ " into " ~ T.stringof ~ errInfo);
+		}
+		catch (DateTimeException)
+		{
+			error = ffi.RormError(ffi.RormError.Tag.InvalidDateTimeError);
+			return T.init;
+		}
 	}
 	else
 		static assert(false, "did not implement conversion from " ~ From.stringof ~ " into " ~ T.stringof ~ errInfo);

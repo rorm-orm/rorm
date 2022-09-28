@@ -65,8 +65,7 @@ struct ModelFormat
 			doubleNumber, /// inferred from `double`
 			boolean, /// inferred from `bool`
 			date, /// inferred from `std.datetime : Date`
-			datetime, /// inferred from `std.datetime : DateTime`
-			timestamp, /// inferred from `std.datetime : SysTime`, `@AutoCreateTime ulong`, `@AutoUpdateTime ulong`, `@timestamp ulong`
+			datetime, /// inferred from `std.datetime : DateTime`, `std.datetime : SysTime`, `@AutoCreateTime ulong`, `@AutoUpdateTime ulong`, `@timestamp ulong` (always saved UTC)
 			time, /// inferred from `std.datetime : TimeOfDay`
 			choices, /// inferred from `@choices string`, `enum T : string`
 			set, /// inferred from `BitFlags!enum`

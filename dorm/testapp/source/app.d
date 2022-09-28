@@ -14,7 +14,7 @@ void main(string[] args)
 	struct UserSelection
 	{
 		string username;
-		// SysTime createdAt;
+		SysTime createdAt;
 	}
 
 	DBConnectOptions options = {
