@@ -188,58 +188,7 @@ pub trait Model {
     ///
     /// [`write_models`]: crate::write_models
     fn get_imr() -> imr::Model;
-}
 
-/// The type to add to most models as primary key:
-/// ```ignore
-/// use rorm::{Model, ID};
-///
-/// #[derive(Model)]
-/// struct SomeModel {
-///     id: ID,
-///     ..
-/// }
-pub type ID = GenericId<i64>;
-
-/// Generic Wrapper which implies the primary key and autoincrement annotation
-#[derive(Copy, Clone, Debug)]
-pub struct GenericId<I: AsDbType>(pub I);
-
-impl<I: AsDbType> AsDbType for GenericId<I> {
-    type Primitive = I;
-    type DbType = I::DbType;
-
-    fn from_primitive(primitive: Self::Primitive) -> Self {
-        GenericId(primitive)
-    }
-
-    fn as_primitive(&self) -> Value {
-        self.0.as_primitive()
-    }
-
-    fn implicit_annotations(annotations: &mut Vec<imr::Annotation>) {
-        I::implicit_annotations(annotations);
-        annotations.push(imr::Annotation::PrimaryKey); // TODO check if already
-        annotations.push(imr::Annotation::AutoIncrement);
-    }
-}
-
-impl<I: AsDbType> From<I> for GenericId<I> {
-    fn from(id: I) -> Self {
-        GenericId(id)
-    }
-}
-
-impl<I: AsDbType> Deref for GenericId<I> {
-    type Target = I;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl<I: AsDbType> DerefMut for GenericId<I> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
 }
 
 /// All relevant information about a model's field

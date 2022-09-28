@@ -90,6 +90,9 @@ struct User {
 }
 ```
 
+### `id`
+Shorthand for both `primary_key` and `autoincrement`
+
 ### `index`
 TODO
 

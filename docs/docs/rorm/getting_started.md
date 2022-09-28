@@ -35,8 +35,8 @@ This step is optional but recommended.
 ```rust
 #[rorm::Model]
 struct User {
-	#[rorm(primary_key)]
-	id: usize,
+	#[rorm(id)]
+	id: u32,
 
 	#[rorm(max_length = 255)]
 	username: String,

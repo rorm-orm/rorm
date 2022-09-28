@@ -397,6 +397,21 @@ fn parse_field(field: &syn::Field, errors: &Errors) -> Option<ParsedField> {
             "primary_key" => parse_anno!("primary_key", "PrimaryKey"),
             "unique" => parse_anno!("unique", "Unique"),
             "autoincrement" => parse_anno!("autoincrement", "AutoIncrement"),
+            "id" => {
+                if let syn::Meta::Path(_) = meta {
+                    annotations.push(quote! {
+                        ::rorm::model::Annotation::PrimaryKey
+                    });
+                    annotations.push(quote! {
+                        ::rorm::model::Annotation::AutoIncrement
+                    });
+                } else {
+                    errors.push_new(
+                        meta.span(),
+                        "id doesn't take any values: #[rorm(id)]",
+                    );
+                }
+            },
             "default" => parse_default(&mut annotations, &errors, &meta),
             "max_length" => parse_max_length(&mut annotations, &errors, &meta),
             "choices" => {parse_choices(&mut annotations, &errors, &meta); has_choices = true;},
