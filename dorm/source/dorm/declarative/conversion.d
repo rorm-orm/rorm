@@ -64,8 +64,7 @@ enum DormLayout(TModel : Model) = delegate() {
 
 	static foreach (field; LogicalFields!TModel)
 	{
-		static if (is(typeof(__traits(getMember, TModel, field)))
-			&& !isCallable!(__traits(getMember, TModel, field)))
+		static if (__traits(getProtection, __traits(getMember, TModel, field)) == "public")
 		{
 			processField!(TModel, field, field)(serialized);
 		}
@@ -161,8 +160,7 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 				alias TSubModel = typeof(fieldAlias);
 				static foreach (subfield; LogicalFields!TSubModel)
 				{
-					static if (is(typeof(__traits(getMember, TSubModel, subfield)))
-						&& !isCallable!(__traits(getMember, TSubModel, subfield)))
+					static if (__traits(getProtection, __traits(getMember, TSubModel, subfield)) == "public")
 					{
 						processField!(TSubModel, fieldName ~ "." ~ subfield, subfield)(serialized);
 					}
