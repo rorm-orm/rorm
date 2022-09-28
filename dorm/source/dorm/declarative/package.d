@@ -126,9 +126,42 @@ struct ModelFormat
 		}
 
 		@serdeIgnore
+		bool hasDefaultValue() const @property
+		{
+			import std.datetime;
+
+			foreach (annotation; annotations)
+			{
+				if (annotation.value.match!(
+					(d) {
+						static assert(is(typeof(d) : DefaultValue!T, T));
+						return true;
+					},
+					_ => false
+				))
+					return true;
+			}
+			return false;
+		}
+
+		@serdeIgnore
 		bool isBuiltinId() const @property
 		{
 			return sourceColumn == "_fallbackId";
+		}
+
+		@serdeIgnore
+		const(modifiedIf)[] getModifiedIfs() const @property
+		{
+			const(modifiedIf)[] ret;
+			foreach (annotation; internalAnnotations)
+			{
+				annotation.match!(
+					(const modifiedIf d) { ret ~= d; },
+					(_) {}
+				);
+			}
+			return ret;
 		}
 	}
 

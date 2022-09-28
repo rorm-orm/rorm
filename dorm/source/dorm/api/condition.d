@@ -1,8 +1,9 @@
 module dorm.api.condition;
 
+import std.datetime;
 import std.sumtype;
 import std.traits;
-import std.datetime.date;
+import std.typecons : Nullable;
 
 public import dorm.lib.ffi : FFIValue;
 import ffi = dorm.lib.ffi;
@@ -81,10 +82,17 @@ struct TernaryCondition
 	Condition* first, second, third;
 }
 
-FFIValue conditionValue(T)(T c)
+FFIValue conditionValue(string errInfo = "", T)(T c)
 {
 	FFIValue ret;
-	static if (is(T == typeof(null)))
+	static if (is(T == Nullable!U, U))
+	{
+		if (c.isNull)
+			ret.type = FFIValue.Type.Null;
+		else
+			return conditionValue!errInfo(c.get);
+	}
+	else static if (is(T == typeof(null)))
 	{
 		ret.type = FFIValue.Type.Null;
 	}
@@ -126,7 +134,7 @@ FFIValue conditionValue(T)(T c)
 	else static if (is(T : Date))
 	{
 		ret.type = FFIValue.Type.NaiveDate;
-		ret.naiveDate = ffi.FFIDate(cast(uint)c.date, cast(uint)c.month, cast(int)c.year);
+		ret.naiveDate = ffi.FFIDate(cast(uint)c.day, cast(uint)c.month, cast(int)c.year);
 	}
 	else static if (is(T : TimeOfDay))
 	{
@@ -135,10 +143,21 @@ FFIValue conditionValue(T)(T c)
 	}
 	else static if (is(T : DateTime))
 	{
-		ret.type = FFIValue.Type.NaiveDate;
-		ret.naiveDateTime = ffi.FFIDateTime(cast(int)c.year, cast(uint)c.month, cast(uint)c.date, cast(uint)c.hour, cast(uint)c.minute, cast(uint)c.second);
+		ret.type = FFIValue.Type.NaiveDateTime;
+		ret.naiveDateTime = ffi.FFIDateTime(cast(int)c.year, cast(uint)c.month, cast(uint)c.day, cast(uint)c.hour, cast(uint)c.minute, cast(uint)c.second);
 	}
-	else static assert(false, "Unsupported condition value type: " ~ T.stringof);
+	else static if (is(T : SysTime))
+	{
+		ret.type = FFIValue.Type.NaiveDateTime;
+		auto d = cast(DateTime) c.toUTC;
+		ret.naiveDateTime = ffi.FFIDateTime(cast(int)d.year, cast(uint)d.month, cast(uint)d.day, cast(uint)d.hour, cast(uint)d.minute, cast(uint)d.second);
+	}
+	else static if (is(T == ffi.FFIString))
+	{
+		ret.type = FFIValue.Type.String;
+		ret.string = c;
+	}
+	else static assert(false, "Unsupported condition value type: " ~ T.stringof ~ errInfo);
 	return ret;
 }
 

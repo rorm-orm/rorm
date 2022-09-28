@@ -10,7 +10,8 @@ import dorm.lib.ffi;
 struct FreeableAsyncResult(T)
 {
 	Event event;
-	T raw_result;
+	static if (!is(T == void))
+		T raw_result;
 	Exception error;
 
 	static FreeableAsyncResult make()
@@ -18,18 +19,34 @@ struct FreeableAsyncResult(T)
 		return FreeableAsyncResult(Event(true, false));
 	}
 
-	alias Callback = extern(C) void function(void* data, T result, scope RormError error) nothrow;
+	static if (is(T == void))
+		alias Callback = extern(C) void function(void* data, scope RormError error) nothrow;
+	else
+		alias Callback = extern(C) void function(void* data, T result, scope RormError error) nothrow;
 
 	Tuple!(Callback, void*) callback() return
 	{
-		extern(C) static void ret(void* data, T result, scope RormError error) nothrow
+		static if (is(T == void))
 		{
-			auto res = cast(FreeableAsyncResult*)data;
-			if (error)
-				res.error = error.makeException;
-			else
-				res.raw_result = result;
-			res.event.set();
+			extern(C) static void ret(void* data, scope RormError error) nothrow
+			{
+				auto res = cast(FreeableAsyncResult*)data;
+				if (error)
+					res.error = error.makeException;
+				res.event.set();
+			}
+		}
+		else
+		{
+			extern(C) static void ret(void* data, T result, scope RormError error) nothrow
+			{
+				auto res = cast(FreeableAsyncResult*)data;
+				if (error)
+					res.error = error.makeException;
+				else
+					res.raw_result = result;
+				res.event.set();
+			}
 		}
 
 		return tuple(&ret, cast(void*)&this);
@@ -40,13 +57,15 @@ struct FreeableAsyncResult(T)
 		event.wait();
 		if (error)
 			throw error;
-		return raw_result;
+		static if (!is(T == void))
+			return raw_result;
 	}
 
 	void reset()
 	{
 		event.reset();
-		raw_result = T.init;
+		static if (!is(T == void))
+			raw_result = T.init;
 		error = null;
 	}
 }

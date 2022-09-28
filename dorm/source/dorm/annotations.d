@@ -67,4 +67,13 @@ enum ignored;
  * When saving a model, only include the annotated column if the here referenced
  * field equals to `equalsTo`.
  */
-struct modifiedIf { string field; bool equalsTo = true; }
+struct modifiedIf
+{
+	string field;
+	bool equalsTo = true;
+
+	string makeCheckCode(string prefix) const
+	{
+		return prefix ~ field ~ " == " ~ (equalsTo ? "true" : "false");
+	}
+}
