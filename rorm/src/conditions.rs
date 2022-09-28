@@ -1,7 +1,10 @@
+use rorm_declaration::hmr::{
+    Date, DateTime, DbType, Double, Float, Int16, Int32, Int64, Time, VarBinary, VarChar,
+};
+
 use crate::conditional::*;
 use crate::model::Field;
 use crate::value::Value;
-use rorm_declaration::hmr::{DbType, Double, Float, Int16, Int32, Int64, VarChar};
 
 /// Trait for converting rust values into [`Condition::Value`]'s
 pub trait IntoCondValue<'a, D: DbType>: 'a {
@@ -14,6 +17,12 @@ impl<'a, S: AsRef<str> + ?Sized> IntoCondValue<'a, VarChar> for &'a S {
     }
 }
 
+impl<'a, S: AsRef<[u8]> + ?Sized> IntoCondValue<'a, VarBinary> for &'a S {
+    fn into_value(self) -> Value<'a> {
+        Value::Binary(self.as_ref())
+    }
+}
+
 impl<T, D: DbType> IntoCondValue<'static, D> for &'static Field<T, D> {
     fn into_value(self) -> Value<'static> {
         Value::Ident(self.name)
@@ -21,7 +30,7 @@ impl<T, D: DbType> IntoCondValue<'static, D> for &'static Field<T, D> {
 }
 
 macro_rules! impl_numeric {
-    ($type:ident, $value_variant:ident, $db_type:ident) => {
+    ($type:ty, $value_variant:ident, $db_type:ident) => {
         impl IntoCondValue<'static, $db_type> for $type {
             fn into_value(self) -> Value<'static> {
                 Value::$value_variant(self)
@@ -34,6 +43,9 @@ impl_numeric!(i32, I32, Int32);
 impl_numeric!(i64, I64, Int64);
 impl_numeric!(f32, F32, Float);
 impl_numeric!(f64, F64, Double);
+impl_numeric!(chrono::NaiveDate, NaiveDate, Date);
+impl_numeric!(chrono::NaiveDateTime, NaiveDateTime, DateTime);
+impl_numeric!(chrono::NaiveTime, NaiveTime, Time);
 
 // Helper methods hiding most of the verbosity in creating Conditions
 impl<T, D: DbType> Field<T, D> {

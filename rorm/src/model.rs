@@ -39,6 +39,9 @@ macro_rules! impl_as_db_type {
         }
     };
 }
+impl_as_db_type!(chrono::NaiveTime, Time);
+impl_as_db_type!(chrono::NaiveDateTime, DateTime);
+impl_as_db_type!(chrono::NaiveDate, Date);
 impl_as_db_type!(Vec<u8>, VarBinary);
 impl_as_db_type!(i8, Int8);
 impl_as_db_type!(i16, Int16);
