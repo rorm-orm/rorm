@@ -3,9 +3,9 @@
 
 use std::io::Write;
 
+pub use crud::query::QueryBuilder;
 pub use linkme;
-pub use model::{DbEnum, Model, ID};
-pub use query::QueryBuilder;
+pub use model::{DbEnum, Model};
 pub use rorm_db::*;
 pub use rorm_macro::*;
 
@@ -18,10 +18,9 @@ pub use rorm_declaration::imr;
 /// [`Field<T>`]: model::Field
 mod conditions;
 
+pub mod crud;
 /// This module holds traits and structs for working with models
 pub mod model;
-/// Query Builder
-mod query;
 
 /// This slice is populated by the [`Model`] macro with all models.
 ///
