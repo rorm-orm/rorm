@@ -176,9 +176,9 @@ impl Database {
     This method is used to retrieve a stream of rows that matched the applied conditions.
 
     **Parameter**:
-    `model`: Name of the table.
-    `columns`: Columns to retrieve values from.
-    `conditions`: Optional conditions to apply.
+    - `model`: Name of the table.
+    - `columns`: Columns to retrieve values from.
+    - `conditions`: Optional conditions to apply.
     */
     pub fn query_stream<'db, 'post_query, 'stream>(
         &'db self,
@@ -205,9 +205,9 @@ impl Database {
     An error is returned if no value could be retrieved.
 
     **Parameter**:
-    `model`: Model to query.
-    `columns`: Columns to retrieve values from.
-    `conditions`: Optional conditions to apply.
+    - `model`: Model to query.
+    - `columns`: Columns to retrieve values from.
+    - `conditions`: Optional conditions to apply.
     */
     pub async fn query_one(
         &self,
@@ -237,9 +237,9 @@ impl Database {
     This method is used to retrieve an optional row from the table.
 
     **Parameter**:
-    `model`: Model to query.
-    `columns`: Columns to retrieve values from.
-    `conditions`: Optional conditions to apply.
+    - `model`: Model to query.
+    - `columns`: Columns to retrieve values from.
+    - `conditions`: Optional conditions to apply.
     */
     pub async fn query_optional(
         &self,
@@ -269,9 +269,9 @@ impl Database {
     This method is used to retrieve all rows that match the provided query.
 
     **Parameter**:
-    `model`: Model to query.
-    `columns`: Columns to retrieve values from.
-    `conditions`: Optional conditions to apply.
+    - `model`: Model to query.
+    - `columns`: Columns to retrieve values from.
+    - `conditions`: Optional conditions to apply.
     */
     pub async fn query_all(
         &self,
