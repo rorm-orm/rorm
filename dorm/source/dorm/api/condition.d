@@ -2,8 +2,9 @@ module dorm.api.condition;
 
 import std.sumtype;
 import std.traits;
+import std.datetime.date;
 
-public import dorm.lib.ffi : ConditionValue;
+public import dorm.lib.ffi : FFIValue;
 import ffi = dorm.lib.ffi;
 
 alias UnaryConditionType = ffi.FFIUnaryCondition.Type;
@@ -13,7 +14,7 @@ alias TernaryConditionType = ffi.FFITernaryCondition.Type;
 struct Condition
 {
 	SumType!(
-		ConditionValue,
+		FFIValue,
 		UnaryCondition,
 		BinaryCondition,
 		TernaryCondition,
@@ -80,56 +81,71 @@ struct TernaryCondition
 	Condition* first, second, third;
 }
 
-ConditionValue conditionValue(T)(T c)
+FFIValue conditionValue(T)(T c)
 {
-	ConditionValue ret;
+	FFIValue ret;
 	static if (is(T == typeof(null)))
 	{
-		ret.type = ConditionValue.Type.Null;
+		ret.type = FFIValue.Type.Null;
 	}
 	else static if (is(T == bool))
 	{
-		ret.type = ConditionValue.Type.Bool;
+		ret.type = FFIValue.Type.Bool;
 		ret.boolean = c;
 	}
 	else static if (is(T == short))
 	{
-		ret.type = ConditionValue.Type.I16;
+		ret.type = FFIValue.Type.I16;
 		ret.i16 = c;
 	}
 	else static if (is(T == int))
 	{
-		ret.type = ConditionValue.Type.I32;
+		ret.type = FFIValue.Type.I32;
 		ret.i32 = c;
 	}
 	else static if (isIntegral!T && is(T : long))
 	{
-		ret.type = ConditionValue.Type.I64;
+		ret.type = FFIValue.Type.I64;
 		ret.i64 = c;
 	}
 	else static if (is(T == float))
 	{
-		ret.type = ConditionValue.Type.F32;
+		ret.type = FFIValue.Type.F32;
 		ret.f32 = c;
 	}
 	else static if (is(T : double))
 	{
-		ret.type = ConditionValue.Type.F64;
+		ret.type = FFIValue.Type.F64;
 		ret.f64 = c;
 	}
 	else static if (is(T : const(char)[]))
 	{
-		ret.type = ConditionValue.Type.String;
+		ret.type = FFIValue.Type.String;
 		ret.string = ffi.ffi(c);
+	}
+	else static if (is(T : Date))
+	{
+		ret.type = FFIValue.Type.NaiveDate;
+		ret.naiveDate = ffi.FFIDate(cast(uint)c.date, cast(uint)c.month, cast(int)c.year);
+	}
+	else static if (is(T : TimeOfDay))
+	{
+		ret.type = FFIValue.Type.NaiveTime;
+		ret.naiveTime = ffi.FFITime(cast(uint)c.hour, cast(uint)c.minute, cast(uint)c.second);
+	}
+	else static if (is(T : DateTime))
+	{
+		ret.type = FFIValue.Type.NaiveDate;
+		ret.naiveDateTime = ffi.FFIDateTime(cast(int)c.year, cast(uint)c.month, cast(uint)c.date, cast(uint)c.hour, cast(uint)c.minute, cast(uint)c.second);
 	}
 	else static assert(false, "Unsupported condition value type: " ~ T.stringof);
 	return ret;
 }
 
-ConditionValue conditionIdentifier(string identifier)
+FFIValue conditionIdentifier(string identifier)
 {
-	ConditionValue ret;
-	ret.type = ConditionValue.Type.Identifier;
+	FFIValue ret;
+	ret.type = FFIValue.Type.Identifier;
 	ret.identifier = ffi.ffi(identifier);
 	return ret;
 }
@@ -153,7 +169,7 @@ ffi.FFICondition[] makeTree(Condition c)
 	{
 		ffi.FFICondition dstret;
 		c.match!(
-			(ConditionValue v)
+			(FFIValue v)
 			{
 				dstret.type = ffi.FFICondition.Type.Value;
 				dstret.value = v;
@@ -251,6 +267,7 @@ ffi.FFICondition[] makeTree(Condition c)
 string dumpTree(ffi.FFICondition[] c)
 {
 	import std.array : appender;
+	import std.format : format;
 
 	auto query = appender!string;
 	query ~= "WHERE";
@@ -264,16 +281,19 @@ string dumpTree(ffi.FFICondition[] c)
 			query ~= " Value(";
 			final switch (c.value.type)
 			{
-				case ConditionValue.Type.String: query ~= '`' ~ c.value.string[] ~ '`'; break;
-				case ConditionValue.Type.Identifier: query ~= "ident:" ~ c.value.identifier[]; break;
-				case ConditionValue.Type.Bool: query ~= c.value.boolean.to!string; break;
-				case ConditionValue.Type.I16: query ~= "i16:" ~ c.value.i16.to!string; break;
-				case ConditionValue.Type.I32: query ~= "i32:" ~ c.value.i32.to!string; break;
-				case ConditionValue.Type.I64: query ~= "i64:" ~ c.value.i64.to!string; break;
-				case ConditionValue.Type.F32: query ~= "f32:" ~ c.value.f32.to!string; break;
-				case ConditionValue.Type.F64: query ~= "f64:" ~ c.value.f64.to!string; break;
-				case ConditionValue.Type.Null: query ~= "[null]"; break;
-				case ConditionValue.Type.Binary: query ~= "(binary)"; break;
+				case FFIValue.Type.String: query ~= '`' ~ c.value.string[] ~ '`'; break;
+				case FFIValue.Type.Identifier: query ~= "ident:" ~ c.value.identifier[]; break;
+				case FFIValue.Type.Bool: query ~= c.value.boolean.to!string; break;
+				case FFIValue.Type.I16: query ~= "i16:" ~ c.value.i16.to!string; break;
+				case FFIValue.Type.I32: query ~= "i32:" ~ c.value.i32.to!string; break;
+				case FFIValue.Type.I64: query ~= "i64:" ~ c.value.i64.to!string; break;
+				case FFIValue.Type.F32: query ~= "f32:" ~ c.value.f32.to!string; break;
+				case FFIValue.Type.F64: query ~= "f64:" ~ c.value.f64.to!string; break;
+				case FFIValue.Type.Null: query ~= "[null]"; break;
+				case FFIValue.Type.Binary: query ~= "(binary)"; break;
+				case FFIValue.Type.NaiveTime: auto t = c.value.naiveTime; query ~= format!"%02d:%02d:%02d"(t.hour, t.min, t.sec); break;
+				case FFIValue.Type.NaiveDate: auto d = c.value.naiveDate; query ~= format!"%04d-%02d-%02d"(d.year, d.month, d.day); break;
+				case FFIValue.Type.NaiveDateTime: auto dt = c.value.naiveDateTime; query ~= format!"%04d-%02d-%02dT%02d:%02d:%02d"(dt.year, dt.month, dt.day, dt.hour, dt.min, dt.sec); break;
 			}
 			query ~= ")";
 			break;
