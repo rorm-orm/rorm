@@ -6,11 +6,11 @@ import std.meta;
 
 enum autoCreateTime;
 enum autoUpdateTime;
-enum autoincrement;
+enum autoIncrement;
 enum timestamp;
 enum notNull;
 
-alias Id = AliasSeq!(autoincrement, primaryKey);
+alias Id = AliasSeq!(primaryKey, autoIncrement);
 
 struct constructValue(alias fn) {}
 struct validator(alias fn) {}

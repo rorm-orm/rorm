@@ -144,9 +144,9 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		{
 			field.annotations ~= DBAnnotation(AnnotationFlag.primaryKey);
 		}
-		else static if (__traits(isSame, attribute, uda.autoincrement))
+		else static if (__traits(isSame, attribute, uda.autoIncrement))
 		{
-			field.annotations ~= DBAnnotation(AnnotationFlag.autoincrement);
+			field.annotations ~= DBAnnotation(AnnotationFlag.autoIncrement);
 		}
 		else static if (__traits(isSame, attribute, uda.unique))
 		{
@@ -211,7 +211,7 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 	}
 
 	if (!nullable)
-		field.annotations ~= DBAnnotation(AnnotationFlag.notNull);
+		field.annotations = DBAnnotation(AnnotationFlag.notNull) ~ field.annotations;
 
 	if (include)
 	{
@@ -480,7 +480,7 @@ unittest
 	// field[0] gets added by dorm.model.Model
 	assert(m.fields[0].columnName == "id");
 	assert(m.fields[0].type == ModelFormat.Field.DBType.int64);
-	assert(m.fields[0].annotations == [DBAnnotation(AnnotationFlag.autoincrement), DBAnnotation(AnnotationFlag.primaryKey), DBAnnotation(AnnotationFlag.notNull)]);
+	assert(m.fields[0].annotations == [DBAnnotation(AnnotationFlag.autoIncrement), DBAnnotation(AnnotationFlag.primaryKey), DBAnnotation(AnnotationFlag.notNull)]);
 
 	assert(m.fields[1].columnName == "username");
 	assert(m.fields[1].type == ModelFormat.Field.DBType.varchar);
