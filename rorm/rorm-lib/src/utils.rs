@@ -12,17 +12,17 @@ Representation of a [chrono::NaiveDate]
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct FFIDate {
-    pub(crate) day: u32,
-    pub(crate) month: u32,
     pub(crate) year: i32,
+    pub(crate) month: u32,
+    pub(crate) day: u32,
 }
 
 impl From<chrono::NaiveDate> for FFIDate {
     fn from(value: chrono::NaiveDate) -> Self {
         Self {
-            day: value.day(),
-            month: value.month(),
             year: value.year(),
+            month: value.month(),
+            day: value.day(),
         }
     }
 }
