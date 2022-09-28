@@ -20,11 +20,14 @@ pub mod query;
 This module holds the results of a query
 */
 pub mod result;
+
 #[cfg(feature = "sqlx-dep")]
-/**
-This module defines a wrapper for sqlx's AnyRow
-*/
+#[path = "row_sqlx.rs"]
 pub mod row;
+#[cfg(not(feature = "sqlx-dep"))]
+#[path = "row_dummy.rs"]
+pub mod row;
+
 #[cfg(feature = "sqlx-dep")]
 mod utils;
 

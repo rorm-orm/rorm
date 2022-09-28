@@ -1,0 +1,5 @@
+name "testapp"
+
+// dependency "vibe-d" version="~>0.9.5-beta.2"
+dependency "dorm" path=".."
+dependency "dorm:build-models" path=".."

@@ -13,6 +13,9 @@ pub use rorm_macro::*;
 pub use rorm_declaration::imr;
 
 /// Module implementing methods to [`Condition`] based on [`Field<T>`]
+///
+/// [`Condition`]: rorm_db::conditional::Condition
+/// [`Field<T>`]: model::Field
 mod conditions;
 
 /// This module holds traits and structs for working with models

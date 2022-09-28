@@ -1,3 +1,4 @@
+//! This module defines a wrapper for sqlx's AnyRow
 use crate::error::Error;
 use sqlx::any::AnyRow;
 use sqlx::Any as AnyDb;

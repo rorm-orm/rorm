@@ -176,6 +176,8 @@ enum DBHandle : void* { init }
 /// ditto
 enum DBRowHandle : void* { init }
 /// ditto
+enum DBRowListHandle : void* { init }
+/// ditto
 enum DBStreamHandle : void* { init }
 
 /// Represents a (sub-)tree of one or more condition parts.
@@ -213,7 +215,7 @@ struct FFICondition
 		/// Correpsonding value for Type.TernaryCondition
 		FFITernaryCondition ternaryCondition;
 		/// Correpsonding value for Type.Value
-		ConditionValue value;
+		FFIValue value;
 	}
 }
 
@@ -308,7 +310,7 @@ struct FFITernaryCondition
 
 /// Represents a leaf node in a condition tree, effectively inserting a static
 /// value like a string, identifier or number.
-struct ConditionValue
+struct FFIValue
 {
 	/// tagged union type
 	enum Type
@@ -334,6 +336,12 @@ struct ConditionValue
 		F32,
 		/// Binary representation
 		Binary,
+		/// Time of day representation
+		NaiveTime,
+		/// Date representation
+		NaiveDate,
+		/// Date and time representation without timezone
+		NaiveDateTime,
 	}
 	/// ditto
 	Type type;
@@ -358,7 +366,37 @@ struct ConditionValue
 		float f32;
 		/// Corresponds to Type.Binary
 		FFIArray!ubyte binary;
+		/// Corresponds to Type.NaiveTime
+		FFITime naiveTime;
+		/// Corresponds to Type.NaiveDate
+		FFIDate naiveDate;
+		/// Corresponds to Type.NaiveDateTime
+		FFIDateTime naiveDateTime;
 	}
+}
+
+/// Representation of a time of the day.
+struct FFITime {
+	///
+	uint hour, min, sec;
+}
+
+/// Representation of any date
+struct FFIDate {
+	///
+	uint day, month;
+	///
+	int year;
+}
+
+/// Representation of a date and time (without timezone)
+struct FFIDateTime {
+	///
+	int year;
+	///
+	uint month, day;
+	///
+	uint hour, min, sec;
 }
 
 /**
@@ -417,6 +455,18 @@ struct RormError
 		 * The index in the row was out of bounds
 		 */
 		ColumnIndexOutOfBoundsError,
+		/**
+		 * The provided date could not be parsed
+		 */
+		InvalidDateError,
+		/**
+		 * The provided time could not be parsed
+		 */
+		InvalidTimeError,
+		/**
+		 * The provided datetime could not be parsed
+		 */
+		InvalidDateTimeError,
 	}
 	/// ditto
 	Tag tag;
@@ -479,9 +529,17 @@ struct RormError
 				return new Exception("Column was not found in row");
 			case Tag.ColumnIndexOutOfBoundsError:
 				return new Exception("The index in the row was out of bounds");
+			case Tag.InvalidDateError:
+				return new Exception("The provided date could not be parsed");
+			case Tag.InvalidTimeError:
+				return new Exception("The provided time could not be parsed");
+			case Tag.InvalidDateTimeError:
+				return new Exception("The provided datetime could not be parsed");
 		}
 	}
 }
+
+// ------ Runtime management -------
 
 /**
  * This function is used to initialize and start the async runtime.
@@ -515,6 +573,8 @@ alias RuntimeStartCallback = extern(C) void function(void* context, scope RormEr
 void rorm_runtime_shutdown(ulong timeoutMsecs, RuntimeShutdownCallback callback, void* context);
 /// ditto
 alias RuntimeShutdownCallback = extern(C) void function(void* context, scope RormError);
+
+// ------ DB Management -------
 
 /**
  * Connect to the database using the provided $(LREF DBConnectOptions).
@@ -550,30 +610,71 @@ alias DBConnectCallback = extern(C) void function(void* context, DBHandle handle
  */
 void rorm_db_free(DBHandle handle);
 
+// ------ Querying -------
+
 /**
  * This function queries the database given the provided parameters.
- *
- * Returns: a pointer to the created stream.
  *
  * Parameters:
  *     box = Reference to the Database, provided by $(LREF rorm_db_connect).
  *     model = Name of the table to query.
  *     columns = Array of columns to retrieve from the database.
- *     condition = Pointer to a $(LREF FFICondition).
+ *     condition = Pointer to an $(LREF FFICondition).
+ *     callback = callback function. Takes the `context`, a row handle and an
+ *         error that must be checked first.
+ *     context = context pointer to pass through as-is into the callback.
+ *
+ * The callback-provided row or row list handle must be freed using their
+ * corresponding free methods. ($(LREF rorm_row_free) or $(LREF rorm_row_list_free))
+ *
+ * Important: - Make sure that `db`, `model`, `columns` and `condition` are allocated until the callback is executed.
+ *
+ * This function is called completely synchronously.
+ */
+void rorm_db_query_all(DBHandle handle,
+	FFIString model,
+	FFIArray!FFIString columns,
+	scope const(FFICondition)* conditionTree,
+	DBQueryAllCallback callback,
+	void* context);
+/// ditto
+void rorm_db_query_one(DBHandle handle,
+	FFIString model,
+	FFIArray!FFIString columns,
+	scope const(FFICondition)* conditionTree,
+	DBQueryOneCallback callback,
+	void* context);
+/// ditto
+alias DBQueryOneCallback = extern(C) void function(void* context, DBRowHandle row, scope RormError);
+/// ditto
+alias DBQueryAllCallback = extern(C) void function(void* context, DBRowListHandle row, scope RormError);
+
+// ------ Querying (Streams) -------
+
+/**
+ * This function queries the database given the provided parameters.
+ *
+ * Parameters:
+ *     box = Reference to the Database, provided by $(LREF rorm_db_connect).
+ *     model = Name of the table to query.
+ *     columns = Array of columns to retrieve from the database.
+ *     condition = Pointer to an $(LREF FFICondition).
  *     callback = callback function. Takes the `context`, a stream handle and an
  *         error that must be checked first.
  *     context = context pointer to pass through as-is into the callback.
  *
+ * Important: - Make sure that `db`, `model`, `columns` and `condition` are allocated until the callback is executed.
+ *
  * This function is called completely synchronously.
  */
-DBStreamHandle rorm_db_query_stream(DBHandle handle,
+void rorm_db_query_stream(DBHandle handle,
 	FFIString model,
 	FFIArray!FFIString columns,
-	const(FFICondition)* conditionTree,
-	DbQueryStreamCallback callback,
+	scope const(FFICondition)* conditionTree,
+	DBQueryStreamCallback callback,
 	void* context);
 /// ditto
-alias DbQueryStreamCallback = extern(C) void function(void* context, DBStreamHandle stream, scope RormError);
+alias DBQueryStreamCallback = extern(C) void function(void* context, DBStreamHandle stream, scope RormError);
 
 /**
  * Frees the stream given as parameter. The stream must be in a freeable state.
@@ -598,9 +699,9 @@ void rorm_stream_free(DBStreamHandle handle);
  *
  * This function is running in an asynchronous context.
  */
-void rorm_stream_get_row(DBStreamHandle stream, scope DbStreamGetRowCallback callback, void* context);
+void rorm_stream_get_row(DBStreamHandle stream, scope DBStreamGetRowCallback callback, void* context);
 /// ditto
-alias DbStreamGetRowCallback = extern(C) void function(void* context, DBRowHandle row, scope RormError) nothrow;
+alias DBStreamGetRowCallback = extern(C) void function(void* context, DBRowHandle row, scope RormError) nothrow;
 
 /**
  * Frees the row handle given as parameter.
@@ -611,6 +712,16 @@ alias DbStreamGetRowCallback = extern(C) void function(void* context, DBRowHandl
  * This function is called completely synchronously.
  */
 void rorm_row_free(DBRowHandle row);
+
+/**
+ * Frees the row list handle given as parameter.
+ *
+ * **Important**: Do not call this function more than once or with an invalid
+ * row handle!
+ *
+ * This function is called completely synchronously.
+ */
+void rorm_row_list_free(DBRowListHandle row);
 
 /**
 Params:
@@ -631,6 +742,9 @@ double rorm_row_get_f64(DBRowHandle handle, FFIString column, ref RormError ref_
 bool rorm_row_get_bool(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 FFIString rorm_row_get_str(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 FFIArray!(const ubyte) rorm_row_get_binary(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFIDate rorm_row_get_date(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFIDateTime rorm_row_get_datetime(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFITime rorm_row_get_time(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 FFIOption!short rorm_row_get_null_i16(DBRowHandle handle, FFIString column, ref RormError ref_error);
 FFIOption!int rorm_row_get_null_i32(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 FFIOption!long rorm_row_get_null_i64(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
@@ -639,17 +753,76 @@ FFIOption!double rorm_row_get_null_f64(DBRowHandle handle, FFIString column, ref
 FFIOption!bool rorm_row_get_null_bool(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 FFIOption!FFIString rorm_row_get_null_str(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 FFIOption!(FFIArray!(const ubyte)) rorm_row_get_null_binary(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFIOption!FFIDate rorm_row_get_null_date(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFIOption!FFIDateTime rorm_row_get_null_datetime(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
+FFIOption!FFITime rorm_row_get_null_time(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
 
-version (none)
-{
-	// todo:
-	FFIArray!(const(ubyte)) rorm_row_get_varbinary(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
-	void rorm_row_get_date(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
-	void rorm_row_get_datetime(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
-	void rorm_row_get_timestamp(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
-	void rorm_row_get_time(DBRowHandle handle, FFIString column, ref RormError ref_error); /// ditto
-}
+// ------ Insertion -------
 
+/**
+ * This function inserts one row (rorm_db_insert) or multiple rows
+ * (rorm_db_inset_bulk) into the given the database with the given values.
+ *
+ * Params:
+ *     db = Reference to the Database, provided by $(LREF rorm_db_connect).
+ *     model = Name of the table to insert into.
+ *     columns = Array of columns, corresponding to `row` values to insert into the database.
+ *     row = List of values to insert, indexes matching the `columns` parameter.
+ *     rows = List of list of values to insert, each row's indexes matching the `columns` parameter.
+ *     callback = Callback to call when finished, only passing in error information.
+ *     context = context pointer to pass through as-is into the callback.
+ *
+ * **Important**: - Make sure that `db`, `model` and `condition` are allocated until the callback is executed.
+ *
+ * This function is called from an asynchronous context.
+ */
+void rorm_db_insert(
+	DBHandle db,
+	FFIString model,
+	FFIArray!FFIString columns,
+	FFIArray!FFIValue row,
+	DBInsertCallback callback,
+	void* context
+);
+/// ditto
+void rorm_db_insert_bulk(
+	DBHandle db,
+	FFIString model,
+	FFIArray!FFIString columns,
+	FFIArray!(FFIArray!FFIValue) rows,
+	DBInsertCallback callback,
+	void* context
+);
+/// ditto
+alias DBInsertCallback = extern(C) void function(void* context, scope RormError);
+
+// ------ Deletion -------
+
+/**
+ * This function deletes rows from the database based on the given conditions.
+ *
+ * Params:
+ *     db = Reference to the Database, provided by $(LREF rorm_db_connect).
+ *     model = Name of the table to query.
+ *     condition = Query / condition to filter what to delete on.
+ *     limit = Optional limit of the number of deletions that should be performed at most.
+ *     callback = Callback to call when finished, only passing in error information.
+ *     context = context pointer to pass through as-is into the callback.
+ *
+ * **Important**: - Make sure that `db`, `model` and `condition` are allocated until the callback is executed.
+ *
+ * This function is called from an asynchronous context.
+ */
+void rorm_db_delete(
+	DBHandle db,
+	FFIString model,
+	scope const(FFICondition)* conditionTree,
+	FFIOption!ulong limit,
+	DBDeleteCallback callback,
+	void* context
+);
+/// ditto
+alias DBDeleteCallback = extern(C) void function(void* context, scope RormError);
 
 unittest
 {

@@ -167,8 +167,8 @@ enum AnnotationFlag
 	autoCreateTime,
 	/// corresponds to the $(REF autoUpdateTime, dorm,annotations) UDA.
 	autoUpdateTime,
-	/// corresponds to the $(REF autoincrement, dorm,annotations) UDA.
-	autoincrement,
+	/// corresponds to the $(REF autoIncrement, dorm,annotations) UDA.
+	autoIncrement,
 	/// corresponds to the $(REF primaryKey, dorm,annotations) UDA.
 	primaryKey,
 	/// corresponds to the $(REF unique, dorm,annotations) UDA.
@@ -229,8 +229,8 @@ private struct IonDBAnnotation
 					case AnnotationFlag.notNull:
 						typeStr = "not_null";
 						break;
-					case AnnotationFlag.autoincrement:
-						typeStr = "autoincrement";
+					case AnnotationFlag.autoIncrement:
+						typeStr = "auto_increment";
 						break;
 					case AnnotationFlag.primaryKey:
 						typeStr = "primary_key";
@@ -355,8 +355,8 @@ unittest
 	f.type = ModelFormat.Field.DBType.varchar;
 	f.definedAt = SourceLocation("file.d", 142, 12);
 	f.annotations = [
-		DBAnnotation(AnnotationFlag.primaryKey),
 		DBAnnotation(AnnotationFlag.notNull),
+		DBAnnotation(AnnotationFlag.primaryKey),
 		DBAnnotation(index()),
 		DBAnnotation(maxLength(255))
 	];
@@ -382,10 +382,10 @@ unittest
 					"Type": "varchar",
 					"Annotations": [
 						{
-							"Type": "primary_key"
+							"Type": "not_null"
 						},
 						{
-							"Type": "not_null"
+							"Type": "primary_key"
 						},
 						{
 							"Type": "index"
