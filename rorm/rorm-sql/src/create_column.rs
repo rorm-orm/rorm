@@ -68,7 +68,7 @@ impl SQLCreateColumn {
                     DbType::VarChar
                     | DbType::VarBinary
                     | DbType::Date
-                    | DbType::Datetime
+                    | DbType::DateTime
                     | DbType::Timestamp
                     | DbType::Time
                     | DbType::Choices

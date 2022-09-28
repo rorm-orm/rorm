@@ -81,7 +81,7 @@ pub enum DbType {
     Double,
     Boolean,
     Date,
-    Datetime,
+    DateTime,
     Timestamp,
     Time,
     Choices,

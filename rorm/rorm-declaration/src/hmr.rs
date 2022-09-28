@@ -49,8 +49,8 @@ impl_db_types!(
     Boolean,
     /// Type level version of [`imr::DbType::Date`]
     Date,
-    /// Type level version of [`imr::DbType::Datetime`]
-    Datetime,
+    /// Type level version of [`imr::DbType::DateTime`]
+    DateTime,
     /// Type level version of [`imr::DbType::Timestamp`]
     Timestamp,
     /// Type level version of [`imr::DbType::Time`]
