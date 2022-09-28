@@ -480,7 +480,7 @@ unittest
 	// field[0] gets added by dorm.model.Model
 	assert(m.fields[0].columnName == "id");
 	assert(m.fields[0].type == ModelFormat.Field.DBType.int64);
-	assert(m.fields[0].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
+	assert(m.fields[0].annotations == [DBAnnotation(AnnotationFlag.autoincrement), DBAnnotation(AnnotationFlag.primaryKey), DBAnnotation(AnnotationFlag.notNull)]);
 
 	assert(m.fields[1].columnName == "username");
 	assert(m.fields[1].type == ModelFormat.Field.DBType.varchar);
