@@ -95,7 +95,7 @@ template LogicalFields(TModel)
 	alias LogicalFields = AliasSeq!();
 
 	static foreach_reverse (Class; Classes)
-		LogicalFields = AliasSeq!(LogicalFields, __traits(derivedMembers, Class));
+		LogicalFields = AliasSeq!(LogicalFields, FieldNameTuple!Class);
 }
 
 private void processField(TModel, string fieldName, string directFieldName)(ref ModelFormat serialized)
