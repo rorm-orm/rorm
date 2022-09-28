@@ -76,13 +76,14 @@ enum DormLayout(TModel : Model) = delegate() {
 
 enum DormFields(TModel : Model) = DormLayout!TModel.fields;
 
-enum DormField(TModel : Model, string sourceName) = findField(DormFields!TModel, sourceName, TModel.stringof);
+enum DormFieldIndex(TModel : Model, string sourceName) = findFieldIdx(DormFields!TModel, sourceName, TModel.stringof);
+enum DormField(TModel : Model, string sourceName) = DormFields!TModel[DormFieldIndex!(TModel, sourceName)];
 
-private auto findField(ModelFormat.Field[] fields, string name, string modelName)
+private auto findFieldIdx(ModelFormat.Field[] fields, string name, string modelName)
 {
-	foreach (ref field; fields)
+	foreach (i, ref field; fields)
 		if (field.sourceColumn == name)
-			return field;
+			return i;
 	assert(false, "field " ~ name ~ " not found in model " ~ modelName);
 }
 
