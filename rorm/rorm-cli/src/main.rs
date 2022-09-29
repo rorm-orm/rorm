@@ -1,10 +1,11 @@
+pub mod linter;
 pub mod make_migrations;
 pub mod merge_migrations;
 pub mod migrate;
 pub mod squash_migrations;
 pub mod utils;
 
-use clap::{Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand};
 use tokio;
 
 use crate::make_migrations::{run_make_migrations, MakeMigrationsOptions};
@@ -28,12 +29,12 @@ enum Commands {
         name: Option<String>,
 
         #[clap(long = "non-interactive")]
-        #[clap(takes_value = false)]
+        #[clap(action = ArgAction::SetTrue)]
         #[clap(help = "If set, no questions will be asked.")]
         non_interactive: bool,
 
         #[clap(long = "disable-warnings")]
-        #[clap(takes_value = false)]
+        #[clap(action = ArgAction::SetTrue)]
         #[clap(help = "If set, no warnings will be printed.")]
         warnings_disabled: bool,
     },
@@ -51,7 +52,7 @@ enum Commands {
         database_config: String,
 
         #[clap(long = "log-sql")]
-        #[clap(takes_value = false)]
+        #[clap(action = ArgAction::SetTrue)]
         #[clap(help = "If turned on, all queries to the database will be logged")]
         log_queries: bool,
     },
