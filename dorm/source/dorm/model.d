@@ -14,7 +14,8 @@ abstract class Model
     /// Auto-included ID field that's assigned on every model.
     @Id @columnName("id") @modifiedIf("_modifiedId")
     public long _fallbackId;
-    protected bool _modifiedId;
+    @ignored
+    public bool _modifiedId;
 
     public long id(this This)() const @property @safe nothrow @nogc pure
     if (DormFields!This[0].isBuiltinId)

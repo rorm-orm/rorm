@@ -4,6 +4,8 @@ import ffi = dorm.lib.ffi;
 import dorm.lib.util;
 import dorm.declarative.conversion;
 
+import std.conv : text;
+import std.datetime : Clock, Date, DateTime, DateTimeException, SysTime, TimeOfDay, UTC;
 import std.meta;
 import std.range.primitives;
 import std.traits;
@@ -115,8 +117,104 @@ struct DormDB
 	}
 
 	@disable this(this);
+
+	void insert(T)(T value)
+	{
+		alias DB = DBType!T;
+		ffi.FFIString[DormFields!DB.length] columns;
+		ffi.FFIValue[DormFields!DB.length] values;
+		int used;
+
+		static foreach (field; DormFields!T)
+		{{
+			static if (is(typeof(mixin("value." ~ field.sourceColumn))))
+			{
+				enum modifiedIfsCode = {
+					string ret;
+					auto ifs = field.getModifiedIfs();
+					foreach (m; ifs)
+					{
+						if (ret.length) ret ~= " || ";
+						ret ~= m.makeCheckCode("value.");
+					}
+					return ret.length ? ret : "true";
+				}();
+
+				if (mixin(modifiedIfsCode)
+					&& !isImplicitlyIgnoredValue(mixin("value." ~ field.sourceColumn)))
+				{
+					columns[used] = ffi.ffi(field.columnName);
+					values[used] = conditionValue!(
+						text(" from model ", DB.stringof, " in column ", field.sourceColumn, " in file ", field.definedAt).idup
+					)(mixin("value." ~ field.sourceColumn));
+					used++;
+				}
+			}
+			else static if (field.isNullable || field.hasDefaultValue)
+			{
+				// OK
+			}
+			else static if (is(T == DB))
+				static assert(false, "Trying to insert a patch " ~ T.stringof
+					~ " into " ~ DB.stringof ~ ", but it is missing the non-nullable, non-default field"
+					~ field.sourceColumn ~ "!");
+			else
+				static assert(false, "wat? (defined DormField not found inside the Model class that defined it)");
+		}}
+
+		static if (is(T == DB))
+		{
+			auto brokenFields = value.runValidators();
+
+			string error;
+			foreach (field; brokenFields)
+				error ~= "Field " ~ field.sourceColumn ~ " defined in "
+					~ field.definedAt.toString ~ " failed user validation.";
+			if (error.length)
+				throw new Exception(error);
+		}
+		else
+		{
+			auto validatorObject = new DB();
+			validatorObject.applyPatch(value);
+			auto brokenFields = validatorObject.runValidators();
+
+			string error;
+			foreach (field; brokenFields)
+			{
+				switch (field.columnName)
+				{
+					static foreach (field; DormFields!T)
+					{
+						static if (is(typeof(mixin("value." ~ field.sourceColumn))))
+						{
+							case field.columnName:
+						}
+					}
+					error ~= "Field " ~ field.sourceColumn ~ " defined in "
+						~ field.definedAt.toString ~ " failed user validation.";
+					break;
+				default:
+					break;
+				}
+			}
+
+			if (error.length)
+				throw new Exception(error);
+		}
+
+
+		FreeableAsyncResult!void ctx;
+		ffi.rorm_db_insert(handle,
+			ffi.ffi(DormLayout!T.tableName),
+			ffi.ffi(columns[0 .. used]),
+			ffi.ffi(values[0 .. used]), ctx.callback.expand);
+		ctx.result();
+	}
 }
 
+// defined this as global so that we can pass `Foo.fieldName` as alias argument,
+// to have it be selected.
 static SelectOperation!(DBType!(Selection), SelectType!(Selection)) select(Selection...)(return ref DormDB db)
 {
 	return typeof(return)(&db);
@@ -590,8 +688,6 @@ private string[] selectionFieldNames(T, TSelect)(string prefix = "")
 
 TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row)
 {
-	import std.conv : text;
-
 	TSelect res;
 	ffi.RormError rowError;
 	enum fields = FilterLayoutFields!(T, TSelect);
@@ -673,7 +769,6 @@ private T extractField(alias field, T, string errInfo)(ffi.DBRowHandle row, ref 
 
 private T fieldInto(T, string errInfo, From)(From v, ref ffi.RormError error)
 {
-	import std.datetime : Clock, Date, DateTime, SysTime, TimeOfDay, UTC, DateTimeException;
 	import dorm.lib.ffi : FFIArray, FFIOption;
 
 	static if (is(T == From))
@@ -791,6 +886,9 @@ private T fieldInto(T, string errInfo, From)(From v, ref ffi.RormError error)
 	else
 		static assert(false, "did not implement conversion from " ~ From.stringof ~ " into " ~ T.stringof ~ errInfo);
 }
+
+private bool isImplicitlyIgnoredValue(SysTime value) { return value == SysTime.init; }
+private bool isImplicitlyIgnoredValue(T)(T value) { return false; }
 
 mixin template SetupDormRuntime(alias timeout = 10.seconds)
 {
