@@ -131,7 +131,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
             fields_construction.push(construction);
         }
     }
-    let _primary_field = if let Some(primary_field) = primary_field {
+    let primary_field = if let Some(primary_field) = primary_field {
         primary_field
     } else {
         errors.push_new(
@@ -180,6 +180,11 @@ pub fn model(strct: TokenStream) -> TokenStream {
                     )*],
                     source_defined_at: #model_source,
                 }
+            }
+
+            fn as_condition(&self) -> ::rorm::conditional::Condition {
+                <#strct_ident as ::rorm::model::Model>::FIELDS
+                    .#primary_field.equals(self.#primary_field)
             }
         }
 

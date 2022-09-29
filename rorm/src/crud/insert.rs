@@ -1,4 +1,4 @@
-//! Insert
+//! Insert functions
 
 use crate::model::{IntoColumnIterator, Model, Patch};
 use rorm_db::{error::Error, Database};

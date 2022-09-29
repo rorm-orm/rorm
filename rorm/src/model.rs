@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
 
+use rorm_db::conditional::Condition;
 use rorm_db::value::Value;
 use rorm_declaration::hmr;
 use rorm_declaration::imr;
@@ -189,6 +189,10 @@ pub trait Model {
     /// [`write_models`]: crate::write_models
     fn get_imr() -> imr::Model;
 
+    /// Build a [Condition] which only matches on this instance.
+    ///
+    /// It just creates an equal comparison using the primary key
+    fn as_condition(&self) -> Condition;
 }
 
 /// All relevant information about a model's field
