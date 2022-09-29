@@ -28,14 +28,14 @@ path = "src/lib.rs"
 
 [dependencies]
 # Abstractions for asynchronous programming.
-futures = { version = "^0.3" }
+futures = { version = "~0.3" }
 
 # json serialization to communicate with the migrator
-serde_json = { version = "^1.0" }
+serde_json = { version = "~1.0" }
 # linker magic to create a slice containing all models defined by crates
-linkme = { version = "0.3" }
+linkme = { version = "~0.3" }
 # Time and date library
-chrono = { version = "^0.4" }
+chrono = { version = "~0.4" }
 
 rorm-db = { version = "0.1.0", path = "./rorm-db" }
 rorm-macro = { version = "0.1.0", path = "./rorm-macro" }
@@ -58,3 +58,11 @@ async-std-native-tls = ["rorm-db/async-std-native-tls"]
 
 actix-rustls = ["rorm-db/actix-rustls"]
 actix-native-tls = ["rorm-db/actix-native-tls"]
+
+[profile.release-lto]
+inherits = "release"
+lto = "fat"
+
+[profile.release-debug]
+inherits = "release"
+debug = true
