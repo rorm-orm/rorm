@@ -569,7 +569,6 @@ pub extern "C" fn rorm_db_delete(
     db: &'static Database,
     model: FFIString<'static>,
     condition: Option<&'static Condition>,
-    limit: FFIOption<u64>,
     callback: Option<unsafe extern "C" fn(VoidPtr, u64, Error) -> ()>,
     context: VoidPtr,
 ) {
@@ -601,11 +600,9 @@ pub extern "C" fn rorm_db_delete(
         cond = Some(cond_conv.unwrap());
     }
 
-    let limit_conv = limit.into();
-
     let fut = async move {
         match cond {
-            None => match db.delete(model_conv.unwrap(), None, limit_conv).await {
+            None => match db.delete(model_conv.unwrap(), None).await {
                 Ok(rows_affected) => unsafe { cb(context, rows_affected, Error::NoError) },
                 Err(err) => {
                     let ffi_err = err.to_string();
@@ -618,7 +615,7 @@ pub extern "C" fn rorm_db_delete(
                     };
                 }
             },
-            Some(v) => match db.delete(model_conv.unwrap(), Some(&v), limit_conv).await {
+            Some(v) => match db.delete(model_conv.unwrap(), Some(&v)).await {
                 Ok(rows_affected) => unsafe { cb(context, rows_affected, Error::NoError) },
                 Err(err) => {
                     let ffi_err = err.to_string();

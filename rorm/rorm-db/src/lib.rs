@@ -384,15 +384,10 @@ impl Database {
         &self,
         model: &str,
         condition: Option<&conditional::Condition<'post_build>>,
-        limit: Option<u64>,
     ) -> Result<u64, Error> {
         let mut q = self.db_impl.delete(model);
         if condition.is_some() {
             q = q.where_clause(condition.unwrap());
-        }
-
-        if limit.is_some() {
-            q = q.limit(limit.unwrap());
         }
 
         let (query_string, bind_params) = q.build();

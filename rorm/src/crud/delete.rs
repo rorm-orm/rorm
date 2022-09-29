@@ -54,7 +54,7 @@ impl<'a, M: Model> DeleteBuilder<'a, M, ()> {
 impl<'a, M: Model> DeleteBuilder<'a, M, ()> {
     /// Delete all columns
     pub async fn all(&self) -> Result<u64, Error> {
-        self.db.delete(M::table_name(), None, None).await
+        self.db.delete(M::table_name(), None).await
     }
 }
 
@@ -62,7 +62,7 @@ impl<'a, M: Model, C: ConditionMarker<'a>> DeleteBuilder<'a, M, C> {
     /// Perform the delete operation
     async fn exec(self) -> Result<u64, Error> {
         self.db
-            .delete(M::table_name(), self.condition.as_option(), None)
+            .delete(M::table_name(), self.condition.as_option())
             .await
     }
 }

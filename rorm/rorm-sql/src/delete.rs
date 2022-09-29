@@ -11,18 +11,9 @@ pub struct SQLDelete<'until_build, 'post_query> {
     pub(crate) model: &'until_build str,
     pub(crate) lookup: Vec<value::Value<'post_query>>,
     pub(crate) where_clause: Option<&'until_build conditional::Condition<'post_query>>,
-    pub(crate) limit: Option<u64>,
 }
 
 impl<'until_build, 'post_query> SQLDelete<'until_build, 'post_query> {
-    /**
-    Sets the limit of the delete operation.
-    */
-    pub fn limit(mut self, limit: u64) -> Self {
-        self.limit = Some(limit);
-        self
-    }
-
     /**
     Adds the a [conditional::Condition] to the delete query.
     */
@@ -50,9 +41,7 @@ impl<'until_build, 'post_query> SQLDelete<'until_build, 'post_query> {
                     )
                     .unwrap();
                 }
-                if self.limit.is_some() {
-                    write!(s, "LIMIT {}", self.limit.unwrap()).unwrap();
-                }
+
                 write!(s, ";").unwrap();
                 (s, self.lookup)
             }
