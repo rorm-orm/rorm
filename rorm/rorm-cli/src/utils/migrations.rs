@@ -3,13 +3,10 @@ use std::io::Write;
 use std::path::Path;
 
 use anyhow::Context;
-use once_cell::sync::Lazy;
-use regex::Regex;
 use rorm_declaration::imr::{InternalModelFormat, Model};
 use rorm_declaration::migration::{Migration, MigrationFile, Operation};
 
-pub static RE_ALLOWED_NAME: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r#"^[0-9]{4}_\w+\.toml$"#).unwrap());
+use crate::utils::re::RE;
 
 /**
 This function is used to convert the [InternalModelFormat] into its TOML representation.
@@ -75,7 +72,7 @@ pub fn get_existing_migrations(migration_dir: &str) -> anyhow::Result<Vec<Migrat
     let mut file_list: Vec<DirEntry> = dir_entries
         .filter(|x| {
             x.as_ref().unwrap().file_type().unwrap().is_file()
-                && RE_ALLOWED_NAME.is_match(
+                && RE.migration_allowed_name.is_match(
                     x.as_ref()
                         .unwrap()
                         .file_name()

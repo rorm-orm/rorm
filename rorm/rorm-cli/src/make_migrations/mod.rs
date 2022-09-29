@@ -5,16 +5,13 @@ use std::hash::{Hash, Hasher};
 use std::path::Path;
 
 use anyhow::{anyhow, Context};
-use once_cell::sync::Lazy;
-use regex::Regex;
 use rorm_declaration::imr::{Field, InternalModelFormat, Model};
 use rorm_declaration::migration::{Migration, Operation};
 
 use crate::utils::migrations::{
     convert_migration_to_file, convert_migrations_to_internal_models, get_existing_migrations,
 };
-
-pub static RE_ALLOWED_NAME: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^[\d\w]+$"#).unwrap());
+use crate::utils::re::RE;
 
 /// Options struct for [run_make_migrations]
 #[derive(Debug)]
@@ -50,7 +47,7 @@ pub fn check_options(options: &MakeMigrationsOptions) -> anyhow::Result<()> {
 
     match &options.name {
         Some(name) => {
-            if !RE_ALLOWED_NAME.is_match(name.as_str()) {
+            if !RE.migration_allowed_name.is_match(name.as_str()) {
                 return Err(anyhow!("Custom migration name is not allowed"));
             }
         }

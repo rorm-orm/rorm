@@ -1,4 +1,5 @@
 pub mod migrations;
+pub mod re;
 
 #[macro_export]
 macro_rules! log_sql {
