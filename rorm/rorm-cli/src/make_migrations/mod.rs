@@ -8,6 +8,7 @@ use anyhow::{anyhow, Context};
 use rorm_declaration::imr::{Field, InternalModelFormat, Model};
 use rorm_declaration::migration::{Migration, Operation};
 
+use crate::linter;
 use crate::utils::migrations::{
     convert_migration_to_file, convert_migrations_to_internal_models, get_existing_migrations,
 };
@@ -78,6 +79,8 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
 
     let internal_models = get_internal_models(&options.models_file.as_str())
         .with_context(|| "Couldn't retrieve internal model files.")?;
+
+    linter::check_internal_models(&internal_models).with_context(|| "Model checks failed.")?;
 
     let existing_migrations = get_existing_migrations(&options.migration_dir.as_str())
         .with_context(|| "An error occurred while deserializing migrations")?;
