@@ -10,6 +10,7 @@ mod args;
 mod derive;
 mod errors;
 mod rename_linkme;
+mod trait_impls;
 mod utils;
 
 use errors::Errors;

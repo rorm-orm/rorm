@@ -240,6 +240,16 @@ pub struct Field<T: 'static, D: hmr::DbType> {
     pub _phantom: PhantomData<&'static (T, D)>,
 }
 
+impl<T: AsDbType, D: hmr::DbType> Field<T, D> {
+    /// Reexport [`AsDbType::from_primitive`]
+    ///
+    /// This method makes macros' syntax slightly cleaner
+    #[inline(always)]
+    pub fn convert_primitive(&self, primitive: T::Primitive) -> T {
+        T::from_primitive(primitive)
+    }
+}
+
 impl<T: AsDbType, D: hmr::DbType> From<&'_ Field<T, D>> for imr::Field {
     fn from(field: &'_ Field<T, D>) -> Self {
         let mut annotations: Vec<_> = field.annotations.iter().map(|&anno| anno.into()).collect();

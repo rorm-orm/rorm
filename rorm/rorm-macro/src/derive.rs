@@ -3,6 +3,7 @@ use quote::{format_ident, quote, ToTokens};
 use syn::spanned::Spanned;
 
 use crate::errors::Errors;
+use crate::trait_impls;
 use crate::utils::{get_source, iter_rorm_attributes, to_db_name};
 
 /// Used to match over an [`Ident`] in a similar syntax as over [&str]s.
@@ -46,38 +47,34 @@ pub fn db_enum(enm: TokenStream) -> TokenStream {
 
     let errors = Errors::new();
     let mut identifiers = Vec::new();
-    let mut literals = Vec::new();
-    for variant in enm.variants.iter() {
+    for variant in enm.variants {
         if variant.fields.is_empty() {
-            let ident = variant.ident.clone();
-            let literal = syn::LitStr::new(&variant.ident.to_string(), variant.ident.span());
-            identifiers.push(ident);
-            literals.push(literal);
+            identifiers.push(variant.ident);
         } else {
             errors.push_new(variant.span(), "Variants aren't allowed to contain data");
         }
     }
-    let enum_name = &enm.ident;
+    let db_enum = enm.ident;
 
     quote! {
-        impl ::rorm::model::DbEnum for #enum_name {
+        impl ::rorm::model::DbEnum for #db_enum {
             fn from_str(string: &str) -> Self {
-                use #enum_name::*;
+                use #db_enum::*;
                 match string {
-                    #(#literals => #identifiers,)*
+                    #(stringify!(#identifiers) => #identifiers,)*
                     _ => panic!("Unexpected database value"),
                 }
             }
             fn to_str(&self) -> &'static str {
-                use #enum_name::*;
+                use #db_enum::*;
                 match self {
-                    #(#identifiers => #literals,)*
+                    #(#identifiers => stringify!(#identifiers),)*
                     _ => unreachable!(),
                 }
             }
             fn as_choices() -> Vec<String> {
                 vec![
-                    #(#literals.to_string()),*
+                    #(stringify!(#identifiers).to_string()),*
                 ]
             }
 
@@ -95,20 +92,12 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let errors = Errors::new();
     let span = proc_macro2::Span::call_site();
 
-    // Static struct containing all model's fields
-    let fields_struct = format_ident!("__{}_Fields_Struct", strct.ident);
-
-    let mut model_name = strct.ident.to_string();
-    model_name.make_ascii_lowercase();
-    let model_name = syn::LitStr::new(&model_name, strct.ident.span());
-    let model_source = get_source(&strct);
-
     let mut primary_field: Option<Ident> = None;
     let mut fields_ident = Vec::new();
     let mut fields_value_type = Vec::new();
     let mut fields_struct_type = Vec::new();
     let mut fields_construction = Vec::new();
-    for (index, field) in strct.fields.iter().enumerate() {
+    for (index, field) in strct.fields.into_iter().enumerate() {
         if let Some(ParsedField {
             is_primary,
             ident,
@@ -120,7 +109,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
             match (is_primary, primary_field.as_ref()) {
                 (true, None) => primary_field = Some(ident.clone()),
                 (true, Some(_)) => errors.push_new(
-                    field.ident.span(),
+                    ident.span(),
                     "Another primary key column has already been defined.",
                 ),
                 _ => {}
@@ -141,27 +130,26 @@ pub fn model(strct: TokenStream) -> TokenStream {
         return errors.into_token_stream();
     };
 
+    // Static struct containing all model's fields
+    let fields_struct = format_ident!("__{}_Fields_Struct", strct.ident);
     // Static reference pointing to Model::get_imr
-    let static_get_imr = Ident::new(&format!("__{}_get_imr", strct.ident), span);
+    let static_get_imr = format_ident!("__{}_get_imr", strct.ident);
+    // Database table's name
+    let table_name = syn::LitStr::new(&to_db_name(strct.ident.to_string()), strct.ident.span());
+    // File, line and column the struct was defined in
+    let model_source = get_source(&span);
 
-    let strct_ident = strct.ident;
-    let field_literals = fields_ident
-        .iter()
-        .map(|ident| syn::LitStr::new(&ident.to_string(), ident.span()));
-    let impl_from_row = from_row(
-        &strct_ident,
-        &strct_ident,
-        &fields_ident,
-        &fields_value_type,
-    );
-    let impl_into_column_iter = into_column_iterator(&strct_ident, &fields_ident);
+    let model = strct.ident;
+    let impl_patch = trait_impls::patch(&model, &model, &fields_ident);
+    let impl_try_from_row = trait_impls::try_from_row(&model, &model, &fields_ident);
+    let impl_into_column_iter = trait_impls::into_column_iterator(&model, &fields_ident);
     TokenStream::from(quote! {
         #[allow(non_camel_case_types)]
         pub struct #fields_struct {
             #(pub #fields_ident: #fields_struct_type),*
         }
 
-        impl ::rorm::model::Model for #strct_ident {
+        impl ::rorm::model::Model for #model {
             const PRIMARY: usize = Self::FIELDS.#primary_field.index;
 
             type Fields = #fields_struct;
@@ -172,44 +160,33 @@ pub fn model(strct: TokenStream) -> TokenStream {
             };
 
             fn table_name() -> &'static str {
-                #model_name
+                #table_name
             }
 
             fn get_imr() -> ::rorm::imr::Model {
                 ::rorm::imr::Model {
-                    name: #model_name.to_string(),
+                    name: #table_name.to_string(),
                     fields: vec![#(
-                        (&<#strct_ident as ::rorm::model::Model>::FIELDS.#fields_ident).into(),
+                        (&<#model as ::rorm::model::Model>::FIELDS.#fields_ident).into(),
                     )*],
                     source_defined_at: #model_source,
                 }
             }
 
             fn as_condition(&self) -> ::rorm::conditional::Condition {
-                <#strct_ident as ::rorm::model::Model>::FIELDS
+                <#model as ::rorm::model::Model>::FIELDS
                     .#primary_field.equals(self.#primary_field)
             }
         }
 
-        impl ::rorm::model::Patch for #strct_ident {
-            type Model = Self;
-
-            const COLUMNS: &'static [&'static str] = &[#(
-                #field_literals,
-            )*];
-
-            const INDEXES: &'static [usize] = &[#(
-                <Self as ::rorm::model::Model>::FIELDS.#fields_ident.index,
-            )*];
-        }
-
-        #impl_from_row
+        #impl_patch
+        #impl_try_from_row
         #impl_into_column_iter
 
-        #[allow(non_snake_case)]
+        #[allow(non_upper_case_globals)]
         #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
         #[::rorm::rename_linkme]
-        static #static_get_imr: fn() -> ::rorm::imr::Model = <#strct_ident as ::rorm::model::Model>::get_imr;
+        static #static_get_imr: fn() -> ::rorm::imr::Model = <#model as ::rorm::model::Model>::get_imr;
 
         #errors
     })
@@ -262,119 +239,37 @@ pub fn patch(strct: TokenStream) -> TokenStream {
     };
 
     let mut field_idents = Vec::new();
-    let mut field_types = Vec::new();
-    for field in strct.fields.iter() {
-        if let Some(ident) = field.ident.as_ref() {
-            field_idents.push(ident.clone());
-            field_types.push(field.ty.clone());
+    for field in strct.fields {
+        if let Some(ident) = field.ident {
+            field_idents.push(ident);
         } else {
             errors.push_new(field.span(), "missing field name");
         }
     }
 
-    let field_literals = field_idents
-        .iter()
-        .map(|ident| syn::LitStr::new(&ident.to_string(), ident.span()));
-    let compile_check = Ident::new(
-        &format!("__compile_check_{}", strct.ident.to_string()),
-        span,
-    );
-    let patch_ident = strct.ident.clone();
-    let impl_from_row = from_row(&patch_ident, &model_path, &field_idents, &field_types);
-    let impl_into_column_iter = into_column_iterator(&patch_ident, &field_idents);
+    let patch = strct.ident;
+    let compile_check = format_ident!("__compile_check_{}", patch);
+    let impl_patch = trait_impls::patch(&patch, &model_path, &field_idents);
+    let impl_try_from_row = trait_impls::try_from_row(&patch, &model_path, &field_idents);
+    let impl_into_column_iter = trait_impls::into_column_iterator(&patch, &field_idents);
     TokenStream::from(quote! {
         #[allow(non_snake_case)]
         fn #compile_check(model: #model_path) {
-            // check if the specified model actually implements model
-            let _ = <#model_path as ::rorm::model::Model>::table_name();
-
             // check fields exist on model and match model's types
             // todo error messages for type mismatches are terrible
-            let _ = #patch_ident {
+            let _ = #patch {
                 #(
                     #field_idents: model.#field_idents,
                 )*
             };
         }
 
-        impl ::rorm::model::Patch for #patch_ident {
-            type Model = #model_path;
-
-            const COLUMNS: &'static [&'static str] = &[#(
-                #field_literals,
-            )*];
-
-            const INDEXES: &'static [usize] = &[#(
-                <Self as ::rorm::model::Patch>::Model::FIELDS.#field_idents.index,
-            )*];
-        }
-
-        #impl_from_row
+        #impl_patch
+        #impl_try_from_row
         #impl_into_column_iter
 
         #errors
     })
-}
-
-fn from_row(
-    strct: &Ident,
-    model: &impl ToTokens,
-    fields: &[Ident],
-    types: &[syn::Type],
-) -> TokenStream {
-    quote! {
-        impl TryFrom<::rorm::row::Row> for #strct {
-            type Error = ::rorm::error::Error;
-
-            fn try_from(row: ::rorm::row::Row) -> Result<Self, Self::Error> {
-                Ok(#strct {
-                    #(
-                        #fields: <#types as ::rorm::model::AsDbType>::from_primitive(
-                            row.get(<#model as ::rorm::model::Model>::FIELDS.#fields.name)?
-                        ),
-                    )*
-                })
-            }
-        }
-    }
-}
-
-fn into_column_iterator(patch: &Ident, columns: &[Ident]) -> TokenStream {
-    let iter_ident = quote::format_ident!("__{}Iterator", patch);
-    let index = columns
-        .iter()
-        .enumerate()
-        .map(|(index, column)| syn::LitInt::new(&index.to_string(), column.span()));
-    quote! {
-        impl<'a> ::rorm::model::IntoColumnIterator<'a> for &'a #patch {
-            type Iterator = #iter_ident<'a>;
-
-            fn into_column_iter(self) -> Self::Iterator {
-                #iter_ident {
-                    next: 0,
-                    patch: self,
-                }
-            }
-        }
-        pub struct #iter_ident<'a> {
-            next: usize,
-            patch: &'a #patch,
-        }
-        impl<'a> Iterator for #iter_ident<'a> {
-            type Item = ::rorm::value::Value<'a>;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                use ::rorm::model::AsDbType;
-                self.next += 1;
-                match self.next - 1 {
-                    #(
-                        #index => Some(self.patch.#columns.as_primitive()),
-                    )*
-                    _ => None,
-                }
-            }
-        }
-    }
 }
 
 struct ParsedField {
@@ -384,9 +279,9 @@ struct ParsedField {
     struct_type: TokenStream,
     construction: TokenStream,
 }
-fn parse_field(index: usize, field: &syn::Field, errors: &Errors) -> Option<ParsedField> {
-    let ident = if let Some(ident) = field.ident.as_ref() {
-        ident.clone()
+fn parse_field(index: usize, field: syn::Field, errors: &Errors) -> Option<ParsedField> {
+    let ident = if let Some(ident) = field.ident {
+        ident
     } else {
         errors.push_new(field.ident.span(), "field has no name");
         return None;
@@ -452,10 +347,10 @@ fn parse_field(index: usize, field: &syn::Field, errors: &Errors) -> Option<Pars
         );
     }
 
-    let value_type = field.ty.clone();
+    let value_type = field.ty;
 
-    let db_name = syn::LitStr::new(&to_db_name(ident.to_string()), field.span());
-    let index = syn::LitInt::new(&index.to_string(), field.span());
+    let db_name = syn::LitStr::new(&to_db_name(ident.to_string()), ident.span());
+    let index = syn::LitInt::new(&index.to_string(), ident.span());
 
     let db_type = if has_choices {
         quote! { ::rorm::hmr::Choices }
@@ -463,7 +358,7 @@ fn parse_field(index: usize, field: &syn::Field, errors: &Errors) -> Option<Pars
         quote! { <#value_type as ::rorm::model::AsDbType>::DbType }
     };
 
-    let source = get_source(&field);
+    let source = get_source(&ident);
 
     Some(ParsedField {
         is_primary,

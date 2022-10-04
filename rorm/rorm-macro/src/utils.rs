@@ -1,4 +1,6 @@
 use crate::errors::Errors;
+use proc_macro2::TokenStream;
+use quote::quote;
 use syn::spanned::Spanned;
 
 pub fn to_db_name(name: String) -> String {
@@ -9,30 +11,28 @@ pub fn to_db_name(name: String) -> String {
 
 /// Create the expression for creating a Option<Source> instance from a span
 #[cfg(feature = "unstable")]
-pub fn get_source<T: Spanned>(spanned: &T) -> syn::Expr {
+pub fn get_source<T: Spanned>(spanned: &T) -> TokenStream {
     let span = spanned.span().unwrap();
-    syn::parse_str::<syn::Expr>(&format!(
-        "Some(::rorm::model::Source {{
-            file: \"{}\",
-            line: {},
-            column: {},
-        }})",
-        span.source_file().path().display(),
-        span.start().line,
-        span.start().column,
-    ))
-    .unwrap()
+    let file = proc_macro2::Literal::string(&span.source_file().path().display().to_string());
+    let line = proc_macro2::Literal::usize_unsuffixed(span.start().line);
+    let column = proc_macro2::Literal::usize_unsuffixed(span.start().column);
+    quote! {
+        Some(::rorm::model::Source {
+            file: #file,
+            line: #line,
+            column: #column,
+        })
+    }
 }
 #[cfg(not(feature = "unstable"))]
-pub fn get_source<T: Spanned>(_spanned: &T) -> syn::Expr {
-    syn::parse_str::<syn::Expr>("None").unwrap()
+pub fn get_source<T: Spanned>(_spanned: &T) -> TokenStream {
+    quote! {None}
 }
 
 /// Iterate over all "arguments" inside any #[rorm(..)] attribute
 ///
 /// It enforces the rorm attributes to look like function calls (see [syn::Meta::List])
 /// as well as excluding literals as their direct arguments (see [syn::NestedMeta::lit])
-#[allow(dead_code)]
 pub fn iter_rorm_attributes<'a>(
     attrs: &'a Vec<syn::Attribute>,
     errors: &'a Errors,
