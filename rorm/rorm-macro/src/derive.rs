@@ -1,5 +1,5 @@
 use proc_macro2::{Ident, TokenStream};
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::spanned::Spanned;
 
 use crate::errors::Errors;
@@ -96,7 +96,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let span = proc_macro2::Span::call_site();
 
     // Static struct containing all model's fields
-    let fields_strct = Ident::new(&format!("__{}_Fields", strct.ident), span);
+    let fields_struct = format_ident!("__{}_Fields_Struct", strct.ident);
 
     let mut model_name = strct.ident.to_string();
     model_name.make_ascii_lowercase();
@@ -108,14 +108,14 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let mut fields_value_type = Vec::new();
     let mut fields_struct_type = Vec::new();
     let mut fields_construction = Vec::new();
-    for field in strct.fields.iter() {
+    for (index, field) in strct.fields.iter().enumerate() {
         if let Some(ParsedField {
             is_primary,
             ident,
             value_type,
             struct_type,
             construction,
-        }) = parse_field(field, &errors)
+        }) = parse_field(index, field, &errors)
         {
             match (is_primary, primary_field.as_ref()) {
                 (true, None) => primary_field = Some(ident.clone()),
@@ -156,13 +156,16 @@ pub fn model(strct: TokenStream) -> TokenStream {
     );
     let impl_into_column_iter = into_column_iterator(&strct_ident, &fields_ident);
     TokenStream::from(quote! {
-        pub struct #fields_strct {
+        #[allow(non_camel_case_types)]
+        pub struct #fields_struct {
             #(pub #fields_ident: #fields_struct_type),*
         }
 
         impl ::rorm::model::Model for #strct_ident {
-            type Fields = #fields_strct;
-            const FIELDS: Self::Fields = #fields_strct {
+            const PRIMARY: usize = Self::FIELDS.#primary_field.index;
+
+            type Fields = #fields_struct;
+            const F: Self::Fields = #fields_struct {
                 #(
                     #fields_ident: #fields_construction,
                 )*
@@ -189,10 +192,14 @@ pub fn model(strct: TokenStream) -> TokenStream {
         }
 
         impl ::rorm::model::Patch for #strct_ident {
-            type Model = #strct_ident;
+            type Model = Self;
 
             const COLUMNS: &'static [&'static str] = &[#(
                 #field_literals,
+            )*];
+
+            const INDEXES: &'static [usize] = &[#(
+                <Self as ::rorm::model::Model>::FIELDS.#fields_ident.index,
             )*];
         }
 
@@ -296,6 +303,10 @@ pub fn patch(strct: TokenStream) -> TokenStream {
             const COLUMNS: &'static [&'static str] = &[#(
                 #field_literals,
             )*];
+
+            const INDEXES: &'static [usize] = &[#(
+                <Self as ::rorm::model::Patch>::Model::FIELDS.#field_idents.index,
+            )*];
         }
 
         #impl_from_row
@@ -373,7 +384,7 @@ struct ParsedField {
     struct_type: TokenStream,
     construction: TokenStream,
 }
-fn parse_field(field: &syn::Field, errors: &Errors) -> Option<ParsedField> {
+fn parse_field(index: usize, field: &syn::Field, errors: &Errors) -> Option<ParsedField> {
     let ident = if let Some(ident) = field.ident.as_ref() {
         ident.clone()
     } else {
@@ -444,6 +455,7 @@ fn parse_field(field: &syn::Field, errors: &Errors) -> Option<ParsedField> {
     let value_type = field.ty.clone();
 
     let db_name = syn::LitStr::new(&to_db_name(ident.to_string()), field.span());
+    let index = syn::LitInt::new(&index.to_string(), field.span());
 
     let db_type = if has_choices {
         quote! { ::rorm::hmr::Choices }
@@ -460,6 +472,7 @@ fn parse_field(field: &syn::Field, errors: &Errors) -> Option<ParsedField> {
         }),
         construction: TokenStream::from(quote! {
             ::rorm::model::Field {
+                index: #index,
                 name: #db_name,
                 annotations: &[
                     #(#annotations),*

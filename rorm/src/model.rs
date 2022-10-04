@@ -143,6 +143,25 @@ pub trait Patch {
 
     /// List of columns i.e. fields this patch contains
     const COLUMNS: &'static [&'static str];
+
+    /// List of fields' indexes this patch contains
+    ///
+    /// Used in [`contains_index`]
+    const INDEXES: &'static [usize];
+}
+
+/// Check whether a [`Patch`] contains a certain field index.
+///
+/// This function in const and can therefore check the existence of fields at compile time.
+pub const fn contains_index<P: Patch>(field: usize) -> bool {
+    let mut indexes = P::INDEXES;
+    while let [index, remaining @ ..] = indexes {
+        indexes = remaining;
+        if *index == field {
+            return true;
+        }
+    }
+    false
 }
 
 /// Conversion into an [`Iterator`] with `Item=`[`Value`].
@@ -166,18 +185,25 @@ pub trait IntoColumnIterator<'a> {
 ///
 /// [`derive(Model)`]: crate::Model
 pub trait Model {
-    /// [`FIELDS`]'s datatype
+    /// The primary key's index
     ///
-    /// [`FIELDS`]: Model::FIELDS
+    /// Indexes are stored in `Field<T>`'s index.
+    const PRIMARY: usize;
+
+    /// A struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`]).
+    ///
+    /// The struct is constructed once in the [`Model::FIELDS`] constant.
     type Fields;
 
-    /// A struct holding the model's fields data
-    const FIELDS: Self::Fields;
+    /// A constant struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`]).
+    // Actually FIELDS is an alias for F instead of the other way around.
+    // This changes was made in the hope it would improve IDE support.
+    const FIELDS: Self::Fields = Self::F;
 
     /// Shorthand version of [`FIELDS`]
     ///
     /// [`FIELDS`]: Model::FIELDS
-    const F: Self::Fields = Self::FIELDS;
+    const F: Self::Fields;
 
     /// Returns the table name of the model
     fn table_name() -> &'static str;
@@ -198,6 +224,9 @@ pub trait Model {
 /// All relevant information about a model's field
 #[derive(Copy, Clone)]
 pub struct Field<T: 'static, D: hmr::DbType> {
+    /// This field's position in the model.
+    pub index: usize,
+
     /// Name of this field
     pub name: &'static str,
 
