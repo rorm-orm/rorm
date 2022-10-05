@@ -805,7 +805,6 @@ alias DBInsertCallback = extern(C) void function(void* context, scope RormError)
  *     db = Reference to the Database, provided by $(LREF rorm_db_connect).
  *     model = Name of the table to query.
  *     condition = Query / condition to filter what to delete on.
- *     limit = Optional limit of the number of deletions that should be performed at most.
  *     callback = Callback to call when finished, only passing in error information.
  *     context = context pointer to pass through as-is into the callback.
  *
@@ -817,7 +816,6 @@ void rorm_db_delete(
 	DBHandle db,
 	FFIString model,
 	scope const(FFICondition)* conditionTree,
-	FFIOption!ulong limit,
 	DBDeleteCallback callback,
 	void* context
 );
