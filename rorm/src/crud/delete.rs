@@ -32,7 +32,9 @@ impl<'a, M: Model> DeleteBuilder<'a, M, ()> {
     pub fn instance(&'a self, model: &'a M) -> DeleteBuilder<'a, M, Condition> {
         DeleteBuilder {
             db: self.db,
-            condition: model.as_condition(),
+            condition: model
+                .as_condition()
+                .expect("Model should always have a primary key"),
 
             _phantom: PhantomData,
         }
