@@ -216,7 +216,7 @@ mod test {
 }
 
 /// Represents a complex index
-#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub struct IndexValue {
     /// Name of the index. Can be used multiple times in a [Model] to create an
@@ -232,7 +232,7 @@ pub struct IndexValue {
 
 /// A column's default value which is any non object / array json value
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum DefaultValue {
     /// Use hexadecimal to represent binary data
