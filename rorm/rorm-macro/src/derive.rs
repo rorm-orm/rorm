@@ -142,7 +142,6 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let model = strct.ident;
     let impl_patch = trait_impls::patch(&model, &model, &fields_ident);
     let impl_try_from_row = trait_impls::try_from_row(&model, &model, &fields_ident);
-    let impl_into_column_iter = trait_impls::into_column_iterator(&model, &fields_ident);
     TokenStream::from(quote! {
         #[allow(non_camel_case_types)]
         pub struct #fields_struct {
@@ -150,7 +149,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
         }
 
         impl ::rorm::model::Model for #model {
-            const PRIMARY: usize = Self::FIELDS.#primary_field.index;
+            const PRIMARY: (&'static str, usize) = (Self::FIELDS.#primary_field.name, Self::FIELDS.#primary_field.index);
 
             type Fields = #fields_struct;
             const F: Self::Fields = #fields_struct {
@@ -172,16 +171,10 @@ pub fn model(strct: TokenStream) -> TokenStream {
                     source_defined_at: #model_source,
                 }
             }
-
-            fn as_condition(&self) -> ::rorm::conditional::Condition {
-                <#model as ::rorm::model::Model>::FIELDS
-                    .#primary_field.equals(self.#primary_field)
-            }
         }
 
         #impl_patch
         #impl_try_from_row
-        #impl_into_column_iter
 
         #[allow(non_upper_case_globals)]
         #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
@@ -251,7 +244,6 @@ pub fn patch(strct: TokenStream) -> TokenStream {
     let compile_check = format_ident!("__compile_check_{}", patch);
     let impl_patch = trait_impls::patch(&patch, &model_path, &field_idents);
     let impl_try_from_row = trait_impls::try_from_row(&patch, &model_path, &field_idents);
-    let impl_into_column_iter = trait_impls::into_column_iterator(&patch, &field_idents);
     TokenStream::from(quote! {
         #[allow(non_snake_case)]
         fn #compile_check(model: #model_path) {
@@ -266,7 +258,6 @@ pub fn patch(strct: TokenStream) -> TokenStream {
 
         #impl_patch
         #impl_try_from_row
-        #impl_into_column_iter
 
         #errors
     })

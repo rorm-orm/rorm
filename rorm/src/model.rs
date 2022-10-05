@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use rorm_db::conditional::Condition;
+use rorm_db::conditional::{self, Condition};
 use rorm_db::value::Value;
 use rorm_declaration::hmr;
 use rorm_declaration::imr;
@@ -148,6 +148,22 @@ pub trait Patch {
     ///
     /// Used in [`contains_index`]
     const INDEXES: &'static [usize];
+
+    /// Get a field's db value by its index
+    fn get(&self, index: usize) -> Option<Value>;
+
+    /// Build a [Condition] which only matches on this instance.
+    ///
+    /// This method defaults to using the primary key.
+    /// If the patch does not store the models primary key, this method will return `None`.
+    fn as_condition(&self) -> Option<Condition> {
+        self.get(Self::Model::PRIMARY.1).map(|value| {
+            Condition::BinaryCondition(conditional::BinaryCondition::Equals(Box::new([
+                Condition::Value(Value::Ident(Self::Model::PRIMARY.0)),
+                Condition::Value(value),
+            ])))
+        })
+    }
 }
 
 /// Check whether a [`Patch`] contains a certain field index.
@@ -164,19 +180,11 @@ pub const fn contains_index<P: Patch>(field: usize) -> bool {
     false
 }
 
-/// Conversion into an [`Iterator`] with `Item=`[`Value`].
+/// Create an iterator from a patch which yield its fields as db values
 ///
-/// Implemented by [`derive(Patch)`] as well as [`derive(Model)`].
-///
-/// Logically this should be a method of [`Patch`],
-/// but since rust doesn't support generic lifetimes on associated types,
-/// it is cleaner to use a separate trait.
-pub trait IntoColumnIterator<'a> {
-    /// Patch specific iterator
-    type Iterator: Iterator<Item = Value<'a>>;
-
-    /// Creates an iterator over a patch's columns from a reference
-    fn into_column_iter(self) -> Self::Iterator;
+/// This method can't be part of the [`Patch`] trait, since `impl Trait` is not allowed in traits.
+pub fn iter_columns<P: Patch>(patch: &P) -> impl Iterator<Item = Value> {
+    P::INDEXES.iter().map(|&index| patch.get(index)).flatten()
 }
 
 /// Trait implementing most database interactions for a struct.
@@ -184,11 +192,9 @@ pub trait IntoColumnIterator<'a> {
 /// It should only ever be generated using [`derive(Model)`].
 ///
 /// [`derive(Model)`]: crate::Model
-pub trait Model {
-    /// The primary key's index
-    ///
-    /// Indexes are stored in `Field<T>`'s index.
-    const PRIMARY: usize;
+pub trait Model: Patch<Model = Self> {
+    /// The primary key's name and index
+    const PRIMARY: (&'static str, usize);
 
     /// A struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`]).
     ///
@@ -214,11 +220,6 @@ pub trait Model {
     ///
     /// [`write_models`]: crate::write_models
     fn get_imr() -> imr::Model;
-
-    /// Build a [Condition] which only matches on this instance.
-    ///
-    /// It just creates an equal comparison using the primary key
-    fn as_condition(&self) -> Condition;
 }
 
 /// All relevant information about a model's field
