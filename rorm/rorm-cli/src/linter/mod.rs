@@ -190,6 +190,13 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
 
         let mut primary_key = false;
 
+        if model.fields.is_empty() {
+            return Err(anyhow!(
+                "Model {} does not contain any fields.",
+                model.name.as_str()
+            ));
+        }
+
         for field in &model.fields {
             if *field_name_counter.get(field.name.as_str()).unwrap() > 1 {
                 return Err(anyhow!(
@@ -342,16 +349,33 @@ mod test_check_internal_models {
     test_field!(field_dot, ".", false);
 
     #[test]
+    fn empty_field() {
+        let imf = InternalModelFormat {
+            models: vec![Model {
+                name: "foobar".to_string(),
+                fields: vec![],
+                source_defined_at: None,
+            }],
+        };
+        assert!(check_internal_models(&imf).is_err());
+    }
+
+    #[test]
     fn duplicate_models() {
         let m = Model {
             name: "foobar".to_string(),
-            fields: vec![],
+            fields: vec![Field {
+                name: "foobar".to_string(),
+                source_defined_at: None,
+                db_type: DbType::Int64,
+                annotations: vec![],
+            }],
             source_defined_at: None,
         };
         let imf = InternalModelFormat {
             models: vec![m.clone(), m],
         };
-        assert_eq!(check_internal_models(&imf).is_ok(), false);
+        assert!(check_internal_models(&imf).is_err());
     }
 
     #[test]
@@ -369,7 +393,7 @@ mod test_check_internal_models {
                 source_defined_at: None,
             }],
         };
-        assert_eq!(check_internal_models(&imf).is_ok(), false);
+        assert!(check_internal_models(&imf).is_err());
     }
 
     #[test]
