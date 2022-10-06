@@ -334,7 +334,7 @@ mod test_check_internal_models {
     test_model!(trailing_, "foo_", false);
     test_model!(empty, "", false);
     test_model!(dot, ".", false);
-    test_model!(sqlite_, "sqlite_", false);
+    test_model!(sqlite_foo, "sqlite_foo", false);
     test_model!(sqlite, "sqlite", true);
     test_model!(non_ascii, "™", false);
     test_model!(minus, "-", false);
@@ -360,6 +360,23 @@ mod test_check_internal_models {
             models: vec![Model {
                 name: "foobar".to_string(),
                 fields: vec![],
+                source_defined_at: None,
+            }],
+        };
+        assert!(check_internal_models(&imf).is_err());
+    }
+
+    #[test]
+    fn missing_primary_key() {
+        let imf = InternalModelFormat {
+            models: vec![Model {
+                name: "foobar".to_string(),
+                fields: vec![Field {
+                    name: "foo".to_string(),
+                    db_type: DbType::VarChar,
+                    annotations: vec![],
+                    source_defined_at: None,
+                }],
                 source_defined_at: None,
             }],
         };
@@ -419,6 +436,64 @@ mod test_check_internal_models {
                 println!("Forbidden annotations does not contain {:?}", a);
                 assert!(false);
             }
+        }
+    }
+
+    #[test]
+    fn check_forbidden_annotations() {
+        for a in Annotation::iter() {
+            let forbidden = ANNOTATION_REQS.forbidden.get(&a.hash_shallow()).unwrap();
+            for f in forbidden {
+                let imf = InternalModelFormat {
+                    models: vec![Model {
+                        name: "foobar".to_string(),
+                        fields: vec![
+                            Field {
+                                name: "foo".to_string(),
+                                db_type: DbType::VarChar,
+                                annotations: vec![a.clone(), f.clone()],
+                                source_defined_at: None,
+                            },
+                            Field {
+                                name: "prim".to_string(),
+                                db_type: DbType::Int64,
+                                annotations: vec![Annotation::PrimaryKey],
+                                source_defined_at: None,
+                            },
+                        ],
+                        source_defined_at: None,
+                    }],
+                };
+                assert!(check_internal_models(&imf).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn check_required_annotations() {
+        for a in Annotation::iter() {
+            let required = ANNOTATION_REQS.required.get(&a.hash_shallow()).unwrap();
+            let imf = InternalModelFormat {
+                models: vec![Model {
+                    name: "foobar".to_string(),
+                    fields: vec![
+                        Field {
+                            name: "foo".to_string(),
+                            db_type: DbType::VarChar,
+                            annotations: vec![a.clone()],
+                            source_defined_at: None,
+                        },
+                        Field {
+                            name: "prim".to_string(),
+                            db_type: DbType::Int64,
+                            annotations: vec![Annotation::PrimaryKey],
+                            source_defined_at: None,
+                        },
+                    ],
+                    source_defined_at: None,
+                }],
+            };
+            assert_eq!(check_internal_models(&imf).is_ok(), required.is_empty());
         }
     }
 }
