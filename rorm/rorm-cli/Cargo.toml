@@ -39,6 +39,9 @@ sqlx = { version = "~0.6" }
 # Runtime
 tokio = { version = "~1.21" }
 
+# Enum simplification
+strum = { version = "~0.24" }
+
 [features]
 default = [
     "sqlx/runtime-tokio-rustls",

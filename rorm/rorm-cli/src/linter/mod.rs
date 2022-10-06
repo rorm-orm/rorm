@@ -1,9 +1,127 @@
 use std::collections::HashMap;
 
 use anyhow::anyhow;
-use rorm_declaration::imr::InternalModelFormat;
+use once_cell::sync::Lazy;
+use rorm_declaration::imr::{Annotation, DefaultValue, InternalModelFormat};
 
 use crate::utils::re::RE;
+
+struct AnnotationReqs {
+    forbidden: HashMap<Annotation, Vec<Annotation>>,
+    required: HashMap<Annotation, Vec<Annotation>>,
+}
+
+static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
+    let forbidden = HashMap::from([
+        (
+            Annotation::AutoCreateTime,
+            vec![
+                Annotation::AutoUpdateTime,
+                Annotation::AutoIncrement,
+                Annotation::Choices(vec![]),
+                Annotation::DefaultValue(DefaultValue::Boolean(true)),
+                Annotation::MaxLength(0),
+                Annotation::NotNull,
+                Annotation::PrimaryKey,
+                Annotation::Unique,
+            ],
+        ),
+        (
+            Annotation::AutoUpdateTime,
+            vec![
+                Annotation::AutoCreateTime,
+                Annotation::AutoIncrement,
+                Annotation::Choices(vec![]),
+                Annotation::DefaultValue(DefaultValue::Boolean(true)),
+                Annotation::MaxLength(0),
+                Annotation::NotNull,
+                Annotation::PrimaryKey,
+                Annotation::Unique,
+            ],
+        ),
+        (
+            Annotation::AutoIncrement,
+            vec![
+                Annotation::AutoCreateTime,
+                Annotation::AutoUpdateTime,
+                Annotation::Choices(vec![]),
+                Annotation::MaxLength(0),
+            ],
+        ),
+        (
+            Annotation::Choices(vec![]),
+            vec![
+                Annotation::AutoCreateTime,
+                Annotation::AutoUpdateTime,
+                Annotation::AutoIncrement,
+                Annotation::MaxLength(0),
+                Annotation::PrimaryKey,
+                Annotation::Unique,
+            ],
+        ),
+        (
+            Annotation::DefaultValue(DefaultValue::Boolean(true)),
+            vec![
+                Annotation::AutoCreateTime,
+                Annotation::AutoUpdateTime,
+                Annotation::AutoIncrement,
+                Annotation::PrimaryKey,
+                Annotation::Unique,
+            ],
+        ),
+        (Annotation::Index(None), vec![Annotation::PrimaryKey]),
+        (
+            Annotation::MaxLength(0),
+            vec![
+                Annotation::AutoCreateTime,
+                Annotation::AutoUpdateTime,
+                Annotation::AutoIncrement,
+            ],
+        ),
+        (Annotation::NotNull, vec![Annotation::PrimaryKey]),
+        (
+            Annotation::PrimaryKey,
+            vec![
+                Annotation::AutoCreateTime,
+                Annotation::AutoUpdateTime,
+                Annotation::NotNull,
+                Annotation::Choices(vec![]),
+                Annotation::Index(None),
+                Annotation::DefaultValue(DefaultValue::Boolean(true)),
+            ],
+        ),
+        (
+            Annotation::Unique,
+            vec![
+                Annotation::AutoCreateTime,
+                Annotation::AutoUpdateTime,
+                Annotation::DefaultValue(DefaultValue::Boolean(true)),
+                Annotation::Choices(vec![]),
+            ],
+        ),
+    ]);
+
+    let required = HashMap::from([
+        (Annotation::AutoCreateTime, vec![]),
+        (Annotation::AutoUpdateTime, vec![]),
+        (Annotation::AutoIncrement, vec![]),
+        (Annotation::Choices(vec![]), vec![]),
+        (
+            Annotation::DefaultValue(DefaultValue::Boolean(true)),
+            vec![],
+        ),
+        (Annotation::Index(None), vec![]),
+        (Annotation::MaxLength(0), vec![]),
+        (Annotation::NotNull, vec![]),
+        (Annotation::PrimaryKey, vec![]),
+        (Annotation::Unique, vec![]),
+    ]);
+
+    AnnotationReqs {
+        forbidden,
+        required,
+    }
+});
 
 fn count_entries(lst: Vec<&str>) -> HashMap<&str, i32> {
     let mut m = HashMap::new();
@@ -43,16 +161,28 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
         if model.name == "" {
             return Err(anyhow!("Model name must not be empty"));
         } else if RE.forbidden_character.is_match(model.name.as_str()) {
-            return Err(anyhow!("Model name must consists of [a-zA-Z0-9_]"));
+            return Err(anyhow!(
+                "Model name must consists of [a-zA-Z0-9_]. Found: {}.",
+                model.name.as_str()
+            ));
         // Reserved for internal use
         } else if model.name.starts_with("_") || model.name.ends_with("_") {
-            return Err(anyhow!("Model name must not start or end with \"_\""));
+            return Err(anyhow!(
+                "Model name must not start or end with \"_\". Found: {}.",
+                model.name.as_str()
+            ));
         // Sqlite reserved table names
         } else if model.name.starts_with("sqlite_") {
-            return Err(anyhow!("Model name must not start with \"sqlite_\""));
+            return Err(anyhow!(
+                "Model name must not start with \"sqlite_\". Found {}.",
+                model.name.as_str()
+            ));
         // Mysql only allows numeric table names if they are quoted
         } else if RE.numeric_only.is_match(model.name.as_str()) {
-            return Err(anyhow!("Model name must not only consist of numerics"));
+            return Err(anyhow!(
+                "Model name must not only consist of numerics. Found {}.",
+                model.name.as_str()
+            ));
         }
 
         let field_name_counter =
@@ -69,7 +199,10 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
 
             // Check field name
             if field.name == "" {
-                return Err(anyhow!("Field name must not be empty"));
+                return Err(anyhow!(
+                    "Field name in model {} is empty",
+                    field.name.as_str()
+                ));
             } else if RE.forbidden_character.is_match(field.name.as_str()) {
                 return Err(anyhow!("Field name must consists of [a-zA-Z0-9_]"));
             // Reserved for internal use
@@ -79,6 +212,42 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
             } else if RE.numeric_only.is_match(field.name.as_str()) {
                 return Err(anyhow!("Model name must not only consist of numerics"));
             }
+
+            // Check forbidden Annotation combinations
+            for annotation in &field.annotations {
+                let forbidden = ANNOTATION_REQS
+                    .forbidden
+                    .get(annotation)
+                    .expect("There should be cases for every Annotation");
+                let required = ANNOTATION_REQS
+                    .required
+                    .get(annotation)
+                    .expect("There should be cases for every Annotation");
+
+                for field_annotation in &field.annotations {
+                    if forbidden.contains(field_annotation) {
+                        return Err(anyhow!(
+                            "Found {:?} on field {} of model {}, which is forbidden by {:?}",
+                            field_annotation,
+                            field.name.as_str(),
+                            model.name.as_str(),
+                            annotation,
+                        ));
+                    }
+                }
+
+                for required_annotation in required {
+                    if !field.annotations.contains(required_annotation) {
+                        return Err(anyhow!(
+                            "Annotation {:?} on field {} of model {} requires {:?}.",
+                            field.annotations,
+                            field.name.as_str(),
+                            model.name.as_str(),
+                            required_annotation,
+                        ));
+                    }
+                }
+            }
         }
     }
     Ok(())
@@ -86,9 +255,10 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
 
 #[cfg(test)]
 mod test_check_internal_models {
-    use rorm_declaration::imr::{DbType, Field, InternalModelFormat, Model};
+    use rorm_declaration::imr::{Annotation, DbType, Field, InternalModelFormat, Model};
+    use strum::IntoEnumIterator;
 
-    use crate::linter::check_internal_models;
+    use crate::linter::{check_internal_models, ANNOTATION_REQS};
 
     macro_rules! test_model {
         ($name: ident, $test: literal, $result: literal) => {
@@ -182,5 +352,25 @@ mod test_check_internal_models {
             }],
         };
         assert_eq!(check_internal_models(&imf).is_ok(), false);
+    }
+
+    #[test]
+    fn check_annotation_reqs_required() {
+        for a in Annotation::iter() {
+            if !ANNOTATION_REQS.required.contains_key(&a) {
+                println!("Required annotations does not contain {:?}", a);
+                assert!(false);
+            }
+        }
+    }
+
+    #[test]
+    fn check_annotation_reqs_forbidden() {
+        for a in Annotation::iter() {
+            if !ANNOTATION_REQS.forbidden.contains_key(&a) {
+                println!("Forbidden annotations does not contain {:?}", a);
+                assert!(false);
+            }
+        }
     }
 }
