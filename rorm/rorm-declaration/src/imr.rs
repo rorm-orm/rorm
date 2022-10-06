@@ -15,7 +15,7 @@ pub struct InternalModelFormat {
 }
 
 /// A single model i.e. database table
-#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct Model {
     /// Name of the table
@@ -30,8 +30,28 @@ pub struct Model {
     pub source_defined_at: Option<Source>,
 }
 
+impl PartialEq for Model {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.fields == other.fields
+    }
+}
+
+impl Hash for Model {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.fields.hash(state);
+        self.name.hash(state);
+    }
+
+    fn hash_slice<H: Hasher>(data: &[Self], state: &mut H)
+    where
+        Self: Sized,
+    {
+        data.iter().for_each(|x| x.hash(state));
+    }
+}
+
 /// Model's fields i.e. the table's columns
-#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct Field {
     /// Name of the column
@@ -50,6 +70,29 @@ pub struct Field {
     pub source_defined_at: Option<Source>,
 }
 
+impl PartialEq for Field {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.db_type == other.db_type
+            && self.annotations == other.annotations
+    }
+}
+
+impl Hash for Field {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.annotations.hash(state);
+        self.db_type.hash(state);
+    }
+
+    fn hash_slice<H: Hasher>(data: &[Self], state: &mut H)
+    where
+        Self: Sized,
+    {
+        data.iter().for_each(|x| x.hash(state));
+    }
+}
+
 /// Location in the source code a [Model] or [Field] originates from
 /// Used for better error messages in the migration tool
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
@@ -65,7 +108,7 @@ pub struct Source {
 
 /// All column types supported by the migration tool
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum DbType {
     VarChar,
