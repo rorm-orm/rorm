@@ -188,6 +188,8 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
         let field_name_counter =
             count_entries(model.fields.iter().map(|x| x.name.as_str()).collect());
 
+        let mut primary_key = false;
+
         for field in &model.fields {
             if *field_name_counter.get(field.name.as_str()).unwrap() > 1 {
                 return Err(anyhow!(
@@ -215,6 +217,10 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
 
             // Check forbidden Annotation combinations
             for annotation in &field.annotations {
+                if annotation == &Annotation::PrimaryKey {
+                    primary_key = true;
+                }
+
                 let forbidden = ANNOTATION_REQS
                     .forbidden
                     .get(annotation)
@@ -249,6 +255,13 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
                 }
             }
         }
+
+        if !primary_key {
+            return Err(anyhow!(
+                "Model {} misses a primary key.",
+                model.name.as_str()
+            ));
+        }
     }
     Ok(())
 }
@@ -267,7 +280,12 @@ mod test_check_internal_models {
                 let imf = InternalModelFormat {
                     models: vec![Model {
                         name: $test.to_string(),
-                        fields: vec![],
+                        fields: vec![Field {
+                            annotations: vec![Annotation::PrimaryKey],
+                            db_type: DbType::Int64,
+                            name: "primary".to_string(),
+                            source_defined_at: None,
+                        }],
                         source_defined_at: None,
                     }],
                 };
@@ -285,7 +303,7 @@ mod test_check_internal_models {
                         name: "foobar".to_string(),
                         fields: vec![Field {
                             name: $test.to_string(),
-                            annotations: vec![],
+                            annotations: vec![Annotation::PrimaryKey],
                             source_defined_at: None,
                             db_type: DbType::VarChar,
                         }],
