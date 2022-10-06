@@ -64,7 +64,6 @@ pub struct Source {
 
 /// All column types supported by the migration tool
 #[allow(missing_docs)]
-#[non_exhaustive]
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum DbType {
@@ -144,31 +143,6 @@ impl PartialEq for Annotation {
             (Annotation::PrimaryKey, _) => false,
             (Annotation::Unique, Annotation::Unique) => true,
             (Annotation::Unique, _) => false,
-        }
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Annotation::AutoCreateTime, Annotation::AutoCreateTime) => false,
-            (Annotation::AutoCreateTime, _) => true,
-            (Annotation::AutoUpdateTime, Annotation::AutoUpdateTime) => false,
-            (Annotation::AutoUpdateTime, _) => true,
-            (Annotation::AutoIncrement, Annotation::AutoIncrement) => false,
-            (Annotation::AutoIncrement, _) => true,
-            (Annotation::Choices(_), Annotation::Choices(_)) => false,
-            (Annotation::Choices(_), _) => true,
-            (Annotation::DefaultValue(_), Annotation::DefaultValue(_)) => false,
-            (Annotation::DefaultValue(_), _) => true,
-            (Annotation::Index(_), Annotation::Index(_)) => false,
-            (Annotation::Index(_), _) => true,
-            (Annotation::MaxLength(_), Annotation::MaxLength(_)) => false,
-            (Annotation::MaxLength(_), _) => true,
-            (Annotation::NotNull, Annotation::NotNull) => false,
-            (Annotation::NotNull, _) => true,
-            (Annotation::PrimaryKey, Annotation::PrimaryKey) => false,
-            (Annotation::PrimaryKey, _) => true,
-            (Annotation::Unique, Annotation::Unique) => false,
-            (Annotation::Unique, _) => true,
         }
     }
 }
