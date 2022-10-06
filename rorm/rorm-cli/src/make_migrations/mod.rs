@@ -127,10 +127,11 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
 
         // Old -> New
         let mut renamed_models: Vec<(&Model, &Model)> = vec![];
-
         let mut new_models: Vec<&Model> = vec![];
         let mut deleted_models: Vec<&Model> = vec![];
 
+        // Mapping: Model name -> (Old field name, New field name)
+        let mut renamed_fields: HashMap<String, Vec<(&Field, &Field)>> = HashMap::new();
         let mut new_fields: HashMap<String, Vec<&Field>> = HashMap::new();
         let mut deleted_fields: HashMap<String, Vec<&Field>> = HashMap::new();
 
@@ -223,6 +224,55 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                 name: x.name.clone(),
             });
             println!("Deleted model {}", x.name);
+        });
+
+        for (x, new_fields) in &new_fields {
+            if let Some(old_fields) = deleted_fields.get(x) {
+                for new_field in new_fields {
+                    for old_field in old_fields {
+                        if new_field.db_type == old_field.db_type
+                            && new_field.annotations == old_field.annotations
+                            && question(
+                                format!(
+                                    "Did you rename the field {} of model {} to {}?",
+                                    &old_field.name, &x, &new_field.name
+                                )
+                                .as_str(),
+                            )
+                        {
+                            if !renamed_fields.contains_key(x) {
+                                renamed_fields.insert(x.clone(), vec![]);
+                            }
+                            let f = renamed_fields.get_mut(x).unwrap();
+                            f.push((old_field, new_field));
+                            println!(
+                                "Renamed field {} of model {} to {}.",
+                                &new_field.name, &x, &old_field.name
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        // Remove renamed fields in existing models from new and deleted lists
+        renamed_fields.iter().for_each(|(model_name, fields)| {
+            for (old_field, new_field) in fields {
+                new_fields
+                    .get_mut(model_name)
+                    .unwrap()
+                    .retain(|x| x.name != new_field.name);
+                deleted_fields
+                    .get_mut(model_name)
+                    .unwrap()
+                    .retain(|x| x.name != old_field.name);
+
+                // Create migration operation for renamed fields on existing models
+                op.push(Operation::RenameField {
+                    table_name: model_name.clone(),
+                    old: old_field.name.clone(),
+                    new: new_field.name.clone(),
+                })
+            }
         });
 
         // Create migration operations for new fields in existing models
