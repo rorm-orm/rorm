@@ -12,6 +12,7 @@ use crate::linter;
 use crate::utils::migrations::{
     convert_migration_to_file, convert_migrations_to_internal_models, get_existing_migrations,
 };
+use crate::utils::question;
 use crate::utils::re::RE;
 
 /// Options struct for [run_make_migrations]
@@ -124,6 +125,9 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             .map(|x| (x.name.clone(), x))
             .collect();
 
+        // Old -> New
+        let mut renamed_models: Vec<(&Model, &Model)> = vec![];
+
         let mut new_models: Vec<&Model> = vec![];
         let mut deleted_models: Vec<&Model> = vec![];
 
@@ -175,6 +179,34 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                     }
                 });
             });
+
+        // Check if a model was renamed
+        if !new_models.is_empty() && !deleted_models.is_empty() {
+            for x in &new_models {
+                for y in &deleted_models {
+                    if x.fields == y.fields
+                        && question(
+                            format!("Did you rename the model {} to {}?", &y.name, &x.name)
+                                .as_str(),
+                        )
+                    {
+                        println!("Renamed model {} to {}.", &y.name, &x.name);
+                        renamed_models.push((y, x));
+                    }
+                }
+            }
+        }
+        // Remove renamed models from new and deleted lists
+        for (old, new) in &renamed_models {
+            new_models.retain(|x| x != new);
+            deleted_models.retain(|x| x != old);
+
+            // Create migration operations for renamed models
+            op.push(Operation::RenameModel {
+                old: old.name.clone(),
+                new: new.name.clone(),
+            })
+        }
 
         // Create migration operations for new models
         new_models.iter().for_each(|x| {
