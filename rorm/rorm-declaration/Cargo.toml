@@ -21,8 +21,12 @@ ordered-float = { version = "3.0" }
 # serde defines (de-)serialization behaviour for structs and enums
 serde = { version = "1.0" }
 
+# Macros and Traits for working with enums
+strum = { version = "~0.24" }
+
 [features]
 default = [
     "serde/derive",
-    "ordered-float/serde"
+    "ordered-float/serde",
+    "strum/derive"
 ]

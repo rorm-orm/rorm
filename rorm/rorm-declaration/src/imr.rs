@@ -3,6 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
+use strum::EnumIter;
 
 /// A collection of all models used in the resulting application
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
@@ -92,7 +93,7 @@ pub enum DbType {
 
 /// The subset of annotations which need to be communicated with the migration tool
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Debug, Clone, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, EnumIter)]
 #[serde(tag = "Type", content = "Value")]
 #[serde(rename_all = "snake_case")]
 pub enum Annotation {
@@ -263,4 +264,13 @@ pub enum DefaultValue {
     Float(OrderedFloat<f64>),
     /// Just a bool. Nothing interesting here.
     Boolean(bool),
+}
+
+/**
+This implementation exists for strum::EnumIter
+*/
+impl Default for DefaultValue {
+    fn default() -> Self {
+        DefaultValue::Boolean(true)
+    }
 }
