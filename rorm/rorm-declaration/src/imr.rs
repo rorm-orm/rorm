@@ -123,31 +123,51 @@ pub enum Annotation {
 impl PartialEq for Annotation {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Annotation::AutoUpdateTime, Annotation::AutoCreateTime) => true,
+            (Annotation::AutoCreateTime, Annotation::AutoCreateTime) => true,
+            (Annotation::AutoCreateTime, _) => false,
+            (Annotation::AutoUpdateTime, Annotation::AutoUpdateTime) => true,
+            (Annotation::AutoUpdateTime, _) => false,
             (Annotation::AutoIncrement, Annotation::AutoIncrement) => true,
+            (Annotation::AutoIncrement, _) => false,
             (Annotation::Choices(_), Annotation::Choices(_)) => true,
+            (Annotation::Choices(_), _) => false,
             (Annotation::DefaultValue(_), Annotation::DefaultValue(_)) => true,
+            (Annotation::DefaultValue(_), _) => false,
             (Annotation::Index(_), Annotation::Index(_)) => true,
+            (Annotation::Index(_), _) => false,
             (Annotation::MaxLength(_), Annotation::MaxLength(_)) => true,
+            (Annotation::MaxLength(_), _) => false,
             (Annotation::NotNull, Annotation::NotNull) => true,
+            (Annotation::NotNull, _) => false,
             (Annotation::PrimaryKey, Annotation::PrimaryKey) => true,
+            (Annotation::PrimaryKey, _) => false,
             (Annotation::Unique, Annotation::Unique) => true,
-            _ => false,
+            (Annotation::Unique, _) => false,
         }
     }
 
     fn ne(&self, other: &Self) -> bool {
         match (self, other) {
-            (Annotation::AutoUpdateTime, Annotation::AutoCreateTime) => false,
+            (Annotation::AutoCreateTime, Annotation::AutoCreateTime) => false,
+            (Annotation::AutoCreateTime, _) => true,
+            (Annotation::AutoUpdateTime, Annotation::AutoUpdateTime) => false,
+            (Annotation::AutoUpdateTime, _) => true,
             (Annotation::AutoIncrement, Annotation::AutoIncrement) => false,
+            (Annotation::AutoIncrement, _) => true,
             (Annotation::Choices(_), Annotation::Choices(_)) => false,
+            (Annotation::Choices(_), _) => true,
             (Annotation::DefaultValue(_), Annotation::DefaultValue(_)) => false,
+            (Annotation::DefaultValue(_), _) => true,
             (Annotation::Index(_), Annotation::Index(_)) => false,
+            (Annotation::Index(_), _) => true,
             (Annotation::MaxLength(_), Annotation::MaxLength(_)) => false,
+            (Annotation::MaxLength(_), _) => true,
             (Annotation::NotNull, Annotation::NotNull) => false,
+            (Annotation::NotNull, _) => true,
             (Annotation::PrimaryKey, Annotation::PrimaryKey) => false,
+            (Annotation::PrimaryKey, _) => true,
             (Annotation::Unique, Annotation::Unique) => false,
-            _ => true,
+            (Annotation::Unique, _) => true,
         }
     }
 }
