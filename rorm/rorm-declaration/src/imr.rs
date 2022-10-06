@@ -1,4 +1,5 @@
 //! The Internal Model Representation used by our migration cli tool
+use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use ordered_float::OrderedFloat;
@@ -92,7 +93,7 @@ pub enum DbType {
 
 /// The subset of annotations which need to be communicated with the migration tool
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, EnumIter)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
 #[serde(tag = "Type", content = "Value")]
 #[serde(rename_all = "snake_case")]
 pub enum Annotation {
@@ -120,8 +121,18 @@ pub enum Annotation {
     Unique,
 }
 
-impl PartialEq for Annotation {
-    fn eq(&self, other: &Self) -> bool {
+impl Annotation {
+    /**
+    Alternative shallow equals function.
+
+    Returns true on:
+    ```rust
+    use rorm_declaration::imr::Annotation;
+
+    assert!(Annotation::MaxLength(0).eq_shallow(&Annotation::MaxLength(255)));
+    ```
+    */
+    pub fn eq_shallow(&self, other: &Self) -> bool {
         match (self, other) {
             (Annotation::AutoCreateTime, Annotation::AutoCreateTime) => true,
             (Annotation::AutoCreateTime, _) => false,
@@ -145,10 +156,19 @@ impl PartialEq for Annotation {
             (Annotation::Unique, _) => false,
         }
     }
-}
 
-impl Hash for Annotation {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    /**
+    Alternative shallow hash function.
+
+    Returns true on:
+    ```rust
+    use rorm_declaration::imr::Annotation;
+
+    assert_eq!(Annotation::MaxLength(0).hash_shallow(), Annotation::MaxLength(255).hash_shallow());
+    ```
+    */
+    pub fn hash_shallow(&self) -> u64 {
+        let mut state = DefaultHasher::new();
         match self {
             Annotation::AutoCreateTime => state.write_i8(0),
             Annotation::AutoUpdateTime => state.write_i8(1),
@@ -161,51 +181,40 @@ impl Hash for Annotation {
             Annotation::PrimaryKey => state.write_i8(8),
             Annotation::Unique => state.write_i8(9),
         }
-    }
-
-    fn hash_slice<H: Hasher>(data: &[Self], state: &mut H)
-    where
-        Self: Sized,
-    {
-        for x in data {
-            x.hash(state);
-        }
+        state.finish()
     }
 }
 
 #[cfg(test)]
 mod test {
+
     use crate::imr::{Annotation, IndexValue};
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
 
     #[test]
     fn test_annotation_hash() {
-        let mut hasher1 = DefaultHasher::new();
-        let mut hasher2 = DefaultHasher::new();
+        assert_eq!(
+            Annotation::MaxLength(1).hash_shallow(),
+            Annotation::MaxLength(12313).hash_shallow()
+        );
 
-        Annotation::MaxLength(1).hash(&mut hasher1);
-        Annotation::MaxLength(12313).hash(&mut hasher2);
-
-        Annotation::Index(None).hash(&mut hasher1);
-        Annotation::Index(Some(IndexValue {
-            priority: None,
-            name: "foo".to_string(),
-        }))
-        .hash(&mut hasher2);
-
-        assert_eq!(hasher1.finish(), hasher2.finish());
+        assert_eq!(
+            Annotation::Index(None).hash_shallow(),
+            Annotation::Index(Some(IndexValue {
+                priority: None,
+                name: "foo".to_string(),
+            }))
+            .hash_shallow()
+        );
     }
 
     #[test]
     fn test_annotation_partial_eq() {
-        assert_eq!(Annotation::MaxLength(1), Annotation::MaxLength(2));
-        assert_eq!(
-            Annotation::Index(None),
-            Annotation::Index(Some(IndexValue {
+        assert!(Annotation::MaxLength(1).eq_shallow(&Annotation::MaxLength(2)));
+        assert!(
+            Annotation::Index(None).eq_shallow(&Annotation::Index(Some(IndexValue {
                 priority: None,
                 name: "foo".to_string()
-            }))
+            })))
         );
     }
 }

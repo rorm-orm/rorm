@@ -7,14 +7,14 @@ use rorm_declaration::imr::{Annotation, DefaultValue, InternalModelFormat};
 use crate::utils::re::RE;
 
 struct AnnotationReqs {
-    forbidden: HashMap<Annotation, Vec<Annotation>>,
-    required: HashMap<Annotation, Vec<Annotation>>,
+    forbidden: HashMap<u64, Vec<Annotation>>,
+    required: HashMap<u64, Vec<Annotation>>,
 }
 
 static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
     let forbidden = HashMap::from([
         (
-            Annotation::AutoCreateTime,
+            Annotation::AutoCreateTime.hash_shallow(),
             vec![
                 Annotation::AutoUpdateTime,
                 Annotation::AutoIncrement,
@@ -27,7 +27,7 @@ static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
             ],
         ),
         (
-            Annotation::AutoUpdateTime,
+            Annotation::AutoUpdateTime.hash_shallow(),
             vec![
                 Annotation::AutoCreateTime,
                 Annotation::AutoIncrement,
@@ -40,7 +40,7 @@ static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
             ],
         ),
         (
-            Annotation::AutoIncrement,
+            Annotation::AutoIncrement.hash_shallow(),
             vec![
                 Annotation::AutoCreateTime,
                 Annotation::AutoUpdateTime,
@@ -49,7 +49,7 @@ static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
             ],
         ),
         (
-            Annotation::Choices(vec![]),
+            Annotation::Choices(vec![]).hash_shallow(),
             vec![
                 Annotation::AutoCreateTime,
                 Annotation::AutoUpdateTime,
@@ -60,7 +60,7 @@ static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
             ],
         ),
         (
-            Annotation::DefaultValue(DefaultValue::Boolean(true)),
+            Annotation::DefaultValue(DefaultValue::Boolean(true)).hash_shallow(),
             vec![
                 Annotation::AutoCreateTime,
                 Annotation::AutoUpdateTime,
@@ -69,18 +69,24 @@ static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
                 Annotation::Unique,
             ],
         ),
-        (Annotation::Index(None), vec![Annotation::PrimaryKey]),
         (
-            Annotation::MaxLength(0),
+            Annotation::Index(None).hash_shallow(),
+            vec![Annotation::PrimaryKey],
+        ),
+        (
+            Annotation::MaxLength(0).hash_shallow(),
             vec![
                 Annotation::AutoCreateTime,
                 Annotation::AutoUpdateTime,
                 Annotation::AutoIncrement,
             ],
         ),
-        (Annotation::NotNull, vec![Annotation::PrimaryKey]),
         (
-            Annotation::PrimaryKey,
+            Annotation::NotNull.hash_shallow(),
+            vec![Annotation::PrimaryKey],
+        ),
+        (
+            Annotation::PrimaryKey.hash_shallow(),
             vec![
                 Annotation::AutoCreateTime,
                 Annotation::AutoUpdateTime,
@@ -91,7 +97,7 @@ static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
             ],
         ),
         (
-            Annotation::Unique,
+            Annotation::Unique.hash_shallow(),
             vec![
                 Annotation::AutoCreateTime,
                 Annotation::AutoUpdateTime,
@@ -102,19 +108,19 @@ static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
     ]);
 
     let required = HashMap::from([
-        (Annotation::AutoCreateTime, vec![]),
-        (Annotation::AutoUpdateTime, vec![]),
-        (Annotation::AutoIncrement, vec![]),
-        (Annotation::Choices(vec![]), vec![]),
+        (Annotation::AutoCreateTime.hash_shallow(), vec![]),
+        (Annotation::AutoUpdateTime.hash_shallow(), vec![]),
+        (Annotation::AutoIncrement.hash_shallow(), vec![]),
+        (Annotation::Choices(vec![]).hash_shallow(), vec![]),
         (
-            Annotation::DefaultValue(DefaultValue::Boolean(true)),
+            Annotation::DefaultValue(DefaultValue::Boolean(true)).hash_shallow(),
             vec![],
         ),
-        (Annotation::Index(None), vec![]),
-        (Annotation::MaxLength(0), vec![]),
-        (Annotation::NotNull, vec![]),
-        (Annotation::PrimaryKey, vec![]),
-        (Annotation::Unique, vec![]),
+        (Annotation::Index(None).hash_shallow(), vec![]),
+        (Annotation::MaxLength(0).hash_shallow(), vec![]),
+        (Annotation::NotNull.hash_shallow(), vec![]),
+        (Annotation::PrimaryKey.hash_shallow(), vec![]),
+        (Annotation::Unique.hash_shallow(), vec![]),
     ]);
 
     AnnotationReqs {
@@ -230,11 +236,11 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
 
                 let forbidden = ANNOTATION_REQS
                     .forbidden
-                    .get(annotation)
+                    .get(&annotation.hash_shallow())
                     .expect("There should be cases for every Annotation");
                 let required = ANNOTATION_REQS
                     .required
-                    .get(annotation)
+                    .get(&annotation.hash_shallow())
                     .expect("There should be cases for every Annotation");
 
                 for field_annotation in &field.annotations {
@@ -399,7 +405,7 @@ mod test_check_internal_models {
     #[test]
     fn check_annotation_reqs_required() {
         for a in Annotation::iter() {
-            if !ANNOTATION_REQS.required.contains_key(&a) {
+            if !ANNOTATION_REQS.required.contains_key(&a.hash_shallow()) {
                 println!("Required annotations does not contain {:?}", a);
                 assert!(false);
             }
@@ -409,7 +415,7 @@ mod test_check_internal_models {
     #[test]
     fn check_annotation_reqs_forbidden() {
         for a in Annotation::iter() {
-            if !ANNOTATION_REQS.forbidden.contains_key(&a) {
+            if !ANNOTATION_REQS.forbidden.contains_key(&a.hash_shallow()) {
                 println!("Forbidden annotations does not contain {:?}", a);
                 assert!(false);
             }
