@@ -82,7 +82,6 @@ impl SQLCreateColumn {
                     | DbType::UInt32
                     | DbType::Boolean => "INTEGER",
                     DbType::Float | DbType::Double => "REAL",
-                    _ => todo!("not implemented"),
                 };
 
                 let mut annotations = vec![];
@@ -99,7 +98,7 @@ impl SQLCreateColumn {
                     ))
                 }
 
-                return (
+                (
                     format!(
                         "{} {}{}",
                         self.name,
@@ -111,9 +110,9 @@ impl SQLCreateColumn {
                         }
                     ),
                     trigger,
-                );
+                )
             }
-            _ => todo!("Not implemented yet!"),
+            _ => todo!(""),
         }
     }
 }
