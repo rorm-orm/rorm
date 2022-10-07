@@ -1,0 +1,4 @@
+name "all-fields"
+
+dependency "dorm" path="../.."
+dependency "dorm:build-models" path="../.."
