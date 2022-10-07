@@ -245,6 +245,43 @@ enum AnnotationFlag
 	notNull
 }
 
+private bool isCompatibleFlags(AnnotationFlag a, AnnotationFlag b)
+{
+	final switch (a) with (AnnotationFlag)
+	{
+		case autoCreateTime: return !b.among!(
+			autoUpdateTime,
+			autoIncrement,
+			notNull,
+			primaryKey,
+			unique,
+		);
+		case autoUpdateTime: return !b.among!(
+			autoCreateTime,
+			autoIncrement,
+			notNull,
+			primaryKey,
+			unique,
+		);
+		case autoIncrement: return !b.among!(
+			autoCreateTime,
+			autoUpdateTime,
+		);
+		case primaryKey: return !b.among!(
+			autoCreateTime,
+			autoUpdateTime,
+			notNull,
+		);
+		case unique: return !b.among!(
+			autoCreateTime,
+			autoUpdateTime,
+		);
+		case notNull: return !b.among!(
+			primaryKey
+		);
+	}
+}
+
 /**
  * SumType combining all the different annotations (UDAs) that can be added to
  * a model field, in a serializable format. (e.g. the lambdas are moved into a
@@ -272,6 +309,46 @@ struct DBAnnotation
 	{
 		value = v;
 		return this;
+	}
+
+	/// Returns true if the other annotation can be used together with this one.
+	/// Must not call on itself, only on other instances. (which may be the same
+	/// attribute however)
+	bool isCompatibleWith(DBAnnotation other, bool firstTry = true)
+	{
+		return match!(
+			(AnnotationFlag lhs, AnnotationFlag rhs) => isCompatibleFlags(lhs, rhs),
+			(maxLength lhs, AnnotationFlag rhs) => !rhs.among!(
+				AnnotationFlag.autoCreateTime,
+				AnnotationFlag.autoUpdateTime,
+				AnnotationFlag.autoIncrement,
+			),
+			(maxLength lhs, Choices rhs) => false,
+			(Choices lhs, AnnotationFlag rhs) => !rhs.among!(
+				AnnotationFlag.autoCreateTime,
+				AnnotationFlag.autoUpdateTime,
+				AnnotationFlag.autoIncrement,
+				AnnotationFlag.primaryKey,
+				AnnotationFlag.unique,
+			),
+			(index lhs, AnnotationFlag rhs) => rhs != AnnotationFlag.primaryKey,
+			(lhs, AnnotationFlag rhs) {
+				static assert(is(typeof(lhs) : DefaultValue!T, T));
+				return !rhs.among!(
+					AnnotationFlag.autoCreateTime,
+					AnnotationFlag.autoUpdateTime,
+					AnnotationFlag.autoIncrement,
+					AnnotationFlag.primaryKey,
+					AnnotationFlag.unique,
+				);
+			},
+			(lhs, _) {
+				static assert(is(typeof(lhs) : DefaultValue!T, T));
+				return true;
+			},
+			(index lhs, index rhs) => true,
+			(a, b) => firstTry ? other.isCompatibleWith(this, false) : false
+		)(value, other.value);
 	}
 }
 

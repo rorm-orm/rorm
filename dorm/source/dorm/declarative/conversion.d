@@ -8,6 +8,7 @@ import dorm.annotations;
 import dorm.declarative;
 import dorm.model;
 
+import std.conv;
 import std.datetime;
 import std.meta;
 import std.traits;
@@ -48,7 +49,7 @@ private void processModel(TModel : Model, SourceLocation loc)(
 	models.models ~= serialized;
 }
 
-enum DormLayout(TModel : Model) = delegate() {
+private enum DormLayoutImpl(TModel : Model) = delegate() {
 	ModelFormat serialized;
 	serialized.tableName = TModel.stringof.toSnakeCase;
 
@@ -62,16 +63,40 @@ enum DormLayout(TModel : Model) = delegate() {
 		}
 	}
 
+	string errors;
+
 	static foreach (field; LogicalFields!TModel)
 	{
 		static if (__traits(getProtection, __traits(getMember, TModel, field)) == "public")
 		{
-			processField!(TModel, field, field)(serialized);
+			try
+			{
+				processField!(TModel, field, field)(serialized);
+			}
+			catch (Exception e)
+			{
+				errors ~= "\n\t" ~ e.msg;
+			}
 		}
 	}
 
-	return serialized;
+	struct Ret
+	{
+		string errors;
+		ModelFormat ret;
+	}
+
+	return Ret(errors, serialized);
 }();
+
+template DormLayout(TModel : Model)
+{
+	private enum Impl = DormLayoutImpl!TModel;
+	static if (Impl.errors.length)
+		static assert(false, "Model Definition contains errors:" ~ Impl.errors);
+	else
+		enum DormLayout = Impl.ret;
+}
 
 enum DormFields(TModel : Model) = DormLayout!TModel.fields;
 
@@ -238,6 +263,21 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 			throw new Exception("Cannot resolve DORM Model DBType from " ~ typeof(fieldAlias).stringof
 				~ " " ~ directFieldName ~ " in " ~ TModel.stringof
 				~ ", which is defined in " ~ SourceLocation(__traits(getLocation, fieldAlias)).toString);
+
+		foreach (ai, lhs; field.annotations)
+		{
+			foreach (bi, rhs; field.annotations)
+			{
+				if (ai == bi) continue;
+				if (!lhs.isCompatibleWith(rhs))
+					throw new Exception("Incompatible annotation: "
+						~ lhs.to!string ~ " conflicts with " ~ rhs.to!string
+						~ " on " ~ typeof(fieldAlias).stringof
+						~ " " ~ directFieldName ~ " in " ~ TModel.stringof
+						~ ", which is defined in " ~ SourceLocation(__traits(getLocation, fieldAlias)).toString);
+			}
+		}
+
 		serialized.fields ~= field;
 	}
 }
@@ -414,7 +454,6 @@ private enum guessDBTypeBase(T : TimeOfDay) = ModelFormat.Field.DBType.time;
 unittest
 {
 	import std.sumtype;
-	import std.conv;
 
 	struct Mod
 	{
