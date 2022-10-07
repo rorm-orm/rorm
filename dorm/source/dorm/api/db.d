@@ -125,7 +125,12 @@ struct DormDB
 		ffi.FFIValue[DormFields!DB.length] values;
 		int used;
 
-		static foreach (field; DormFields!T)
+		static if (is(T == DB))
+			alias validatorObject = value;
+		else
+			auto validatorObject = new DB();
+
+		static foreach (field; DormFields!DB)
 		{{
 			static if (is(typeof(mixin("value." ~ field.sourceColumn))))
 			{
@@ -154,9 +159,9 @@ struct DormDB
 			{
 				// OK
 			}
-			else static if (is(T == DB))
+			else static if (!is(T == DB))
 				static assert(false, "Trying to insert a patch " ~ T.stringof
-					~ " into " ~ DB.stringof ~ ", but it is missing the non-nullable, non-default field"
+					~ " into " ~ DB.stringof ~ ", but it is missing the non-nullable, non-default, non-constructValue field "
 					~ field.sourceColumn ~ "!");
 			else
 				static assert(false, "wat? (defined DormField not found inside the Model class that defined it)");
@@ -175,7 +180,6 @@ struct DormDB
 		}
 		else
 		{
-			auto validatorObject = new DB();
 			validatorObject.applyPatch(value);
 			auto brokenFields = validatorObject.runValidators();
 
@@ -184,11 +188,11 @@ struct DormDB
 			{
 				switch (field.columnName)
 				{
-					static foreach (field; DormFields!T)
+					static foreach (sourceField; DormFields!DB)
 					{
-						static if (is(typeof(mixin("value." ~ field.sourceColumn))))
+						static if (is(typeof(mixin("value." ~ sourceField.sourceColumn))))
 						{
-							case field.columnName:
+							case sourceField.columnName:
 						}
 					}
 					error ~= "Field " ~ field.sourceColumn ~ " defined in "
