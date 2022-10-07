@@ -4,6 +4,7 @@ targetType "sourceLibrary"
 
 configuration "application" {
 	postBuildCommands "./$DUB_ROOT_PACKAGE_TARGET_PATH$DUB_ROOT_PACKAGE_TARGET_NAME --DORM-dump-models-json"
+	versions "DormBuildModels"
 }
 
 configuration "unittest" {
