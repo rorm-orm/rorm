@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 pushd ../../rorm/
@@ -37,7 +37,7 @@ do
 		rm -f .models.json
 		rm -f database.sqlite3
 		echo "$DATABASE_CONFIG" > database.toml
-		if not ./run.sh; then
+		if ! ./run.sh; then
 			echo "Error: Test $testDir failed"
 			EXIT_CODE=1
 		fi
