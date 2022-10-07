@@ -83,7 +83,9 @@ abstract class Model
         ModelFormat.Field[] failedFields;
         enum validatorFuncs = {
             struct Ret {
+                int type;
                 ValidatorRef validator;
+                Choices choices;
                 ModelFormat.Field field;
             }
             Ret[] ret;
@@ -93,7 +95,16 @@ abstract class Model
                 {
                     annotation.match!(
                         (ValidatorRef validator) {
-                            ret ~= Ret(validator, field);
+                            ret ~= Ret(0, validator, Choices.init, field);
+                        },
+                        (_) {}
+                    );
+                }
+                foreach (ref annotation; field.annotations)
+                {
+                    annotation.value.match!(
+                        (Choices choices) {
+                            ret ~= Ret(1, ValidatorRef.init, choices, field);
                         },
                         (_) {}
                     );
@@ -104,9 +115,39 @@ abstract class Model
         static if (validatorFuncs.length)
         {
             auto t = cast(This)this;
-            foreach (func; validatorFuncs)
-                if (!func.validator.callback(t))
-                    failedFields ~= func.field;
+            static foreach (func; validatorFuncs)
+            {{
+                static if (func.type == 0)
+                {
+                    // validator
+                    if (!func.validator.callback(t))
+                        failedFields ~= func.field;
+                }
+                else static if (func.type == 1)
+                {
+                    // choices
+                    alias fieldRef = __traits(getMember, cast(This)this, func.field.sourceColumn);
+                    alias FieldT = typeof(fieldRef);
+
+                    static if (is(FieldT == enum))
+                    {
+                        // we assume that the enum value is simply valid for now.
+                    }
+                    else static if (is(FieldT : string))
+                    {
+                        import std.algorithm : canFind;
+
+                        if (!func.choices.choices.canFind(__traits(getMember, cast(This)this, func.field.sourceColumn)))
+                            failedFields ~= func.field;
+                    }
+                    else static assert(false,
+                        "Missing DORM implementation: Cannot validate inferred @choices from "
+                        ~ This.stringof ~ " -> " ~ func.field.sourceColumn ~ " of type "
+                        ~ FieldT.stringof
+                        ~ " (choices should only apply to string and enums, don't know what to do with this type)");
+                }
+                else static assert(false);
+            }}
         }
         return failedFields;
     }

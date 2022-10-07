@@ -811,6 +811,26 @@ private T fieldInto(T, string errInfo, From)(From v, ref ffi.RormError error)
 		else
 			static assert(false, "can't put optional " ~ U.stringof ~ " into " ~ T.stringof ~ errInfo);
 	}
+	else static if (is(T == enum))
+	{
+		auto s = fieldInto!(string, errInfo, From)(v, error);
+		static if (is(OriginalType!T == string))
+			return cast(T)s;
+		else
+		{
+			switch (s)
+			{
+				static foreach (f; __traits(allMembers, T))
+				{
+				case f:
+					return __traits(getMember, T, f);
+				}
+				default:
+					error = ffi.RormError(ffi.RormError.Tag.ColumnDecodeError);
+					return T.init;
+			}
+		}
+	}
 	else static if (isIntegral!From)
 	{
 		static if (isIntegral!T && From.sizeof >= T.sizeof)

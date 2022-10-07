@@ -1,5 +1,6 @@
 module dorm.api.condition;
 
+import std.conv;
 import std.datetime;
 import std.sumtype;
 import std.traits;
@@ -91,6 +92,14 @@ FFIValue conditionValue(string errInfo = "", T)(T c)
 			ret.type = FFIValue.Type.Null;
 		else
 			return conditionValue!errInfo(c.get);
+	}
+	else static if (is(T == enum))
+	{
+		ret.type = FFIValue.Type.String;
+		static if (is(OriginalType!T == string))
+			ret.string = ffi.ffi(cast(string)c);
+		else
+			ret.string = ffi.ffi(c.to!string); // std.conv : to gives us the enum field name
 	}
 	else static if (is(T == typeof(null)))
 	{
