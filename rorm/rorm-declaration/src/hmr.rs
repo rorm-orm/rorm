@@ -2,11 +2,16 @@
 //!
 //! It adds:
 //! - [`db_type`]: a type level version of [`imr::DbType`] to be used in generic type bound checks
-//! - [`annotation`]: a type level version of [`imr::Annotation`] to be used in generic type bound checks
+//! - [`annotations`]: a type level version of [`imr::Annotation`] to be used in generic type bound checks
 //!
 //! These features are split into different submodules to avoid name conflicts.
+//!
+//! [`imr::DbType`]: crate::imr::DbType
+//! [`imr::Annotation`]: crate::imr::Annotation
 
 /// A type level version of [`imr::DbType`] to be used in generic type bound checks
+///
+/// [`imr::DbType`]: crate::imr::DbType
 pub mod db_type {
     use crate::imr;
 
@@ -69,39 +74,52 @@ pub mod db_type {
 }
 
 /// A type level version of [`imr::Annotation`] to be used in generic type bound checks
+///
+/// [`imr::Annotation`]: crate::imr::Annotation
 pub mod annotations {
     use crate::imr;
     use std::marker::PhantomData;
 
     /// Trait to store a concrete optional annotation as generic type parameter.
-    /// If you just need any annotation, use the [`Any`] type as `T`.
     pub trait Annotation<T: 'static + Copy>: 'static + Copy {
         /// Convert the annotation into its imr representation.
         ///
-        /// `()` implements this trait and always returns `None`
-        /// Any other implementation should return `Some`
+        /// [`NotSet`] and [`Forbidden`] return `None`.
+        /// [`Implicit`] and any annotation itself return `Some`.
         fn as_imr(&self) -> Option<imr::Annotation>;
     }
 
-    // Unset annotation parameter
-    impl<T: 'static + Copy> Annotation<T> for () {
+    /// An annotation which has not been set
+    #[derive(Copy, Clone)]
+    pub struct NotSet<T>(PhantomData<T>);
+    impl<T> NotSet<T> {
+        /// Alternative to constructor which avoids importing [`PhantomData`]
+        pub const fn new() -> Self {
+            NotSet(PhantomData)
+        }
+    }
+    impl<T: Annotation<T>> Annotation<T> for NotSet<T> {
         fn as_imr(&self) -> Option<imr::Annotation> {
             None
         }
     }
 
     /// An annotation which is implied by a field's datatype
-    ///
-    /// This type is not necessary, but helps orientation in the hugh [`Annotations`] struct.
     #[derive(Copy, Clone)]
     pub struct Implicit<T>(T);
-    impl<A: Annotation<T>, T: 'static + Copy> Annotation<T> for Implicit<A> {
+    impl<T> Implicit<T> {
+        /// Constructor to keep similar API to [`Forbidden`] and [`NotSet`]
+        pub const fn new(anno: T) -> Self {
+            Implicit(anno)
+        }
+    }
+    impl<T: Annotation<T>> Annotation<T> for Implicit<T> {
         fn as_imr(&self) -> Option<imr::Annotation> {
             self.0.as_imr()
         }
     }
 
-    /// An annotation which is forbidden to be set on a [`Annotations`] struct.
+    /// An annotation which is forbidden to be set.
     #[derive(Copy, Clone)]
     pub struct Forbidden<T>(PhantomData<T>);
     impl<T> Forbidden<T> {
@@ -110,14 +128,14 @@ pub mod annotations {
             Forbidden(PhantomData)
         }
     }
-    impl<A: Annotation<T>, T: 'static + Copy> Annotation<T> for Forbidden<A> {
+    impl<T: Annotation<T>> Annotation<T> for Forbidden<T> {
         fn as_imr(&self) -> Option<imr::Annotation> {
             None
         }
     }
 
     macro_rules! impl_annotations {
-        ($($(#[doc = $doc:literal])* $field:ident $anno:ident $(($data:ty))?,)* [$($generic:ident),*]) => {
+        ($($(#[doc = $doc:literal])* $field:ident $anno:ident $(($data:ty))?,)*) => {
             $(
                 $(#[doc = $doc])*
                 #[derive(Copy, Clone)]
@@ -125,6 +143,7 @@ pub mod annotations {
                     /// The annotation's data
                     pub $data
                 ))?;
+
                 impl Annotation<$anno> for $anno {
                     fn as_imr(&self) -> Option<imr::Annotation> {
                         Some(imr::Annotation::$anno$(({
@@ -134,51 +153,12 @@ pub mod annotations {
                     }
                 }
             )*
-
-            /// Collection of Annotations
-            ///
-            /// This type implements the builder pattern and is generic over all its annotations.
-            /// Whether a annotation has been set or can be set at all is defined at type level.
-            #[derive(Copy, Clone)]
-            pub struct Annotations<
-                $($generic: Annotation<$anno>),*
-            >{
-                $(
-                    #[doc = concat!("The \"", stringify!($field), "\" annotation")]
-                    pub $field: $generic,
-                )*
-            }
-
-            impl Annotations<(), (), (), (), (), (), (), (), (), ()> {
-                /// Shorthand for creating an empty instance
-                pub const fn new() -> Self {
-                    Annotations {
-                        $($field: (),)*
-                    }
-                }
-            }
-
-            impl<$($generic: Annotation<$anno>),*> AsImr for Annotations<$($generic),*> {
-                type Imr = Vec<imr::Annotation>;
-
-                fn as_imr(&self) -> Self::Imr {
-                    let mut annotations = Vec::new();
-                    $(
-                        if let Some(anno) = self.$field.as_imr() {
-                            annotations.push(anno);
-                        }
-                    )*
-                    annotations
-                }
-            }
         };
     }
 
     impl_annotations!(
-        /// Only for [DbType::Timestamp], [DbType::Datetime], [DbType::Time] and [DbType::Date].
         /// Will set the current time of the database when a row is created.
         auto_create_time AutoCreateTime,
-        /// Only for [DbType::Timestamp], [DbType::Datetime], [DbType::Time] and [DbType::Date].
         /// Will set the current time of the database when a row is updated.
         auto_update_time AutoUpdateTime,
         /// AUTO_INCREMENT constraint
@@ -187,7 +167,7 @@ pub mod annotations {
         choices Choices(&'static [&'static str]),
         /// DEFAULT constraint
         default DefaultValue(DefaultValueData),
-        /// Create an index. The optional [IndexValue] can be used, to build more complex indexes.
+        /// Create an index. The optional [IndexData] can be used, to build more complex indexes.
         index Index(Option<IndexData>),
         /// Only for VARCHAR. Specifies the maximum length of the column's content.
         max_length MaxLength(i32),
@@ -197,9 +177,6 @@ pub mod annotations {
         primary_key PrimaryKey,
         /// UNIQUE constraint
         unique Unique,
-
-        // Generic parameters inside `Annotations<...>`
-        [A, B, C, D, E, F, G, H, I, J]
     );
 
     /// This trait is used to "compute" [`Annotations<...>`]'s next concrete type after a step in the builder pattern.
@@ -207,32 +184,15 @@ pub mod annotations {
     /// It would be reasonable to put the actual "step" method into this trait: `some_annos.add(SomeAnno)`
     /// Sadly rust's traits don't support const methods (yet?).
     /// So each "step" method needs its own name and exists completely detached to this trait: `some_annos.some_anno(SomeAnno)`
-    ///
-    /// ```
-    /// use rorm_declaration::hmr::annotations::{Annotations, Step, Unique};
-    /// let annos: Annotations<(), (), (), (), (), (), (), (), (), ()> = Annotations::new();
-    /// let new_annos: <Annotations<(), (), (), (), (), (), (), (), (), ()> as Step<Unique>>::Output = annos.unique(Unique);
-    /// ```
-    ///
-    /// See [`Add`] for a shorthand
     pub trait Step<T> {
         /// The resulting type after this step
         type Output;
     }
 
-    /// Shorthand for working with [`Step`]
-    ///
-    /// ```
-    /// use rorm_declaration::hmr::annotations::{Annotations, Add, Unique};
-    /// let annos: Annotations<(), (), (), (), (), (), (), (), (), ()> = Annotations::new();
-    /// let new_annos: Add<Unique, Annotations<(), (), (), (), (), (), (), (), (), ()>> = annos.unique(Unique);
-    /// ```
-    pub type Add<X, Y> = <Y as Step<X>>::Output;
-
     /// Represents a complex index
     #[derive(Copy, Clone)]
     pub struct IndexData {
-        /// Name of the index. Can be used multiple times in a [Model] to create an
+        /// Name of the index. Can be used multiple times in a model to create an
         /// index with multiple columns.
         pub name: &'static str,
 
@@ -263,6 +223,7 @@ pub mod annotations {
         fn as_imr(&self) -> Self::Imr;
     }
 
+    /// [`Index`]'s data
     impl AsImr for Option<IndexData> {
         type Imr = Option<imr::IndexValue>;
 
@@ -274,6 +235,7 @@ pub mod annotations {
         }
     }
 
+    /// [`DefaultValue`]'s data
     impl AsImr for DefaultValueData {
         type Imr = imr::DefaultValue;
 
@@ -287,6 +249,7 @@ pub mod annotations {
         }
     }
 
+    /// [`MaxLength`]'s data
     impl AsImr for i32 {
         type Imr = i32;
         fn as_imr(&self) -> Self::Imr {
@@ -294,185 +257,11 @@ pub mod annotations {
         }
     }
 
+    /// [`Choices`]' data
     impl AsImr for &'static [&'static str] {
         type Imr = Vec<String>;
         fn as_imr(&self) -> Self::Imr {
             self.iter().map(ToString::to_string).collect()
         }
-    }
-
-    macro_rules! impl_builder_step {
-        (
-            $($generic_pre:ident  : $anno_pre:ident  @ $field_pre:ident ,)*
-             ($generic:ident      : $anno:ident      @ $field:ident     ),
-            $($generic_post:ident : $anno_post:ident @ $field_post:ident,)*
-        ) => {
-            // If annotation is not set yet, set it.
-            impl<$($generic_pre: Annotation<$anno_pre>,)* $($generic_post: Annotation<$anno_post>,)*>
-            Annotations<$($generic_pre,)*  (), $($generic_post,)*> {
-                #[doc = concat!("Add a ", stringify!($anno), " annotation")]
-                pub const fn $field(&self, $field: $anno) -> Annotations<$($generic_pre,)*  $anno, $($generic_post,)*> {
-                    let Annotations {$($field_pre,)* $($field_post,)* ..} = *self;
-                    Annotations {$($field_pre,)* $field, $($field_post,)*}
-                }
-            }
-
-            impl<$($generic_pre: Annotation<$anno_pre>,)* $($generic_post: Annotation<$anno_post>,)*>
-            Step<$anno> for Annotations<$($generic_pre,)*  (), $($generic_post,)*> {
-                type Output = Annotations<$($generic_pre,)*  $anno, $($generic_post,)*>;
-            }
-
-            /*
-            // If annotation has been set already, panic.
-            impl<$($generic_pre: Annotation<$anno_pre>,)* $($generic_post: Annotation<$anno_post>,)*>
-            Annotations<$($generic_pre,)*  $anno, $($generic_post,)*> {
-                #[doc = concat!("Add a ", stringify!($anno), " annotation")]
-                pub const fn $field(&self, $field: $anno) -> Annotations<$($generic_pre,)*  $anno, $($generic_post,)*> {
-                    panic!(concat!("Can't set annotation \"", stringify!($field), "\". It has already been set."));
-                }
-            }
-
-            // If annotation was set implicit, panic.
-            impl<$($generic_pre: Annotation<$anno_pre>,)* $($generic_post: Annotation<$anno_post>,)*>
-            Annotations<$($generic_pre,)*  Implicit<$anno>, $($generic_post,)*> {
-                #[doc = concat!("Add a ", stringify!($anno), " annotation")]
-                pub const fn $field(&self, $field: $anno) -> Annotations<$($generic_pre,)*  $anno, $($generic_post,)*> {
-                    panic!(concat!("Can't set annotation \"", stringify!($field), "\". It has already been set implicitly."));
-                }
-            }
-
-            // If annotation is forbidden, panic.
-            impl<$($generic_pre: Annotation<$anno_pre>,)* $($generic_post: Annotation<$anno_post>,)*>
-            Annotations<$($generic_pre,)*  Forbidden<$anno>, $($generic_post,)*> {
-                #[doc = concat!("Add a ", stringify!($anno), " annotation")]
-                pub const fn $field(&self, $field: $anno) -> Annotations<$($generic_pre,)*  $anno, $($generic_post,)*> {
-                    panic!(concat!("Can't set annotation \"", stringify!($field), "\". It is not allowed on this field."));
-                }
-            }
-            */
-        };
-    }
-    mod builder {
-        use super::*;
-        impl_builder_step!(
-            (A: AutoCreateTime @ auto_create_time),
-            B: AutoUpdateTime @ auto_update_time,
-            C: AutoIncrement @ auto_increment,
-            D: Choices @ choices,
-            E: DefaultValue @ default,
-            F: Index @ index,
-            G: MaxLength @ max_length,
-            H: NotNull @ not_null,
-            I: PrimaryKey @ primary_key,
-            J: Unique @ unique,
-        );
-        impl_builder_step!(
-            A: AutoCreateTime @ auto_create_time,
-            (B: AutoUpdateTime @ auto_update_time),
-            C: AutoIncrement @ auto_increment,
-            D: Choices @ choices,
-            E: DefaultValue @ default,
-            F: Index @ index,
-            G: MaxLength @ max_length,
-            H: NotNull @ not_null,
-            I: PrimaryKey @ primary_key,
-            J: Unique @ unique,
-        );
-        impl_builder_step!(
-            A: AutoCreateTime @ auto_create_time,
-            B: AutoUpdateTime @ auto_update_time,
-            (C: AutoIncrement @ auto_increment),
-            D: Choices @ choices,
-            E: DefaultValue @ default,
-            F: Index @ index,
-            G: MaxLength @ max_length,
-            H: NotNull @ not_null,
-            I: PrimaryKey @ primary_key,
-            J: Unique @ unique,
-        );
-        impl_builder_step!(
-            A: AutoCreateTime @ auto_create_time,
-            B: AutoUpdateTime @ auto_update_time,
-            C: AutoIncrement @ auto_increment,
-            (D: Choices @ choices),
-            E: DefaultValue @ default,
-            F: Index @ index,
-            G: MaxLength @ max_length,
-            H: NotNull @ not_null,
-            I: PrimaryKey @ primary_key,
-            J: Unique @ unique,
-        );
-        impl_builder_step!(
-            A: AutoCreateTime @ auto_create_time,
-            B: AutoUpdateTime @ auto_update_time,
-            C: AutoIncrement @ auto_increment,
-            D: Choices @ choices,
-            (E: DefaultValue @ default),
-            F: Index @ index,
-            G: MaxLength @ max_length,
-            H: NotNull @ not_null,
-            I: PrimaryKey @ primary_key,
-            J: Unique @ unique,
-        );
-        impl_builder_step!(
-            A: AutoCreateTime @ auto_create_time,
-            B: AutoUpdateTime @ auto_update_time,
-            C: AutoIncrement @ auto_increment,
-            D: Choices @ choices,
-            E: DefaultValue @ default,
-            (F: Index @ index),
-            G: MaxLength @ max_length,
-            H: NotNull @ not_null,
-            I: PrimaryKey @ primary_key,
-            J: Unique @ unique,
-        );
-        impl_builder_step!(
-            A: AutoCreateTime @ auto_create_time,
-            B: AutoUpdateTime @ auto_update_time,
-            C: AutoIncrement @ auto_increment,
-            D: Choices @ choices,
-            E: DefaultValue @ default,
-            F: Index @ index,
-            (G: MaxLength @ max_length),
-            H: NotNull @ not_null,
-            I: PrimaryKey @ primary_key,
-            J: Unique @ unique,
-        );
-        impl_builder_step!(
-            A: AutoCreateTime @ auto_create_time,
-            B: AutoUpdateTime @ auto_update_time,
-            C: AutoIncrement @ auto_increment,
-            D: Choices @ choices,
-            E: DefaultValue @ default,
-            F: Index @ index,
-            G: MaxLength @ max_length,
-            (H: NotNull @ not_null),
-            I: PrimaryKey @ primary_key,
-            J: Unique @ unique,
-        );
-        impl_builder_step!(
-            A: AutoCreateTime @ auto_create_time,
-            B: AutoUpdateTime @ auto_update_time,
-            C: AutoIncrement @ auto_increment,
-            D: Choices @ choices,
-            E: DefaultValue @ default,
-            F: Index @ index,
-            G: MaxLength @ max_length,
-            H: NotNull @ not_null,
-            (I: PrimaryKey @ primary_key),
-            J: Unique @ unique,
-        );
-        impl_builder_step!(
-            A: AutoCreateTime @ auto_create_time,
-            B: AutoUpdateTime @ auto_update_time,
-            C: AutoIncrement @ auto_increment,
-            D: Choices @ choices,
-            E: DefaultValue @ default,
-            F: Index @ index,
-            G: MaxLength @ max_length,
-            H: NotNull @ not_null,
-            I: PrimaryKey @ primary_key,
-            (J: Unique @ unique),
-        );
     }
 }

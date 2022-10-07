@@ -3,7 +3,11 @@ use std::marker::PhantomData;
 use rorm_db::conditional::{self, Condition};
 use rorm_db::value::Value;
 use rorm_declaration::hmr;
+use rorm_declaration::hmr::annotations;
 use rorm_declaration::imr;
+
+use crate::annotation_builder;
+use crate::annotation_builder::NotSetAnnotations;
 
 /// This trait maps rust types to database types
 pub trait AsDbType {
@@ -41,8 +45,8 @@ macro_rules! impl_as_db_type {
 
             type DbType = hmr::db_type::$db_type;
 
-            type Annotations = hmr::annotations::Annotations<(), (), (), (), (), (), (), (), (), ()>;
-            const ANNOTATIONS: Self::Annotations = hmr::annotations::Annotations::new();
+            type Annotations = NotSetAnnotations;
+            const ANNOTATIONS: Self::Annotations = NotSetAnnotations::new();
 
             #[inline(always)]
             fn from_primitive(primitive: Self::Primitive) -> Self {
@@ -126,20 +130,9 @@ impl<E: DbEnum> AsDbType for E {
     type Primitive = String;
     type DbType = hmr::db_type::Choices;
 
-    type Annotations = hmr::annotations::Annotations<
-        (),
-        (),
-        (),
-        hmr::annotations::Choices,
-        (),
-        (),
-        (),
-        (),
-        (),
-        (),
-    >;
+    type Annotations = annotation_builder::Implicit<annotations::Choices, NotSetAnnotations>;
     const ANNOTATIONS: Self::Annotations =
-        hmr::annotations::Annotations::new().choices(hmr::annotations::Choices(E::CHOICES));
+        NotSetAnnotations::new().implicit_choices(annotations::Choices(E::CHOICES));
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         E::from_str(&primitive)

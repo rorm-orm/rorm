@@ -38,7 +38,7 @@ impl Annotations {
         for anno in self.iter() {
             let anno = Ident::new(anno.variant, anno.span.clone());
             anno_type = quote! {
-                ::rorm::hmr::annotations::Add<::rorm::hmr::annotations::#anno, #anno_type>
+                ::rorm::annotation_builder::Add<::rorm::hmr::annotations::#anno, #anno_type>
             };
         }
         anno_type
