@@ -49,7 +49,7 @@ private void processModel(TModel : Model, SourceLocation loc)(
 	models.models ~= serialized;
 }
 
-private enum DormLayoutImpl(TModel : Model) = delegate() {
+private enum DormLayoutImpl(TModel : Model) = function() {
 	ModelFormat serialized;
 	serialized.tableName = TModel.stringof.toSnakeCase;
 
@@ -101,6 +101,7 @@ template DormLayout(TModel : Model)
 enum DormFields(TModel : Model) = DormLayout!TModel.fields;
 
 enum DormFieldIndex(TModel : Model, string sourceName) = findFieldIdx(DormFields!TModel, sourceName, TModel.stringof);
+enum hasDormField(TModel : Model, string sourceName) = DormFieldIndex!(TModel, sourceName) != -1;
 enum DormField(TModel : Model, string sourceName) = DormFields!TModel[DormFieldIndex!(TModel, sourceName)];
 
 private auto findFieldIdx(ModelFormat.Field[] fields, string name, string modelName)
@@ -108,7 +109,7 @@ private auto findFieldIdx(ModelFormat.Field[] fields, string name, string modelN
 	foreach (i, ref field; fields)
 		if (field.sourceColumn == name)
 			return i;
-	assert(false, "field " ~ name ~ " not found in model " ~ modelName);
+	return -1;
 }
 
 template LogicalFields(TModel)

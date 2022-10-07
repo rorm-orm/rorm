@@ -171,7 +171,7 @@ struct DormDB
 			else static if (!is(T == DB))
 				static assert(false, "Trying to insert a patch " ~ T.stringof
 					~ " into " ~ DB.stringof ~ ", but it is missing the non-nullable, non-default, non-constructValue field "
-					~ field.sourceColumn ~ "!");
+					~ field.sourceColumn ~ " defined in " ~ field.definedAt.toString ~ "!");
 			else
 				static assert(false, "wat? (defined DormField not found inside the Model class that defined it)");
 		}}
@@ -287,11 +287,12 @@ private template BuildFieldsTuple(T, Selection...)
 struct ConditionBuilder(T)
 {
 	static foreach (i, member; T.tupleof)
-		mixin("ConditionBuilderField!(typeof(T.tupleof[i])) ",
-			T.tupleof[i].stringof,
-			" = ConditionBuilderField!(typeof(T.tupleof[i]))(`",
-			DormField!(T, T.tupleof[i].stringof).columnName,
-			"`);");
+		static if (hasDormField!(T, T.tupleof[i].stringof))
+			mixin("ConditionBuilderField!(typeof(T.tupleof[i])) ",
+				T.tupleof[i].stringof,
+				" = ConditionBuilderField!(typeof(T.tupleof[i]))(`",
+				DormField!(T, T.tupleof[i].stringof).columnName,
+				"`);");
 
 	static if (__traits(allMembers, NotConditionBuilder!T).length > 1)
 		NotConditionBuilder!T not;
@@ -774,7 +775,7 @@ private T extractField(alias field, T, string errInfo)(ffi.DBRowHandle row, ref 
 			"field type " ~ field.type.to!string ~ " not yet implemented for reading");
 
 		case choices:
-			static if (field.type == choices) return fieldInto!T(mixin(pre, "str", suf), error);
+			static if (field.type == choices) return fieldInto!(T, errInfo)(mixin(pre, "str", suf), error);
 			else assert(false);
 		case set: assert(false);
 	}
@@ -783,34 +784,10 @@ private T extractField(alias field, T, string errInfo)(ffi.DBRowHandle row, ref 
 private T fieldInto(T, string errInfo, From)(From v, ref ffi.RormError error)
 {
 	import dorm.lib.ffi : FFIArray, FFIOption;
+	import std.typecons : Nullable;
 
 	static if (is(T == From))
 		return v;
-	else static if (is(From == FFIArray!U, U))
-	{
-		auto data = v[];
-		static if (is(T == Res[], Res))
-		{
-			static if (is(immutable Res == immutable U))
-				return cast(Res[])data;
-			else
-				static assert(false, "can't auto-wrap array element type " ~ Res.stringof ~ " into " ~ U.stringof ~ errInfo);
-		}
-		else
-			static assert(false, "can't auto-wrap " ~ U.stringof ~ "[] into " ~ T.stringof ~ errInfo);
-	}
-	else static if (is(From == FFIOption!U, U))
-	{
-		static if (__traits(compiles, T(null)))
-		{
-			if (v.isNull)
-				return T(null);
-			else
-				return fieldInto!(T, errInfo)(v.raw_value, error);
-		}
-		else
-			static assert(false, "can't put optional " ~ U.stringof ~ " into " ~ T.stringof ~ errInfo);
-	}
 	else static if (is(T == enum))
 	{
 		auto s = fieldInto!(string, errInfo, From)(v, error);
@@ -830,6 +807,56 @@ private T fieldInto(T, string errInfo, From)(From v, ref ffi.RormError error)
 					return T.init;
 			}
 		}
+	}
+	else static if (is(From == FFIArray!U, U))
+	{
+		auto data = v[];
+		static if (is(T == Res[], Res))
+		{
+			static if (is(immutable Res == immutable U))
+				return cast(Res[])data;
+			else
+				static assert(false, "can't auto-wrap array element type " ~ Res.stringof ~ " into " ~ U.stringof ~ errInfo);
+		}
+		else static if (is(T == Nullable!V, V))
+		{
+			return T(fieldInto!(V, errInfo, From)(v, error));
+		}
+		else
+			static assert(false, "can't auto-wrap " ~ U.stringof ~ "[] into " ~ T.stringof ~ errInfo);
+	}
+	else static if (is(From == FFIOption!U, U))
+	{
+		static if (is(T == Nullable!V, V))
+		{
+			if (v.isNull)
+				return T.init;
+			else
+				return T(fieldInto!(V, errInfo)(v.raw_value, error));
+		}
+		else static if (__traits(compiles, T(null)))
+		{
+			if (v.isNull)
+				return T(null);
+			else
+				return fieldInto!(T, errInfo)(v.raw_value, error);
+		}
+		else
+		{
+			if (v.isNull)
+			{
+				error = ffi.RormError(ffi.RormError.Tag.ColumnDecodeError);
+				return T.init;
+			}
+			else
+			{
+				return fieldInto!(T, errInfo)(v.raw_value, error);
+			}
+		}
+	}
+	else static if (is(T == Nullable!U, U))
+	{
+		return T(fieldInto!(U, errInfo, From)(v, error));
 	}
 	else static if (isIntegral!From)
 	{
@@ -906,6 +933,11 @@ private T fieldInto(T, string errInfo, From)(From v, ref ffi.RormError error)
 			{
 				return SysTime(DateTime(cast(int)v.year, cast(int)v.month, cast(int)v.day,
 					cast(int)v.hour, cast(int)v.min, cast(int)v.day), UTC());
+			}
+			else static if (is(T == long) || is(T == ulong))
+			{
+				return cast(T)SysTime(DateTime(cast(int)v.year, cast(int)v.month, cast(int)v.day,
+					cast(int)v.hour, cast(int)v.min, cast(int)v.day), UTC()).stdTime;
 			}
 			else
 				static assert(false, "can't put " ~ From.stringof ~ " into " ~ T.stringof ~ errInfo);
