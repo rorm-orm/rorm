@@ -145,6 +145,22 @@ struct ModelFormat
 		}
 
 		@serdeIgnore
+		bool hasConstructValue() const @property
+		{
+			import std.datetime;
+
+			foreach (annotation; internalAnnotations)
+			{
+				if (annotation.match!(
+					(const ConstructValueRef c) => true,
+					_ => false
+				))
+					return true;
+			}
+			return false;
+		}
+
+		@serdeIgnore
 		bool isBuiltinId() const @property
 		{
 			return sourceColumn == "_fallbackId";

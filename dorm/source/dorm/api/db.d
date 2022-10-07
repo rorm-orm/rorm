@@ -155,6 +155,15 @@ struct DormDB
 					used++;
 				}
 			}
+			else static if (field.hasConstructValue)
+			{
+				// filled in by constructor
+				columns[used] = ffi.ffi(field.columnName);
+				values[used] = conditionValue!(
+					text(" from model ", DB.stringof, " in column ", field.sourceColumn, " in file ", field.definedAt).idup
+				)(mixin("validatorObject." ~ field.sourceColumn));
+				used++;
+			}
 			else static if (field.isNullable || field.hasDefaultValue)
 			{
 				// OK
