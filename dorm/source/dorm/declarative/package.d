@@ -470,25 +470,31 @@ private struct IonDBAnnotation
  */
 struct ConstructValueRef
 {
-	/*
+	/**
 	 * This function calls the UDA specified lambda without argument and
 	 * sets the annotated field value inside the containing Model instance to
 	 * its return value, with the code assuming it can simply assign it.
 	 * (a compiler error will occur if it cannot implicitly convert to the
 	 * annotated property type)
+	 *
+	 * The value itself is meaningless, it's only for later executing the actual
+	 * callback through runValueConstructor.
 	 */
-	void function(Model) callback;
+	string rid;
 }
 
 /// ditto
 struct ValidatorRef
 {
-	/*
+	/**
 	 * This function calls the UDA specified lambda with the field as argument
 	 * and returns its return value, with the code assuming it is a boolean.
 	 * (a compiler error will occur if it cannot implicitly convert to `bool`)
+	 *
+	 * The value itself is meaningless, it's only for later executing the actual
+	 * callback through runValueConstructor.
 	 */
-	bool function(Model) callback;
+	string rid;
 }
 
 unittest

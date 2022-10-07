@@ -226,13 +226,11 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		}
 		else static if (is(attribute == constructValue!fn, alias fn))
 		{
-			field.internalAnnotations ~= InternalAnnotation(ConstructValueRef(
-				&makeValueConstructor!(TModel, fieldName, fn)));
+			field.internalAnnotations ~= InternalAnnotation(ConstructValueRef(fieldName));
 		}
 		else static if (is(attribute == validator!fn, alias fn))
 		{
-			field.internalAnnotations ~= InternalAnnotation(ValidatorRef(
-				&makeValidator!(TModel, fieldName, fn)));
+			field.internalAnnotations ~= InternalAnnotation(ValidatorRef(fieldName));
 		}
 		else static if (is(typeof(attribute) == maxLength)
 			|| is(typeof(attribute) == DefaultValue!T, T)
@@ -285,24 +283,6 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 
 		serialized.fields ~= field;
 	}
-}
-
-private void makeValueConstructor(TModel, string fieldName, alias fn)(Model model)
-{
-	auto m = cast(TModel) model;
-	assert(m, "invalid valueConstructor call: got instance of `" ~ typeid(model).name
-		~ "`, but expected `" ~ TModel.stringof ~ '`');
-	__traits(getMember, m, fieldName) = fn();
-}
-
-private static bool makeValidator(TModel, string fieldName, alias fn)(Model model)
-{
-	import std.functional : unaryFun;
-
-	auto m = cast(TModel) model;
-	assert(m, "invalid validator call: got instance of `" ~ typeid(model).name
-		~ "`, but expected `" ~ TModel.stringof ~ '`');
-	return unaryFun!fn(__traits(getMember, m, fieldName));
 }
 
 private string toSnakeCase(string s)

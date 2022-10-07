@@ -64,7 +64,7 @@ class User : NamedThing
 	@columnName("admin")
 	bool isAdmin;
 
-	// @constructValue!(() => Clock.currTime + 4.hours)
+	@constructValue!(() => Clock.currTime + 4.hours)
 	SysTime validUntil;
 
 	@maxLength(255)
@@ -84,7 +84,7 @@ class User : NamedThing
 	@unique
 	int uuid;
 
-	// @validator!(x => x >= 18)
+	@validator!(x => x >= 18)
 	int someInt;
 
 	@ignored

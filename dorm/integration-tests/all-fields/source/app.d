@@ -2,8 +2,9 @@ import models;
 
 import core.thread;
 import core.time;
-import std.datetime.systime;
 import std.datetime.date;
+import std.datetime.systime;
+import std.exception;
 import std.range;
 import std.stdio;
 
@@ -22,7 +23,6 @@ void main(string[] args)
 	@DormPatch!User
 	struct UserInsert
 	{
-		SysTime validUntil;
 		string name = "Bob";
 		string password = "123456";
 		string email = "bob@example.org";
@@ -38,5 +38,23 @@ void main(string[] args)
 		int someInt = 20;
 		Common commonFields = Common("CommonName", SuperCommon(12345));
 	}
-	db.insert(UserInsert(Clock.currTime + 8.hours));
+
+	db.insert(UserInsert.init);
+
+	assertThrown({
+		// violating unique constraint here
+		db.insert(UserInsert.init);
+	});
+
+	size_t total;
+	foreach (user; db.select!User.stream)
+	{
+		total++;
+
+		foreach (i, field; UserInsert.init.tupleof)
+			assert(__traits(getMember, user, __traits(identifier, UserInsert.tupleof[i]))
+				== field);
+	}
+
+	assert(total == 1);
 }

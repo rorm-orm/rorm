@@ -72,7 +72,7 @@ abstract class Model
         {
             auto t = cast(This)this;
             foreach (ref fn; constructorFuncs)
-                fn.callback(t);
+                runValueConstructorImpl!(fn.rid)(t);
         }
     }
 
@@ -120,7 +120,7 @@ abstract class Model
                 static if (func.type == 0)
                 {
                     // validator
-                    if (!func.validator.callback(t))
+                    if (!runValidatorImpl!(func.validator.rid)(t))
                         failedFields ~= func.field;
                 }
                 else static if (func.type == 1)
@@ -150,5 +150,34 @@ abstract class Model
             }}
         }
         return failedFields;
+    }
+}
+
+private static bool runValidatorImpl(string field, T)(T t)
+{
+    alias fieldAlias = mixin("t." ~ field);
+    alias attributes = __traits(getAttributes, fieldAlias);
+
+    static foreach (attribute; attributes)
+    {
+        static if (is(attribute == validator!fn, alias fn))
+        {
+            return fn(mixin("t." ~ field));
+        }
+    }
+}
+
+private static bool runValueConstructorImpl(string field, T)(T t)
+{
+    alias fieldAlias = mixin("t." ~ field);
+    alias attributes = __traits(getAttributes, fieldAlias);
+
+    static foreach (attribute; attributes)
+    {
+        static if (is(attribute == constructValue!fn, alias fn))
+        {
+            mixin("t." ~ field) = fn();
+            return true; // dummy return value
+        }
     }
 }
