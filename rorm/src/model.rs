@@ -32,9 +32,6 @@ pub trait AsDbType {
 
     /// Whether this type supports null.
     const IS_NULLABLE: bool = false;
-
-    /// Extend a Vec with migrator annotations which are implied by the type.
-    fn implicit_annotations(_annotations: &mut Vec<imr::Annotation>) {}
 }
 
 macro_rules! impl_as_db_type {
@@ -83,8 +80,8 @@ impl<T: AsDbType> AsDbType for Option<T> {
     type Primitive = Self;
     type DbType = T::DbType;
 
-    type Annotations = hmr::annotations::Annotations<(), (), (), (), (), (), (), (), (), ()>;
-    const ANNOTATIONS: Self::Annotations = hmr::annotations::Annotations::new();
+    type Annotations = T::Annotations;
+    const ANNOTATIONS: Self::Annotations = T::ANNOTATIONS;
 
     #[inline(always)]
     fn from_primitive(primitive: Self::Primitive) -> Self {
@@ -99,10 +96,6 @@ impl<T: AsDbType> AsDbType for Option<T> {
     }
 
     const IS_NULLABLE: bool = true;
-
-    fn implicit_annotations(annotations: &mut Vec<imr::Annotation>) {
-        T::implicit_annotations(annotations)
-    }
 }
 
 /// Map a rust enum, whose variant don't hold any data, into a database enum
@@ -126,17 +119,27 @@ pub trait DbEnum {
     /// Convert a variant into its corresponding string.
     fn to_str(&self) -> &'static str;
 
-    /// Construct a vector containing all variants as strings.
-    ///
-    /// This will be called in order to construct the Intermediate Model Representation.
-    fn as_choices() -> Vec<String>;
+    /// A slice containing all variants as strings.
+    const CHOICES: &'static [&'static str];
 }
 impl<E: DbEnum> AsDbType for E {
     type Primitive = String;
     type DbType = hmr::db_type::Choices;
 
-    type Annotations = hmr::annotations::Annotations<(), (), (), (), (), (), (), (), (), ()>;
-    const ANNOTATIONS: Self::Annotations = hmr::annotations::Annotations::new();
+    type Annotations = hmr::annotations::Annotations<
+        (),
+        (),
+        (),
+        hmr::annotations::Choices,
+        (),
+        (),
+        (),
+        (),
+        (),
+        (),
+    >;
+    const ANNOTATIONS: Self::Annotations =
+        hmr::annotations::Annotations::new().choices(hmr::annotations::Choices(E::CHOICES));
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         E::from_str(&primitive)
@@ -144,10 +147,6 @@ impl<E: DbEnum> AsDbType for E {
 
     fn as_primitive(&self) -> Value {
         Value::String(self.to_str())
-    }
-
-    fn implicit_annotations(annotations: &mut Vec<imr::Annotation>) {
-        annotations.push(imr::Annotation::Choices(E::as_choices()));
     }
 }
 
@@ -308,85 +307,4 @@ impl From<Source> for imr::Source {
             column: source.column,
         }
     }
-}
-
-/// The subset of annotations which need to be communicated with the migration tool
-#[derive(Copy, Clone)]
-pub enum Annotation {
-    /// Only for [imr::DbType::Timestamp], [imr::DbType::Datetime], [imr::DbType::Time] and [imr::DbType::Date].
-    /// Will set the current time of the database when a row is created.
-    AutoCreateTime,
-    /// Only for [imr::DbType::Timestamp], [imr::DbType::Datetime], [imr::DbType::Time] and [imr::DbType::Date].
-    /// Will set the current time of the database when a row is updated.
-    AutoUpdateTime,
-    /// AUTO_INCREMENT constraint
-    AutoIncrement,
-    /// A list of choices to set
-    Choices(&'static [&'static str]),
-    /// DEFAULT constraint
-    DefaultValue(DefaultValue),
-    /// Create an index. The optional [imr::IndexValue] can be used, to build more complex indexes.
-    Index(Option<IndexValue>),
-    /// Only for VARCHAR. Specifies the maximum length of the column's content.
-    MaxLength(i32),
-    /// NOT NULL constraint
-    NotNull,
-    /// The annotated column will be used as primary key
-    PrimaryKey,
-    /// UNIQUE constraint
-    Unique,
-}
-
-impl From<Annotation> for imr::Annotation {
-    fn from(anno: Annotation) -> Self {
-        match anno {
-            Annotation::AutoCreateTime => imr::Annotation::AutoCreateTime,
-            Annotation::AutoUpdateTime => imr::Annotation::AutoUpdateTime,
-            Annotation::AutoIncrement => imr::Annotation::AutoIncrement,
-            Annotation::Choices(choices) => {
-                imr::Annotation::Choices(choices.into_iter().map(ToString::to_string).collect())
-            }
-            Annotation::DefaultValue(value) => imr::Annotation::DefaultValue(match value {
-                DefaultValue::String(string) => imr::DefaultValue::String(string.to_string()),
-                DefaultValue::Boolean(boolean) => imr::DefaultValue::Boolean(boolean),
-                DefaultValue::Float(float) => imr::DefaultValue::Float(float.into()),
-                DefaultValue::Integer(integer) => imr::DefaultValue::Integer(integer),
-            }),
-            Annotation::Index(index) => {
-                imr::Annotation::Index(index.map(|index| imr::IndexValue {
-                    name: index.name.to_string(),
-                    priority: index.priority,
-                }))
-            }
-            Annotation::MaxLength(length) => imr::Annotation::MaxLength(length),
-            Annotation::NotNull => imr::Annotation::NotNull,
-            Annotation::PrimaryKey => imr::Annotation::PrimaryKey,
-            Annotation::Unique => imr::Annotation::Unique,
-        }
-    }
-}
-
-/// Represents a complex index
-#[derive(Copy, Clone)]
-pub struct IndexValue {
-    /// Name of the index. Can be used multiple times in a [Model] to create an
-    /// index with multiple columns.
-    pub name: &'static str,
-
-    /// The order to put the columns in while generating an index.
-    /// Only useful if multiple columns with the same name are present.
-    pub priority: Option<i32>,
-}
-
-/// A column's default value which is any non object / array json value
-#[derive(Copy, Clone)]
-pub enum DefaultValue {
-    /// Use hexadecimal to represent binary data
-    String(&'static str),
-    /// i128 is used as it can represent any integer defined in DbType
-    Integer(i128),
-    /// Ordered float is used as f64 does not Eq and Order which are needed for Hash
-    Float(f64),
-    /// Just a bool. Nothing interesting here.
-    Boolean(bool),
 }

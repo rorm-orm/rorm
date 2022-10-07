@@ -67,17 +67,11 @@ pub fn db_enum(enm: TokenStream) -> TokenStream {
                 }
             }
             fn to_str(&self) -> &'static str {
-                use #db_enum::*;
-                match self {
-                    #(#identifiers => stringify!(#identifiers),)*
-                    _ => unreachable!(),
-                }
+                Self::CHOICES[*self as usize]
             }
-            fn as_choices() -> Vec<String> {
-                vec![
-                    #(stringify!(#identifiers).to_string()),*
-                ]
-            }
+            const CHOICES: &'static [&'static str] = &[
+                #(stringify!(#identifiers)),*
+            ];
 
             #errors
         }

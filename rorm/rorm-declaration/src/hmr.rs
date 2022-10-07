@@ -105,6 +105,7 @@ pub mod annotations {
     #[derive(Copy, Clone)]
     pub struct Forbidden<T>(PhantomData<T>);
     impl<T> Forbidden<T> {
+        /// Alternative to constructor which avoids importing [`PhantomData`]
         pub const fn new() -> Self {
             Forbidden(PhantomData)
         }
@@ -120,7 +121,10 @@ pub mod annotations {
             $(
                 $(#[doc = $doc])*
                 #[derive(Copy, Clone)]
-                pub struct $anno$((pub $data))?;
+                pub struct $anno$((
+                    /// The annotation's data
+                    pub $data
+                ))?;
                 impl Annotation<$anno> for $anno {
                     fn as_imr(&self) -> Option<imr::Annotation> {
                         Some(imr::Annotation::$anno$(({
@@ -131,14 +135,22 @@ pub mod annotations {
                 }
             )*
 
+            /// Collection of Annotations
+            ///
+            /// This type implements the builder pattern and is generic over all its annotations.
+            /// Whether a annotation has been set or can be set at all is defined at type level.
             #[derive(Copy, Clone)]
             pub struct Annotations<
                 $($generic: Annotation<$anno>),*
             >{
-                $(pub $field: $generic,)*
+                $(
+                    #[doc = concat!("The \"", stringify!($field), "\" annotation")]
+                    pub $field: $generic,
+                )*
             }
 
             impl Annotations<(), (), (), (), (), (), (), (), (), ()> {
+                /// Shorthand for creating an empty instance
                 pub const fn new() -> Self {
                     Annotations {
                         $($field: (),)*
@@ -204,6 +216,7 @@ pub mod annotations {
     ///
     /// See [`Add`] for a shorthand
     pub trait Step<T> {
+        /// The resulting type after this step
         type Output;
     }
 
@@ -241,9 +254,12 @@ pub mod annotations {
         Boolean(bool),
     }
 
+    /// Trait for converting a hmr type into a imr one
     pub trait AsImr {
+        /// Imr type to convert to
         type Imr;
 
+        /// Convert to imr type
         fn as_imr(&self) -> Self::Imr;
     }
 
