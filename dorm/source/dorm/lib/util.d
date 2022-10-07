@@ -1,6 +1,7 @@
 module dorm.lib.util;
 
 import core.sync.event;
+import std.algorithm;
 import std.functional;
 import std.traits;
 import std.typecons;
@@ -13,6 +14,13 @@ struct FreeableAsyncResult(T)
 	static if (!is(T == void))
 		T raw_result;
 	Exception error;
+
+	@disable this();
+
+	this(Event event)
+	{
+		this.event = move(event);
+	}
 
 	static FreeableAsyncResult make()
 	{

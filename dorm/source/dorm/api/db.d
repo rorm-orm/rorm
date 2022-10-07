@@ -204,9 +204,9 @@ struct DormDB
 		}
 
 
-		FreeableAsyncResult!void ctx;
+		auto ctx = FreeableAsyncResult!void.make;
 		ffi.rorm_db_insert(handle,
-			ffi.ffi(DormLayout!T.tableName),
+			ffi.ffi(DormLayout!DB.tableName),
 			ffi.ffi(columns[0 .. used]),
 			ffi.ffi(values[0 .. used]), ctx.callback.expand);
 		ctx.result();
