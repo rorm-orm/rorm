@@ -10,6 +10,7 @@ pub use rorm_db::*;
 pub use rorm_macro::*;
 
 // Reexports to be used by macro
+pub use rorm_declaration::hmr;
 pub use rorm_declaration::imr;
 
 /// Module implementing methods to [`Condition`] based on [`Field<T>`]

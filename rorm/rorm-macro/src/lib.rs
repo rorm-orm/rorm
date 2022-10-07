@@ -6,6 +6,7 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 
+mod annotations;
 mod args;
 mod derive;
 mod errors;

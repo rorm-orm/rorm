@@ -11,7 +11,15 @@ pub trait AsDbType {
     type Primitive;
 
     /// The database type as defined in the Intermediate Model Representation
-    type DbType: hmr::DbType;
+    type DbType: hmr::db_type::DbType;
+
+    /// The default annotations' concrete [`Annotations<...>`] type
+    ///
+    /// [`Annotations<...>`]: hmr::annotations::Annotations
+    type Annotations;
+
+    /// the default annotations
+    const ANNOTATIONS: Self::Annotations;
 
     /// Convert the associated primitive type into `Self`.
     ///
@@ -34,7 +42,10 @@ macro_rules! impl_as_db_type {
         impl AsDbType for $type {
             type Primitive = Self;
 
-            type DbType = hmr::$db_type;
+            type DbType = hmr::db_type::$db_type;
+
+            type Annotations = hmr::annotations::Annotations<(), (), (), (), (), (), (), (), (), ()>;
+            const ANNOTATIONS: Self::Annotations = hmr::annotations::Annotations::new();
 
             #[inline(always)]
             fn from_primitive(primitive: Self::Primitive) -> Self {
@@ -71,6 +82,9 @@ impl_as_db_type!(String, VarChar, String using as_str);
 impl<T: AsDbType> AsDbType for Option<T> {
     type Primitive = Self;
     type DbType = T::DbType;
+
+    type Annotations = hmr::annotations::Annotations<(), (), (), (), (), (), (), (), (), ()>;
+    const ANNOTATIONS: Self::Annotations = hmr::annotations::Annotations::new();
 
     #[inline(always)]
     fn from_primitive(primitive: Self::Primitive) -> Self {
@@ -119,7 +133,10 @@ pub trait DbEnum {
 }
 impl<E: DbEnum> AsDbType for E {
     type Primitive = String;
-    type DbType = hmr::Choices;
+    type DbType = hmr::db_type::Choices;
+
+    type Annotations = hmr::annotations::Annotations<(), (), (), (), (), (), (), (), (), ()>;
+    const ANNOTATIONS: Self::Annotations = hmr::annotations::Annotations::new();
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         E::from_str(&primitive)
@@ -224,7 +241,7 @@ pub trait Model: Patch<Model = Self> {
 
 /// All relevant information about a model's field
 #[derive(Copy, Clone)]
-pub struct Field<T: 'static, D: hmr::DbType> {
+pub struct Field<T, D: hmr::db_type::DbType, A> {
     /// This field's position in the model.
     pub index: usize,
 
@@ -232,16 +249,16 @@ pub struct Field<T: 'static, D: hmr::DbType> {
     pub name: &'static str,
 
     /// List of annotations this field has set
-    pub annotations: &'static [Annotation],
+    pub annotations: A,
 
     /// Optional definition of the location of field in the source code
     pub source: Option<Source>,
 
     #[doc(hidden)]
-    pub _phantom: PhantomData<&'static (T, D)>,
+    pub _phantom: PhantomData<(T, D)>,
 }
 
-impl<T: AsDbType, D: hmr::DbType> Field<T, D> {
+impl<T: AsDbType, D: hmr::db_type::DbType, A> Field<T, D, A> {
     /// Reexport [`AsDbType::from_primitive`]
     ///
     /// This method makes macros' syntax slightly cleaner
@@ -251,10 +268,14 @@ impl<T: AsDbType, D: hmr::DbType> Field<T, D> {
     }
 }
 
-impl<T: AsDbType, D: hmr::DbType> From<&'_ Field<T, D>> for imr::Field {
-    fn from(field: &'_ Field<T, D>) -> Self {
-        let mut annotations: Vec<_> = field.annotations.iter().map(|&anno| anno.into()).collect();
-        T::implicit_annotations(&mut annotations);
+impl<
+        T: AsDbType,
+        D: hmr::db_type::DbType,
+        A: hmr::annotations::AsImr<Imr = Vec<imr::Annotation>>,
+    > From<&'_ Field<T, D, A>> for imr::Field
+{
+    fn from(field: &'_ Field<T, D, A>) -> Self {
+        let mut annotations = field.annotations.as_imr();
         if !T::IS_NULLABLE {
             annotations.push(imr::Annotation::NotNull);
         }

@@ -2,6 +2,7 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::spanned::Spanned;
 
+use crate::annotations::{Annotation, Annotations};
 use crate::errors::Errors;
 use crate::trait_impls;
 use crate::utils::{get_source, iter_rorm_attributes, to_db_name};
@@ -279,7 +280,7 @@ fn parse_field(index: usize, field: syn::Field, errors: &Errors) -> Option<Parse
     };
 
     let mut is_primary = false;
-    let mut annotations = Vec::new();
+    let mut annotations = Annotations::new();
     let mut has_choices = false;
     for meta in iter_rorm_attributes(&field.attrs, &errors) {
         // Get the annotation's identifier.
@@ -295,9 +296,11 @@ fn parse_field(index: usize, field: syn::Field, errors: &Errors) -> Option<Parse
         macro_rules! parse_anno {
             ($name:literal, $variant:literal) => {{
                 if let syn::Meta::Path(_) = meta {
-                    let variant = Ident::new($variant, ident.span());
-                    annotations.push(quote! {
-                        ::rorm::model::Annotation::#variant
+                    annotations.push(Annotation {
+                        span: ident.span(),
+                        field: $name,
+                        variant: $variant,
+                        expr: None,
                     });
                 } else {
                     errors.push_new(
@@ -316,11 +319,17 @@ fn parse_field(index: usize, field: syn::Field, errors: &Errors) -> Option<Parse
             "autoincrement" => parse_anno!("autoincrement", "AutoIncrement"),
             "id" => {
                 if let syn::Meta::Path(_) = meta {
-                    annotations.push(quote! {
-                        ::rorm::model::Annotation::PrimaryKey
+                    annotations.push(Annotation {
+                        span: ident.span(),
+                        field: "auto_increment",
+                        variant: "AutoIncrement",
+                        expr: None,
                     });
-                    annotations.push(quote! {
-                        ::rorm::model::Annotation::AutoIncrement
+                    annotations.push(Annotation {
+                        span: ident.span(),
+                        field: "primary_key",
+                        variant: "PrimaryKey",
+                        expr: None,
                     });
                     is_primary = true;
                 } else {
@@ -351,18 +360,23 @@ fn parse_field(index: usize, field: syn::Field, errors: &Errors) -> Option<Parse
 
     let source = get_source(&ident);
 
+    let builder_steps = annotations.iter_steps();
+    let anno_type = annotations.get_type(&value_type);
+
     Some(ParsedField {
         is_primary,
         struct_type: TokenStream::from(quote! {
-            ::rorm::model::Field<#value_type, #db_type>
+            ::rorm::model::Field<
+                #value_type,
+                #db_type,
+                #anno_type,
+            >
         }),
         construction: TokenStream::from(quote! {
             ::rorm::model::Field {
                 index: #index,
                 name: #db_name,
-                annotations: &[
-                    #(#annotations),*
-                ],
+                annotations: <#value_type as ::rorm::model::AsDbType>::ANNOTATIONS #(#builder_steps)* ,
                 source: #source,
                 _phantom: ::std::marker::PhantomData,
             }
@@ -382,7 +396,7 @@ fn parse_field(index: usize, field: syn::Field, errors: &Errors) -> Option<Parse
 /// - Boolean
 ///
 /// TODO: Figure out how to check the literal's type is compatible with the annotated field's type
-fn parse_default(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::Meta) {
+fn parse_default(annotations: &mut Annotations, errors: &Errors, meta: &syn::Meta) {
     let arg = match meta {
         syn::Meta::NameValue(syn::MetaNameValue { lit, .. }) => lit,
         _ => {
@@ -406,23 +420,31 @@ fn parse_default(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn
     };
 
     let variant = Ident::new(variant, arg.span());
-    annotations.push(TokenStream::from(quote! {
-        ::rorm::model::Annotation::DefaultValue(::rorm::model::DefaultValue::#variant(#arg))
-    }));
+    annotations.push(Annotation {
+        span: arg.span(),
+        field: "default",
+        variant: "DefaultValue",
+        expr: Some(quote! {::rorm::hmr::annotations::DefaultValueData::#variant(#arg)}),
+    });
 }
 
 /// Parse the `#[rorm(max_length = ..)]` annotation.
 ///
 /// It accepts a single integer literal as argument.
-fn parse_max_length(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::Meta) {
+fn parse_max_length(annotations: &mut Annotations, errors: &Errors, meta: &syn::Meta) {
     match meta {
         syn::Meta::NameValue(syn::MetaNameValue {
             lit: syn::Lit::Int(integer),
             ..
         }) => {
-            annotations.push(TokenStream::from(quote! {
-                ::rorm::model::Annotation::MaxLength(#integer)
-            }));
+            annotations.push(Annotation {
+                span: meta.span(),
+                field: "max_length",
+                variant: "MaxLength",
+                expr: Some(quote! {
+                    #integer
+                }),
+            });
         }
         _ => {
             errors.push_new(
@@ -436,7 +458,7 @@ fn parse_max_length(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &
 /// Parse the `#[rorm(choices(..))]` annotation.
 ///
 /// It accepts any number of string literals as arguments.
-fn parse_choices(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::Meta) {
+fn parse_choices(annotations: &mut Annotations, errors: &Errors, meta: &syn::Meta) {
     let usage_string =
         "choices expects a list of string literals: #[rorm(choices(\"foo\", \"bar\", ..))]";
 
@@ -457,11 +479,14 @@ fn parse_choices(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn
             }
         }
 
-        annotations.push(TokenStream::from(quote! {
-            ::rorm::model::Annotation::Choices(&[
-                #(#choices),*
-            ])
-        }));
+        annotations.push(Annotation {
+            span: meta.span(),
+            field: "choices",
+            variant: "Choices",
+            expr: Some(quote! {
+                (&[#(#choices),*])
+            }),
+        });
     } else {
         errors.push_new(meta.span(), usage_string);
     }
@@ -476,13 +501,16 @@ fn parse_choices(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn
 /// - `#[rorm(name = <string literal>)]`
 /// - `#[rorm(name = <string literal>, priority = <integer literal>)]`
 ///    *(insensitive to argument order)*
-fn parse_index(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::Meta) {
+fn parse_index(annotations: &mut Annotations, errors: &Errors, meta: &syn::Meta) {
     match &meta {
         // index was used on its own without arguments
         syn::Meta::Path(_) => {
-            annotations.push(TokenStream::from(quote! {
-                ::rorm::model::Annotation::Index(None)
-            }));
+            annotations.push(Annotation {
+                span: meta.span(),
+                field: "index",
+                variant: "Index",
+                expr: Some(quote! {(None)}),
+            });
         }
 
         // index was used as "function call"
@@ -571,13 +599,16 @@ fn parse_index(annotations: &mut Vec<TokenStream>, errors: &Errors, meta: &syn::
                     } else {
                         quote! { None }
                     };
-                    quote! { Some(::rorm::model::IndexValue { name: #name, priority: #prio }) }
+                    quote! { Some(::rorm::hmr::annotations::IndexData { name: #name, priority: #prio }) }
                 } else {
                     quote! { None }
                 };
-                annotations.push(TokenStream::from(quote! {
-                    ::rorm::model::Annotation::Index(#inner)
-                }));
+                annotations.push(Annotation {
+                    span: meta.span(),
+                    field: "index",
+                    variant: "Index",
+                    expr: Some(quote! {(#inner)}),
+                });
             }
         }
 
