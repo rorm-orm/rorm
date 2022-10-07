@@ -139,6 +139,7 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 	field.sourceColumn = fieldName;
 	field.type = guessDBType!(typeof(fieldAlias));
 
+	bool explicitNullable = false;
 	bool nullable = false;
 	static if (is(typeof(fieldAlias) == Nullable!T, T)
 		|| is(typeof(fieldAlias) : Model))
@@ -153,11 +154,13 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 	{
 		static if (__traits(isSame, attribute, uda.autoCreateTime))
 		{
+			nullable = true;
 			field.type = ModelFormat.Field.DBType.datetime;
 			field.annotations ~= DBAnnotation(AnnotationFlag.autoCreateTime);
 		}
 		else static if (__traits(isSame, attribute, uda.autoUpdateTime))
 		{
+			nullable = true;
 			field.type = ModelFormat.Field.DBType.datetime;
 			field.annotations ~= DBAnnotation(AnnotationFlag.autoUpdateTime);
 		}
@@ -167,6 +170,7 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		}
 		else static if (__traits(isSame, attribute, uda.primaryKey))
 		{
+			nullable = true;
 			field.annotations ~= DBAnnotation(AnnotationFlag.primaryKey);
 			if (!field.isBuiltinId)
 			{
@@ -217,7 +221,7 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		}
 		else static if (__traits(isSame, attribute, uda.notNull))
 		{
-			nullable = false;
+			explicitNullable = true;
 		}
 		else static if (is(attribute == constructValue!fn, alias fn))
 		{
@@ -254,7 +258,7 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		}
 	}
 
-	if (!nullable)
+	if (!nullable || explicitNullable)
 		field.annotations = DBAnnotation(AnnotationFlag.notNull) ~ field.annotations;
 
 	if (include)
@@ -290,7 +294,7 @@ private void makeValueConstructor(TModel, string fieldName, alias fn)(Model mode
 	__traits(getMember, m, fieldName) = fn();
 }
 
-private bool makeValidator(TModel, string fieldName, alias fn)(Model model)
+private static bool makeValidator(TModel, string fieldName, alias fn)(Model model)
 {
 	import std.functional : unaryFun;
 
@@ -564,7 +568,6 @@ unittest
 	assert(m.fields[++i].columnName == "created_at");
 	assert(m.fields[i].type == ModelFormat.Field.DBType.datetime);
 	assert(m.fields[i].annotations == [
-			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.autoCreateTime),
 		]);
 
@@ -577,7 +580,6 @@ unittest
 	assert(m.fields[++i].columnName == "created_at_2");
 	assert(m.fields[i].type == ModelFormat.Field.DBType.datetime);
 	assert(m.fields[i].annotations == [
-			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.autoCreateTime),
 		]);
 
@@ -631,7 +633,6 @@ unittest
 	assert(m.fields[++i].columnName == "own_primary_key");
 	assert(m.fields[i].type == ModelFormat.Field.DBType.int64);
 	assert(m.fields[i].annotations == [
-			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.primaryKey),
 		]);
 

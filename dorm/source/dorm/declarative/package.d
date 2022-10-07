@@ -67,7 +67,7 @@ struct ModelFormat
 			date, /// inferred from `std.datetime : Date`
 			datetime, /// inferred from `std.datetime : DateTime`, `std.datetime : SysTime`, `@AutoCreateTime ulong`, `@AutoUpdateTime ulong`, `@timestamp ulong` (always saved UTC)
 			time, /// inferred from `std.datetime : TimeOfDay`
-			choices, /// inferred from `@choices string`, `enum T : string`
+			choices, /// inferred from `@choices string`, `enum T`
 			set, /// inferred from `BitFlags!enum`
 		}
 
@@ -400,7 +400,7 @@ private struct IonDBAnnotation
 			},
 			(Choices c) {
 				data = JsonAlgebraic([
-					"Type": JsonAlgebraic("max_length"),
+					"Type": JsonAlgebraic("choices"),
 					"Value": JsonAlgebraic(c.choices.map!(v => JsonAlgebraic(v)).array)
 				]);
 			},
@@ -423,7 +423,7 @@ private struct IonDBAnnotation
 				import std.digest : toHexString;
 
 				data = JsonAlgebraic([
-					"Type": JsonAlgebraic("default"),
+					"Type": JsonAlgebraic("default_value"),
 					"Value": JsonAlgebraic(binary.value.toHexString)
 				]);
 			},
@@ -432,14 +432,14 @@ private struct IonDBAnnotation
 				static if (__traits(hasMember, rest.value, "toISOExtString"))
 				{
 					data = JsonAlgebraic([
-						"Type": JsonAlgebraic("default"),
+						"Type": JsonAlgebraic("default_value"),
 						"Value": JsonAlgebraic(rest.value.toISOExtString)
 					]);
 				}
 				else
 				{
 					data = JsonAlgebraic([
-						"Type": JsonAlgebraic("default"),
+						"Type": JsonAlgebraic("default_value"),
 						"Value": JsonAlgebraic(rest.value)
 					]);
 				}
