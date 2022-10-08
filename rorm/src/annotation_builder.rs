@@ -48,7 +48,7 @@ pub type Implicit<T, A> = <A as annotations::Step<annotations::Implicit<T>>>::Ou
 /// ```
 /// use rorm_declaration::hmr::annotations::Unique;
 /// use rorm::annotation_builder::{Forbidden, NotSetAnnotations};
-/// let _: Forbidden<Unique, NotSetAnnotations> = NotSetAnnotations::new().forbidden_unique(Unique);
+/// let _: Forbidden<Unique, NotSetAnnotations> = NotSetAnnotations::new().forbidden_unique();
 /// ```
 ///
 /// [`Forbidden`]: annotations::Forbidden

@@ -24,12 +24,12 @@ pub fn derive_db_enum(input: TokenStream) -> TokenStream {
 
 /// This attribute is used to turn a struct into a database model.
 ///
-/// ```
+/// ```ignore
 /// use rorm::Model;
 ///
 /// #[derive(Model)]
 /// struct User {
-///     #[rorm(primary_key)]
+///     #[rorm(id)]
 ///     id: i32,
 ///     #[rorm(max_length = 255, unique)]
 ///     username: String,
@@ -73,7 +73,7 @@ pub fn rename_linkme(_args: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 ///
 /// If you don't like this feature name you can pass the attribute any other name to use instead:
-/// ```
+/// ```ignore
 /// use rorm::rorm_main;
 ///
 /// #[rorm_main("other-name")]

@@ -1,7 +1,7 @@
 //! Structs for parsing function-like macro's arguments.
 //!
 //! - `Macro[N]Args` is used to parse exactly `N` arguments of different AST node types:
-//! ```
+//! ```ignore
 //! /// Usage: `assign!(foo, 1 + 2);`
 //! /// Expansion: `let foo = 1 + 2;`
 //! #[proc_macro]
