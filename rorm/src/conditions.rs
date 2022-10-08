@@ -1,4 +1,4 @@
-use rorm_declaration::hmr::{
+use rorm_declaration::hmr::db_type::{
     Date, DateTime, DbType, Double, Float, Int16, Int32, Int64, Time, VarBinary, VarChar,
 };
 
@@ -23,7 +23,7 @@ impl<'a, S: AsRef<[u8]> + ?Sized> IntoCondValue<'a, VarBinary> for &'a S {
     }
 }
 
-impl<T, D: DbType> IntoCondValue<'static, D> for &'static Field<T, D> {
+impl<T, D: DbType, A> IntoCondValue<'static, D> for &'static Field<T, D, A> {
     fn into_value(self) -> Value<'static> {
         Value::Ident(self.name)
     }
@@ -48,7 +48,7 @@ impl_numeric!(chrono::NaiveDateTime, NaiveDateTime, DateTime);
 impl_numeric!(chrono::NaiveTime, NaiveTime, Time);
 
 // Helper methods hiding most of the verbosity in creating Conditions
-impl<T, D: DbType> Field<T, D> {
+impl<T, D: DbType, A> Field<T, D, A> {
     fn __column(&self) -> Condition<'static> {
         Condition::Value(Value::Ident(self.name))
     }
@@ -85,7 +85,7 @@ impl<T, D: DbType> Field<T, D> {
     }
 }
 
-impl<T, D: DbType> Field<T, D> {
+impl<T, D: DbType, A> Field<T, D, A> {
     /// Check if this field's value lies between two other values
     pub fn between<'a>(
         &self,

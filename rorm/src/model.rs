@@ -3,7 +3,11 @@ use std::marker::PhantomData;
 use rorm_db::conditional::{self, Condition};
 use rorm_db::value::Value;
 use rorm_declaration::hmr;
+use rorm_declaration::hmr::annotations;
 use rorm_declaration::imr;
+
+use crate::annotation_builder;
+use crate::annotation_builder::NotSetAnnotations;
 
 /// This trait maps rust types to database types
 pub trait AsDbType {
@@ -11,11 +15,19 @@ pub trait AsDbType {
     type Primitive;
 
     /// The database type as defined in the Intermediate Model Representation
-    type DbType: hmr::DbType;
+    type DbType: hmr::db_type::DbType;
+
+    /// The default annotations' concrete [`Annotations<...>`] type
+    ///
+    /// [`Annotations<...>`]: crate::annotation_builder::Annotations
+    type Annotations;
+
+    /// the default annotations
+    const ANNOTATIONS: Self::Annotations;
 
     /// Convert the associated primitive type into `Self`.
     ///
-    /// This function allows "non-primitive" types like [GenericId] or any [DbEnum] to implement
+    /// This function allows "non-primitive" types like any [DbEnum] to implement
     /// their decoding without access to the underlying db details (namely `sqlx::Decode`)
     fn from_primitive(primitive: Self::Primitive) -> Self;
 
@@ -24,9 +36,6 @@ pub trait AsDbType {
 
     /// Whether this type supports null.
     const IS_NULLABLE: bool = false;
-
-    /// Extend a Vec with migrator annotations which are implied by the type.
-    fn implicit_annotations(_annotations: &mut Vec<imr::Annotation>) {}
 }
 
 macro_rules! impl_as_db_type {
@@ -34,7 +43,10 @@ macro_rules! impl_as_db_type {
         impl AsDbType for $type {
             type Primitive = Self;
 
-            type DbType = hmr::$db_type;
+            type DbType = hmr::db_type::$db_type;
+
+            type Annotations = NotSetAnnotations;
+            const ANNOTATIONS: Self::Annotations = NotSetAnnotations::new();
 
             #[inline(always)]
             fn from_primitive(primitive: Self::Primitive) -> Self {
@@ -72,6 +84,9 @@ impl<T: AsDbType> AsDbType for Option<T> {
     type Primitive = Self;
     type DbType = T::DbType;
 
+    type Annotations = T::Annotations;
+    const ANNOTATIONS: Self::Annotations = T::ANNOTATIONS;
+
     #[inline(always)]
     fn from_primitive(primitive: Self::Primitive) -> Self {
         primitive
@@ -85,10 +100,6 @@ impl<T: AsDbType> AsDbType for Option<T> {
     }
 
     const IS_NULLABLE: bool = true;
-
-    fn implicit_annotations(annotations: &mut Vec<imr::Annotation>) {
-        T::implicit_annotations(annotations)
-    }
 }
 
 /// Map a rust enum, whose variant don't hold any data, into a database enum
@@ -112,14 +123,16 @@ pub trait DbEnum {
     /// Convert a variant into its corresponding string.
     fn to_str(&self) -> &'static str;
 
-    /// Construct a vector containing all variants as strings.
-    ///
-    /// This will be called in order to construct the Intermediate Model Representation.
-    fn as_choices() -> Vec<String>;
+    /// A slice containing all variants as strings.
+    const CHOICES: &'static [&'static str];
 }
 impl<E: DbEnum> AsDbType for E {
     type Primitive = String;
-    type DbType = hmr::Choices;
+    type DbType = hmr::db_type::Choices;
+
+    type Annotations = annotation_builder::Implicit<annotations::Choices, NotSetAnnotations>;
+    const ANNOTATIONS: Self::Annotations =
+        NotSetAnnotations::new().implicit_choices(annotations::Choices(E::CHOICES));
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         E::from_str(&primitive)
@@ -127,10 +140,6 @@ impl<E: DbEnum> AsDbType for E {
 
     fn as_primitive(&self) -> Value {
         Value::String(self.to_str())
-    }
-
-    fn implicit_annotations(annotations: &mut Vec<imr::Annotation>) {
-        annotations.push(imr::Annotation::Choices(E::as_choices()));
     }
 }
 
@@ -224,7 +233,7 @@ pub trait Model: Patch<Model = Self> {
 
 /// All relevant information about a model's field
 #[derive(Copy, Clone)]
-pub struct Field<T: 'static, D: hmr::DbType> {
+pub struct Field<T, D: hmr::db_type::DbType, A> {
     /// This field's position in the model.
     pub index: usize,
 
@@ -232,16 +241,16 @@ pub struct Field<T: 'static, D: hmr::DbType> {
     pub name: &'static str,
 
     /// List of annotations this field has set
-    pub annotations: &'static [Annotation],
+    pub annotations: A,
 
     /// Optional definition of the location of field in the source code
     pub source: Option<Source>,
 
     #[doc(hidden)]
-    pub _phantom: PhantomData<&'static (T, D)>,
+    pub _phantom: PhantomData<(T, D)>,
 }
 
-impl<T: AsDbType, D: hmr::DbType> Field<T, D> {
+impl<T: AsDbType, D: hmr::db_type::DbType, A> Field<T, D, A> {
     /// Reexport [`AsDbType::from_primitive`]
     ///
     /// This method makes macros' syntax slightly cleaner
@@ -251,10 +260,14 @@ impl<T: AsDbType, D: hmr::DbType> Field<T, D> {
     }
 }
 
-impl<T: AsDbType, D: hmr::DbType> From<&'_ Field<T, D>> for imr::Field {
-    fn from(field: &'_ Field<T, D>) -> Self {
-        let mut annotations: Vec<_> = field.annotations.iter().map(|&anno| anno.into()).collect();
-        T::implicit_annotations(&mut annotations);
+impl<
+        T: AsDbType,
+        D: hmr::db_type::DbType,
+        A: hmr::annotations::AsImr<Imr = Vec<imr::Annotation>>,
+    > From<&'_ Field<T, D, A>> for imr::Field
+{
+    fn from(field: &'_ Field<T, D, A>) -> Self {
+        let mut annotations = field.annotations.as_imr();
         if !T::IS_NULLABLE {
             annotations.push(imr::Annotation::NotNull);
         }
@@ -287,85 +300,4 @@ impl From<Source> for imr::Source {
             column: source.column,
         }
     }
-}
-
-/// The subset of annotations which need to be communicated with the migration tool
-#[derive(Copy, Clone)]
-pub enum Annotation {
-    /// Only for [imr::DbType::Timestamp], [imr::DbType::Datetime], [imr::DbType::Time] and [imr::DbType::Date].
-    /// Will set the current time of the database when a row is created.
-    AutoCreateTime,
-    /// Only for [imr::DbType::Timestamp], [imr::DbType::Datetime], [imr::DbType::Time] and [imr::DbType::Date].
-    /// Will set the current time of the database when a row is updated.
-    AutoUpdateTime,
-    /// AUTO_INCREMENT constraint
-    AutoIncrement,
-    /// A list of choices to set
-    Choices(&'static [&'static str]),
-    /// DEFAULT constraint
-    DefaultValue(DefaultValue),
-    /// Create an index. The optional [imr::IndexValue] can be used, to build more complex indexes.
-    Index(Option<IndexValue>),
-    /// Only for VARCHAR. Specifies the maximum length of the column's content.
-    MaxLength(i32),
-    /// NOT NULL constraint
-    NotNull,
-    /// The annotated column will be used as primary key
-    PrimaryKey,
-    /// UNIQUE constraint
-    Unique,
-}
-
-impl From<Annotation> for imr::Annotation {
-    fn from(anno: Annotation) -> Self {
-        match anno {
-            Annotation::AutoCreateTime => imr::Annotation::AutoCreateTime,
-            Annotation::AutoUpdateTime => imr::Annotation::AutoUpdateTime,
-            Annotation::AutoIncrement => imr::Annotation::AutoIncrement,
-            Annotation::Choices(choices) => {
-                imr::Annotation::Choices(choices.into_iter().map(ToString::to_string).collect())
-            }
-            Annotation::DefaultValue(value) => imr::Annotation::DefaultValue(match value {
-                DefaultValue::String(string) => imr::DefaultValue::String(string.to_string()),
-                DefaultValue::Boolean(boolean) => imr::DefaultValue::Boolean(boolean),
-                DefaultValue::Float(float) => imr::DefaultValue::Float(float.into()),
-                DefaultValue::Integer(integer) => imr::DefaultValue::Integer(integer),
-            }),
-            Annotation::Index(index) => {
-                imr::Annotation::Index(index.map(|index| imr::IndexValue {
-                    name: index.name.to_string(),
-                    priority: index.priority,
-                }))
-            }
-            Annotation::MaxLength(length) => imr::Annotation::MaxLength(length),
-            Annotation::NotNull => imr::Annotation::NotNull,
-            Annotation::PrimaryKey => imr::Annotation::PrimaryKey,
-            Annotation::Unique => imr::Annotation::Unique,
-        }
-    }
-}
-
-/// Represents a complex index
-#[derive(Copy, Clone)]
-pub struct IndexValue {
-    /// Name of the index. Can be used multiple times in a [Model] to create an
-    /// index with multiple columns.
-    pub name: &'static str,
-
-    /// The order to put the columns in while generating an index.
-    /// Only useful if multiple columns with the same name are present.
-    pub priority: Option<i32>,
-}
-
-/// A column's default value which is any non object / array json value
-#[derive(Copy, Clone)]
-pub enum DefaultValue {
-    /// Use hexadecimal to represent binary data
-    String(&'static str),
-    /// i128 is used as it can represent any integer defined in DbType
-    Integer(i128),
-    /// Ordered float is used as f64 does not Eq and Order which are needed for Hash
-    Float(f64),
-    /// Just a bool. Nothing interesting here.
-    Boolean(bool),
 }

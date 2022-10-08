@@ -6,9 +6,10 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 
-mod args;
+mod annotations;
 mod derive;
 mod errors;
+mod impl_anno_builder;
 mod rename_linkme;
 mod trait_impls;
 mod utils;
@@ -22,12 +23,12 @@ pub fn derive_db_enum(input: TokenStream) -> TokenStream {
 
 /// This attribute is used to turn a struct into a database model.
 ///
-/// ```
+/// ```ignore
 /// use rorm::Model;
 ///
 /// #[derive(Model)]
 /// struct User {
-///     #[rorm(primary_key)]
+///     #[rorm(id)]
 ///     id: i32,
 ///     #[rorm(max_length = 255, unique)]
 ///     username: String,
@@ -71,7 +72,7 @@ pub fn rename_linkme(_args: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 ///
 /// If you don't like this feature name you can pass the attribute any other name to use instead:
-/// ```
+/// ```ignore
 /// use rorm::rorm_main;
 ///
 /// #[rorm_main("other-name")]
@@ -105,4 +106,10 @@ pub fn rorm_main(args: TokenStream, item: TokenStream) -> TokenStream {
             #main
         }
     }).into()
+}
+
+#[doc(hidden)]
+#[proc_macro]
+pub fn impl_annotations_builder(args: TokenStream) -> TokenStream {
+    impl_anno_builder::impl_anno_builder(args.into()).into()
 }

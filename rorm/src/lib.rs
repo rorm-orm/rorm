@@ -10,8 +10,11 @@ pub use rorm_db::*;
 pub use rorm_macro::*;
 
 // Reexports to be used by macro
+pub use rorm_declaration::hmr;
 pub use rorm_declaration::imr;
 
+/// This module implements a struct to build and store annotations
+pub mod annotation_builder;
 /// Module implementing methods to [`Condition`] based on [`Field<T>`]
 ///
 /// [`Condition`]: rorm_db::conditional::Condition
