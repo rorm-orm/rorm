@@ -278,14 +278,13 @@ pub struct IndexValue {
 }
 
 /// A column's default value which is any non object / array json value
-#[non_exhaustive]
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum DefaultValue {
     /// Use hexadecimal to represent binary data
     String(String),
-    /// i128 is used as it can represent any integer defined in DbType
-    Integer(i128),
+    /// i64 is used as it can represent any integer defined in DbType
+    Integer(i64),
     /// Ordered float is used as f64 does not Eq and Order which are needed for Hash
     Float(OrderedFloat<f64>),
     /// Just a bool. Nothing interesting here.

@@ -206,8 +206,8 @@ pub mod annotations {
     pub enum DefaultValueData {
         /// Use hexadecimal to represent binary data
         String(&'static str),
-        /// i128 is used as it can represent any integer defined in DbType
-        Integer(i128),
+        /// i64 is used as it can represent any integer defined in DbType
+        Integer(i64),
         /// Ordered float is used as f64 does not Eq and Order which are needed for Hash
         Float(f64),
         /// Just a bool. Nothing interesting here.
