@@ -8,7 +8,6 @@
 Errors of rorm-db will be specified here.
 */
 pub mod error;
-pub use crate::error::Error;
 
 #[cfg(feature = "sqlx-dep")]
 /**
@@ -28,14 +27,17 @@ pub mod row;
 #[cfg(not(feature = "sqlx-dep"))]
 #[path = "row_dummy.rs"]
 pub mod row;
-pub use row::Row;
 
 #[cfg(feature = "sqlx-dep")]
-mod utils;
+/// Utility functions
+pub mod utils;
 
 pub use rorm_sql::conditional;
 pub use rorm_sql::value;
 pub use rorm_sql::{and, or};
+
+pub use crate::error::Error;
+pub use crate::row::Row;
 
 /**
 Representation of different backends

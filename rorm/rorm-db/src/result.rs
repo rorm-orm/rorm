@@ -36,6 +36,15 @@ impl<'post_query> QueryStream<'post_query> {
             return tmp.fetch(executor);
         })
     }
+
+    #[allow(dead_code)]
+    /**
+    This function only exists to suppress the unused code warning of the orouboros
+    */
+    fn _suppress_warnings(&self) {
+        self.borrow_query_str();
+        self.borrow_bind_params();
+    }
 }
 
 impl Stream for QueryStream<'_> {

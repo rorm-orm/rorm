@@ -2,13 +2,14 @@
 This module defines the main API wrapper.
  */
 
-use crate::DatabaseConfiguration;
+use std::marker::PhantomData;
+
 use futures::stream::BoxStream;
 use rorm_sql::{conditional, value};
-use std::marker::PhantomData;
 
 use crate::error::Error;
 use crate::row::Row;
+use crate::DatabaseConfiguration;
 
 /**
 Main API wrapper.

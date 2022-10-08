@@ -4,6 +4,7 @@ This module defines the main API wrapper.
 
 use futures::stream::BoxStream;
 use futures::StreamExt;
+use rorm_sql::{conditional, value, DBImpl};
 use sqlx::any::AnyPoolOptions;
 use sqlx::mysql::MySqlConnectOptions;
 use sqlx::postgres::PgConnectOptions;
@@ -13,7 +14,6 @@ use crate::error::Error;
 use crate::result::QueryStream;
 use crate::row::Row;
 use crate::{utils, DatabaseBackend, DatabaseConfiguration};
-use rorm_sql::{conditional, value, DBImpl};
 
 /**
 Main API wrapper.

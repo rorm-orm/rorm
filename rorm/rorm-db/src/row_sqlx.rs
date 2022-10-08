@@ -1,8 +1,9 @@
 //! This module defines a wrapper for sqlx's AnyRow
-use crate::error::Error;
 use sqlx::any::AnyRow;
 use sqlx::Any as AnyDb;
 use sqlx::{ColumnIndex, Decode, Type};
+
+use crate::error::Error;
 
 /// Represents a single row from the database.
 pub struct Row(AnyRow);
