@@ -9,7 +9,7 @@ impl Row {
     ///
     /// A string index can be used to access a column by name
     /// and a `usize` index can be used to access a column by position.
-    pub fn get<T, I>(&self, index: I) -> Result<T, Error>
+    pub fn get<T, I>(&self, _index: I) -> Result<T, Error>
     where
         I: ColumnIndex,
     {

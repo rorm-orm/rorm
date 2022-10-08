@@ -49,6 +49,7 @@ pub fn impl_anno_builder(args: TokenStream) -> TokenStream {
             }
             impl<#(#pre_alphabet: Annotation<#pre_types>,)* #(#post_alphabet: Annotation<#post_types>,)*>
             Annotations<#(#pre_alphabet,)* NotSet<#ty>, #(#post_alphabet,)*> {
+                #[doc = concat!("Add a \"", stringify!(#field), "\" annotation")]
                 pub const fn #field(self, #field: #ty) -> <Self as Step<#ty>>::Output {
                     let Annotations {#(#pre_fields,)* #(#post_fields,)* ..} = self;
                     Annotations {#(#fields,)*}
@@ -61,6 +62,7 @@ pub fn impl_anno_builder(args: TokenStream) -> TokenStream {
             }
             impl<#(#pre_alphabet: Annotation<#pre_types>,)* #(#post_alphabet: Annotation<#post_types>,)*>
             Annotations<#(#pre_alphabet,)* NotSet<#ty>, #(#post_alphabet,)*> {
+                #[doc = concat!("Add a \"", stringify!(#field), "\" annotation and mark it implicitly added")]
                 pub const fn #implicit(self, #field: #ty) -> <Self as Step<Implicit<#ty>>>::Output {
                     let #field = Implicit::new(#field);
                     let Annotations {#(#pre_fields,)* #(#post_fields,)* ..} = self;
@@ -74,6 +76,7 @@ pub fn impl_anno_builder(args: TokenStream) -> TokenStream {
             }
             impl<#(#pre_alphabet: Annotation<#pre_types>,)* #(#post_alphabet: Annotation<#post_types>,)*>
             Annotations<#(#pre_alphabet,)* NotSet<#ty>, #(#post_alphabet,)*> {
+                #[doc = concat!("Set the \"", stringify!(#field), "\" annotation as being forbidden")]
                 pub const fn #forbidden(self) -> <Self as Step<Forbidden<#ty>>>::Output {
                     let #field = Forbidden::new();
                     let Annotations {#(#pre_fields,)* #(#post_fields,)* ..} = self;
@@ -101,14 +104,24 @@ pub fn impl_anno_builder(args: TokenStream) -> TokenStream {
             /// [`Model`]: rorm_macro::Model
             pub struct Annotations<#(#alphabet: Annotation<#types>),*> {
                 #(
+                    #[doc = concat!("\"", stringify!(#fields), "\" annotation")]
                     pub #fields: #alphabet,
                 )*
             }
 
             #(#steps)*
 
+            /// [`Annotations`] whose fields are [`NotSet`]
+            ///
+            /// Use this type with [`Add`], [`Implicit`] and [`Forbidden`] to get concrete
+            /// [`Annotations`] types in a readable way.
+            ///
+            /// [`Add`]: super::Add
+            /// [`Implicit`]: super:Implicit
+            /// [`Forbidden`]: super::Forbidden
             pub type NotSetAnnotations = Annotations<#(NotSet<#types>),*>;
             impl NotSetAnnotations {
+                /// Get an empty [`Annotations`] struct
                 pub const fn new() -> Self {
                     Annotations {
                         #(
