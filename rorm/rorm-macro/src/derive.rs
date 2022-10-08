@@ -4,41 +4,8 @@ use syn::spanned::Spanned;
 
 use crate::annotations::{Annotation, Annotations};
 use crate::errors::Errors;
-use crate::trait_impls;
 use crate::utils::{get_source, iter_rorm_attributes, to_db_name};
-
-/// Used to match over an [`Ident`] in a similar syntax as over [&str]s.
-///
-/// The first argument is the identifier to match.
-/// The last argument is a default match arm (`_ => ..`).
-/// In between an arbitrary number of match arms can be passed.
-///
-/// ```ignore
-/// use syn::Ident;
-///
-/// let ident = Ident::new("some_identifier", proc_macro2::Span::call_site());
-/// match_ident!(ident
-///     "foo" => println!("The identifier was 'foo'"),
-///     "bar" => println!("The identifier was 'bar'"),
-///     _ => println!("The identifier was neither 'foo' nor 'bar'")
-/// );
-/// ```
-///
-/// Since [proc_macro2] hides the underlying implementation, it is impossible to actually match
-/// over the underlying [&str]. So this macro expands into a lot of `if`s and `else`s.
-macro_rules! match_ident {
-    ($ident:expr, $( $name:literal => $block:expr ),+, _ => $default:expr) => {
-        {
-            let ident = $ident;
-            $(
-                if ident == $name {
-                    $block
-                } else
-            )+
-            { $default }
-        }
-    };
-}
+use crate::{annotations, trait_impls};
 
 pub fn db_enum(enm: TokenStream) -> TokenStream {
     let enm = match syn::parse2::<syn::ItemEnum>(enm) {
@@ -273,9 +240,7 @@ fn parse_field(index: usize, field: syn::Field, errors: &Errors) -> Option<Parse
         return None;
     };
 
-    let mut is_primary = false;
     let mut annotations = Annotations::new();
-    let mut has_choices = false;
     for meta in iter_rorm_attributes(&field.attrs, &errors) {
         // Get the annotation's identifier.
         // Since one is required for every annotation, error if it is missing.
@@ -286,59 +251,22 @@ fn parse_field(index: usize, field: syn::Field, errors: &Errors) -> Option<Parse
             continue;
         };
 
-        // Parse a simple annotation taking no arguments and simply adding its associated variant
-        macro_rules! parse_anno {
-            ($name:literal, $variant:literal) => {{
-                if let syn::Meta::Path(_) = meta {
-                    annotations.push(Annotation {
-                        span: ident.span(),
-                        field: $name,
-                        variant: $variant,
-                        expr: None,
-                    });
-                } else {
-                    errors.push_new(
-                        meta.span(),
-                        concat!($name, " doesn't take any values: #[rorm(", $name, ")]"),
-                    );
-                }
-            }};
+        for &annotation in annotations::ANNOTATIONS {
+            if annotation.applies(ident) {
+                annotation.parse(ident, &meta, &mut annotations, &errors);
+                break;
+            }
         }
+    }
 
-        match_ident!(ident,
-            "auto_create_time" => parse_anno!("auto_create_time", "AutoCreateTime"),
-            "auto_update_time" => parse_anno!("auto_update_time", "AutoUpdateTime"),
-            "primary_key" => {parse_anno!("primary_key", "PrimaryKey"); is_primary = true;},
-            "unique" => parse_anno!("unique", "Unique"),
-            "autoincrement" => parse_anno!("autoincrement", "AutoIncrement"),
-            "id" => {
-                if let syn::Meta::Path(_) = meta {
-                    annotations.push(Annotation {
-                        span: ident.span(),
-                        field: "auto_increment",
-                        variant: "AutoIncrement",
-                        expr: None,
-                    });
-                    annotations.push(Annotation {
-                        span: ident.span(),
-                        field: "primary_key",
-                        variant: "PrimaryKey",
-                        expr: None,
-                    });
-                    is_primary = true;
-                } else {
-                    errors.push_new(
-                        meta.span(),
-                        "id doesn't take any values: #[rorm(id)]",
-                    );
-                }
-            },
-            "default" => parse_default(&mut annotations, &errors, &meta),
-            "max_length" => parse_max_length(&mut annotations, &errors, &meta),
-            "choices" => {parse_choices(&mut annotations, &errors, &meta); has_choices = true;},
-            "index" => parse_index(&mut annotations, &errors, &meta),
-            _ => errors.push_new(ident.span(), "Unknown annotation")
-        );
+    let mut has_choices = false;
+    let mut is_primary = false;
+    for annotation in annotations.iter() {
+        match annotation.annotation {
+            Annotation::PrimaryKey => is_primary = true,
+            Annotation::Choices => has_choices = true,
+            _ => {}
+        }
     }
 
     let value_type = field.ty;
@@ -378,237 +306,4 @@ fn parse_field(index: usize, field: syn::Field, errors: &Errors) -> Option<Parse
         ident,
         value_type,
     })
-}
-
-/// Parse the `#[rorm(default = ..)]` annotation.
-///
-/// It accepts a single literal as argument.
-/// Currently the only supported literal types are:
-/// - String
-/// - Integer
-/// - Floating Point Number
-/// - Boolean
-///
-/// TODO: Figure out how to check the literal's type is compatible with the annotated field's type
-fn parse_default(annotations: &mut Annotations, errors: &Errors, meta: &syn::Meta) {
-    let arg = match meta {
-        syn::Meta::NameValue(syn::MetaNameValue { lit, .. }) => lit,
-        _ => {
-            errors.push_new(
-                meta.span(),
-                "default expects a single literal: #[rorm(default = ..)]",
-            );
-            return;
-        }
-    };
-
-    let variant = match arg {
-        syn::Lit::Str(_) => "String",
-        syn::Lit::Int(_) => "Integer",
-        syn::Lit::Float(_) => "Float",
-        syn::Lit::Bool(_) => "Boolean",
-        _ => {
-            errors.push_new(arg.span(), "unsupported literal");
-            return;
-        }
-    };
-
-    let variant = Ident::new(variant, arg.span());
-    annotations.push(Annotation {
-        span: arg.span(),
-        field: "default",
-        variant: "DefaultValue",
-        expr: Some(quote! {::rorm::hmr::annotations::DefaultValueData::#variant(#arg)}),
-    });
-}
-
-/// Parse the `#[rorm(max_length = ..)]` annotation.
-///
-/// It accepts a single integer literal as argument.
-fn parse_max_length(annotations: &mut Annotations, errors: &Errors, meta: &syn::Meta) {
-    match meta {
-        syn::Meta::NameValue(syn::MetaNameValue {
-            lit: syn::Lit::Int(integer),
-            ..
-        }) => {
-            annotations.push(Annotation {
-                span: meta.span(),
-                field: "max_length",
-                variant: "MaxLength",
-                expr: Some(quote! {
-                    #integer
-                }),
-            });
-        }
-        _ => {
-            errors.push_new(
-                meta.span(),
-                "max_length expects a single integer literal: #rorm(max_length = 255)",
-            );
-        }
-    }
-}
-
-/// Parse the `#[rorm(choices(..))]` annotation.
-///
-/// It accepts any number of string literals as arguments.
-fn parse_choices(annotations: &mut Annotations, errors: &Errors, meta: &syn::Meta) {
-    let usage_string =
-        "choices expects a list of string literals: #[rorm(choices(\"foo\", \"bar\", ..))]";
-
-    // Check if used as list i.e. "function call"
-    if let syn::Meta::List(syn::MetaList { nested, .. }) = meta {
-        let mut choices = Vec::new();
-
-        // Check and collect string literals
-        for choice in nested.iter() {
-            match choice {
-                syn::NestedMeta::Lit(syn::Lit::Str(choice)) => {
-                    choices.push(choice);
-                }
-                _ => {
-                    errors.push_new(choice.span(), usage_string);
-                    continue;
-                }
-            }
-        }
-
-        annotations.push(Annotation {
-            span: meta.span(),
-            field: "choices",
-            variant: "Choices",
-            expr: Some(quote! {
-                (&[#(#choices),*])
-            }),
-        });
-    } else {
-        errors.push_new(meta.span(), usage_string);
-    }
-}
-
-/// Parse the `#[rorm(index)]` annotation.
-///
-/// It accepts four different syntax's:
-/// - `#[rorm(index)]`
-/// - `#[rorm(index())]`
-///    *(semantically identical to first one)*
-/// - `#[rorm(name = <string literal>)]`
-/// - `#[rorm(name = <string literal>, priority = <integer literal>)]`
-///    *(insensitive to argument order)*
-fn parse_index(annotations: &mut Annotations, errors: &Errors, meta: &syn::Meta) {
-    match &meta {
-        // index was used on its own without arguments
-        syn::Meta::Path(_) => {
-            annotations.push(Annotation {
-                span: meta.span(),
-                field: "index",
-                variant: "Index",
-                expr: Some(quote! {(None)}),
-            });
-        }
-
-        // index was used as "function call"
-        syn::Meta::List(syn::MetaList { nested, .. }) => {
-            let mut name = None;
-            let mut prio = None;
-
-            // Loop over arguments extracting `name` and `prio` while reporting any errors
-            for nested_meta in nested.into_iter() {
-                // Only accept keyword arguments
-                let (path, literal) =
-                    if let syn::NestedMeta::Meta(syn::Meta::NameValue(syn::MetaNameValue {
-                        path,
-                        lit,
-                        ..
-                    })) = &nested_meta
-                    {
-                        (path.clone(), lit.clone())
-                    } else {
-                        errors.push_new(
-                            nested_meta.span(),
-                            "index expects keyword arguments: #[rorm(index(name = \"...\"))]",
-                        );
-                        continue;
-                    };
-
-                // Only accept keywords who are identifier
-                let ident = if let Some(ident) = path.get_ident() {
-                    ident
-                } else {
-                    errors.push_new(
-                        nested_meta.span(),
-                        "index expects keyword arguments: #[rorm(index(name = \"...\"))]",
-                    );
-                    continue;
-                };
-
-                // Only accept "name" and "prio" as keywords
-                // Check the associated value's type
-                // Report duplications
-                if ident == "name" {
-                    if name.is_none() {
-                        match literal {
-                            syn::Lit::Str(literal) => {
-                                name = Some(literal);
-                            }
-                            _ => {
-                                errors.push_new(
-                                    literal.span(),
-                                    "name expects a string literal: #[rorm(index(name = \"...\"))]",
-                                );
-                            }
-                        }
-                    } else {
-                        errors.push_new(ident.span(), "name has already been set");
-                    }
-                } else if ident == "priority" {
-                    if prio.is_none() {
-                        match literal {
-                            syn::Lit::Int(literal) => {
-                                prio = Some(literal);
-                            }
-                            _ => {
-                                errors.push_new(literal.span(), "priority expects a integer literal: #[rorm(index(priority = \"...\"))]");
-                            }
-                        };
-                    } else {
-                        errors.push_new(ident.span(), "priority has already been set");
-                    }
-                } else {
-                    errors.push_new(ident.span(), "unknown keyword argument");
-                }
-            }
-
-            // Produce output depending on the 4 possible configurations
-            // of `prio.is_some()` and `name.is_some()`
-            if prio.is_some() && name.is_none() {
-                errors.push_new(
-                    meta.span(),
-                    "index also requires a name when a priority is defined",
-                );
-            } else {
-                let inner = if let Some(name) = name {
-                    let prio = if let Some(prio) = prio {
-                        quote! { Some(#prio) }
-                    } else {
-                        quote! { None }
-                    };
-                    quote! { Some(::rorm::hmr::annotations::IndexData { name: #name, priority: #prio }) }
-                } else {
-                    quote! { None }
-                };
-                annotations.push(Annotation {
-                    span: meta.span(),
-                    field: "index",
-                    variant: "Index",
-                    expr: Some(quote! {(#inner)}),
-                });
-            }
-        }
-
-        // index was used as keyword argument
-        _ => {
-            errors.push_new(meta.span(), "index ether stands on its own or looks like a function call: #[rorm(index)] or #[rorm(index(..))]");
-        }
-    }
 }
