@@ -5,6 +5,7 @@ use rorm_db::value::Value;
 use rorm_declaration::hmr;
 use rorm_declaration::hmr::annotations;
 use rorm_declaration::imr;
+use rorm_declaration::imr::Annotation;
 
 use crate::annotation_builder;
 use crate::annotation_builder::NotSetAnnotations;
@@ -268,7 +269,7 @@ impl<
 {
     fn from(field: &'_ Field<T, D, A>) -> Self {
         let mut annotations = field.annotations.as_imr();
-        if !T::IS_NULLABLE {
+        if !T::IS_NULLABLE && !annotations.contains(&Annotation::PrimaryKey) {
             annotations.push(imr::Annotation::NotNull);
         }
         imr::Field {
