@@ -516,7 +516,7 @@ unittest
 		DBAnnotation(maxLength(255))
 	];
 	f.internalAnnotations = [
-		InternalAnnotation(ValidatorRef(m => true))
+		InternalAnnotation(ValidatorRef("NONE"))
 	];
 	m.fields = [f];
 

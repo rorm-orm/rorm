@@ -71,7 +71,7 @@ abstract class Model
         static if (constructorFuncs.length)
         {
             auto t = cast(This)this;
-            foreach (ref fn; constructorFuncs)
+            static foreach (fn; constructorFuncs)
                 runValueConstructorImpl!(fn.rid)(t);
         }
     }
