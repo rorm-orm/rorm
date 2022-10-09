@@ -69,15 +69,10 @@ impl DBImpl {
     `name`: [&str]: Name of the table
     `db_name`: [&str]: Name of the database.
     */
-    pub fn create_table<'until_build, 'post_build>(
-        &self,
-        name: &str,
-        db_name: &'until_build str,
-    ) -> SQLCreateTable<'until_build, 'post_build> {
+    pub fn create_table<'post_build>(&self, name: &str) -> SQLCreateTable<'post_build> {
         SQLCreateTable {
             dialect: *self,
             name: name.to_string(),
-            db_name,
             columns: vec![],
             if_not_exists: false,
             lookup: vec![],
@@ -101,7 +96,6 @@ impl DBImpl {
         operation: SQLCreateTriggerOperation,
     ) -> SQLCreateTrigger {
         SQLCreateTrigger {
-            dialect: *self,
             name: name.to_string(),
             table_name: table_name.to_string(),
             if_not_exists: false,
@@ -119,7 +113,6 @@ impl DBImpl {
     */
     pub fn create_index(&self, name: &str, table_name: &str) -> SQLCreateIndex {
         SQLCreateIndex {
-            dialect: *self,
             name: name.to_string(),
             table_name: table_name.to_string(),
             unique: false,
@@ -136,7 +129,6 @@ impl DBImpl {
     */
     pub fn drop_table(&self, name: &str) -> SQLDropTable {
         SQLDropTable {
-            dialect: *self,
             name: name.to_string(),
             if_exists: false,
         }
@@ -154,7 +146,6 @@ impl DBImpl {
         operation: SQLAlterTableOperation<'post_build>,
     ) -> SQLAlterTable<'post_build> {
         SQLAlterTable {
-            dialect: *self,
             name: name.to_string(),
             operation,
             lookup: vec![],
@@ -214,7 +205,6 @@ impl DBImpl {
         from_clause: &str,
     ) -> SQLSelect<'until_build, '_> {
         SQLSelect {
-            dialect: *self,
             resulting_columns: columns,
             from_clause: from_clause.to_string(),
             where_clause: None,
@@ -240,7 +230,6 @@ impl DBImpl {
         insert_values: &'until_build [&'until_build [Value<'post_build>]],
     ) -> SQLInsert<'until_build, 'post_build> {
         SQLInsert {
-            dialect: *self,
             into_clause: into_clause.to_string(),
             columns: insert_columns,
             row_values: insert_values,
@@ -260,7 +249,6 @@ impl DBImpl {
         table_name: &'until_build str,
     ) -> SQLDelete<'until_build, 'post_query> {
         SQLDelete {
-            dialect: *self,
             model: table_name,
             lookup: vec![],
             where_clause: None,

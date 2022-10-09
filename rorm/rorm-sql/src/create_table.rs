@@ -6,9 +6,8 @@ use crate::{value, DBImpl, SQLCreateColumn};
 /**
 The representation of an create table operation.
 */
-pub struct SQLCreateTable<'until_build, 'post_build> {
+pub struct SQLCreateTable<'post_build> {
     pub(crate) dialect: DBImpl,
-    pub(crate) db_name: &'until_build str,
     pub(crate) name: String,
     pub(crate) columns: Vec<SQLCreateColumn<'post_build>>,
     pub(crate) if_not_exists: bool,
@@ -16,7 +15,7 @@ pub struct SQLCreateTable<'until_build, 'post_build> {
     pub(crate) trigger: Vec<(String, Vec<value::Value<'post_build>>)>,
 }
 
-impl<'until_build, 'post_build> SQLCreateTable<'until_build, 'post_build> {
+impl<'post_build> SQLCreateTable<'post_build> {
     /**
     Add a column to the table.
     */

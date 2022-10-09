@@ -107,7 +107,6 @@ pub(crate) fn trigger_annotation_to_trigger(
 Representation of a trigger.
 */
 pub struct SQLCreateTrigger {
-    pub(crate) dialect: DBImpl,
     pub(crate) name: String,
     pub(crate) table_name: String,
     pub(crate) if_not_exists: bool,

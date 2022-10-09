@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use crate::error::Error;
-use crate::{value, DBImpl, SQLCreateColumn};
+use crate::{value, SQLCreateColumn};
 
 /**
 Representation of operations to execute in the context of an ALTER TABLE statement.
@@ -60,7 +60,6 @@ impl<'post_build> SQLAlterTableOperation<'post_build> {
 Representation of an ALTER TABLE statement.
 */
 pub struct SQLAlterTable<'post_build> {
-    pub(crate) dialect: DBImpl,
     /// Name of the table to operate on
     pub(crate) name: String,
     /// Operation to execute

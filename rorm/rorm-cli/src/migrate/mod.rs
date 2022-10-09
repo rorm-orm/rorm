@@ -14,9 +14,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query, AnyPool, Row};
 
 use crate::log_sql;
-use crate::migrate::config::{
-    create_db_config, deserialize_db_conf, DatabaseConfig, DatabaseDriver,
-};
+use crate::migrate::config::{create_db_config, deserialize_db_conf, DatabaseDriver};
 use crate::migrate::sql_builder::migration_to_sql;
 use crate::utils::bind;
 use crate::utils::migrations::get_existing_migrations;
@@ -43,7 +41,6 @@ Helper method to apply one migration. Writes also to last migration table.
 `last_migration_table_name`: [&str]: Name of the table to insert successful applied migrations into.
 */
 pub async fn apply_migration(
-    db_conf: &DatabaseConfig,
     dialect: DBImpl,
     migration: &Migration,
     pool: &AnyPool,
@@ -55,7 +52,7 @@ pub async fn apply_migration(
         .await
         .with_context(|| format!("Error while starting transaction {}", migration.id))?;
 
-    migration_to_sql(&mut tx, db_conf, dialect, migration, do_log).await?;
+    migration_to_sql(&mut tx, dialect, migration, do_log).await?;
 
     tx.commit().await.with_context(|| {
         format!(
@@ -140,10 +137,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
 
     let db_impl = DBImpl::from(db_conf.driver);
     let (query_str, bind_params) = db_impl
-        .create_table(
-            db_conf.last_migration_table_name.as_str(),
-            db_conf.name.as_str(),
-        )
+        .create_table(db_conf.last_migration_table_name.as_str())
         .add_column(db_impl.create_column(
             db_conf.last_migration_table_name.as_str(),
             "id",
@@ -201,7 +195,6 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
             // Apply all migrations
             for migration in &existing_migrations {
                 apply_migration(
-                    &db_conf,
                     db_conf.driver.into(),
                     migration,
                     &pool,
@@ -218,7 +211,6 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                 for (idx, migration) in existing_migrations.iter().enumerate() {
                     if apply {
                         apply_migration(
-                            &db_conf,
                             db_conf.driver.into(),
                             migration,
                             &pool,

@@ -1,10 +1,7 @@
-use crate::DBImpl;
-
 /**
 The representation of the drop table statement.
 */
 pub struct SQLDropTable {
-    pub(crate) dialect: DBImpl,
     pub(crate) name: String,
     pub(crate) if_exists: bool,
 }

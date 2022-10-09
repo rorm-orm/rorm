@@ -1,11 +1,9 @@
 use crate::error::Error;
-use crate::DBImpl;
 
 /**
 Representation of a create index operation
 */
 pub struct SQLCreateIndex {
-    pub(crate) dialect: DBImpl,
     pub(crate) name: String,
     pub(crate) table_name: String,
     pub(crate) unique: bool,

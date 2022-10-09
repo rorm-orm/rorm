@@ -3,7 +3,6 @@ use rorm_sql::alter_table::SQLAlterTableOperation;
 use rorm_sql::DBImpl;
 use sqlx::{Any, Transaction};
 
-use crate::migrate::config::DatabaseConfig;
 use crate::utils::bind;
 
 /**
@@ -14,7 +13,6 @@ Helper method to convert a migration to a transaction string
 */
 pub async fn migration_to_sql<'a>(
     tx: &'a mut Transaction<'_, Any>,
-    db_conf: &'a DatabaseConfig,
     db_impl: DBImpl,
     migration: &'a Migration,
     do_log: bool,
@@ -22,7 +20,7 @@ pub async fn migration_to_sql<'a>(
     for operation in &migration.operations {
         match &operation {
             Operation::CreateModel { name, fields } => {
-                let mut create_table = db_impl.create_table(name.as_str(), db_conf.name.as_str());
+                let mut create_table = db_impl.create_table(name.as_str());
 
                 for field in fields {
                     create_table = create_table.add_column(db_impl.create_column(

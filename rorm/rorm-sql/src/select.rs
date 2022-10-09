@@ -1,5 +1,5 @@
 use crate::conditional::BuildCondition;
-use crate::{conditional, value, DBImpl};
+use crate::{conditional, value};
 
 /**
 The representation of a FROM clause
@@ -10,7 +10,6 @@ pub enum SQLSelectFrom {}
 The representation of a select query.
 */
 pub struct SQLSelect<'until_build, 'post_query> {
-    pub(crate) dialect: DBImpl,
     pub(crate) resulting_columns: &'until_build [&'until_build str],
     pub(crate) limit: Option<u64>,
     pub(crate) offset: Option<u64>,

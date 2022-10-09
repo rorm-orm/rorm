@@ -1,13 +1,12 @@
 use std::fmt::Write;
 
 use crate::conditional::BuildCondition;
-use crate::{conditional, value, DBImpl};
+use crate::{conditional, value};
 
 /**
 SQL representation of the DELETE operation.
 */
 pub struct SQLDelete<'until_build, 'post_query> {
-    pub(crate) dialect: DBImpl,
     pub(crate) model: &'until_build str,
     pub(crate) lookup: Vec<value::Value<'post_query>>,
     pub(crate) where_clause: Option<&'until_build conditional::Condition<'post_query>>,

@@ -1,11 +1,10 @@
 use crate::on_conflict::OnConflict;
-use crate::{DBImpl, Value};
+use crate::Value;
 
 /**
 Representation of the INSERT operation in SQL.
 */
 pub struct SQLInsert<'until_build, 'post_build> {
-    pub(crate) dialect: DBImpl,
     pub(crate) into_clause: String,
     pub(crate) columns: &'until_build [&'until_build str],
     pub(crate) row_values: &'until_build [&'until_build [Value<'post_build>]],
