@@ -53,6 +53,7 @@ use crate::value::Value;
 /**
 The main interface for creating sql strings
 */
+#[derive(Copy, Clone)]
 pub enum DBImpl {
     /// Implementation of SQLite
     SQLite,
@@ -69,16 +70,13 @@ impl DBImpl {
     `name`: [&str]: Name of the table
     */
     pub fn create_table<'post_build>(&self, name: &str) -> SQLCreateTable<'post_build> {
-        match self {
-            DBImpl::SQLite { .. } => SQLCreateTable {
-                dialect: DBImpl::SQLite,
-                name: name.to_string(),
-                columns: vec![],
-                if_not_exists: false,
-                lookup: vec![],
-                trigger: vec![],
-            },
-            _ => todo!("Not implemented yet!"),
+        SQLCreateTable {
+            dialect: *self,
+            name: name.to_string(),
+            columns: vec![],
+            if_not_exists: false,
+            lookup: vec![],
+            trigger: vec![],
         }
     }
 
@@ -97,17 +95,14 @@ impl DBImpl {
         point_in_time: Option<SQLCreateTriggerPointInTime>,
         operation: SQLCreateTriggerOperation,
     ) -> SQLCreateTrigger {
-        match self {
-            DBImpl::SQLite => SQLCreateTrigger {
-                dialect: DBImpl::SQLite,
-                name: name.to_string(),
-                table_name: table_name.to_string(),
-                if_not_exists: false,
-                point_in_time,
-                operation,
-                statements: vec![],
-            },
-            _ => todo!("Not implemented yet!"),
+        SQLCreateTrigger {
+            dialect: *self,
+            name: name.to_string(),
+            table_name: table_name.to_string(),
+            if_not_exists: false,
+            point_in_time,
+            operation,
+            statements: vec![],
         }
     }
 
@@ -118,17 +113,14 @@ impl DBImpl {
     `table_name`: [&str]: Table to create the index on.
     */
     pub fn create_index(&self, name: &str, table_name: &str) -> SQLCreateIndex {
-        match self {
-            DBImpl::SQLite => SQLCreateIndex {
-                dialect: DBImpl::SQLite,
-                name: name.to_string(),
-                table_name: table_name.to_string(),
-                unique: false,
-                if_not_exists: false,
-                columns: vec![],
-                condition: None,
-            },
-            _ => todo!("Not implemented yet!"),
+        SQLCreateIndex {
+            dialect: *self,
+            name: name.to_string(),
+            table_name: table_name.to_string(),
+            unique: false,
+            if_not_exists: false,
+            columns: vec![],
+            condition: None,
         }
     }
 
@@ -136,12 +128,9 @@ impl DBImpl {
     The entry point to start a transaction
     */
     pub fn start_transaction(&self) -> SQLTransaction {
-        match self {
-            DBImpl::SQLite => SQLTransaction {
-                dialect: DBImpl::SQLite,
-                statements: vec![],
-            },
-            _ => todo!("Not implemented yet!"),
+        SQLTransaction {
+            dialect: *self,
+            statements: vec![],
         }
     }
 
@@ -151,13 +140,10 @@ impl DBImpl {
     `name`: [&str]: Name of the table to drop.
     */
     pub fn drop_table(&self, name: &str) -> SQLDropTable {
-        match self {
-            DBImpl::SQLite => SQLDropTable {
-                dialect: DBImpl::SQLite,
-                name: name.to_string(),
-                if_exists: false,
-            },
-            _ => todo!("Not implemented yet!"),
+        SQLDropTable {
+            dialect: *self,
+            name: name.to_string(),
+            if_exists: false,
         }
     }
 
@@ -172,15 +158,12 @@ impl DBImpl {
         name: &str,
         operation: SQLAlterTableOperation<'post_build>,
     ) -> SQLAlterTable<'post_build> {
-        match self {
-            DBImpl::SQLite => SQLAlterTable {
-                dialect: DBImpl::SQLite,
-                name: name.to_string(),
-                operation,
-                lookup: vec![],
-                trigger: vec![],
-            },
-            _ => todo!("Not implemented yet!"),
+        SQLAlterTable {
+            dialect: *self,
+            name: name.to_string(),
+            operation,
+            lookup: vec![],
+            trigger: vec![],
         }
     }
 
@@ -199,19 +182,15 @@ impl DBImpl {
         data_type: DbType,
         annotations: &'post_build [Annotation],
     ) -> SQLCreateColumn<'post_build> {
-        match self {
-            #[cfg(feature = "sqlite")]
-            DBImpl::SQLite => SQLCreateColumn {
-                dialect: DBImpl::SQLite,
-                name: name.to_string(),
-                table_name: table_name.to_string(),
-                data_type,
-                annotations: annotations
-                    .iter()
-                    .map(|x| SQLAnnotation { annotation: x })
-                    .collect(),
-            },
-            _ => todo!("Not implemented yet!"),
+        SQLCreateColumn {
+            dialect: *self,
+            name: name.to_string(),
+            table_name: table_name.to_string(),
+            data_type,
+            annotations: annotations
+                .iter()
+                .map(|x| SQLAnnotation { annotation: x })
+                .collect(),
         }
     }
 
@@ -227,18 +206,15 @@ impl DBImpl {
         columns: &'until_build [&'until_build str],
         from_clause: &str,
     ) -> SQLSelect<'until_build, '_> {
-        match self {
-            DBImpl::SQLite => SQLSelect {
-                dialect: DBImpl::SQLite,
-                resulting_columns: columns,
-                from_clause: from_clause.to_string(),
-                where_clause: None,
-                limit: None,
-                offset: None,
-                distinct: false,
-                lookup: vec![],
-            },
-            _ => todo!("Not implemented yet!"),
+        SQLSelect {
+            dialect: *self,
+            resulting_columns: columns,
+            from_clause: from_clause.to_string(),
+            where_clause: None,
+            limit: None,
+            offset: None,
+            distinct: false,
+            lookup: vec![],
         }
     }
 
@@ -256,16 +232,13 @@ impl DBImpl {
         insert_columns: &'until_build [&'until_build str],
         insert_values: &'until_build [&'until_build [Value<'post_build>]],
     ) -> SQLInsert<'until_build, 'post_build> {
-        match self {
-            DBImpl::SQLite => SQLInsert {
-                dialect: DBImpl::SQLite,
-                into_clause: into_clause.to_string(),
-                columns: insert_columns,
-                row_values: insert_values,
-                lookup: vec![],
-                on_conflict: OnConflict::ABORT,
-            },
-            _ => todo!("Not implemented yet!"),
+        SQLInsert {
+            dialect: *self,
+            into_clause: into_clause.to_string(),
+            columns: insert_columns,
+            row_values: insert_values,
+            lookup: vec![],
+            on_conflict: OnConflict::ABORT,
         }
     }
 
@@ -279,14 +252,11 @@ impl DBImpl {
         &self,
         table_name: &'until_build str,
     ) -> SQLDelete<'until_build, 'post_query> {
-        match self {
-            DBImpl::SQLite => SQLDelete {
-                dialect: DBImpl::SQLite,
-                model: table_name,
-                lookup: vec![],
-                where_clause: None,
-            },
-            _ => todo!("Not implemented yet!"),
+        SQLDelete {
+            dialect: *self,
+            model: table_name,
+            lookup: vec![],
+            where_clause: None,
         }
     }
 }
