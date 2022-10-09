@@ -19,7 +19,7 @@ chrono = { version = "^0.4" }
 thiserror = { version = "^1.0" }
 
 # SQlite bindings for printf
-libsqlite3-sys = { version = "~0.24", optional = true }
+libsqlite3-sys = { version = "0.24", optional = true }
 
 rorm-declaration = { version = "0.1.0", path = "../rorm-declaration" }
 
