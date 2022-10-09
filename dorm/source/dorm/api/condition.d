@@ -1,10 +1,14 @@
 module dorm.api.condition;
 
+@safe:
+
 import std.conv;
 import std.datetime;
 import std.sumtype;
 import std.traits;
 import std.typecons : Nullable;
+
+import dorm.declarative;
 
 public import dorm.lib.ffi : FFIValue;
 import ffi = dorm.lib.ffi;
@@ -46,7 +50,7 @@ struct Condition
 		return Condition(OrCondition(conditions.dup));
 	}
 
-	Condition not() const
+	Condition not() const @trusted
 	{
 		Condition* c = new Condition();
 		c.impl = impl;
@@ -83,7 +87,7 @@ struct TernaryCondition
 	Condition* first, second, third;
 }
 
-FFIValue conditionValue(string errInfo = "", T)(T c)
+FFIValue conditionValue(ModelFormat.Field fieldInfo, T)(T c) @trusted
 {
 	FFIValue ret;
 	static if (is(T == Nullable!U, U))
@@ -91,7 +95,12 @@ FFIValue conditionValue(string errInfo = "", T)(T c)
 		if (c.isNull)
 			ret.type = FFIValue.Type.Null;
 		else
-			return conditionValue!errInfo(c.get);
+			return conditionValue!fieldInfo(c.get);
+	}
+	else static if (fieldInfo.type == ModelFormat.Field.DBType.datetime
+		&& (is(T == long) || is(T == ulong)))
+	{
+		ret = conditionValue!fieldInfo(cast(DateTime) SysTime(cast(long)c, UTC()));
 	}
 	else static if (is(T == enum))
 	{
@@ -166,19 +175,23 @@ FFIValue conditionValue(string errInfo = "", T)(T c)
 		ret.type = FFIValue.Type.String;
 		ret.string = c;
 	}
-	else static assert(false, "Unsupported condition value type: " ~ T.stringof ~ errInfo);
+	else
+		static assert(false, "Unsupported condition value type: " ~ T.stringof
+			~ text(" in column ", field.sourceColumn, " in file ", field.definedAt).idup);
 	return ret;
 }
 
-FFIValue conditionIdentifier(string identifier)
+FFIValue conditionIdentifier(return string identifier) @safe
 {
 	FFIValue ret;
 	ret.type = FFIValue.Type.Identifier;
-	ret.identifier = ffi.ffi(identifier);
+	(() @trusted {
+		ret.identifier = ffi.ffi(identifier);
+	})();
 	return ret;
 }
 
-ffi.FFICondition[] makeTree(Condition c)
+ffi.FFICondition[] makeTree(Condition c) @trusted
 {
 	// we store all conditions sequentially in a flat list, this function may be
 	// run at CTFE, where it can then efficiently be put on the stack for
@@ -299,7 +312,7 @@ string dumpTree(ffi.FFICondition[] c)
 
 	auto query = appender!string;
 	query ~= "WHERE";
-	void recurse(ref ffi.FFICondition c)
+	void recurse(ref ffi.FFICondition c) @trusted
 	{
 		import std.conv;
 
