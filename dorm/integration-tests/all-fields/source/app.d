@@ -2,6 +2,7 @@ import models;
 
 import core.thread;
 import core.time;
+import std.conv;
 import std.datetime.date;
 import std.datetime.systime;
 import std.exception;
@@ -44,7 +45,7 @@ void main(string[] args)
 	assertThrown({
 		// violating unique constraint here
 		db.insert(UserInsert.init);
-	});
+	}());
 
 	size_t total;
 	foreach (user; db.select!User.stream)
@@ -53,7 +54,9 @@ void main(string[] args)
 
 		foreach (i, field; UserInsert.init.tupleof)
 			assert(__traits(getMember, user, __traits(identifier, UserInsert.tupleof[i]))
-				== field);
+				== field, text("Field ", __traits(identifier, UserInsert.tupleof[i]), " no match: ",
+					__traits(getMember, user, __traits(identifier, UserInsert.tupleof[i])),
+					" != ", field));
 	}
 
 	assert(total == 1);

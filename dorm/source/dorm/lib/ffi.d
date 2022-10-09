@@ -16,13 +16,13 @@ struct FFIArray(T)
 	 */
 	size_t size;
 
-	this(typeof(null))
+	this(typeof(null)) @safe
 	{
 		this.content = null;
 		this.size = 0;
 	}
 
-	this(T* content, size_t size)
+	this(T* content, size_t size) @safe
 	{
 		this.content = content;
 		this.size = size;
@@ -33,7 +33,7 @@ struct FFIArray(T)
 	 * ownership semantics, e.g. variable lifetime, still apply. DIP1000 should
 	 * help avoid lifetime issues.
 	 */
-	inout(T)[] data() inout nothrow pure @nogc return
+	inout(T)[] data() @system inout nothrow pure @nogc return
 	{
 		return content[0 .. size];
 	}
@@ -46,13 +46,13 @@ struct FFIArray(T)
 	 * allocated slice will also cause the FFIArray to become invalid when
 	 * leaving its scope. DIP1000 should help avoid such issues.
 	 */
-	static FFIArray fromData(return T[] data) nothrow pure @nogc
+	static FFIArray fromData(return T[] data) @trusted nothrow pure @nogc
 	{
 		return FFIArray(data.ptr, data.length);
 	}
 
 	/// ditto
-	static FFIArray fromData(size_t n)(return ref T[n] data) nothrow pure @nogc
+	static FFIArray fromData(size_t n)(return ref T[n] data) @trusted nothrow pure @nogc
 	{
 		return FFIArray(data.ptr, data.length);
 	}
@@ -62,11 +62,11 @@ struct FFIArray(T)
 alias FFIString = FFIArray!(const(char));
 
 /// helper function to create an FFI slice of a D native array/slice type.
-FFIString ffi(string s) { return FFIString.fromData(s); }
+FFIString ffi(string s) @safe { return FFIString.fromData(s); }
 /// ditto
-FFIArray!T ffi(T)(T[] s) { return FFIArray!T.fromData(s); }
+FFIArray!T ffi(T)(T[] s) @safe { return FFIArray!T.fromData(s); }
 /// ditto
-FFIArray!T ffi(T, size_t n)(ref T[n] s) { return FFIArray!T.fromData(s); }
+FFIArray!T ffi(T, size_t n)(ref T[n] s) @safe { return FFIArray!T.fromData(s); }
 
 /** 
  * optional value returned by rorm functions.
@@ -90,19 +90,19 @@ struct FFIOption(T)
 	T raw_value;
 
 	/// Returns true if the value is set, otherwise false.
-	bool opCast(T : bool)() const
+	bool opCast(T : bool)() const @safe nothrow @nogc
 	{
 		return state != State.none;
 	}
 
-	bool isNull() const
+	bool isNull() const @safe nothrow @nogc
 	{
 		return state == State.none;
 	}
 
 	alias asNullable this;
 	/// Converts the FFIOption to a std Nullable!T
-	Nullable!(T) asNullable() const
+	Nullable!(T) asNullable() const @safe nothrow @nogc
 	{
 		return state == State.none
 			? typeof(return).init
@@ -111,7 +111,7 @@ struct FFIOption(T)
 
 	static if (__traits(compiles, { T v = null; }))
 	{
-		T embedNull() const
+		T embedNull() const @safe nothrow @nogc
 		{
 			return state == State.none ? T(null) : raw_value;
 		}

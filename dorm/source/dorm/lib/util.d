@@ -17,12 +17,12 @@ struct FreeableAsyncResult(T)
 
 	@disable this();
 
-	this(Event event)
+	this(Event event) @trusted
 	{
 		this.event = move(event);
 	}
 
-	static FreeableAsyncResult make()
+	static FreeableAsyncResult make() @trusted
 	{
 		return FreeableAsyncResult(Event(true, false));
 	}
@@ -32,7 +32,7 @@ struct FreeableAsyncResult(T)
 	else
 		alias Callback = extern(C) void function(void* data, T result, scope RormError error) nothrow;
 
-	Tuple!(Callback, void*) callback() return
+	Tuple!(Callback, void*) callback() return @safe
 	{
 		static if (is(T == void))
 		{
@@ -60,25 +60,25 @@ struct FreeableAsyncResult(T)
 		return tuple(&ret, cast(void*)&this);
 	}
 
-	T result()
+	T result() @safe
 	{
-		event.wait();
+		(() @trusted => event.wait())();
 		if (error)
 			throw error;
 		static if (!is(T == void))
 			return raw_result;
 	}
 
-	void reset()
+	void reset() @safe
 	{
-		event.reset();
+		(() @trusted => event.reset())();
 		static if (!is(T == void))
 			raw_result = T.init;
 		error = null;
 	}
 }
 
-auto sync_call(alias fn)(Parameters!fn[0 .. $ - 2] args)
+auto sync_call(alias fn)(Parameters!fn[0 .. $ - 2] args) @trusted
 {
 	static assert(Parameters!(Parameters!fn[$ - 2]).length == 3
 		|| Parameters!(Parameters!fn[$ - 2]).length == 2);
@@ -118,31 +118,6 @@ auto sync_call(alias fn)(Parameters!fn[0 .. $ - 2] args)
 
 	static if (!isVoid)
 		return result.ret;
-}
-
-Event* async_call(alias fn)(Parameters!fn[0 .. $ - 2] args, void delegate(scope Parameters!(Parameters!fn[$ - 2])[1 .. $]) callback)
-{
-	import core.stdc.stdlib;
-	import core.memory;
-
-	Event* ret = new Event(true, false);
-	auto data = malloc(callback.sizeof + size_t.sizeof);
-	*(cast(typeof(callback)*)data) = callback;
-	*(cast(typeof(callback)*)(data + callback.sizeof)) = ret;
-	GC.addRoot(callback.ptr);
-	GC.addRoot(ret);
-	extern(C) static void callback(Parameters!(Parameters!fn[$ - 2]) args) nothrow
-	{
-		auto event = *cast(Event**)(args[0] + callback.sizeof);
-		auto dg = *cast(typeof(callback)*)args[0];
-		dg(forward!(args[1 .. $]));
-		event.set();
-		GC.removeRoot(event);
-		GC.removeRoot(dg.ptr);
-		free(args[0]);
-	}
-	fn(forward!args, &callback, data);
-	return ret;
 }
 
 template ffiInto(To)

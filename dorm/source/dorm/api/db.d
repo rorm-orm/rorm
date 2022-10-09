@@ -1,8 +1,9 @@
 module dorm.api.db;
 
-import ffi = dorm.lib.ffi;
-import dorm.lib.util;
+import dorm.declarative;
 import dorm.declarative.conversion;
+import dorm.lib.util;
+import ffi = dorm.lib.ffi;
 
 import std.conv : text;
 import std.datetime : Clock, Date, DateTime, DateTimeException, SysTime, TimeOfDay, UTC;
@@ -21,6 +22,7 @@ public import dorm.api.condition;
  */
 struct DBConnectOptions
 {
+@safe:
 	/// Specifies the driver that will be used.
 	DBBackend backend;
 	/// Name of the database, in case of `DatabaseBackend.SQLite` name of the file.
@@ -89,6 +91,7 @@ struct DormPatch(User)
  */
 struct DormDB
 {
+@safe:
 	private ffi.DBHandle handle;
 
 	@disable this();
@@ -97,7 +100,7 @@ struct DormDB
 	 * Performs a Database connection (possibly in another thread) and returns
 	 * the constructed DormDB handle once connected.
 	 */
-	this(DBConnectOptions options)
+	this(DBConnectOptions options) @trusted
 	{
 		// TODO: think of how to make async waiting configurable, right now the thread is just blocked
 		auto ffiOptions = options.ffiInto!(ffi.DBConnectOptions);
@@ -107,7 +110,7 @@ struct DormDB
 		handle = dbHandleAsync.result;
 	}
 
-	~this()
+	~this() @trusted
 	{
 		if (handle)
 		{
@@ -149,9 +152,7 @@ struct DormDB
 					&& !isImplicitlyIgnoredValue(mixin("value." ~ field.sourceColumn)))
 				{
 					columns[used] = ffi.ffi(field.columnName);
-					values[used] = conditionValue!(
-						text(" from model ", DB.stringof, " in column ", field.sourceColumn, " in file ", field.definedAt).idup
-					)(mixin("value." ~ field.sourceColumn));
+					values[used] = conditionValue!field(mixin("value." ~ field.sourceColumn));
 					used++;
 				}
 			}
@@ -159,9 +160,7 @@ struct DormDB
 			{
 				// filled in by constructor
 				columns[used] = ffi.ffi(field.columnName);
-				values[used] = conditionValue!(
-					text(" from model ", DB.stringof, " in column ", field.sourceColumn, " in file ", field.definedAt).idup
-				)(mixin("validatorObject." ~ field.sourceColumn));
+				values[used] = conditionValue!field(mixin("validatorObject." ~ field.sourceColumn));
 				used++;
 			}
 			else static if (field.isNullable || field.hasDefaultValue)
@@ -217,18 +216,20 @@ struct DormDB
 		}
 
 
-		auto ctx = FreeableAsyncResult!void.make;
-		ffi.rorm_db_insert(handle,
-			ffi.ffi(DormLayout!DB.tableName),
-			ffi.ffi(columns[0 .. used]),
-			ffi.ffi(values[0 .. used]), ctx.callback.expand);
-		ctx.result();
+		(() @trusted {
+			auto ctx = FreeableAsyncResult!void.make;
+			ffi.rorm_db_insert(handle,
+				ffi.ffi(DormLayout!DB.tableName),
+				ffi.ffi(columns[0 .. used]),
+				ffi.ffi(values[0 .. used]), ctx.callback.expand);
+			ctx.result();
+		})();
 	}
 }
 
 // defined this as global so that we can pass `Foo.fieldName` as alias argument,
 // to have it be selected.
-static SelectOperation!(DBType!(Selection), SelectType!(Selection)) select(Selection...)(return ref DormDB db)
+static SelectOperation!(DBType!(Selection), SelectType!(Selection)) select(Selection...)(return ref DormDB db) @trusted
 {
 	return typeof(return)(&db);
 }
@@ -288,9 +289,9 @@ struct ConditionBuilder(T)
 {
 	static foreach (i, member; T.tupleof)
 		static if (hasDormField!(T, T.tupleof[i].stringof))
-			mixin("ConditionBuilderField!(typeof(T.tupleof[i])) ",
+			mixin("ConditionBuilderField!(typeof(T.tupleof[i]), DormField!(T, T.tupleof[i].stringof)) ",
 				T.tupleof[i].stringof,
-				" = ConditionBuilderField!(typeof(T.tupleof[i]))(`",
+				" = ConditionBuilderField!(typeof(T.tupleof[i]), DormField!(T, T.tupleof[i].stringof))(`",
 				DormField!(T, T.tupleof[i].stringof).columnName,
 				"`);");
 
@@ -337,126 +338,126 @@ struct NotConditionBuilder(T)
 	}
 }
 
-private Condition* makeConditionIdentifier(T)(T value)
+private Condition* makeConditionIdentifier(T)(T value) @safe
 {
 	// TODO: think of how we can abstract memory allocation here
 	return new Condition(conditionIdentifier(value));
 }
 
-private Condition* makeConditionConstant(T)(T value)
+private Condition* makeConditionConstant(ModelFormat.Field fieldInfo, T)(T value) @safe
 {
 	// TODO: think of how we can abstract memory allocation here
-	return new Condition(conditionValue(value));
+	return new Condition(conditionValue!fieldInfo(value));
 }
 
-struct ConditionBuilderField(T)
+struct ConditionBuilderField(T, ModelFormat.Field field)
 {
 	// TODO: all the type specific field to Condition thingies
 
 	private string columnName;
 
-	this(string columnName)
+	this(string columnName) @safe
 	{
 		this.columnName = columnName;
 	}
 
-	private Condition* lhs()
+	private Condition* lhs() @safe
 	{
 		return makeConditionIdentifier(columnName);
 	}
 
-	Condition equals(V)(V value)
+	Condition equals(V)(V value) @safe
 	{
-		return Condition(BinaryCondition(BinaryConditionType.Equals, lhs, makeConditionConstant(value)));
+		return Condition(BinaryCondition(BinaryConditionType.Equals, lhs, makeConditionConstant!field(value)));
 	}
 
-	Condition notEquals(V)(V value)
+	Condition notEquals(V)(V value) @safe
 	{
-		return Condition(BinaryCondition(BinaryConditionType.NotEquals, lhs, makeConditionConstant(value)));
+		return Condition(BinaryCondition(BinaryConditionType.NotEquals, lhs, makeConditionConstant!field(value)));
 	}
 
-	Condition lessThan(V)(V value)
+	Condition lessThan(V)(V value) @safe
 	{
-		return Condition(BinaryCondition(BinaryConditionType.Less, lhs, makeConditionConstant(value)));
+		return Condition(BinaryCondition(BinaryConditionType.Less, lhs, makeConditionConstant!field(value)));
 	}
 
-	Condition lessThanOrEqual(V)(V value)
+	Condition lessThanOrEqual(V)(V value) @safe
 	{
-		return Condition(BinaryCondition(BinaryConditionType.LessOrEquals, lhs, makeConditionConstant(value)));
+		return Condition(BinaryCondition(BinaryConditionType.LessOrEquals, lhs, makeConditionConstant!field(value)));
 	}
 
-	Condition greaterThan(V)(V value)
+	Condition greaterThan(V)(V value) @safe
 	{
-		return Condition(BinaryCondition(BinaryConditionType.Greater, lhs, makeConditionConstant(value)));
+		return Condition(BinaryCondition(BinaryConditionType.Greater, lhs, makeConditionConstant!field(value)));
 	}
 
-	Condition greaterThanOrEqual(V)(V value)
+	Condition greaterThanOrEqual(V)(V value) @safe
 	{
-		return Condition(BinaryCondition(BinaryConditionType.GreaterOrEquals, lhs, makeConditionConstant(value)));
+		return Condition(BinaryCondition(BinaryConditionType.GreaterOrEquals, lhs, makeConditionConstant!field(value)));
 	}
 
-	Condition like(V)(V value)
+	Condition like(V)(V value) @safe
 	{
-		return Condition(BinaryCondition(BinaryConditionType.Like, lhs, makeConditionConstant(value)));
+		return Condition(BinaryCondition(BinaryConditionType.Like, lhs, makeConditionConstant!field(value)));
 	}
 
-	Condition notLike(V)(V value)
+	Condition notLike(V)(V value) @safe
 	{
-		return Condition(BinaryCondition(BinaryConditionType.NotLike, lhs, makeConditionConstant(value)));
+		return Condition(BinaryCondition(BinaryConditionType.NotLike, lhs, makeConditionConstant!field(value)));
 	}
 
-	Condition regexp(V)(V value)
+	Condition regexp(V)(V value) @safe
 	{
-		return Condition(BinaryCondition(BinaryConditionType.Regexp, lhs, makeConditionConstant(value)));
+		return Condition(BinaryCondition(BinaryConditionType.Regexp, lhs, makeConditionConstant!field(value)));
 	}
 
-	Condition notRegexp(V)(V value)
+	Condition notRegexp(V)(V value) @safe
 	{
-		return Condition(BinaryCondition(BinaryConditionType.NotRegexp, lhs, makeConditionConstant(value)));
+		return Condition(BinaryCondition(BinaryConditionType.NotRegexp, lhs, makeConditionConstant!field(value)));
 	}
 
-	Condition in_(V)(V value)
+	Condition in_(V)(V value) @safe
 	{
-		return Condition(BinaryCondition(BinaryConditionType.In, lhs, makeConditionConstant(value)));
+		return Condition(BinaryCondition(BinaryConditionType.In, lhs, makeConditionConstant!field(value)));
 	}
 
-	Condition notIn(V)(V value)
+	Condition notIn(V)(V value) @safe
 	{
-		return Condition(BinaryCondition(BinaryConditionType.NotIn, lhs, makeConditionConstant(value)));
+		return Condition(BinaryCondition(BinaryConditionType.NotIn, lhs, makeConditionConstant!field(value)));
 	}
 
-	Condition isNull()
+	Condition isNull() @safe
 	{
 		return Condition(UnaryCondition(UnaryConditionType.IsNull, lhs));
 	}
 
 	alias equalsNull = isNull;
 
-	Condition isNotNull()
+	Condition isNotNull() @safe
 	{
 		return Condition(UnaryCondition(UnaryConditionType.IsNotNull, lhs));
 	}
 
 	alias notEqualsNull = isNotNull;
 
-	Condition exists()
+	Condition exists() @safe
 	{
 		return Condition(UnaryCondition(UnaryConditionType.Exists, lhs));
 	}
 
-	Condition notExists()
+	Condition notExists() @safe
 	{
 		return Condition(UnaryCondition(UnaryConditionType.NotExists, lhs));
 	}
 
-	Condition between(L, R)(L min, R max)
+	Condition between(L, R)(L min, R max) @safe
 	{
-		return Condition(TernaryCondition(TernaryConditionType.Between, lhs, makeConditionConstant(min), makeConditionConstant(max)));
+		return Condition(TernaryCondition(TernaryConditionType.Between, lhs, makeConditionConstant!field(min), makeConditionConstant!field(max)));
 	}
 
-	Condition notBetween(L, R)(L min, R max)
+	Condition notBetween(L, R)(L min, R max) @safe
 	{
-		return Condition(TernaryCondition(TernaryConditionType.NotBetween, lhs, makeConditionConstant(min), makeConditionConstant(max)));
+		return Condition(TernaryCondition(TernaryConditionType.NotBetween, lhs, makeConditionConstant!field(min), makeConditionConstant!field(max)));
 	}
 }
 
@@ -469,6 +470,7 @@ struct SelectOperation(
 	bool hasLimit = false,
 )
 {
+@safe:
 	private DormDB* db;
 	private ffi.FFICondition[] conditionTree;
 	private long offset, limit;
@@ -477,7 +479,7 @@ struct SelectOperation(
 	{
 		alias SelectBuilder = Condition delegate(ConditionBuilder!T);
 
-		SelectOperation!(T, TSelect, true, hasOrder, hasLimit) condition(SelectBuilder callback) return
+		SelectOperation!(T, TSelect, true, hasOrder, hasLimit) condition(SelectBuilder callback) return @trusted
 		{
 			ConditionBuilder!T builder;
 			conditionTree = callback(builder).makeTree;
@@ -487,7 +489,7 @@ struct SelectOperation(
 
 	static if (!hasOrder)
 	{
-		SelectOperation!(T, TSelect, hasWhere, true, hasLimit) orderBy(T...)(T) return
+		SelectOperation!(T, TSelect, hasWhere, true, hasLimit) orderBy(T...)(T) return @trusted
 		{
 			static assert(false, "not implemented");
 		}
@@ -495,7 +497,7 @@ struct SelectOperation(
 
 	static if (!hasOffset)
 	{
-		SelectOperation!(T, TSelect, hasWhere, true, hasLimit) drop(long offset) return
+		SelectOperation!(T, TSelect, hasWhere, true, hasLimit) drop(long offset) return @trusted
 		{
 			this.offset = offset;
 			return cast(typeof(return))this;
@@ -505,7 +507,7 @@ struct SelectOperation(
 	static if (!hasLimit)
 	{
 		// may not .drop after take!
-		SelectOperation!(T, TSelect, hasWhere, true, true) take(long limit) return
+		SelectOperation!(T, TSelect, hasWhere, true, true) take(long limit) return @trusted
 		{
 			this.limit = limit;
 			return cast(typeof(return))this;
@@ -519,7 +521,7 @@ struct SelectOperation(
 			return [start, end];
 		}
 
-		SelectOperation!(T, TSelect, hasWhere, true, true) opIndex(size_t[2] slice) return
+		SelectOperation!(T, TSelect, hasWhere, true, true) opIndex(size_t[2] slice) return @trusted
 		{
 			this.offset = slice[0];
 			this.limit = cast(long)slice[1] - cast(long)slice[0];
@@ -533,7 +535,7 @@ struct SelectOperation(
 		scope handle = ffi.rorm_db_query_all();
 	}
 
-	auto stream()
+	auto stream() @trusted
 	{
 		enum fields = FilterLayoutFields!(T, TSelect);
 
@@ -543,7 +545,7 @@ struct SelectOperation(
 		auto stream = sync_call!(ffi.rorm_db_query_stream)(db.handle,
 			ffi.ffi(DormLayout!T.tableName),
 			ffi.ffi(columns),
-			&conditionTree[0]);
+			conditionTree.length ? &conditionTree[0] : null);
 
 		return RormStream!(T, TSelect)(stream);
 	}
@@ -559,14 +561,14 @@ private struct RormStream(T, TSelect)
 		alias impl this;
 		bool done;
 
-		void reset()
+		void reset() @safe
 		{
 			impl.reset();
 			done = false;
 		}
 	}
 
-	extern(C) private static void rowCallback(void* data, ffi.DBRowHandle result, scope ffi.RormError error) nothrow
+	extern(C) private static void rowCallback(void* data, ffi.DBRowHandle result, scope ffi.RormError error) nothrow @trusted
 	{
 		auto res = cast(RowHandleState*)data;
 		if (error.tag == ffi.RormError.Tag.NoRowsLeftInStream)
@@ -582,13 +584,13 @@ private struct RormStream(T, TSelect)
 	private RowHandleState currentHandle;
 	private bool started;
 
-	this(ffi.DBStreamHandle handle)
+	this(ffi.DBStreamHandle handle) @trusted
 	{
 		this.handle = handle;
 		currentHandle = RowHandleState(FreeableAsyncResult!(ffi.DBRowHandle).make);
 	}
 
-	~this()
+	~this() @trusted
 	{
 		if (started)
 		{
@@ -626,20 +628,20 @@ private struct RormStream(T, TSelect)
 		return result;
 	}
 
-	auto front() @property
+	auto front() @property @trusted
 	{
 		if (!started) nextIteration();
 		return unwrapRowResult!(T, TSelect)(currentHandle.result());
 	}
 	
-	bool empty() @property
+	bool empty() @property @trusted
 	{
 		if (!started) nextIteration();
 		currentHandle.impl.event.wait();
 		return currentHandle.done;
 	}
-	
-	void popFront()
+
+	void popFront() @trusted
 	{
 		if (!started) nextIteration();
 		currentHandle.impl.event.wait();
@@ -655,7 +657,7 @@ private struct RormStream(T, TSelect)
 		}
 	}
 
-	private void nextIteration()
+	private void nextIteration() @trusted
 	{
 		started = true;
 		ffi.rorm_stream_get_row(handle, &rowCallback, cast(void*)&currentHandle);
@@ -667,7 +669,12 @@ private struct RormStream(T, TSelect)
 
 template FilterLayoutFields(T, TSelect)
 {
-	enum FilterLayoutFields = filterFields!T(selectionFieldNames!(T, TSelect));
+	static if (is(T == TSelect))
+		enum FilterLayoutFields = DormFields!T;
+	else static if (is(TSelect == Model))
+		static assert(false, "Cannot filter for fields of Model class on a Model class");
+	else
+		enum FilterLayoutFields = filterFields!T(selectionFieldNames!(T, TSelect));
 }
 
 private auto filterFields(T)(string[] sourceNames...)
@@ -693,16 +700,18 @@ private string[] selectionFieldNames(T, TSelect)(string prefix = "")
 	{
 		static if (layout.embeddedStructs.canFind(field))
 			ret ~= selectionFieldNames!(T, typeof(__traits(getMember, TSelect, field)))(
-				field ~ ".");
+				prefix ~ field ~ ".");
 		else
 			ret ~= (prefix ~ field);
 	}
 	return ret;
 }
 
-TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row)
+TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row) @safe
 {
 	TSelect res;
+	static if (is(TSelect == class))
+		res = new TSelect();
 	ffi.RormError rowError;
 	enum fields = FilterLayoutFields!(T, TSelect);
 	static foreach (field; fields)
@@ -713,7 +722,7 @@ TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row)
 	return res;
 }
 
-private T extractField(alias field, T, string errInfo)(ffi.DBRowHandle row, ref ffi.RormError error)
+private T extractField(alias field, T, string errInfo)(ffi.DBRowHandle row, ref ffi.RormError error) @trusted
 {
 	import std.conv;
 	import dorm.declarative;
@@ -781,7 +790,7 @@ private T extractField(alias field, T, string errInfo)(ffi.DBRowHandle row, ref 
 	}
 }
 
-private T fieldInto(T, string errInfo, From)(From v, ref ffi.RormError error)
+private T fieldInto(T, string errInfo, From)(scope From v, ref ffi.RormError error) @safe
 {
 	import dorm.lib.ffi : FFIArray, FFIOption;
 	import std.typecons : Nullable;
@@ -810,11 +819,10 @@ private T fieldInto(T, string errInfo, From)(From v, ref ffi.RormError error)
 	}
 	else static if (is(From == FFIArray!U, U))
 	{
-		auto data = v[];
 		static if (is(T == Res[], Res))
 		{
 			static if (is(immutable Res == immutable U))
-				return cast(Res[])data;
+				return (() @trusted => cast(T)v.data.dup)();
 			else
 				static assert(false, "can't auto-wrap array element type " ~ Res.stringof ~ " into " ~ U.stringof ~ errInfo);
 		}
@@ -892,7 +900,7 @@ private T fieldInto(T, string errInfo, From)(From v, ref ffi.RormError error)
 		{
 			try
 			{
-				return TimeOfDay(cast(int)v.hour, cast(int)v.min, cast(int)v.day);
+				return TimeOfDay(cast(int)v.hour, cast(int)v.min, cast(int)v.sec);
 			}
 			catch (DateTimeException)
 			{
@@ -927,17 +935,17 @@ private T fieldInto(T, string errInfo, From)(From v, ref ffi.RormError error)
 			static if (is(T == DateTime))
 			{
 				return DateTime(cast(int)v.year, cast(int)v.month, cast(int)v.day,
-					cast(int)v.hour, cast(int)v.min, cast(int)v.day);
+					cast(int)v.hour, cast(int)v.min, cast(int)v.sec);
 			}
 			else static if (is(T == SysTime))
 			{
 				return SysTime(DateTime(cast(int)v.year, cast(int)v.month, cast(int)v.day,
-					cast(int)v.hour, cast(int)v.min, cast(int)v.day), UTC());
+					cast(int)v.hour, cast(int)v.min, cast(int)v.sec), UTC());
 			}
 			else static if (is(T == long) || is(T == ulong))
 			{
 				return cast(T)SysTime(DateTime(cast(int)v.year, cast(int)v.month, cast(int)v.day,
-					cast(int)v.hour, cast(int)v.min, cast(int)v.day), UTC()).stdTime;
+					cast(int)v.hour, cast(int)v.min, cast(int)v.sec), UTC()).stdTime;
 			}
 			else
 				static assert(false, "can't put " ~ From.stringof ~ " into " ~ T.stringof ~ errInfo);
