@@ -60,25 +60,22 @@ impl<'until_build, 'post_query> SQLSelect<'until_build, 'post_query> {
     Build the select query
     */
     pub fn build(mut self) -> (String, Vec<value::Value<'post_query>>) {
-        match self.dialect {
-            DBImpl::SQLite => (
-                format!(
-                    "SELECT {} {} FROM {} {};",
-                    if self.distinct { "DISTINCT" } else { "" },
-                    self.resulting_columns.join(", "),
-                    self.from_clause,
-                    match self.where_clause {
-                        None => {
-                            "".to_string()
-                        }
-                        Some(condition) => {
-                            format!("WHERE {}", condition.build(&mut self.lookup))
-                        }
-                    },
-                ),
-                self.lookup,
+        (
+            format!(
+                "SELECT {} {} FROM {} {};",
+                if self.distinct { "DISTINCT" } else { "" },
+                self.resulting_columns.join(", "),
+                self.from_clause,
+                match self.where_clause {
+                    None => {
+                        "".to_string()
+                    }
+                    Some(condition) => {
+                        format!("WHERE {}", condition.build(&mut self.lookup))
+                    }
+                },
             ),
-            _ => todo!("Not implemented yet!"),
-        }
+            self.lookup,
+        )
     }
 }

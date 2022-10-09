@@ -1,7 +1,8 @@
 //! Insert functions
 
-use crate::model::{iter_columns, Model, Patch};
 use rorm_db::{error::Error, Database};
+
+use crate::model::{iter_columns, Model, Patch};
 
 /// Insert a single patch into the db
 pub async fn insert<'a, P>(db: &Database, patch: &'a P) -> Result<(), Error>

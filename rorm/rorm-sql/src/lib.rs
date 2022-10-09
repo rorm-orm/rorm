@@ -1,6 +1,8 @@
 //! The module should be used to create sql queries for different SQL dialects.
 #![warn(missing_docs)]
 
+extern crate core;
+
 /// Implementation of SQL ALTER TABLE statements
 pub mod alter_table;
 ///This module defines the conditional statements
@@ -25,8 +27,6 @@ pub mod insert;
 pub mod on_conflict;
 /// Implementation of SQL SELECT statements
 pub mod select;
-/// Implementation of SQL Transactions
-pub mod transaction;
 /// Implementation of supported datatypes
 pub mod value;
 
@@ -47,7 +47,6 @@ use crate::drop_table::SQLDropTable;
 use crate::insert::SQLInsert;
 use crate::on_conflict::OnConflict;
 use crate::select::SQLSelect;
-use crate::transaction::SQLTransaction;
 use crate::value::Value;
 
 /**
@@ -68,11 +67,17 @@ impl DBImpl {
     The entry point to create a table.
 
     `name`: [&str]: Name of the table
+    `db_name`: [&str]: Name of the database.
     */
-    pub fn create_table<'post_build>(&self, name: &str) -> SQLCreateTable<'post_build> {
+    pub fn create_table<'until_build, 'post_build>(
+        &self,
+        name: &str,
+        db_name: &'until_build str,
+    ) -> SQLCreateTable<'until_build, 'post_build> {
         SQLCreateTable {
             dialect: *self,
             name: name.to_string(),
+            db_name,
             columns: vec![],
             if_not_exists: false,
             lookup: vec![],
@@ -125,16 +130,6 @@ impl DBImpl {
     }
 
     /**
-    The entry point to start a transaction
-    */
-    pub fn start_transaction(&self) -> SQLTransaction {
-        SQLTransaction {
-            dialect: *self,
-            statements: vec![],
-        }
-    }
-
-    /**
     The entry point to drop a table.
 
     `name`: [&str]: Name of the table to drop.
@@ -182,15 +177,27 @@ impl DBImpl {
         data_type: DbType,
         annotations: &'post_build [Annotation],
     ) -> SQLCreateColumn<'post_build> {
+        // Sort the annotations
+        let mut a = vec![];
+
+        for x in annotations {
+            if x.eq_shallow(&Annotation::PrimaryKey) {
+                a.push(SQLAnnotation { annotation: x });
+            }
+        }
+
+        for x in annotations {
+            if !x.eq_shallow(&Annotation::PrimaryKey) {
+                a.push(SQLAnnotation { annotation: x });
+            }
+        }
+
         SQLCreateColumn {
             dialect: *self,
             name: name.to_string(),
             table_name: table_name.to_string(),
             data_type,
-            annotations: annotations
-                .iter()
-                .map(|x| SQLAnnotation { annotation: x })
-                .collect(),
+            annotations: a,
         }
     }
 

@@ -34,39 +34,36 @@ impl<'until_build, 'post_build> SQLInsert<'until_build, 'post_build> {
     It returns the build query as well as a vector of values to bind to it.
     */
     pub fn build(mut self) -> (String, Vec<Value<'post_build>>) {
-        match self.dialect {
-            DBImpl::SQLite => (
-                format!(
-                    "INSERT {} INTO {} ({}) VALUES {};",
-                    match self.on_conflict {
-                        OnConflict::ABORT => "OR ABORT",
-                        OnConflict::ROLLBACK => "OR ROLLBACK",
-                    },
-                    self.into_clause,
-                    self.columns.join(", "),
-                    self.row_values
-                        .iter()
-                        .map(|x| format!(
-                            "({})",
-                            x.iter()
-                                .map(|y| match y {
-                                    Value::Ident(s) => {
-                                        *s
-                                    }
-                                    _ => {
-                                        self.lookup.push(*y);
-                                        "?"
-                                    }
-                                })
-                                .collect::<Vec<&str>>()
-                                .join(", ")
-                        ))
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                ),
-                self.lookup,
+        (
+            format!(
+                "INSERT {} INTO {} ({}) VALUES {};",
+                match self.on_conflict {
+                    OnConflict::ABORT => "OR ABORT",
+                    OnConflict::ROLLBACK => "OR ROLLBACK",
+                },
+                self.into_clause,
+                self.columns.join(", "),
+                self.row_values
+                    .iter()
+                    .map(|x| format!(
+                        "({})",
+                        x.iter()
+                            .map(|y| match y {
+                                Value::Ident(s) => {
+                                    *s
+                                }
+                                _ => {
+                                    self.lookup.push(*y);
+                                    "?"
+                                }
+                            })
+                            .collect::<Vec<&str>>()
+                            .join(", ")
+                    ))
+                    .collect::<Vec<String>>()
+                    .join(", ")
             ),
-            _ => todo!("Not implemented yet"),
-        }
+            self.lookup,
+        )
     }
 }

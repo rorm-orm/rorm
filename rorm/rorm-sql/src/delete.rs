@@ -29,23 +29,18 @@ impl<'until_build, 'post_query> SQLDelete<'until_build, 'post_query> {
     Build the DELETE operation
     */
     pub fn build(mut self) -> (String, Vec<value::Value<'post_query>>) {
-        return match self.dialect {
-            DBImpl::SQLite => {
-                let mut s = String::from("DELETE FROM ");
-                write!(s, "{} ", self.model).unwrap();
-                if self.where_clause.is_some() {
-                    write!(
-                        s,
-                        "WHERE {} ",
-                        self.where_clause.unwrap().build(&mut self.lookup)
-                    )
-                    .unwrap();
-                }
+        let mut s = String::from("DELETE FROM ");
+        write!(s, "{} ", self.model).unwrap();
+        if self.where_clause.is_some() {
+            write!(
+                s,
+                "WHERE {} ",
+                self.where_clause.unwrap().build(&mut self.lookup)
+            )
+            .unwrap();
+        }
 
-                write!(s, ";").unwrap();
-                (s, self.lookup)
-            }
-            _ => todo!("Not implemented yet!"),
-        };
+        write!(s, ";").unwrap();
+        (s, self.lookup)
     }
 }

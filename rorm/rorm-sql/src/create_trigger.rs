@@ -98,6 +98,7 @@ pub(crate) fn trigger_annotation_to_trigger(
             }
             _ => {}
         },
+        DBImpl::MySQL => {}
         _ => todo!("Not implemented yet!"),
     };
 }
@@ -136,26 +137,21 @@ impl SQLCreateTrigger {
     Generate the resulting SQL string
     */
     pub fn build(self) -> String {
-        return match self.dialect {
-            DBImpl::SQLite => {
-                format!(
-                    "CREATE TRIGGER {} {} {} {} ON {} BEGIN {} END;",
-                    if self.if_not_exists {
-                        "IF NOT EXISTS"
-                    } else {
-                        ""
-                    },
-                    self.name,
-                    match self.point_in_time {
-                        None => "".to_string(),
-                        Some(s) => s.to_string(),
-                    },
-                    self.operation,
-                    self.table_name,
-                    self.statements.join(" "),
-                )
-            }
-            _ => todo!("Not implemented yet!"),
-        };
+        format!(
+            "CREATE TRIGGER {} {} {} {} ON {} BEGIN {} END;",
+            if self.if_not_exists {
+                "IF NOT EXISTS"
+            } else {
+                ""
+            },
+            self.name,
+            match self.point_in_time {
+                None => "".to_string(),
+                Some(s) => s.to_string(),
+            },
+            self.operation,
+            self.table_name,
+            self.statements.join(" "),
+        )
     }
 }

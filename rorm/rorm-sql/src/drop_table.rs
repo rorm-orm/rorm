@@ -22,15 +22,10 @@ impl SQLDropTable {
     This method is used to build the drop table statement.
     */
     pub fn build(self) -> String {
-        return match self.dialect {
-            DBImpl::SQLite => {
-                format!(
-                    "DROP TABLE {} {};",
-                    self.name.as_str(),
-                    if self.if_exists { "IF EXISTS" } else { "" }
-                )
-            }
-            _ => todo!("Not implemented yet!"),
-        };
+        format!(
+            "DROP TABLE {} {};",
+            self.name.as_str(),
+            if self.if_exists { "IF EXISTS" } else { "" }
+        )
     }
 }

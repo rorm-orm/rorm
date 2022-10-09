@@ -265,28 +265,23 @@ impl Database {
         columns: &[&str],
         rows: &[&[value::Value<'_>]],
     ) -> Result<(), Error> {
-        let mut t = self.db_impl.start_transaction();
+        let mut tx = self.pool.begin().await?;
 
-        let mut bind_params = vec![];
         for chunk in rows.chunks(25) {
-            let mut q = self.db_impl.insert(model, columns, chunk);
-            q = q.rollback_transaction();
-            let (insert_query, insert_params) = q.build();
-            t = t.add_statement(insert_query);
-            bind_params.extend(insert_params);
+            let mut insert = self.db_impl.insert(model, columns, chunk);
+            insert = insert.rollback_transaction();
+            let (insert_query, insert_params) = insert.build();
+
+            let mut q = sqlx::query(insert_query.as_str());
+
+            for x in insert_params {
+                q = utils::bind_param(q, x);
+            }
+
+            q.execute(&mut tx).await?;
         }
 
-        let query_string = t.finish();
-
-        let mut tmp = sqlx::query(query_string.as_str());
-        for x in bind_params {
-            tmp = utils::bind_param(tmp, x);
-        }
-
-        match tmp.execute(&self.pool).await {
-            Ok(_) => Ok(()),
-            Err(err) => Err(Error::SqlxError(err)),
-        }
+        tx.commit().await.map_err(|e| Error::SqlxError(e))
     }
 
     /**

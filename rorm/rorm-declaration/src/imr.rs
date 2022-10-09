@@ -108,7 +108,7 @@ pub struct Source {
 
 /// All column types supported by the migration tool
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum DbType {
     VarChar,
@@ -131,7 +131,6 @@ pub enum DbType {
     Timestamp,
     Time,
     Choices,
-    Set,
 }
 
 /// The subset of annotations which need to be communicated with the migration tool
@@ -154,7 +153,7 @@ pub enum Annotation {
     DefaultValue(DefaultValue),
     /// Create an index. The optional [IndexValue] can be used, to build more complex indexes.
     Index(Option<IndexValue>),
-    /// Only for VARCHAR. Specifies the maximum length of the column's content.
+    /// Only for VARCHAR, VARBINARY. Specifies the maximum length of the column's content.
     MaxLength(i32),
     /// NOT NULL constraint
     NotNull,

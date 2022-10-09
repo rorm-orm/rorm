@@ -1,10 +1,11 @@
-use chrono::{Datelike, Timelike};
 use std::marker::PhantomData;
 use std::slice::from_raw_parts;
 use std::str::{from_utf8, Utf8Error};
 
-use crate::Error;
+use chrono::{Datelike, Timelike};
 use futures::stream::BoxStream;
+
+use crate::Error;
 
 /**
 Representation of a [chrono::NaiveDate]

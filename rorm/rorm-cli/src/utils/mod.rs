@@ -1,3 +1,4 @@
+pub mod bind;
 pub mod migrations;
 pub mod re;
 

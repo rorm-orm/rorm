@@ -1,3 +1,6 @@
+use std::fmt::Write;
+
+use crate::error::Error;
 use crate::{value, DBImpl, SQLCreateColumn};
 
 /**
@@ -30,18 +33,26 @@ pub enum SQLAlterTableOperation<'post_build> {
 }
 
 impl<'post_build> SQLAlterTableOperation<'post_build> {
-    fn build(self, trigger: &mut Vec<(String, Vec<value::Value<'post_build>>)>) -> String {
+    fn build(
+        self,
+        s: &mut String,
+        trigger: &mut Vec<(String, Vec<value::Value<'post_build>>)>,
+    ) -> Result<(), Error> {
         match self {
-            SQLAlterTableOperation::RenameTo { name } => format!("RENAME TO {}", name),
+            SQLAlterTableOperation::RenameTo { name } => write!(s, "RENAME TO {}", name).unwrap(),
             SQLAlterTableOperation::RenameColumnTo {
                 column_name,
                 new_column_name,
-            } => format!("RENAME COLUMN {} TO {}", column_name, new_column_name),
+            } => write!(s, "RENAME COLUMN {} TO {}", column_name, new_column_name).unwrap(),
             SQLAlterTableOperation::AddColumn { operation } => {
-                format!("ADD COLUMN {}", operation.build(trigger))
+                write!(s, "ADD COLUMN ").unwrap();
+                operation.build(s, trigger)?;
             }
-            SQLAlterTableOperation::DropColumn { name } => format!("DROP COLUMN {}", name),
-        }
+            SQLAlterTableOperation::DropColumn { name } => {
+                write!(s, "DROP COLUMN {}", name).unwrap();
+            }
+        };
+        Ok(())
     }
 }
 
@@ -62,25 +73,19 @@ impl<'post_build> SQLAlterTable<'post_build> {
     /**
     This method is used to build the alter table statement.
     */
-    pub fn build(mut self) -> (String, Vec<value::Value<'post_build>>) {
-        match self.dialect {
-            DBImpl::SQLite => (
-                format!(
-                    "ALTER TABLE {} {};{}",
-                    self.name.as_str(),
-                    self.operation.build(&mut self.trigger),
-                    self.trigger
-                        .into_iter()
-                        .map(|(trigger, bind_params)| {
-                            self.lookup.extend(bind_params);
-                            trigger
-                        })
-                        .collect::<Vec<String>>()
-                        .join(" ")
-                ),
-                self.lookup,
-            ),
-            _ => todo!("Not implemented yet!"),
-        }
+    pub fn build(mut self) -> Result<(String, Vec<value::Value<'post_build>>), Error> {
+        let mut s = format!("ALTER TABLE {} ", self.name.as_str());
+        self.operation.build(&mut s, &mut self.trigger)?;
+
+        self.trigger
+            .into_iter()
+            .map(|(trigger, bind_params)| {
+                self.lookup.extend(bind_params);
+                trigger
+            })
+            .collect::<Vec<String>>()
+            .join(" ");
+
+        Ok((s, self.lookup))
     }
 }

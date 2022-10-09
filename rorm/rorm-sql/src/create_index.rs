@@ -59,24 +59,21 @@ impl SQLCreateIndex {
             )));
         }
 
-        Ok(match self.dialect {
-            DBImpl::SQLite => format!(
-                "CREATE {} INDEX {} {} ON {} ({}) {};",
-                if self.unique { "UNIQUE" } else { "" },
-                if self.if_not_exists {
-                    "IF NOT EXISTS"
-                } else {
-                    ""
-                },
-                self.name,
-                self.table_name,
-                self.columns.join(","),
-                match self.condition {
-                    None => "".to_string(),
-                    Some(s) => s,
-                }
-            ),
-            _ => todo!("Not implemented yet!"),
-        })
+        Ok(format!(
+            "CREATE {} INDEX {} {} ON {} ({}) {};",
+            if self.unique { "UNIQUE" } else { "" },
+            if self.if_not_exists {
+                "IF NOT EXISTS"
+            } else {
+                ""
+            },
+            self.name,
+            self.table_name,
+            self.columns.join(","),
+            match self.condition {
+                None => "".to_string(),
+                Some(s) => s,
+            }
+        ))
     }
 }

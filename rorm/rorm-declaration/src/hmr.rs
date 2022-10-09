@@ -68,8 +68,6 @@ pub mod db_type {
         Time,
         /// Type level version of [`imr::DbType::Choices`]
         Choices,
-        /// Type level version of [`imr::DbType::Set`]
-        Set,
     );
 }
 

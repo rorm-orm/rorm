@@ -1,6 +1,10 @@
 use rorm_declaration::migration::{Migration, Operation};
 use rorm_sql::alter_table::SQLAlterTableOperation;
-use rorm_sql::{value, DBImpl};
+use rorm_sql::DBImpl;
+use sqlx::{Any, Transaction};
+
+use crate::migrate::config::DatabaseConfig;
+use crate::utils::bind;
 
 /**
 Helper method to convert a migration to a transaction string
@@ -8,31 +12,38 @@ Helper method to convert a migration to a transaction string
 `db_impl`: [DBImpl]: The database implementation to use.
 `migration`: [&Migration]: Reference to the migration that should be converted.
 */
-pub fn migration_to_sql(
+pub async fn migration_to_sql<'a>(
+    tx: &'a mut Transaction<'_, Any>,
+    db_conf: &'a DatabaseConfig,
     db_impl: DBImpl,
-    migration: &Migration,
-) -> anyhow::Result<(String, Vec<value::Value>)> {
-    let mut transaction = db_impl.start_transaction();
-    let mut bind_params = vec![];
-
+    migration: &'a Migration,
+    do_log: bool,
+) -> anyhow::Result<()> {
     for operation in &migration.operations {
         match &operation {
             Operation::CreateModel { name, fields } => {
-                let mut create_table = db_impl.create_table(name.as_str());
+                let mut create_table = db_impl.create_table(name.as_str(), db_conf.name.as_str());
 
                 for field in fields {
                     create_table = create_table.add_column(db_impl.create_column(
                         name.as_str(),
                         field.name.as_str(),
-                        field.db_type.clone(),
+                        field.db_type,
                         &field.annotations,
                     ));
                 }
 
-                let (query_string, query_bind_params) = create_table.build();
+                let (query_string, query_bind_params) = create_table.build()?;
 
-                transaction = transaction.add_statement(query_string);
-                bind_params.extend(query_bind_params);
+                if do_log {
+                    println!("SQL: {}", query_string.as_str());
+                }
+
+                let mut q = sqlx::query(query_string.as_str());
+                for x in query_bind_params {
+                    q = bind::bind_param(q, x);
+                }
+                q.execute(&mut *tx).await?;
             }
             Operation::RenameModel { old, new } => {
                 let (query_string, query_bind_params) = db_impl
@@ -42,13 +53,26 @@ pub fn migration_to_sql(
                             name: new.to_string(),
                         },
                     )
-                    .build();
+                    .build()?;
 
-                transaction = transaction.add_statement(query_string);
-                bind_params.extend(query_bind_params);
+                if do_log {
+                    println!("SQL: {}", query_string.as_str());
+                }
+
+                let mut q = sqlx::query(query_string.as_str());
+                for x in query_bind_params {
+                    q = bind::bind_param(q, x);
+                }
+                q.execute(&mut *tx).await?;
             }
             Operation::DeleteModel { name } => {
-                transaction = transaction.add_statement(db_impl.drop_table(name.as_str()).build())
+                let query_string = db_impl.drop_table(name.as_str()).build();
+
+                if do_log {
+                    println!("SQL: {}", query_string.as_str());
+                }
+
+                sqlx::query(query_string.as_str()).execute(&mut *tx).await?;
             }
             Operation::CreateField { model, field } => {
                 let (query_string, query_bind_params) = db_impl
@@ -58,15 +82,22 @@ pub fn migration_to_sql(
                             operation: db_impl.create_column(
                                 model.as_str(),
                                 field.name.as_str(),
-                                field.db_type.clone(),
+                                field.db_type,
                                 &field.annotations,
                             ),
                         },
                     )
-                    .build();
+                    .build()?;
 
-                transaction = transaction.add_statement(query_string);
-                bind_params.extend(query_bind_params);
+                if do_log {
+                    println!("SQL: {}", query_string.as_str());
+                }
+
+                let mut q = sqlx::query(query_string.as_str());
+                for x in query_bind_params {
+                    q = bind::bind_param(q, x);
+                }
+                q.execute(&mut *tx).await?;
             }
             Operation::RenameField {
                 table_name,
@@ -81,10 +112,17 @@ pub fn migration_to_sql(
                             new_column_name: new.to_string(),
                         },
                     )
-                    .build();
+                    .build()?;
 
-                transaction = transaction.add_statement(query_string);
-                bind_params.extend(query_bind_params);
+                if do_log {
+                    println!("SQL: {}", query_string.as_str());
+                }
+
+                let mut q = sqlx::query(query_string.as_str());
+                for x in query_bind_params {
+                    q = bind::bind_param(q, x);
+                }
+                q.execute(&mut *tx).await?;
             }
             Operation::DeleteField { model, name } => {
                 let (query_string, query_bind_params) = db_impl
@@ -92,12 +130,20 @@ pub fn migration_to_sql(
                         model.as_str(),
                         SQLAlterTableOperation::DropColumn { name: name.clone() },
                     )
-                    .build();
-                transaction = transaction.add_statement(query_string);
-                bind_params.extend(query_bind_params);
+                    .build()?;
+
+                if do_log {
+                    println!("SQL: {}", query_string.as_str());
+                }
+
+                let mut q = sqlx::query(query_string.as_str());
+                for x in query_bind_params {
+                    q = bind::bind_param(q, x);
+                }
+                q.execute(&mut *tx).await?;
             }
         }
     }
 
-    Ok((transaction.finish(), bind_params))
+    Ok(())
 }

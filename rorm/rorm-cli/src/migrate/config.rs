@@ -3,6 +3,7 @@ use std::io::Write;
 use std::path::Path;
 
 use anyhow::Context;
+use rorm_sql::DBImpl;
 use serde::{Deserialize, Serialize};
 
 /**
@@ -32,12 +33,22 @@ pub struct DatabaseConfig {
 /**
 
 */
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "PascalCase")]
 pub enum DatabaseDriver {
     SQLite,
     Postgres,
     MySQL,
+}
+
+impl From<DatabaseDriver> for DBImpl {
+    fn from(v: DatabaseDriver) -> Self {
+        match v {
+            DatabaseDriver::SQLite => DBImpl::SQLite,
+            DatabaseDriver::Postgres => DBImpl::Postgres,
+            DatabaseDriver::MySQL => DBImpl::MySQL,
+        }
+    }
 }
 
 /**

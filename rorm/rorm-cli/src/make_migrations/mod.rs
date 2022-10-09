@@ -312,7 +312,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             .with_context(|| "Error occurred while converting migration to file")?;
     } else {
         // If there are no models yet, no migrations must be created
-        if internal_models.models.len() == 0 {
+        if internal_models.models.is_empty() {
             println!("No models found.");
         // New migration must be generated as no migration exists
         } else {
@@ -338,14 +338,14 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                                 .iter()
                                 .map(|y| Field {
                                     name: y.name.clone(),
-                                    db_type: y.db_type.clone(),
+                                    db_type: y.db_type,
                                     annotations: y.annotations.clone(),
                                     source_defined_at: None,
                                 })
                                 .collect(),
                         };
                         println!("Created model {}", x.name);
-                        return o;
+                        o
                     })
                     .collect(),
             };
