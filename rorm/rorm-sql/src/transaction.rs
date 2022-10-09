@@ -14,7 +14,7 @@ impl SQLTransaction {
     */
     pub fn add_statement(mut self, statement: String) -> Self {
         self.statements.push(statement);
-        return self;
+        self
     }
 
     /**

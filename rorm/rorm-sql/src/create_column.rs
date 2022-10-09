@@ -1,29 +1,36 @@
 use rorm_declaration::imr::DefaultValue;
 
 use crate::create_trigger::trigger_annotation_to_trigger;
-use crate::{Annotation, DBImpl, DbType};
+use crate::{value, Annotation, DBImpl, DbType};
+
+#[cfg(feature = "sqlite")]
+use crate::sqlite;
 
 /**
 Representation of an annotation
  */
-pub struct SQLAnnotation {
-    pub(crate) annotation: Annotation,
+pub struct SQLAnnotation<'post_build> {
+    pub(crate) annotation: &'post_build Annotation,
 }
 
-impl SQLAnnotation {
+impl<'post_build> SQLAnnotation<'post_build> {
     /**
     Converts the struct into the String for the given dialect.
 
     `dialect`: [crate::DBImpl]: dialect to use
      */
     pub fn build(&self, dialect: DBImpl) -> String {
-        return match dialect {
+        match dialect {
             DBImpl::SQLite => match &self.annotation {
                 Annotation::AutoIncrement => "AUTOINCREMENT".to_string(),
                 Annotation::AutoCreateTime => "DEFAULT CURRENT_TIMESTAMP".to_string(),
                 Annotation::DefaultValue(d) => match d {
-                    DefaultValue::String(s) => format!("DEFAULT {}", s),
-                    DefaultValue::Integer(i) => format!("DEFAULT {}", i),
+                    DefaultValue::String(s) => {
+                        format!("DEFAULT {}", sqlite::fmt(s))
+                    }
+                    DefaultValue::Integer(i) => {
+                        format!("DEFAULT {}", i)
+                    }
                     DefaultValue::Float(f) => format!("DEFAULT {}", f),
                     DefaultValue::Boolean(b) => {
                         if *b {
@@ -32,9 +39,6 @@ impl SQLAnnotation {
                             "DEFAULT 0".to_string()
                         }
                     }
-                    _ => {
-                        todo!("not intended");
-                    }
                 },
                 Annotation::NotNull => "NOT NULL".to_string(),
                 Annotation::PrimaryKey => "PRIMARY KEY".to_string(),
@@ -42,26 +46,26 @@ impl SQLAnnotation {
                 _ => "".to_string(),
             },
             _ => todo!("Not implemented yet!"),
-        };
+        }
     }
 }
 
 /**
 Representation of the creation of a column
  */
-pub struct SQLCreateColumn {
+pub struct SQLCreateColumn<'post_build> {
     pub(crate) dialect: DBImpl,
     pub(crate) name: String,
     pub(crate) table_name: String,
     pub(crate) data_type: DbType,
-    pub(crate) annotations: Vec<SQLAnnotation>,
+    pub(crate) annotations: Vec<SQLAnnotation<'post_build>>,
 }
 
-impl SQLCreateColumn {
+impl<'post_build> SQLCreateColumn<'post_build> {
     /**
     This method is used to build the statement to create a column
     */
-    pub fn build(self) -> (String, Vec<String>) {
+    pub fn build(&self, trigger: &mut Vec<(String, Vec<value::Value<'post_build>>)>) -> String {
         match self.dialect {
             DBImpl::SQLite => {
                 let db_type = match self.data_type {
@@ -84,32 +88,24 @@ impl SQLCreateColumn {
                     DbType::Float | DbType::Double => "REAL",
                 };
 
-                let mut annotations = vec![];
-                let mut trigger = vec![];
-                for annotation in &self.annotations {
-                    annotations.push(annotation.build(DBImpl::SQLite));
-
-                    // If annotation requires a trigger, create those
-                    trigger.extend(trigger_annotation_to_trigger(
-                        DBImpl::SQLite,
-                        &annotation.annotation,
-                        self.table_name.as_str(),
-                        self.name.as_str(),
-                    ))
-                }
-
-                (
-                    format!(
-                        "{} {}{}",
-                        self.name,
-                        db_type,
-                        if annotations.len() > 0 {
-                            format!(" {}", annotations.join(" "))
-                        } else {
-                            annotations.join(" ")
-                        }
-                    ),
-                    trigger,
+                format!(
+                    "{} {} {}",
+                    self.name,
+                    db_type,
+                    self.annotations
+                        .iter()
+                        .map(|x| {
+                            trigger_annotation_to_trigger(
+                                DBImpl::SQLite,
+                                x.annotation,
+                                self.table_name.as_str(),
+                                self.name.as_str(),
+                                trigger,
+                            );
+                            x.build(DBImpl::SQLite)
+                        })
+                        .collect::<Vec<String>>()
+                        .join(" ")
                 )
             }
             _ => todo!(""),

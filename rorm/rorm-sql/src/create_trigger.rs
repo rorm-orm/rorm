@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-use crate::{Annotation, DBImpl};
+use crate::{value, Annotation, DBImpl};
 
 /**
 Representation of a point in time definition of a create trigger statement
@@ -57,8 +57,8 @@ pub(crate) fn trigger_annotation_to_trigger(
     annotation: &Annotation,
     table_name: &str,
     column_name: &str,
-) -> Vec<String> {
-    let mut trigger: Vec<String> = vec![];
+    trigger: &mut Vec<(String, Vec<value::Value>)>,
+) {
     match dialect {
         DBImpl::SQLite => match annotation {
             Annotation::AutoUpdateTime => {
@@ -67,8 +67,8 @@ pub(crate) fn trigger_annotation_to_trigger(
                     table_name, column_name
                 );
 
-                trigger.push(
-                    DBImpl::SQLite
+                trigger.push((
+                    dialect
                         .create_trigger(
                             format!("{}_{}_auto_update_time_insert", table_name, column_name)
                                 .as_str(),
@@ -79,9 +79,10 @@ pub(crate) fn trigger_annotation_to_trigger(
                         .if_not_exists()
                         .add_statement(update_statement.clone())
                         .build(),
-                );
-                trigger.push(
-                    DBImpl::SQLite
+                    vec![],
+                ));
+                trigger.push((
+                    dialect
                         .create_trigger(
                             format!("{}_{}_auto_update_time_update", table_name, column_name)
                                 .as_str(),
@@ -92,13 +93,13 @@ pub(crate) fn trigger_annotation_to_trigger(
                         .if_not_exists()
                         .add_statement(update_statement.clone())
                         .build(),
-                )
+                    vec![],
+                ))
             }
             _ => {}
         },
         _ => todo!("Not implemented yet!"),
     };
-    return trigger;
 }
 
 /**

@@ -6,7 +6,7 @@ use std::path::Path;
 use anyhow::{anyhow, Context};
 use rorm_declaration::imr::{Annotation, DbType};
 use rorm_declaration::migration::Migration;
-use rorm_sql::DBImpl;
+use rorm_sql::{value, DBImpl};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteRow};
 use sqlx::{query, Row, SqlitePool};
 
@@ -43,10 +43,33 @@ pub async fn apply_migration_sqlite(
     last_migration_table_name: &str,
     do_log: bool,
 ) -> anyhow::Result<()> {
-    let q = migration_to_sql(DBImpl::SQLite, migration)?;
+    let (query_string, bind_params) = migration_to_sql(DBImpl::SQLite, migration)?;
+    if do_log {
+        println!("{}", query_string.as_str());
+    }
+    let mut q = query(query_string.as_str());
+    for x in bind_params {
+        q = match x {
+            value::Value::String(x) => q.bind(x),
+            value::Value::I64(x) => q.bind(x),
+            value::Value::I32(x) => q.bind(x),
+            value::Value::I16(x) => q.bind(x),
+            value::Value::Bool(x) => q.bind(x),
+            value::Value::F32(x) => q.bind(x),
+            value::Value::F64(x) => q.bind(x),
+            value::Value::Binary(x) => q.bind(x),
+            value::Value::NaiveDate(x) => q.bind(x),
+            value::Value::NaiveTime(x) => q.bind(x),
+            value::Value::NaiveDateTime(x) => q.bind(x),
+            value::Value::Null => {
+                static NULL: Option<bool> = None;
+                q.bind(NULL)
+            }
+            value::Value::Ident(_) => q,
+        };
+    }
 
-    query(log_sql!(q, do_log).as_str())
-        .execute(pool)
+    q.execute(pool)
         .await
         .with_context(|| format!("Error while applying migration {}", migration.id))?;
     query(
@@ -103,41 +126,56 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
             .await
             .with_context(|| "Couldn't initialize pool connection")?;
 
-            query(
-                log_sql!(
-                    DBImpl::SQLite
-                        .create_table(db_conf.last_migration_table_name.as_str())
-                        .add_column(DBImpl::SQLite.create_column(
-                            db_conf.last_migration_table_name.as_str(),
-                            "id",
-                            DbType::Int64,
-                            vec![
-                                Annotation::NotNull,
-                                Annotation::PrimaryKey,
-                                Annotation::AutoIncrement,
-                            ],
-                        ))
-                        .add_column(DBImpl::SQLite.create_column(
-                            db_conf.last_migration_table_name.as_str(),
-                            "updated_at",
-                            DbType::VarChar,
-                            vec![Annotation::AutoUpdateTime],
-                        ))
-                        .add_column(DBImpl::SQLite.create_column(
-                            db_conf.last_migration_table_name.as_str(),
-                            "migration_name",
-                            DbType::VarChar,
-                            vec![Annotation::NotNull],
-                        ))
-                        .if_not_exists()
-                        .build(),
-                    options.log_queries
-                )
-                .as_str(),
-            )
-            .execute(&pool)
-            .await
-            .with_context(|| "Couldn't create internal last migration table")?;
+            let (query_str, bind_params) = DBImpl::SQLite
+                .create_table(db_conf.last_migration_table_name.as_str())
+                .add_column(DBImpl::SQLite.create_column(
+                    db_conf.last_migration_table_name.as_str(),
+                    "id",
+                    DbType::Int64,
+                    &[Annotation::PrimaryKey, Annotation::AutoIncrement],
+                ))
+                .add_column(DBImpl::SQLite.create_column(
+                    db_conf.last_migration_table_name.as_str(),
+                    "updated_at",
+                    DbType::VarChar,
+                    &[Annotation::AutoUpdateTime],
+                ))
+                .add_column(DBImpl::SQLite.create_column(
+                    db_conf.last_migration_table_name.as_str(),
+                    "migration_name",
+                    DbType::VarChar,
+                    &[Annotation::NotNull],
+                ))
+                .if_not_exists()
+                .build();
+            if options.log_queries {
+                println!("{}", query_str.as_str());
+            }
+            let mut q = query(query_str.as_str());
+            for x in bind_params {
+                q = match x {
+                    value::Value::String(x) => q.bind(x),
+                    value::Value::I64(x) => q.bind(x),
+                    value::Value::I32(x) => q.bind(x),
+                    value::Value::I16(x) => q.bind(x),
+                    value::Value::Bool(x) => q.bind(x),
+                    value::Value::F32(x) => q.bind(x),
+                    value::Value::F64(x) => q.bind(x),
+                    value::Value::Binary(x) => q.bind(x),
+                    value::Value::NaiveDate(x) => q.bind(x),
+                    value::Value::NaiveTime(x) => q.bind(x),
+                    value::Value::NaiveDateTime(x) => q.bind(x),
+                    value::Value::Null => {
+                        static NULL: Option<bool> = None;
+                        q.bind(NULL)
+                    }
+                    value::Value::Ident(_) => q,
+                };
+            }
+
+            q.execute(&pool)
+                .await
+                .with_context(|| "Couldn't create internal last migration table")?;
 
             let last_migration: Option<String> = query(
                 log_sql!(

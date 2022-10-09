@@ -51,4 +51,6 @@ default = [
     "tokio/macros",
     "serde/derive",
     "clap/derive",
+    "sqlx/chrono",
+    "rorm-sql/sqlite"
 ]

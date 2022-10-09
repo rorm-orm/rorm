@@ -30,6 +30,9 @@ pub mod transaction;
 /// Implementation of supported datatypes
 pub mod value;
 
+#[cfg(feature = "sqlite")]
+mod sqlite;
+
 use rorm_declaration::imr::{Annotation, DbType};
 
 use crate::alter_table::{SQLAlterTable, SQLAlterTableOperation};
@@ -65,13 +68,15 @@ impl DBImpl {
 
     `name`: [&str]: Name of the table
     */
-    pub fn create_table(&self, name: &str) -> SQLCreateTable {
+    pub fn create_table<'post_build>(&self, name: &str) -> SQLCreateTable<'post_build> {
         match self {
             DBImpl::SQLite { .. } => SQLCreateTable {
                 dialect: DBImpl::SQLite,
                 name: name.to_string(),
                 columns: vec![],
                 if_not_exists: false,
+                lookup: vec![],
+                trigger: vec![],
             },
             _ => todo!("Not implemented yet!"),
         }
@@ -162,12 +167,18 @@ impl DBImpl {
     `name`: [&str]: Name of the table to execute the operation on.
     `operation`: [crate::alter_table::SQLAlterTableOperation]: The operation to execute.
     */
-    pub fn alter_table(&self, name: &str, operation: SQLAlterTableOperation) -> SQLAlterTable {
+    pub fn alter_table<'post_build>(
+        &self,
+        name: &str,
+        operation: SQLAlterTableOperation<'post_build>,
+    ) -> SQLAlterTable<'post_build> {
         match self {
             DBImpl::SQLite => SQLAlterTable {
                 dialect: DBImpl::SQLite,
                 name: name.to_string(),
                 operation,
+                lookup: vec![],
+                trigger: vec![],
             },
             _ => todo!("Not implemented yet!"),
         }
@@ -181,13 +192,13 @@ impl DBImpl {
     - `data_type`: [DbType]: Data type of the column
     - `annotations`: [Vec<Annotation>]: List of annotations.
     */
-    pub fn create_column(
+    pub fn create_column<'post_build>(
         &self,
         table_name: &str,
         name: &str,
         data_type: DbType,
-        annotations: Vec<Annotation>,
-    ) -> SQLCreateColumn {
+        annotations: &'post_build [Annotation],
+    ) -> SQLCreateColumn<'post_build> {
         match self {
             DBImpl::SQLite => SQLCreateColumn {
                 dialect: DBImpl::SQLite,
@@ -195,7 +206,7 @@ impl DBImpl {
                 table_name: table_name.to_string(),
                 data_type,
                 annotations: annotations
-                    .into_iter()
+                    .iter()
                     .map(|x| SQLAnnotation { annotation: x })
                     .collect(),
             },

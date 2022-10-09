@@ -7,11 +7,11 @@ use std::io::Write;
 #[macro_export]
 macro_rules! log_sql {
     ($query:expr, $do_log:expr) => {{
-        let q: String = $query;
+        let log_sql_q: String = $query;
         if $do_log {
-            println!("SQL: {}", q);
+            println!("SQL: {}", log_sql_q);
         }
-        q
+        log_sql_q
     }};
 }
 

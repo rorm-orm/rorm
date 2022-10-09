@@ -1,22 +1,24 @@
-use crate::{DBImpl, SQLCreateColumn};
+use crate::{value, DBImpl, SQLCreateColumn};
 
 /**
 The representation of an create table operation.
 */
-pub struct SQLCreateTable {
+pub struct SQLCreateTable<'post_build> {
     pub(crate) dialect: DBImpl,
     pub(crate) name: String,
-    pub(crate) columns: Vec<SQLCreateColumn>,
+    pub(crate) columns: Vec<SQLCreateColumn<'post_build>>,
     pub(crate) if_not_exists: bool,
+    pub(crate) lookup: Vec<value::Value<'post_build>>,
+    pub(crate) trigger: Vec<(String, Vec<value::Value<'post_build>>)>,
 }
 
-impl SQLCreateTable {
+impl<'post_build> SQLCreateTable<'post_build> {
     /**
     Add a column to the table.
     */
-    pub fn add_column(mut self, column: SQLCreateColumn) -> Self {
+    pub fn add_column(mut self, column: SQLCreateColumn<'post_build>) -> Self {
         self.columns.push(column);
-        return self;
+        self
     }
 
     /**
@@ -24,24 +26,15 @@ impl SQLCreateTable {
     */
     pub fn if_not_exists(mut self) -> Self {
         self.if_not_exists = true;
-        return self;
+        self
     }
 
     /**
     This method is used to convert the current state for the given dialect in a [String].
     */
-    pub fn build(self) -> String {
-        return match self.dialect {
-            DBImpl::SQLite => {
-                let mut columns = vec![];
-                let mut trigger = vec![];
-                for column in self.columns {
-                    let (s, c_trigger) = column.build();
-                    columns.push(s);
-
-                    trigger.extend(c_trigger);
-                }
-
+    pub fn build(mut self) -> (String, Vec<value::Value<'post_build>>) {
+        match self.dialect {
+            DBImpl::SQLite => (
                 format!(
                     r#"CREATE TABLE{} {} ({}) STRICT;{}"#,
                     if self.if_not_exists {
@@ -50,11 +43,23 @@ impl SQLCreateTable {
                         ""
                     },
                     self.name,
-                    columns.join(","),
-                    trigger.join(" "),
-                )
-            }
+                    self.columns
+                        .iter()
+                        .map(|x| x.build(&mut self.trigger))
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    self.trigger
+                        .into_iter()
+                        .map(|(trigger, bind_params)| {
+                            self.lookup.extend(bind_params);
+                            trigger
+                        })
+                        .collect::<Vec<String>>()
+                        .join(" "),
+                ),
+                self.lookup,
+            ),
             _ => todo!("Not implemented yet!"),
-        };
+        }
     }
 }

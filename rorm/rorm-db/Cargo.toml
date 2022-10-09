@@ -45,7 +45,10 @@ all-driver = [
 
 mysql = ["sqlx?/mysql"]
 postgres = ["sqlx?/postgres"]
-sqlite = ["sqlx?/sqlite"]
+sqlite = [
+    "sqlx?/sqlite",
+    "rorm-sql/sqlite"
+]
 
 sqlx-all-extensions = [
     "sqlx?/uuid",
