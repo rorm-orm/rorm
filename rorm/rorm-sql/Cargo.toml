@@ -26,5 +26,4 @@ rorm-declaration = { version = "0.1.0", path = "../rorm-declaration" }
 [features]
 sqlite = [
     "dep:libsqlite3-sys",
-    "libsqlite3-sys?/bundled-sqlcipher"
 ]
