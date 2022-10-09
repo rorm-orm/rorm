@@ -1,13 +1,15 @@
 //! Delete builder
 
-use crate::conditional::Condition;
-use crate::crud::builder::ConditionMarker;
-use crate::model::Model;
-use rorm_db::error::Error;
-use rorm_db::Database;
 use std::future::{Future, IntoFuture};
 use std::marker::PhantomData;
 use std::pin::Pin;
+
+use rorm_db::error::Error;
+use rorm_db::Database;
+
+use crate::conditional::Condition;
+use crate::crud::builder::ConditionMarker;
+use crate::model::Model;
 
 /// Builder for delete queries
 pub struct DeleteBuilder<'a, M: Model, C: ConditionMarker<'a>> {

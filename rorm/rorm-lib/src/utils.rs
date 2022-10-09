@@ -165,7 +165,7 @@ pub struct FFISlice<'a, T> {
 impl<'a, T: 'a> FFISlice<'a, T> {
     pub(crate) fn empty() -> FFISlice<'a, T> {
         let f: &[T] = &[];
-        return FFISlice::from(f);
+        FFISlice::from(f)
     }
 }
 

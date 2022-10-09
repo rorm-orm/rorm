@@ -109,7 +109,7 @@ Helper function to converts a list of migrations to an internal model.
 `migrations`: [Vec<Migration>]: List of migrations
  */
 pub fn convert_migrations_to_internal_models(
-    migrations: &Vec<Migration>,
+    migrations: &[Migration],
 ) -> anyhow::Result<InternalModelFormat> {
     let mut m = vec![];
 
@@ -130,12 +130,12 @@ pub fn convert_migrations_to_internal_models(
                         if &a.name == old {
                             a.name = new.to_string();
                         }
-                        return a;
+                        a
                     })
                     .collect();
             }
             Operation::DeleteModel { name } => {
-                m = m.iter().filter(|z| z.name != *name).cloned().collect();
+                m.retain(|z| z.name != *name);
             }
             Operation::CreateField { model, field } => {
                 for i in 0..m.len() {
@@ -162,23 +162,18 @@ pub fn convert_migrations_to_internal_models(
                                     if &c.name == old {
                                         c.name = new.to_string();
                                     }
-                                    return c;
+                                    c
                                 })
                                 .collect();
                         }
-                        return a;
+                        a
                     })
                     .collect();
             }
             Operation::DeleteField { model, name } => {
                 for i in 0..m.len() {
                     if m[i].name == *model {
-                        m[i].fields = m[i]
-                            .fields
-                            .iter()
-                            .filter(|z| z.name != *name)
-                            .cloned()
-                            .collect();
+                        m[i].fields.retain(|z| z.name != *name);
                     }
                 }
             }

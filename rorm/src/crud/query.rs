@@ -1,10 +1,11 @@
 //! Query builder and macro
-use futures::stream::BoxStream;
 use std::marker::PhantomData;
+
+use futures::stream::BoxStream;
+use rorm_db::{conditional::Condition, error::Error, row::Row, Database};
 
 use crate::crud::builder::ConditionMarker;
 use crate::model::{Model, Patch};
-use rorm_db::{conditional::Condition, error::Error, row::Row, Database};
 
 /// Builder for creating queries
 ///

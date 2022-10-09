@@ -78,23 +78,23 @@ Runs the make-migrations tool
 pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()> {
     check_options(&options).with_context(|| "Error while checking options")?;
 
-    let internal_models = get_internal_models(&options.models_file.as_str())
+    let internal_models = get_internal_models(&options.models_file)
         .with_context(|| "Couldn't retrieve internal model files.")?;
 
     linter::check_internal_models(&internal_models).with_context(|| "Model checks failed.")?;
 
-    let existing_migrations = get_existing_migrations(&options.migration_dir.as_str())
+    let existing_migrations = get_existing_migrations(&options.migration_dir)
         .with_context(|| "An error occurred while deserializing migrations")?;
 
     let mut hasher = DefaultHasher::new();
     internal_models.hash(&mut hasher);
     let h = hasher.finish();
 
-    if existing_migrations.len() != 0 {
+    if !existing_migrations.is_empty() {
         let last_migration = &existing_migrations[existing_migrations.len() - 1];
 
         // If hash matches with the one of the current models, exiting
-        if (&last_migration).hash == (&h).to_string() {
+        if last_migration.hash == h.to_string() {
             println!("No changes - nothing to do.");
             return Ok(());
         }

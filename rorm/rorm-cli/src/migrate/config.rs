@@ -63,7 +63,7 @@ pub fn create_db_config(path: &Path) -> anyhow::Result<()> {
             port: 3306,
             user: "user".to_string(),
             password: "change_me".to_string(),
-            last_migration_table_name: "_drorm__last_migration".to_string(),
+            last_migration_table_name: "_rorm__last_migration".to_string(),
         },
     };
 

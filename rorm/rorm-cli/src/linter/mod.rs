@@ -164,7 +164,7 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
         }
 
         // Check model name
-        if model.name == "" {
+        if model.name.is_empty() {
             return Err(anyhow!("Model name must not be empty"));
         } else if RE.forbidden_character.is_match(model.name.as_str()) {
             return Err(anyhow!(
@@ -213,7 +213,7 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
             }
 
             // Check field name
-            if field.name == "" {
+            if field.name.is_empty() {
                 return Err(anyhow!(
                     "Field name in model {} is empty",
                     field.name.as_str()

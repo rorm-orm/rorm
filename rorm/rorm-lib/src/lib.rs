@@ -238,9 +238,8 @@ pub extern "C" fn rorm_db_query_one(
         }
     }
 
-    let cond;
-    if condition.is_none() {
-        cond = None;
+    let cond = if condition.is_none() {
+        None
     } else {
         let cond_conv = condition.unwrap().try_into();
         if cond_conv.is_err() {
@@ -255,7 +254,7 @@ pub extern "C" fn rorm_db_query_one(
             }
             return;
         }
-        cond = Some(cond_conv.unwrap());
+        Some(cond_conv.unwrap())
     };
 
     let fut = async move {
@@ -339,9 +338,8 @@ pub extern "C" fn rorm_db_query_all(
         }
     }
 
-    let cond;
-    if condition.is_none() {
-        cond = None;
+    let cond = if condition.is_none() {
+        None
     } else {
         let cond_conv = condition.unwrap().try_into();
         if cond_conv.is_err() {
@@ -356,21 +354,18 @@ pub extern "C" fn rorm_db_query_all(
             }
             return;
         }
-        cond = Some(cond_conv.unwrap());
+        Some(cond_conv.unwrap())
     };
 
     let fut = async move {
-        let query_res;
-        match cond {
+        let query_res = match cond {
             None => {
-                query_res = db
-                    .query_all(model_conv.unwrap(), column_vec.as_slice(), None)
-                    .await;
+                db.query_all(model_conv.unwrap(), column_vec.as_slice(), None)
+                    .await
             }
             Some(cond) => {
-                query_res = db
-                    .query_all(model_conv.unwrap(), column_vec.as_slice(), Some(&cond))
-                    .await;
+                db.query_all(model_conv.unwrap(), column_vec.as_slice(), Some(&cond))
+                    .await
             }
         };
         match query_res {
@@ -450,11 +445,8 @@ pub extern "C" fn rorm_db_query_stream(
         column_vec.push(x_conv.unwrap());
     }
 
-    let query_stream;
-    match condition {
-        None => {
-            query_stream = db.query_stream(model_conv.unwrap(), column_vec.as_slice(), None);
-        }
+    let query_stream = match condition {
+        None => db.query_stream(model_conv.unwrap(), column_vec.as_slice(), None),
         Some(c) => {
             let cond_conv: Result<rorm_db::conditional::Condition, Error> = c.try_into();
             if cond_conv.is_err() {
@@ -469,11 +461,11 @@ pub extern "C" fn rorm_db_query_stream(
                 }
                 return;
             }
-            query_stream = db.query_stream(
+            db.query_stream(
                 model_conv.unwrap(),
                 column_vec.as_slice(),
                 Some(&cond_conv.unwrap()),
-            );
+            )
         }
     };
     unsafe { cb(context, Some(Box::new(query_stream)), Error::NoError) }
@@ -580,9 +572,8 @@ pub extern "C" fn rorm_db_delete(
         return;
     }
 
-    let cond;
-    if condition.is_none() {
-        cond = None;
+    let cond = if condition.is_none() {
+        None
     } else {
         let cond_conv = condition.unwrap().try_into();
         if cond_conv.is_err() {
@@ -597,8 +588,8 @@ pub extern "C" fn rorm_db_delete(
             }
             return;
         }
-        cond = Some(cond_conv.unwrap());
-    }
+        Some(cond_conv.unwrap())
+    };
 
     let fut = async move {
         match cond {
@@ -1203,10 +1194,10 @@ pub extern "C" fn rorm_row_get_null_binary<'a>(
         return FFIOption::None;
     }
 
-    return match value_res.unwrap() {
+    match value_res.unwrap() {
         None => FFIOption::None,
         Some(v) => FFIOption::Some(v.into()),
-    };
+    }
 }
 
 /**
@@ -1288,16 +1279,16 @@ pub extern "C" fn rorm_row_get_null_str<'a, 'b>(
         return FFIOption::None;
     }
 
-    return match value_res.unwrap() {
+    match value_res.unwrap() {
         None => FFIOption::None,
         Some(v) => match v.try_into() {
             Err(_) => {
                 *error_ptr = Error::InvalidStringError;
-                return FFIOption::None;
+                FFIOption::None
             }
             Ok(v) => FFIOption::Some(v),
         },
-    };
+    }
 }
 
 /**
