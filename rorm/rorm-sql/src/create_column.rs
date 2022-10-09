@@ -21,6 +21,7 @@ impl<'post_build> SQLAnnotation<'post_build> {
      */
     pub fn build(&self, dialect: DBImpl) -> String {
         match dialect {
+            #[cfg(feature = "sqlite")]
             DBImpl::SQLite => match &self.annotation {
                 Annotation::AutoIncrement => "AUTOINCREMENT".to_string(),
                 Annotation::AutoCreateTime => "DEFAULT CURRENT_TIMESTAMP".to_string(),
@@ -67,6 +68,7 @@ impl<'post_build> SQLCreateColumn<'post_build> {
     */
     pub fn build(&self, trigger: &mut Vec<(String, Vec<value::Value<'post_build>>)>) -> String {
         match self.dialect {
+            #[cfg(feature = "sqlite")]
             DBImpl::SQLite => {
                 let db_type = match self.data_type {
                     DbType::VarBinary => "BLOB",

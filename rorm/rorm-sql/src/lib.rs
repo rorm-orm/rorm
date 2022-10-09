@@ -200,6 +200,7 @@ impl DBImpl {
         annotations: &'post_build [Annotation],
     ) -> SQLCreateColumn<'post_build> {
         match self {
+            #[cfg(feature = "sqlite")]
             DBImpl::SQLite => SQLCreateColumn {
                 dialect: DBImpl::SQLite,
                 name: name.to_string(),
