@@ -11,12 +11,6 @@ pub mod error;
 
 #[cfg(feature = "sqlx-dep")]
 /**
-This module holds the definitions of queries and their results
-*/
-pub mod query;
-
-#[cfg(feature = "sqlx-dep")]
-/**
 This module holds the results of a query
 */
 pub mod result;
