@@ -4,6 +4,7 @@ This module defines the main API wrapper.
 
 use futures::stream::BoxStream;
 use futures::StreamExt;
+use log::debug;
 use rorm_sql::{conditional, value, DBImpl};
 use sqlx::any::AnyPoolOptions;
 use sqlx::mysql::MySqlConnectOptions;
@@ -119,6 +120,8 @@ impl Database {
 
         let (query_string, bind_params) = q.build();
 
+        debug!("SQL: {}", query_string);
+
         return QueryStream::build(query_string, bind_params, &self.pool).boxed();
     }
 
@@ -143,6 +146,8 @@ impl Database {
         }
 
         let (query_string, bind_params) = q.build();
+
+        debug!("SQL: {}", query_string);
 
         let mut tmp = sqlx::query(query_string.as_str());
         for x in bind_params {
@@ -176,6 +181,8 @@ impl Database {
 
         let (query_string, bind_params) = q.build();
 
+        debug!("SQL: {}", query_string);
+
         let mut tmp = sqlx::query(query_string.as_str());
         for x in bind_params {
             tmp = utils::bind_param(tmp, x);
@@ -208,6 +215,8 @@ impl Database {
 
         let (query_string, bind_params) = q.build();
 
+        debug!("SQL: {}", query_string);
+
         let mut tmp = sqlx::query(query_string.as_str());
         for x in bind_params {
             tmp = utils::bind_param(tmp, x);
@@ -237,6 +246,8 @@ impl Database {
         let q = self.db_impl.insert(model, columns, value_rows);
 
         let (query_string, bind_params) = q.build();
+
+        debug!("SQL: {}", query_string);
 
         let mut tmp = sqlx::query(query_string.as_str());
         for x in bind_params {
@@ -272,6 +283,8 @@ impl Database {
             insert = insert.rollback_transaction();
             let (insert_query, insert_params) = insert.build();
 
+            debug!("SQL: {}", insert_query);
+
             let mut q = sqlx::query(insert_query.as_str());
 
             for x in insert_params {
@@ -305,6 +318,8 @@ impl Database {
         }
 
         let (query_string, bind_params) = q.build();
+
+        debug!("SQL: {}", query_string);
 
         let mut tmp = sqlx::query(query_string.as_str());
         for x in bind_params {

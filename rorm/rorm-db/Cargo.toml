@@ -31,10 +31,13 @@ thiserror = { version = "^1.0" }
 # Allow self referencing structs
 ouroboros = { version = "^0.15" }
 
+# Logging facade
+log = { version = "~0.4" }
+
 [features]
 default = [
     "sqlx-all-extensions",
-    "all-driver"
+    "all-driver",
 ]
 
 all-driver = [
