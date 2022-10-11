@@ -1,6 +1,55 @@
 //! Rorm is the rust implementation of the drorm project.
 #![warn(missing_docs)]
 
+#[cfg(any(
+    all(
+        feature = "actix-rustls",
+        any(
+            feature = "actix-native-tls",
+            feature = "tokio-native-tls",
+            feature = "tokio-rustls",
+            feature = "async-std-native-tls",
+            feature = "async-std-rustls"
+        )
+    ),
+    all(
+        feature = "actix-native-tls",
+        any(
+            feature = "tokio-native-tls",
+            feature = "tokio-rustls",
+            feature = "async-std-native-tls",
+            feature = "async-std-rustls"
+        )
+    ),
+    all(
+        feature = "tokio-rustls",
+        any(
+            feature = "tokio-native-tls",
+            feature = "async-std-native-tls",
+            feature = "async-std-rustls"
+        )
+    ),
+    all(
+        feature = "tokio-native-tls",
+        any(feature = "async-std-native-tls", feature = "async-std-rustls")
+    ),
+    all(feature = "async-std-native-tls", feature = "async-std-rustls")
+))]
+compile_error!("Using multiple runtime / tls configurations at the same time is not allowed");
+
+#[cfg(not(any(
+    feature = "async-std-native-tls",
+    feature = "async-std-rustls",
+    feature = "tokio-native-tls",
+    feature = "tokio-rustls",
+    feature = "actix-native-tls",
+    feature = "actix-rustls"
+)))]
+compile_error!(
+    r#"One of async-std-native-tls, async-std-rustls, tokio-native-tls, tokio-rustls, 
+    actix-native-tls, actix-rustls is required"#
+);
+
 use std::io::Write;
 
 pub use crud::query::QueryBuilder;
