@@ -2,7 +2,6 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens};
 
 pub fn patch<'a>(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStream {
-    let index = (0..fields.len()).map(proc_macro2::Literal::usize_unsuffixed);
     quote! {
         impl ::rorm::model::Patch for #strct {
             type Model = #model;
@@ -17,11 +16,12 @@ pub fn patch<'a>(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> Toke
 
             fn get(&self, index: usize) -> Option<::rorm::value::Value> {
                 use ::rorm::model::AsDbType;
-                match index {
-                    #(
-                        #index => Some(self.#fields.as_primitive()),
-                    )*
-                    _ => None,
+                #(
+                    if index == <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.index {
+                        Some(self.#fields.as_primitive())
+                    } else
+                )* {
+                    None
                 }
             }
         }
