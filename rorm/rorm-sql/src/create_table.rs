@@ -57,7 +57,7 @@ impl<'post_build> SQLCreateTable<'post_build> {
         for (idx, x) in self.columns.iter().enumerate() {
             x.build(&mut s, &mut self.trigger)?;
             if idx != self.columns.len() - 1 {
-                write!(s, ",\n").unwrap();
+                write!(s, ", ").unwrap();
             }
         }
 
