@@ -28,7 +28,7 @@ pub fn impl_anno_builder(args: TokenStream) -> TokenStream {
     }
 
     // Build code
-    let alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+    let alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
         .map(|character| Ident::new(character.encode_utf8(&mut [0; 4]), Span::call_site()));
     let mut steps = Vec::new();
     for index in 0..types.len() {
@@ -109,8 +109,6 @@ pub fn impl_anno_builder(args: TokenStream) -> TokenStream {
                 )*
             }
 
-            #(#steps)*
-
             /// [`Annotations`] whose fields are [`NotSet`]
             ///
             /// Use this type with [`Add`], [`Implicit`] and [`Forbidden`] to get concrete
@@ -131,6 +129,10 @@ pub fn impl_anno_builder(args: TokenStream) -> TokenStream {
                 }
             }
 
+            impl<#(#alphabet: Annotation<#types>),*> super::ImplicitNotNull for Annotations<#(#alphabet),*> {
+                const IMPLICIT_NOT_NULL: bool = #(<#alphabet as Annotation<#types>>::IMPLICIT_NOT_NULL)||*;
+            }
+
             impl<#(#alphabet: Annotation<#types>),*> AsImr for Annotations<#(#alphabet),*> {
                 type Imr = Vec<rorm_declaration::imr::Annotation>;
 
@@ -144,6 +146,8 @@ pub fn impl_anno_builder(args: TokenStream) -> TokenStream {
                     annos
                 }
             }
+
+            #(#steps)*
 
             #errors
         }

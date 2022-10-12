@@ -85,6 +85,10 @@ pub mod annotations {
         /// [`NotSet`] and [`Forbidden`] return `None`.
         /// [`Implicit`] and any annotation itself return `Some`.
         fn as_imr(&self) -> Option<imr::Annotation>;
+
+        /// This flag is set on annotations like [`PrimaryKey`] which don't allow null but
+        /// databases don't want you to tell them.
+        const IMPLICIT_NOT_NULL: bool = false;
     }
 
     /// An annotation which has not been set
@@ -115,6 +119,8 @@ pub mod annotations {
         fn as_imr(&self) -> Option<imr::Annotation> {
             self.0.as_imr()
         }
+
+        const IMPLICIT_NOT_NULL: bool = T::IMPLICIT_NOT_NULL;
     }
 
     /// An annotation which is forbidden to be set.
@@ -133,7 +139,7 @@ pub mod annotations {
     }
 
     macro_rules! impl_annotations {
-        ($($(#[doc = $doc:literal])* $field:ident $anno:ident $(($data:ty))?,)*) => {
+        ($($(#[doc = $doc:literal])* $field:ident $anno:ident $(($data:ty))?, $implicit_not_null:expr,)*) => {
             $(
                 $(#[doc = $doc])*
                 #[derive(Copy, Clone)]
@@ -149,6 +155,8 @@ pub mod annotations {
                             data.as_imr()
                         }))?)
                     }
+
+                    const IMPLICIT_NOT_NULL: bool = $implicit_not_null;
                 }
             )*
         };
@@ -156,25 +164,25 @@ pub mod annotations {
 
     impl_annotations!(
         /// Will set the current time of the database when a row is created.
-        auto_create_time AutoCreateTime,
+        auto_create_time AutoCreateTime, true,
         /// Will set the current time of the database when a row is updated.
-        auto_update_time AutoUpdateTime,
+        auto_update_time AutoUpdateTime, true,
         /// AUTO_INCREMENT constraint
-        auto_increment AutoIncrement,
+        auto_increment AutoIncrement, false,
         /// A list of choices to set
-        choices Choices(&'static [&'static str]),
+        choices Choices(&'static [&'static str]), false,
         /// DEFAULT constraint
-        default DefaultValue(DefaultValueData),
+        default DefaultValue(DefaultValueData), false,
         /// Create an index. The optional [IndexData] can be used, to build more complex indexes.
-        index Index(Option<IndexData>),
+        index Index(Option<IndexData>), false,
         /// Only for VARCHAR. Specifies the maximum length of the column's content.
-        max_length MaxLength(i32),
+        max_length MaxLength(i32), false,
         /// NOT NULL constraint
-        not_null NotNull,
+        not_null NotNull, false,
         /// The annotated column will be used as primary key
-        primary_key PrimaryKey,
+        primary_key PrimaryKey, true,
         /// UNIQUE constraint
-        unique Unique,
+        unique Unique, false,
     );
 
     /// This trait is used to "compute" [`Annotations<...>`]'s next concrete type after a step in the builder pattern.
