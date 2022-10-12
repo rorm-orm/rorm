@@ -11,4 +11,8 @@ pub enum Error {
     /// Error for pointing to configuration errors.
     #[error("configuration error: {0}")]
     ConfigurationError(String),
+
+    /// DecodeError
+    #[error("decode error: {0}")]
+    DecodeError(String),
 }
