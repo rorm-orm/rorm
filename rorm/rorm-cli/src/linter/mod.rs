@@ -16,7 +16,6 @@ static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
         (
             Annotation::AutoCreateTime.hash_shallow(),
             vec![
-                Annotation::AutoUpdateTime,
                 Annotation::AutoIncrement,
                 Annotation::Choices(vec![]),
                 Annotation::DefaultValue(DefaultValue::Boolean(true)),
@@ -29,7 +28,6 @@ static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
         (
             Annotation::AutoUpdateTime.hash_shallow(),
             vec![
-                Annotation::AutoCreateTime,
                 Annotation::AutoIncrement,
                 Annotation::Choices(vec![]),
                 Annotation::DefaultValue(DefaultValue::Boolean(true)),
