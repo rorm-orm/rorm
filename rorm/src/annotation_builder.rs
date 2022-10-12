@@ -10,10 +10,17 @@ impl_annotations_builder!(
     default          DefaultValue,
     index            Index,
     max_length       MaxLength,
-    not_null         NotNull,
     primary_key      PrimaryKey,
     unique           Unique,
 );
+
+/// Helper trait to propagate `IMPLICIT_NOT_NULL` from [Annotation] to [Annotations]
+///
+/// [Annotation]: annotations::Annotation
+pub trait ImplicitNotNull {
+    /// `true`, if any of the annotations' `IMPLICIT_NOT_NULL` is true.
+    const IMPLICIT_NOT_NULL: bool;
+}
 
 /// The resulting type, when adding an annotation `T` to an [`Annotations`] struct `A`
 ///

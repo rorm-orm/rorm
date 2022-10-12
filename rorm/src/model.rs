@@ -5,7 +5,6 @@ use rorm_db::value::Value;
 use rorm_declaration::hmr;
 use rorm_declaration::hmr::annotations;
 use rorm_declaration::imr;
-use rorm_declaration::imr::Annotation;
 
 use crate::annotation_builder;
 use crate::annotation_builder::NotSetAnnotations;
@@ -264,12 +263,12 @@ impl<T: AsDbType, D: hmr::db_type::DbType, A> Field<T, D, A> {
 impl<
         T: AsDbType,
         D: hmr::db_type::DbType,
-        A: hmr::annotations::AsImr<Imr = Vec<imr::Annotation>>,
+        A: hmr::annotations::AsImr<Imr = Vec<imr::Annotation>> + annotation_builder::ImplicitNotNull,
     > From<&'_ Field<T, D, A>> for imr::Field
 {
     fn from(field: &'_ Field<T, D, A>) -> Self {
         let mut annotations = field.annotations.as_imr();
-        if !T::IS_NULLABLE && !annotations.contains(&Annotation::PrimaryKey) {
+        if !T::IS_NULLABLE && !A::IMPLICIT_NOT_NULL {
             annotations.push(imr::Annotation::NotNull);
         }
         imr::Field {
