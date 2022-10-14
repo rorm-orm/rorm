@@ -70,19 +70,14 @@ impl<'a, M: Model> QueryBuilder<'a, M, ()> {
 impl<'a, M: Model + TryFrom<Row>, C: ConditionMarker<'a>> QueryBuilder<'a, M, C> {
     /// Retrieve all matching rows as unpacked models
     pub async fn all(&self) -> Result<Vec<M>, Error> {
-        let rows = self
-            .db
+        self.db
             .query_all(M::table_name(), self.columns, self.condition.as_option())
-            .await?;
-        let mut r = vec![];
-        for x in rows {
-            r.push(
-                M::try_from(x)
-                    .map_err(|_| Error::DecodeError("Could not decode row".to_string()))?,
-            );
-        }
-
-        Ok(r)
+            .await?
+            .into_iter()
+            .map(|x| {
+                M::try_from(x).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
+            })
+            .collect::<Result<Vec<_>, _>>()
     }
 
     /// Retrieve all matching rows
@@ -95,16 +90,7 @@ impl<'a, M: Model + TryFrom<Row>, C: ConditionMarker<'a>> QueryBuilder<'a, M, C>
     /// Retrieve exactly one matching row as Model
     ///
     /// An error is returned if no value could be retrieved.
-    pub async fn one(&self) -> Result<Row, Error> {
-        self.db
-            .query_one(M::table_name(), self.columns, self.condition.as_option())
-            .await
-    }
-
-    /// Retrieve exactly one matching row
-    ///
-    /// An error is returned if no value could be retrieved.
-    pub async fn one_as_row(&self) -> Result<M, Error> {
+    pub async fn one(&self) -> Result<M, Error> {
         M::try_from(
             self.db
                 .query_one(M::table_name(), self.columns, self.condition.as_option())
@@ -113,9 +99,18 @@ impl<'a, M: Model + TryFrom<Row>, C: ConditionMarker<'a>> QueryBuilder<'a, M, C>
         .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
     }
 
+    /// Retrieve exactly one matching row
+    ///
+    /// An error is returned if no value could be retrieved.
+    pub async fn one_as_row(&self) -> Result<Row, Error> {
+        self.db
+            .query_one(M::table_name(), self.columns, self.condition.as_option())
+            .await
+    }
+
     /// Retrieve the query as a stream of Models
     pub fn stream(&self) -> BoxStream<'a, Result<M, Error>> {
-        todo!("Not implemented yet")
+        todo!()
     }
 
     /// Retrieve the query as a stream of rows
