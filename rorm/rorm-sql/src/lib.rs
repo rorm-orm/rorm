@@ -1,8 +1,6 @@
 //! The module should be used to create sql queries for different SQL dialects.
 #![warn(missing_docs)]
 
-extern crate core;
-
 /// Implementation of SQL ALTER TABLE statements
 pub mod alter_table;
 ///This module defines the conditional statements
