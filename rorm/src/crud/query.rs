@@ -1,5 +1,8 @@
 //! Query builder and macro
+use futures::{Stream, StreamExt};
 use std::marker::PhantomData;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use futures::stream::BoxStream;
 use rorm_db::{conditional::Condition, error::Error, row::Row, Database};
@@ -23,7 +26,7 @@ use crate::model::{Model, Patch};
 pub struct QueryBuilder<'a, M: Model, C: ConditionMarker<'a>> {
     db: &'a Database,
     columns: &'a [&'a str],
-    _phantom: PhantomData<*const M>,
+    _phantom: PhantomData<M>,
 
     condition: C,
 }
@@ -64,6 +67,21 @@ impl<'a, M: Model> QueryBuilder<'a, M, ()> {
 
             condition,
         }
+    }
+}
+
+impl<'a, M: Model + TryFrom<Row> + Send + 'static, C: ConditionMarker<'a>> QueryBuilder<'a, M, C> {
+    /// Retrieve the query as a stream of Models
+    pub fn stream(&self) -> BoxStream<'a, Result<M, Error>> {
+        ModelStream {
+            query_stream: self.db.query_stream(
+                M::table_name(),
+                self.columns,
+                self.condition.as_option(),
+            ),
+            _phantom: self._phantom,
+        }
+        .boxed()
     }
 }
 
@@ -108,11 +126,6 @@ impl<'a, M: Model + TryFrom<Row>, C: ConditionMarker<'a>> QueryBuilder<'a, M, C>
             .await
     }
 
-    /// Retrieve the query as a stream of Models
-    pub fn stream(&self) -> BoxStream<'a, Result<M, Error>> {
-        todo!()
-    }
-
     /// Retrieve the query as a stream of rows
     pub fn stream_as_row(&self) -> BoxStream<'a, Result<Row, Error>> {
         self.db
@@ -141,6 +154,35 @@ impl<'a, M: Model + TryFrom<Row>, C: ConditionMarker<'a>> QueryBuilder<'a, M, C>
         self.db
             .query_optional(M::table_name(), self.columns, self.condition.as_option())
             .await
+    }
+}
+
+struct ModelStream<'a, M: Model + TryFrom<Row> + Send + 'static> {
+    query_stream: BoxStream<'a, Result<Row, Error>>,
+    _phantom: PhantomData<M>,
+}
+
+impl<M: Model + TryFrom<Row> + Send + 'static> Unpin for ModelStream<'_, M> {}
+
+impl<M: Model + TryFrom<Row> + Send + 'static> Stream for ModelStream<'_, M> {
+    type Item = Result<M, Error>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.query_stream.as_mut().poll_next(cx).map(|opt| {
+            opt.map(|result| {
+                result.map(|x| {
+                    M::try_from(x)
+                        .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
+                })
+            })
+            .map(|x| match x {
+                Ok(res) => match res {
+                    Ok(model) => Ok(model),
+                    Err(err) => Err(err),
+                },
+                Err(err) => Err(err),
+            })
+        })
     }
 }
 
