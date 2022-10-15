@@ -29,7 +29,6 @@ static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
             vec![
                 Annotation::AutoIncrement,
                 Annotation::Choices(vec![]),
-                Annotation::DefaultValue(DefaultValue::Boolean(true)),
                 Annotation::MaxLength(0),
                 Annotation::PrimaryKey,
                 Annotation::Unique,
