@@ -78,6 +78,9 @@ struct ModelFormat
 		/// Name of the field inside the D source code.
 		@serdeIgnore
 		string sourceColumn;
+		/// D type stringof.
+		@serdeIgnore
+		string sourceType;
 		/// The generic column type that is later translated to a concrete SQL
 		/// type by a driver.
 		@serdeKeys("Type")
@@ -179,6 +182,14 @@ struct ModelFormat
 			}
 			return ret;
 		}
+
+		@serdeIgnore
+		string sourceReferenceName(string modelName) const @property
+		{
+			return sourceType ~ " " ~ sourceColumn
+				~ " in " ~ modelName ~ " (from "
+				~ definedAt.toString ~ ")";
+		}
 	}
 
 	/// The exact name of the table later used in the DB, not neccessarily
@@ -198,6 +209,27 @@ struct ModelFormat
 	/// Lists the source field names for embedded structs, recursively.
 	@serdeIgnore
 	string[] embeddedStructs;
+
+	/// Perform checks if the model description seems valid (does not validate
+	/// fields, only general model things)
+	package string lint(string errorPrefix)
+	{
+		string errors;
+
+		// https://github.com/myOmikron/drorm/issues/7
+		Field[] autoIncrementFields;
+		foreach (field; fields)
+			if (field.hasFlag(AnnotationFlag.autoIncrement))
+				autoIncrementFields ~= field;
+		if (autoIncrementFields.length > 1)
+		{
+			errors ~= errorPrefix ~ "Multiple fields with @autoIncrement defined, only one is allowed:";
+			foreach (field; autoIncrementFields)
+				errors ~= errorPrefix ~ "\t" ~ field.sourceReferenceName(tableName);
+		}
+
+		return errors;
+	}
 }
 
 /**
@@ -250,16 +282,12 @@ private bool isCompatibleFlags(AnnotationFlag a, AnnotationFlag b)
 	final switch (a) with (AnnotationFlag)
 	{
 		case autoCreateTime: return !b.among!(
-			autoUpdateTime,
 			autoIncrement,
-			notNull,
 			primaryKey,
 			unique,
 		);
 		case autoUpdateTime: return !b.among!(
-			autoCreateTime,
 			autoIncrement,
-			notNull,
 			primaryKey,
 			unique,
 		);

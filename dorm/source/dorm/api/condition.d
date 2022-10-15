@@ -473,7 +473,7 @@ unittest
 
 	Condition* v(T)(T value)
 	{
-		return new Condition(conditionValue(value));
+		return new Condition(conditionValue!(ModelFormat.Field.init)(value));
 	}
 
 	auto condition = and(

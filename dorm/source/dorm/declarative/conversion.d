@@ -80,6 +80,8 @@ private enum DormLayoutImpl(TModel : Model) = function() {
 		}
 	}
 
+	errors ~= serialized.lint("\n\t");
+
 	struct Ret
 	{
 		string errors;
@@ -137,11 +139,14 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 
 	field.definedAt = SourceLocation(__traits(getLocation, fieldAlias));
 	field.columnName = directFieldName.toSnakeCase;
+	field.sourceType = typeof(fieldAlias).stringof;
 	field.sourceColumn = fieldName;
 	field.type = guessDBType!(typeof(fieldAlias));
 
-	bool explicitNullable = false;
+	bool explicitNotNull = false;
 	bool nullable = false;
+	bool mustBeNullable = false;
+	bool hasNonNullDefaultValue = false;
 	static if (is(typeof(fieldAlias) == Nullable!T, T)
 		|| is(typeof(fieldAlias) : Model))
 		nullable = true;
@@ -155,19 +160,20 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 	{
 		static if (__traits(isSame, attribute, uda.autoCreateTime))
 		{
-			nullable = true;
 			field.type = ModelFormat.Field.DBType.datetime;
 			field.annotations ~= DBAnnotation(AnnotationFlag.autoCreateTime);
+			hasNonNullDefaultValue = true;
 		}
 		else static if (__traits(isSame, attribute, uda.autoUpdateTime))
 		{
-			nullable = true;
 			field.type = ModelFormat.Field.DBType.datetime;
 			field.annotations ~= DBAnnotation(AnnotationFlag.autoUpdateTime);
+			mustBeNullable = true;
 		}
 		else static if (__traits(isSame, attribute, uda.timestamp))
 		{
 			field.type = ModelFormat.Field.DBType.datetime;
+			mustBeNullable = true;
 		}
 		else static if (__traits(isSame, attribute, uda.primaryKey))
 		{
@@ -186,13 +192,14 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 							~ other.sourceColumn ~ " in " ~ other.definedAt.toString
 							~ "\n- then attempted to redefine here:\n"
 							~ typeof(fieldAlias).stringof ~ " " ~ fieldName ~ " in " ~ field.definedAt.toString
-							~ "\nMaybe you wanted to define a `TODO`?");
+							~ "\nMaybe you wanted to define a `TODO: compositeKey`?");
 				}
 			}
 		}
 		else static if (__traits(isSame, attribute, uda.autoIncrement))
 		{
 			field.annotations ~= DBAnnotation(AnnotationFlag.autoIncrement);
+			hasNonNullDefaultValue = true;
 		}
 		else static if (__traits(isSame, attribute, uda.unique))
 		{
@@ -222,7 +229,7 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		}
 		else static if (__traits(isSame, attribute, uda.notNull))
 		{
-			explicitNullable = true;
+			explicitNotNull = true;
 		}
 		else static if (is(attribute == constructValue!fn, alias fn))
 		{
@@ -236,6 +243,11 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 			|| is(typeof(attribute) == DefaultValue!T, T)
 			|| is(typeof(attribute) == index))
 		{
+			static if (is(typeof(attribute) == DefaultValue!U, U)
+				&& !is(U == typeof(null)))
+			{
+				hasNonNullDefaultValue = true;
+			}
 			field.annotations ~= DBAnnotation(attribute);
 		}
 		else static if (is(typeof(attribute) == Choices))
@@ -257,11 +269,24 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		}
 	}
 
-	if (!nullable || explicitNullable)
-		field.annotations = DBAnnotation(AnnotationFlag.notNull) ~ field.annotations;
-
 	if (include)
 	{
+		if (!nullable || explicitNotNull)
+		{
+			if (mustBeNullable && !hasNonNullDefaultValue)
+			{
+				throw new Exception(field.sourceReferenceName(TModel.stringof)
+					~ " may be null. Change it to Nullable!(" ~ typeof(fieldAlias).stringof
+					~ ") or annotate with defaultValue, autoIncrement or autoCreateTime");
+			}
+			field.annotations = DBAnnotation(AnnotationFlag.notNull) ~ field.annotations;
+		}
+
+		// https://github.com/myOmikron/drorm/issues/8
+		if (field.hasFlag(AnnotationFlag.autoIncrement) && !field.hasFlag(AnnotationFlag.primaryKey))
+				throw new Exception(field.sourceReferenceName(TModel.stringof)
+					~ " has @autoIncrement annotation, but is missing required @primaryKey annotation.");
+
 		if (field.type == InvalidDBType)
 			throw new Exception("Cannot resolve DORM Model DBType from " ~ typeof(fieldAlias).stringof
 				~ " " ~ directFieldName ~ " in " ~ TModel.stringof
@@ -275,9 +300,7 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 				if (!lhs.isCompatibleWith(rhs))
 					throw new Exception("Incompatible annotation: "
 						~ lhs.to!string ~ " conflicts with " ~ rhs.to!string
-						~ " on " ~ typeof(fieldAlias).stringof
-						~ " " ~ directFieldName ~ " in " ~ TModel.stringof
-						~ ", which is defined in " ~ SourceLocation(__traits(getLocation, fieldAlias)).toString);
+						~ " on " ~ field.sourceReferenceName(TModel.stringof));
 			}
 		}
 
@@ -502,7 +525,7 @@ unittest
 			long ownPrimaryKey;
 
 			@timestamp
-			ulong creationTime;
+			Nullable!ulong creationTime;
 
 			@unique
 			int uuid;
@@ -549,6 +572,7 @@ unittest
 	assert(m.fields[++i].columnName == "created_at");
 	assert(m.fields[i].type == ModelFormat.Field.DBType.datetime);
 	assert(m.fields[i].annotations == [
+			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.autoCreateTime),
 		]);
 
@@ -561,6 +585,7 @@ unittest
 	assert(m.fields[++i].columnName == "created_at_2");
 	assert(m.fields[i].type == ModelFormat.Field.DBType.datetime);
 	assert(m.fields[i].annotations == [
+			DBAnnotation(AnnotationFlag.notNull),
 			DBAnnotation(AnnotationFlag.autoCreateTime),
 		]);
 
@@ -619,7 +644,7 @@ unittest
 
 	assert(m.fields[++i].columnName == "creation_time");
 	assert(m.fields[i].type == ModelFormat.Field.DBType.datetime);
-	assert(m.fields[i].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
+	assert(m.fields[i].annotations == []);
 
 	assert(m.fields[++i].columnName == "uuid");
 	assert(m.fields[i].type == ModelFormat.Field.DBType.int32);
@@ -704,4 +729,39 @@ unittest
 	assert(m.fields[3].columnName == "name");
 	assert(m.fields[3].sourceColumn == "name");
 	assert(m.embeddedStructs == ["common", "common.superCommon"]);
+}
+
+// https://github.com/myOmikron/drorm/issues/6
+unittest
+{
+	struct Mod
+	{
+		class NamedThing : Model
+		{
+			@timestamp
+			Nullable!long timestamp1;
+
+			@autoUpdateTime
+			Nullable!long timestamp2;
+
+			@autoCreateTime
+			long timestamp3;
+
+			@autoUpdateTime @autoCreateTime
+			long timestamp4;
+		}
+	}
+
+	auto mod = processModelsToDeclarations!Mod;
+	assert(mod.models.length == 1);
+	auto m = mod.models[0];
+	assert(m.tableName == "named_thing");
+	// As Model also adds the id field, length is 5
+	assert(m.fields.length == 5);
+
+	assert(m.fields[1].columnName == "timestamp_1");
+	assert(m.fields[1].isNullable);
+	assert(m.fields[2].isNullable);
+	assert(!m.fields[3].isNullable);
+	assert(!m.fields[4].isNullable);
 }
