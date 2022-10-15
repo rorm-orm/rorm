@@ -190,6 +190,7 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
             count_entries(model.fields.iter().map(|x| x.name.as_str()).collect());
 
         let mut primary_key = false;
+        let mut auto_increment = false;
 
         if model.fields.is_empty() {
             return Err(anyhow!(
@@ -227,6 +228,19 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
             for annotation in &field.annotations {
                 if annotation == &Annotation::PrimaryKey {
                     primary_key = true;
+                }
+
+                if annotation == &Annotation::AutoIncrement {
+                    if auto_increment {
+                        return Err(anyhow!(
+                            "Found second annotation {:?} on field {} of model {} but annotation {:?} is only allowed once per model",
+                            Annotation::AutoIncrement,
+                            &field.name,
+                            &model.name,
+                            Annotation::AutoIncrement,
+                        ));
+                    }
+                    auto_increment = true;
                 }
 
                 let forbidden = ANNOTATION_REQS
@@ -526,6 +540,32 @@ mod test_check_internal_models {
                         name: "update_time".to_string(),
                         db_type: DbType::DateTime,
                         annotations: vec![Annotation::AutoUpdateTime, Annotation::NotNull],
+                        source_defined_at: None,
+                    },
+                ],
+                source_defined_at: None,
+            }],
+        };
+
+        assert!(check_internal_models(&imf).is_err())
+    }
+
+    #[test]
+    fn test_auto_increment_multiple_times_per_model() {
+        let imf = InternalModelFormat {
+            models: vec![Model {
+                name: "foobar".to_string(),
+                fields: vec![
+                    Field {
+                        name: "prim".to_string(),
+                        db_type: DbType::Int64,
+                        annotations: vec![Annotation::PrimaryKey, Annotation::AutoIncrement],
+                        source_defined_at: None,
+                    },
+                    Field {
+                        name: "updated_int".to_string(),
+                        db_type: DbType::Int64,
+                        annotations: vec![Annotation::AutoIncrement],
                         source_defined_at: None,
                     },
                 ],
