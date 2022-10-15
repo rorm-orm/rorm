@@ -275,9 +275,7 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		{
 			if (mustBeNullable && !hasNonNullDefaultValue)
 			{
-				throw new Exception("DORM Model field " ~ typeof(fieldAlias).stringof
-					~ " " ~ directFieldName ~ " in " ~ TModel.stringof
-					~ ", which is defined in " ~ SourceLocation(__traits(getLocation, fieldAlias)).toString
+				throw new Exception(field.sourceReferenceName(TModel.stringof)
 					~ " may be null. Change it to Nullable!(" ~ typeof(fieldAlias).stringof
 					~ ") or annotate with defaultValue, autoIncrement or autoCreateTime");
 			}
@@ -286,9 +284,7 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 
 		// https://github.com/myOmikron/drorm/issues/8
 		if (field.hasFlag(AnnotationFlag.autoIncrement) && !field.hasFlag(AnnotationFlag.primaryKey))
-				throw new Exception("DORM Model field " ~ typeof(fieldAlias).stringof
-					~ " " ~ directFieldName ~ " in " ~ TModel.stringof
-					~ ", which is defined in " ~ SourceLocation(__traits(getLocation, fieldAlias)).toString
+				throw new Exception(field.sourceReferenceName(TModel.stringof)
 					~ " has @autoIncrement annotation, but is missing required @primaryKey annotation.");
 
 		if (field.type == InvalidDBType)
@@ -304,9 +300,7 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 				if (!lhs.isCompatibleWith(rhs))
 					throw new Exception("Incompatible annotation: "
 						~ lhs.to!string ~ " conflicts with " ~ rhs.to!string
-						~ " on " ~ typeof(fieldAlias).stringof
-						~ " " ~ directFieldName ~ " in " ~ TModel.stringof
-						~ ", which is defined in " ~ SourceLocation(__traits(getLocation, fieldAlias)).toString);
+						~ " on " ~ field.sourceReferenceName(TModel.stringof));
 			}
 		}
 
