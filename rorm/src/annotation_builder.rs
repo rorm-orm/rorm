@@ -2,6 +2,9 @@ use rorm_macro::impl_annotations_builder;
 
 use rorm_declaration::hmr::annotations;
 
+// ATTENTION!!! don't change this list lightly
+// rorm::model::Field::check_annotations depends on the ordering of this list.
+// If you must change it, you have to refactor this method as well.
 impl_annotations_builder!(
     auto_create_time AutoCreateTime,
     auto_update_time AutoUpdateTime,
