@@ -86,9 +86,28 @@ pub fn impl_anno_builder(args: TokenStream) -> TokenStream {
         });
     }
 
+    let n = proc_macro2::Literal::usize_unsuffixed(fields.len());
+    let is_field_set: Vec<_> = fields
+        .iter()
+        .map(|field| format_ident!("is_{}_set", field))
+        .collect();
     quote! {
         mod _internal {
             use rorm_declaration::hmr::annotations::*;
+
+            /// Number of annotations stored in [Annotations].
+            pub const NUM_ANNOTATIONS: usize = #n;
+
+            /// This trait exposes which annotations are set in a simplified way.
+            pub trait AnnotationsDescriptor {
+                /// A footprint of which annotations are set as boolean array.
+                ///
+                /// Using this, it is very easy implement cross annotation compile checks in a big match statement.
+                ///
+                /// Because it is designed to be used in a match `u8``is used instead of `bool`.
+                /// It takes less space and both values `1` and `0` are of the same length.
+                const FOOTPRINT: [u8; NUM_ANNOTATIONS];
+            }
 
             /// Generic struct storing a [`Field`]'s annotations.
             ///
@@ -127,6 +146,23 @@ pub fn impl_anno_builder(args: TokenStream) -> TokenStream {
                         )*
                     }
                 }
+            }
+
+            impl<#(#alphabet: Annotation<#types>),*> Annotations<#(#alphabet),*> {
+                #(
+                    #[doc = concat!("Has the \"", stringify!(#fields), "\" been set?")]
+                    pub const fn #is_field_set(&self) -> bool {
+                        #alphabet::IS_SET
+                    }
+                )*
+            }
+
+            impl<#(#alphabet: Annotation<#types>),*> AnnotationsDescriptor for Annotations<#(#alphabet),*> {
+                const FOOTPRINT: [u8; NUM_ANNOTATIONS] = [
+                    #(
+                        #alphabet::IS_SET as u8,
+                    )*
+                ];
             }
 
             impl<#(#alphabet: Annotation<#types>),*> super::ImplicitNotNull for Annotations<#(#alphabet),*> {

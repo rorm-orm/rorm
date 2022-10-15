@@ -96,6 +96,8 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let fields_struct = format_ident!("__{}_Fields_Struct", strct.ident);
     // Static reference pointing to Model::get_imr
     let static_get_imr = format_ident!("__{}_get_imr", strct.ident);
+    // Const name for compile time checks
+    let compile_check = format_ident!("__compile_check_{}", strct.ident);
     // Database table's name
     let table_name = syn::LitStr::new(&to_db_name(strct.ident.to_string()), strct.ident.span());
     // File, line and column the struct was defined in
@@ -134,6 +136,28 @@ pub fn model(strct: TokenStream) -> TokenStream {
                 }
             }
         }
+
+        #[allow(non_upper_case_globals)]
+        const #compile_check: () = {
+            #(
+                {const _CHECK: () = <#model as ::rorm::model::Model>::FIELDS.#fields_ident.check_annotations();}
+            )*
+
+            // Cross field checks
+            let mut count_auto_increment = 0;
+            #(
+                let field = <#model as ::rorm::model::Model>::FIELDS.#fields_ident;
+                let annos = &field.annotations;
+                if annos.is_auto_increment_set() {
+                    count_auto_increment += 1;
+                }
+            )*
+            if count_auto_increment > 1 {
+                panic!("\"auto_increment\" can only be set once per model");
+            }
+
+            ()
+        };
 
         #impl_patch
         #impl_try_from_row
