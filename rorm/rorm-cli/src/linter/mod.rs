@@ -20,7 +20,6 @@ static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
                 Annotation::Choices(vec![]),
                 Annotation::DefaultValue(DefaultValue::Boolean(true)),
                 Annotation::MaxLength(0),
-                Annotation::NotNull,
                 Annotation::PrimaryKey,
                 Annotation::Unique,
             ],
@@ -32,7 +31,6 @@ static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
                 Annotation::Choices(vec![]),
                 Annotation::DefaultValue(DefaultValue::Boolean(true)),
                 Annotation::MaxLength(0),
-                Annotation::NotNull,
                 Annotation::PrimaryKey,
                 Annotation::Unique,
             ],
@@ -170,7 +168,7 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
                 model.name.as_str()
             ));
         // Reserved for internal use
-        } else if model.name.starts_with("_") || model.name.ends_with("_") {
+        } else if model.name.starts_with('_') || model.name.ends_with('_') {
             return Err(anyhow!(
                 "Model name must not start or end with \"_\". Found: {}.",
                 model.name.as_str()
@@ -219,7 +217,7 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
             } else if RE.forbidden_character.is_match(field.name.as_str()) {
                 return Err(anyhow!("Field name must consists of [a-zA-Z0-9_]"));
             // Reserved for internal use
-            } else if field.name.starts_with("_") || field.name.ends_with("_") {
+            } else if field.name.starts_with('_') || field.name.ends_with('_') {
                 return Err(anyhow!("Model name must not start or end with \"_\""));
             // Mysql only allows numeric table names if they are quoted
             } else if RE.numeric_only.is_match(field.name.as_str()) {
@@ -263,6 +261,24 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
                             required_annotation,
                         ));
                     }
+                }
+
+                // AutoUpdateTime with NotNull is only valid if one of the following is true:
+                // - AutoCreateTime is present
+                // - DefaultValue is present
+                if annotation.eq_shallow(&Annotation::AutoUpdateTime)
+                    && field.annotations.contains(&Annotation::NotNull)
+                    && !field.annotations.iter().any(|a| {
+                        matches!(a, Annotation::DefaultValue(_) | Annotation::AutoCreateTime)
+                    })
+                {
+                    return Err(anyhow!(
+                        "Annotation {:?} on field {} of model {} clashes with annotation {:?}.",
+                        annotation,
+                        field.name,
+                        model.name,
+                        Annotation::NotNull
+                    ));
                 }
             }
         }
@@ -493,5 +509,31 @@ mod test_check_internal_models {
             };
             assert_eq!(check_internal_models(&imf).is_ok(), required.is_empty());
         }
+    }
+
+    #[test]
+    fn test_single_auto_update_time_not_null() {
+        let imf = InternalModelFormat {
+            models: vec![Model {
+                name: "foobar".to_string(),
+                fields: vec![
+                    Field {
+                        name: "prim".to_string(),
+                        db_type: DbType::Int64,
+                        annotations: vec![Annotation::PrimaryKey],
+                        source_defined_at: None,
+                    },
+                    Field {
+                        name: "update_time".to_string(),
+                        db_type: DbType::DateTime,
+                        annotations: vec![Annotation::AutoUpdateTime, Annotation::NotNull],
+                        source_defined_at: None,
+                    },
+                ],
+                source_defined_at: None,
+            }],
+        };
+
+        assert!(check_internal_models(&imf).is_err())
     }
 }
