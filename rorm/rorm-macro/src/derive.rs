@@ -139,6 +139,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
 
         #[allow(non_upper_case_globals)]
         const #compile_check: () = {
+            // Checks on individual fields
             #(
                 {
                     let field = <#model as ::rorm::model::Model>::FIELDS.#fields_ident;
@@ -152,6 +153,20 @@ pub fn model(strct: TokenStream) -> TokenStream {
                     }
                 }
             )*
+
+            // Cross field checks
+            let mut count_auto_increment = 0;
+            #(
+                let field = <#model as ::rorm::model::Model>::FIELDS.#fields_ident;
+                let annos = &field.annotations;
+                if annos.is_auto_increment_set() {
+                    count_auto_increment += 1;
+                }
+            )*
+            if count_auto_increment > 1 {
+                panic!("\"auto_increment\" can only be set once per model");
+            }
+
             ()
         };
 
