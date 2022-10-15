@@ -80,6 +80,8 @@ private enum DormLayoutImpl(TModel : Model) = function() {
 		}
 	}
 
+	errors ~= serialized.lint("\n\t");
+
 	struct Ret
 	{
 		string errors;
@@ -137,6 +139,7 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 
 	field.definedAt = SourceLocation(__traits(getLocation, fieldAlias));
 	field.columnName = directFieldName.toSnakeCase;
+	field.sourceType = typeof(fieldAlias).stringof;
 	field.sourceColumn = fieldName;
 	field.type = guessDBType!(typeof(fieldAlias));
 
@@ -189,7 +192,7 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 							~ other.sourceColumn ~ " in " ~ other.definedAt.toString
 							~ "\n- then attempted to redefine here:\n"
 							~ typeof(fieldAlias).stringof ~ " " ~ fieldName ~ " in " ~ field.definedAt.toString
-							~ "\nMaybe you wanted to define a `TODO`?");
+							~ "\nMaybe you wanted to define a `TODO: compositeKey`?");
 				}
 			}
 		}
