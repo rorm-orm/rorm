@@ -105,7 +105,10 @@ static ANNOTATION_REQS: Lazy<AnnotationReqs> = Lazy::new(|| {
     let required = HashMap::from([
         (Annotation::AutoCreateTime.hash_shallow(), vec![]),
         (Annotation::AutoUpdateTime.hash_shallow(), vec![]),
-        (Annotation::AutoIncrement.hash_shallow(), vec![]),
+        (
+            Annotation::AutoIncrement.hash_shallow(),
+            vec![Annotation::PrimaryKey],
+        ),
         (Annotation::Choices(vec![]).hash_shallow(), vec![]),
         (
             Annotation::DefaultValue(DefaultValue::Boolean(true)).hash_shallow(),
@@ -560,6 +563,32 @@ mod test_check_internal_models {
                         name: "prim".to_string(),
                         db_type: DbType::Int64,
                         annotations: vec![Annotation::PrimaryKey, Annotation::AutoIncrement],
+                        source_defined_at: None,
+                    },
+                    Field {
+                        name: "updated_int".to_string(),
+                        db_type: DbType::Int64,
+                        annotations: vec![Annotation::AutoIncrement],
+                        source_defined_at: None,
+                    },
+                ],
+                source_defined_at: None,
+            }],
+        };
+
+        assert!(check_internal_models(&imf).is_err())
+    }
+
+    #[test]
+    fn test_annotation_auto_increment_on_non_primary_key() {
+        let imf = InternalModelFormat {
+            models: vec![Model {
+                name: "foobar".to_string(),
+                fields: vec![
+                    Field {
+                        name: "prim".to_string(),
+                        db_type: DbType::Int64,
+                        annotations: vec![Annotation::PrimaryKey],
                         source_defined_at: None,
                     },
                     Field {
