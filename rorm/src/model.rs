@@ -250,7 +250,9 @@ pub struct Field<T, D: hmr::db_type::DbType, A> {
     pub _phantom: PhantomData<(T, D)>,
 }
 
-impl<T: AsDbType, D: hmr::db_type::DbType, A> Field<T, D, A> {
+impl<T: AsDbType, D: hmr::db_type::DbType, A: annotation_builder::AnnotationsDescriptor>
+    Field<T, D, A>
+{
     /// Reexport [`AsDbType::from_primitive`]
     ///
     /// This method makes macros' syntax slightly cleaner
@@ -264,6 +266,27 @@ impl<T: AsDbType, D: hmr::db_type::DbType, A> Field<T, D, A> {
     /// Used in compile checks.
     pub const fn is_not_null(&self) -> bool {
         !T::IS_NULLABLE
+    }
+
+    /// This method is called at compile time by the derive macro to perform cross annotation checks.
+    pub const fn check_annotations(&self) {
+        const N: usize = annotation_builder::NUM_ANNOTATIONS;
+        let mut footprint = [0u8; N + 1];
+        let mut i = 0;
+        while i < N {
+            footprint[i] = A::FOOTPRINT[i];
+            i += 1;
+        }
+        footprint[N] = (!T::IS_NULLABLE) as u8;
+
+        let err = match footprint {
+            [0, 1, _, _, 0, _, _, _, _, 1] => "\"auto_update_time\" must a) be nullable (i.e. Option<_>) or b) have a default (i.e. #[rorm(default = ..)]) or c) also be auto_create_time (i.e. #[rorm(auto_create_time)])",
+            [_, _, 1, _, _, _, _, 0, _, _] => "\"auto_increment\" has to be set on a key",
+            [_, _, _, _, _, _, _, _, _, _] => "",
+        };
+        if err.len() > 0 {
+            panic!("{}", err);
+        }
     }
 }
 

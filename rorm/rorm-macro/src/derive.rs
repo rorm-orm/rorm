@@ -139,24 +139,8 @@ pub fn model(strct: TokenStream) -> TokenStream {
 
         #[allow(non_upper_case_globals)]
         const #compile_check: () = {
-            // Checks on individual fields
             #(
-                {
-                    let field = <#model as ::rorm::model::Model>::FIELDS.#fields_ident;
-                    let annos = &field.annotations;
-
-                    // Check auto_update
-                    if annos.is_auto_update_time_set()
-                        && field.is_not_null()
-                        && !(annos.is_default_set() || annos.is_auto_create_time_set()) {
-                        panic!("\"auto_update_time\" must a) be nullable (i.e. Option<_>) or b) have a default (i.e. #[rorm(default = ..)]) or c) also be auto_create_time (i.e. #[rorm(auto_create_time)])");
-                    }
-
-                    // Check auto_increment only on primary_key
-                    if annos.is_auto_increment_set() && !annos.is_primary_key_set() {
-                        panic!("\"auto_increment\" has to be set on a key");
-                    }
-                }
+                {const _CHECK: () = <#model as ::rorm::model::Model>::FIELDS.#fields_ident.check_annotations();}
             )*
 
             // Cross field checks
