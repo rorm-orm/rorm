@@ -258,6 +258,13 @@ impl<T: AsDbType, D: hmr::db_type::DbType, A> Field<T, D, A> {
     pub fn convert_primitive(&self, primitive: T::Primitive) -> T {
         T::from_primitive(primitive)
     }
+
+    /// Has the field the NotNull annotation in the db?
+    ///
+    /// Used in compile checks.
+    pub const fn is_not_null(&self) -> bool {
+        !T::IS_NULLABLE
+    }
 }
 
 impl<

@@ -86,6 +86,10 @@ pub fn impl_anno_builder(args: TokenStream) -> TokenStream {
         });
     }
 
+    let is_field_set: Vec<_> = fields
+        .iter()
+        .map(|field| format_ident!("is_{}_set", field))
+        .collect();
     quote! {
         mod _internal {
             use rorm_declaration::hmr::annotations::*;
@@ -127,6 +131,15 @@ pub fn impl_anno_builder(args: TokenStream) -> TokenStream {
                         )*
                     }
                 }
+            }
+
+            impl<#(#alphabet: Annotation<#types>),*> Annotations<#(#alphabet),*> {
+                #(
+                    #[doc = concat!("Has the \"", stringify!(#fields), "\" been set?")]
+                    pub const fn #is_field_set(&self) -> bool {
+                        #alphabet::IS_SET
+                    }
+                )*
             }
 
             impl<#(#alphabet: Annotation<#types>),*> super::ImplicitNotNull for Annotations<#(#alphabet),*> {

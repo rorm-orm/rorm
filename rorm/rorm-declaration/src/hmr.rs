@@ -89,6 +89,11 @@ pub mod annotations {
         /// This flag is set on annotations like [`PrimaryKey`] which don't allow null but
         /// databases don't want you to tell them.
         const IMPLICIT_NOT_NULL: bool = false;
+
+        /// This flag indicates whether this annotation has been set or not.
+        ///
+        /// It differentiates [NotSet] and [Forbidden] from [Implicit] and the annotation itself (i.e. [Self]).
+        const IS_SET: bool;
     }
 
     /// An annotation which has not been set
@@ -104,6 +109,8 @@ pub mod annotations {
         fn as_imr(&self) -> Option<imr::Annotation> {
             None
         }
+
+        const IS_SET: bool = false;
     }
 
     /// An annotation which is implied by a field's datatype
@@ -121,6 +128,7 @@ pub mod annotations {
         }
 
         const IMPLICIT_NOT_NULL: bool = T::IMPLICIT_NOT_NULL;
+        const IS_SET: bool = true;
     }
 
     /// An annotation which is forbidden to be set.
@@ -136,6 +144,8 @@ pub mod annotations {
         fn as_imr(&self) -> Option<imr::Annotation> {
             None
         }
+
+        const IS_SET: bool = false;
     }
 
     macro_rules! impl_annotations {
@@ -157,6 +167,7 @@ pub mod annotations {
                     }
 
                     const IMPLICIT_NOT_NULL: bool = $implicit_not_null;
+                    const IS_SET: bool = true;
                 }
             )*
         };
@@ -164,9 +175,9 @@ pub mod annotations {
 
     impl_annotations!(
         /// Will set the current time of the database when a row is created.
-        auto_create_time AutoCreateTime, true,
+        auto_create_time AutoCreateTime, false,
         /// Will set the current time of the database when a row is updated.
-        auto_update_time AutoUpdateTime, true,
+        auto_update_time AutoUpdateTime, false,
         /// AUTO_INCREMENT constraint
         auto_increment AutoIncrement, false,
         /// A list of choices to set
@@ -177,8 +188,6 @@ pub mod annotations {
         index Index(Option<IndexData>), false,
         /// Only for VARCHAR. Specifies the maximum length of the column's content.
         max_length MaxLength(i32), false,
-        /// NOT NULL constraint
-        not_null NotNull, false,
         /// The annotated column will be used as primary key
         primary_key PrimaryKey, true,
         /// UNIQUE constraint

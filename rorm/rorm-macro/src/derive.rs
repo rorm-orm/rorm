@@ -96,6 +96,8 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let fields_struct = format_ident!("__{}_Fields_Struct", strct.ident);
     // Static reference pointing to Model::get_imr
     let static_get_imr = format_ident!("__{}_get_imr", strct.ident);
+    // Const name for compile time checks
+    let compile_check = format_ident!("__compile_check_{}", strct.ident);
     // Database table's name
     let table_name = syn::LitStr::new(&to_db_name(strct.ident.to_string()), strct.ident.span());
     // File, line and column the struct was defined in
@@ -134,6 +136,24 @@ pub fn model(strct: TokenStream) -> TokenStream {
                 }
             }
         }
+
+        #[allow(non_upper_case_globals)]
+        const #compile_check: () = {
+            #(
+                {
+                    let field = <#model as ::rorm::model::Model>::FIELDS.#fields_ident;
+                    let annos = &field.annotations;
+
+                    // Check auto_update
+                    if annos.is_auto_update_time_set()
+                        && field.is_not_null()
+                        && !(annos.is_default_set() || annos.is_auto_create_time_set()) {
+                        panic!("\"auto_update_time\" must a) be nullable (i.e. Option<_>) or b) have a default (i.e. #[rorm(default = ..)]) or c) also be auto_create_time (i.e. #[rorm(auto_create_time)])");
+                    }
+                }
+            )*
+            ()
+        };
 
         #impl_patch
         #impl_try_from_row
