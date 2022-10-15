@@ -117,10 +117,6 @@ pub enum DbType {
     Int16,
     Int32,
     Int64,
-    UInt8,
-    UInt16,
-    UInt32,
-    // no UInt64 because it can't be safely represented on any db
     #[serde(rename = "float_number")]
     Float,
     #[serde(rename = "double_number")]

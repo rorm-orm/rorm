@@ -37,8 +37,12 @@ impl<'post_build> SQLAnnotation<'post_build> {
             },
             Annotation::DefaultValue(d) => match d {
                 DefaultValue::String(dv) => match dialect {
-                    #[cfg(feature = "sqlite")]
-                    DBImpl::SQLite => write!(s, "DEFAULT {}", sqlite::fmt(dv)).unwrap(),
+                    DBImpl::SQLite => {
+                        #[cfg(not(feature = "sqlite"))]
+                        compile_error!("You are using sqlite without the sqlite feature enabled!");
+
+                        write!(s, "DEFAULT {}", sqlite::fmt(dv)).unwrap();
+                    }
                     DBImpl::MySQL => write!(s, "DEFAULT QUOTE({})", dv).unwrap(),
                     _ => todo!("Not implemented yet!"),
                 },
@@ -83,25 +87,25 @@ impl<'post_build> SQLCreateColumn<'post_build> {
         write!(s, "{} ", self.name).unwrap();
 
         match self.dialect {
-            #[cfg(feature = "sqlite")]
-            DBImpl::SQLite => match self.data_type {
-                DbType::VarBinary => write!(s, "BLOB ").unwrap(),
-                DbType::VarChar
-                | DbType::Date
-                | DbType::DateTime
-                | DbType::Timestamp
-                | DbType::Time
-                | DbType::Choices => write!(s, "TEXT ").unwrap(),
-                DbType::Int8
-                | DbType::Int16
-                | DbType::Int32
-                | DbType::Int64
-                | DbType::UInt8
-                | DbType::UInt16
-                | DbType::UInt32
-                | DbType::Boolean => write!(s, "INTEGER ").unwrap(),
-                DbType::Float | DbType::Double => write!(s, "REAL ").unwrap(),
-            },
+            DBImpl::SQLite => {
+                #[cfg(not(feature = "sqlite"))]
+                compile_error!("You are using sqlite without the sqlite feature enabled!");
+                match self.data_type {
+                    DbType::VarBinary => write!(s, "BLOB ").unwrap(),
+                    DbType::VarChar
+                    | DbType::Date
+                    | DbType::DateTime
+                    | DbType::Timestamp
+                    | DbType::Time
+                    | DbType::Choices => write!(s, "TEXT ").unwrap(),
+                    DbType::Int8
+                    | DbType::Int16
+                    | DbType::Int32
+                    | DbType::Int64
+                    | DbType::Boolean => write!(s, "INTEGER ").unwrap(),
+                    DbType::Float | DbType::Double => write!(s, "REAL ").unwrap(),
+                }
+            }
             DBImpl::MySQL => match self.data_type {
                 DbType::VarChar => {
                     let a_opt = self
@@ -145,9 +149,9 @@ impl<'post_build> SQLCreateColumn<'post_build> {
                         ));
                     }
                 }
-                DbType::Int8 | DbType::UInt8 => write!(s, "TINYINT(255) ").unwrap(),
-                DbType::Int16 | DbType::UInt16 => write!(s, "SMALLINT(255) ").unwrap(),
-                DbType::Int32 | DbType::UInt32 => write!(s, "INT(255) ").unwrap(),
+                DbType::Int8 => write!(s, "TINYINT(255) ").unwrap(),
+                DbType::Int16 => write!(s, "SMALLINT(255) ").unwrap(),
+                DbType::Int32 => write!(s, "INT(255) ").unwrap(),
                 DbType::Int64 => write!(s, "BIGINT(255) ").unwrap(),
                 DbType::Float => write!(s, "FLOAT(24) ").unwrap(),
                 DbType::Double => write!(s, "DOUBLE(53) ").unwrap(),

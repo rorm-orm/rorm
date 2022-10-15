@@ -46,12 +46,6 @@ pub mod db_type {
         Int32,
         /// Type level version of [`imr::DbType::Int64`]
         Int64,
-        /// Type level version of [`imr::DbType::UInt8`]
-        UInt8,
-        /// Type level version of [`imr::DbType::UInt16`]
-        UInt16,
-        /// Type level version of [`imr::DbType::UInt32`]
-        UInt32,
         /// Type level version of [`imr::DbType::Float`]
         Float,
         /// Type level version of [`imr::DbType::Double`]
