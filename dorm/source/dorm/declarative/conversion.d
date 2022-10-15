@@ -276,10 +276,17 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 					~ " " ~ directFieldName ~ " in " ~ TModel.stringof
 					~ ", which is defined in " ~ SourceLocation(__traits(getLocation, fieldAlias)).toString
 					~ " may be null. Change it to Nullable!(" ~ typeof(fieldAlias).stringof
-					~ ") or annotate with defaultValue, autoIncrement or autoCreateTime\n\tAnnotations: " ~ field.annotations.to!string);
+					~ ") or annotate with defaultValue, autoIncrement or autoCreateTime");
 			}
 			field.annotations = DBAnnotation(AnnotationFlag.notNull) ~ field.annotations;
 		}
+
+		// https://github.com/myOmikron/drorm/issues/8
+		if (field.hasFlag(AnnotationFlag.autoIncrement) && !field.hasFlag(AnnotationFlag.primaryKey))
+				throw new Exception("DORM Model field " ~ typeof(fieldAlias).stringof
+					~ " " ~ directFieldName ~ " in " ~ TModel.stringof
+					~ ", which is defined in " ~ SourceLocation(__traits(getLocation, fieldAlias)).toString
+					~ " has @autoIncrement annotation, but is missing required @primaryKey annotation.");
 
 		if (field.type == InvalidDBType)
 			throw new Exception("Cannot resolve DORM Model DBType from " ~ typeof(fieldAlias).stringof
