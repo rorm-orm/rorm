@@ -250,16 +250,12 @@ private bool isCompatibleFlags(AnnotationFlag a, AnnotationFlag b)
 	final switch (a) with (AnnotationFlag)
 	{
 		case autoCreateTime: return !b.among!(
-			autoUpdateTime,
 			autoIncrement,
-			notNull,
 			primaryKey,
 			unique,
 		);
 		case autoUpdateTime: return !b.among!(
-			autoCreateTime,
 			autoIncrement,
-			notNull,
 			primaryKey,
 			unique,
 		);
