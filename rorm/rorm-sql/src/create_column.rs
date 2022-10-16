@@ -4,10 +4,10 @@ use rorm_declaration::imr::DefaultValue;
 
 use crate::create_trigger::trigger_annotation_to_trigger;
 use crate::error::Error;
-use crate::{postgres, value, Annotation, DBImpl, DbType};
+use crate::{db_specific::postgres, value, Annotation, DBImpl, DbType};
 
 #[cfg(feature = "sqlite")]
-use crate::sqlite;
+use crate::db_specific::sqlite;
 
 /**
 Representation of an annotation

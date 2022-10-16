@@ -30,9 +30,7 @@ pub mod update;
 /// Implementation of supported datatypes
 pub mod value;
 
-mod postgres;
-#[cfg(feature = "sqlite")]
-mod sqlite;
+mod db_specific;
 
 use rorm_declaration::imr::{Annotation, DbType};
 
