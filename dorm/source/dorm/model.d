@@ -58,17 +58,12 @@ abstract class Model
     /// Sets all fields on `this` (with the compile-time class as context) to
     /// the values in the given Patch struct.
     void applyPatch(Patch, this This)(Patch patch)
-    if (hasUDA!(Patch, DormPatch!This))
     {
+        mixin ValidatePatch!(Patch, This);
+
         auto t = cast(This)this;
         foreach (i, ref field; patch.tupleof)
         {
-            static assert (__traits(hasMember, t, Patch.tupleof[i].stringof),
-                "\n" ~ SourceLocation(__traits(getLocation, Patch.tupleof[i])).toString
-                    ~ ": Error: Patch field `" ~ Patch.tupleof[i].stringof
-                    ~ "` is not defined on DB Type " ~ This.stringof
-                    ~ ".\n\tAvailable usable fields: "
-                        ~ DormFields!This.map!(f => f.sourceColumn).join(", "));
             __traits(getMember, t, Patch.tupleof[i].stringof) = field;
             alias mods = getUDAs!(__traits(getMember, t, Patch.tupleof[i].stringof), modifiedIf);
             static foreach (m; mods)

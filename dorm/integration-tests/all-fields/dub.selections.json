@@ -1,0 +1,11 @@
+{
+	"fileVersion": 1,
+	"versions": {
+		"dorm": {"path":"../.."},
+		"mir-algorithm": "3.16.12",
+		"mir-core": "1.3.12",
+		"mir-cpuid": "1.2.10",
+		"mir-ion": "2.0.17",
+		"silly": "1.1.1"
+	}
+}

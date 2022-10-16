@@ -77,3 +77,17 @@ struct modifiedIf
 		return prefix ~ field ~ " == " ~ (equalsTo ? "true" : "false");
 	}
 }
+
+/// Checks if the given attribute affects DORM Fields
+template isDormFieldAttribute(alias attr)
+{
+	pragma(msg, "TODO: check if " ~ attr.stringof ~ " is a DORM Field annotation");
+	enum isDormFieldAttribute = true;
+}
+
+/// Checks if the given attribute affects DORM Models (classes)
+template isDormModelAttribute(alias attr)
+{
+	pragma(msg, "TODO: check if " ~ attr.stringof ~ " is a DORM Model annotation");
+	enum isDormFieldAttribute = true;
+}

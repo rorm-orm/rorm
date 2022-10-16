@@ -57,7 +57,7 @@ private enum DormLayoutImpl(TModel : Model) = function() {
 
 	static foreach (attribute; attributes)
 	{
-		static if (isDBAttribute!attribute)
+		static if (isDormModelAttribute!attribute)
 		{
 			static assert(false, "Unsupported attribute " ~ attribute.stringof ~ " on " ~ TModel.stringof ~ "." ~ member);
 		}
@@ -263,7 +263,7 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		{
 			field.internalAnnotations ~= InternalAnnotation(attribute);
 		}
-		else static if (isDBAttribute!attribute)
+		else static if (isDormFieldAttribute!attribute)
 		{
 			static assert(false, "Unsupported attribute " ~ attribute.stringof ~ " on " ~ TModel.stringof ~ "." ~ fieldName);
 		}
@@ -288,9 +288,9 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 					~ " has @autoIncrement annotation, but is missing required @primaryKey annotation.");
 
 		if (field.type == InvalidDBType)
-			throw new Exception("Cannot resolve DORM Model DBType from " ~ typeof(fieldAlias).stringof
-				~ " " ~ directFieldName ~ " in " ~ TModel.stringof
-				~ ", which is defined in " ~ SourceLocation(__traits(getLocation, fieldAlias)).toString);
+			throw new Exception(SourceLocation(__traits(getLocation, fieldAlias)).toErrorString
+				~ "Cannot resolve DORM Model DBType from " ~ typeof(fieldAlias).stringof
+				~ " `" ~ directFieldName ~ "` in " ~ TModel.stringof);
 
 		foreach (ai, lhs; field.annotations)
 		{
@@ -413,12 +413,6 @@ unittest
 	assert("HTTP2".toSnakeCase == "http_2");
 	assert("HTTP2Foo".toSnakeCase == "http_2_foo");
 	assert("HTTP2foo".toSnakeCase == "http_2_foo");
-}
-
-private template isDBAttribute(alias attr)
-{
-	pragma(msg, "check " ~ attr.stringof);
-	enum isDBAttribute = true;
 }
 
 private enum InvalidDBType = cast(ModelFormat.Field.DBType)int.max;
