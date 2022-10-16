@@ -45,15 +45,13 @@ class User : NamedThing
 	@autoCreateTime
 	SysTime createdAt;
 
-	// Issue #3
-	// @autoUpdateTime
+	@autoUpdateTime
 	Nullable!SysTime updatedAt;
 
 	@autoCreateTime
 	ulong createdAt2;
 
-	// Issue #3
-	// @autoUpdateTime
+	@autoUpdateTime
 	Nullable!ulong updatedAt2;
 
 	State state;
@@ -65,11 +63,11 @@ class User : NamedThing
 	bool isAdmin;
 
 	@constructValue!(() => Clock.currTime + 4.hours)
+	@autoCreateTime
 	SysTime validUntil;
 
 	@maxLength(255)
-	// Issue #2
-	// @defaultValue("")
+	@defaultValue("")
 	string comment;
 
 	@defaultValue(1337)
@@ -79,7 +77,7 @@ class User : NamedThing
 	long ownPrimaryKey;
 
 	@timestamp
-	ulong creationTime;
+	Nullable!ulong someTimestamp;
 
 	@unique
 	int uuid;

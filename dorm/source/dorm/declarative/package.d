@@ -147,6 +147,35 @@ struct ModelFormat
 			return false;
 		}
 
+		/// Human-readable description how fields with auto-generated values
+		/// (non-required values) can be specified.
+		static immutable string humanReadableGeneratedDefaultValueTypes =
+			`Annotations for automatic value generation: @defaultValue(v), `
+			~ `@constructValue(() => v), @autoCreateTime, @autoIncrement `
+			~ `or change type to Nullable!T for default null.`;
+
+		/**
+		 * Returns true if:
+		 * - this field has some annotation that auto-generates a value if it's
+		 *   not provided in an insert statement,
+		 *   (@defaultValue, @autoCreateTime, @autoIncrement)
+		 * - has a `@constructValue` annotation (which is handled in db.d)
+		 * - is of type `Nullable!T`, which implies that `null` is the default value.
+		 */
+		@serdeIgnore
+		bool hasGeneratedDefaultValue() const @property
+		{
+			return hasDefaultValue
+				|| hasConstructValue
+				|| isNullable
+				|| hasFlag(AnnotationFlag.autoCreateTime)
+				|| hasFlag(AnnotationFlag.autoIncrement);
+		}
+
+		/**
+		 * Returns true if this field has a $(REF constructValue, dorm.annotations)
+		 * annotation.
+		 */
 		@serdeIgnore
 		bool hasConstructValue() const @property
 		{
@@ -163,6 +192,10 @@ struct ModelFormat
 			return false;
 		}
 
+		/**
+		 * Returns true if this field is the default `id` field defined in the
+		 * $(REF Model, dorm.model) super-class.
+		 */
 		@serdeIgnore
 		bool isBuiltinId() const @property
 		{
@@ -184,11 +217,15 @@ struct ModelFormat
 		}
 
 		@serdeIgnore
-		string sourceReferenceName(string modelName) const @property
+		string sourceReferenceName(string modelName = null) const @property
 		{
-			return sourceType ~ " " ~ sourceColumn
-				~ " in " ~ modelName ~ " (from "
-				~ definedAt.toString ~ ")";
+			if (modelName.length)
+				return sourceType ~ " " ~ sourceColumn
+					~ " in " ~ modelName ~ " (from "
+					~ definedAt.toString ~ ")";
+			else
+				return sourceType ~ " " ~ sourceColumn
+					~ " (from " ~ definedAt.toString ~ ")";
 		}
 	}
 
@@ -253,7 +290,11 @@ struct SourceLocation
 	{
 		import std.conv : text;
 	
-		return text(sourceFile, ":", sourceLine, ":", sourceColumn);
+		string ret = text(sourceFile, "(", sourceLine, ",", sourceColumn, ")");
+		if (__ctfe)
+			return ret.idup;
+		else
+			return ret;
 	}
 }
 

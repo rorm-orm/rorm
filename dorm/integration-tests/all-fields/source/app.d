@@ -34,7 +34,7 @@ void main(string[] args)
 		bool isAdmin = true;
 		string comment = "Very nice person :3";
 		long ownPrimaryKey = 123;
-		ulong creationTime = 1_000_000_000UL;
+		ulong someTimestamp = 1_000_000_000UL;
 		int uuid = int.max;
 		int someInt = 20;
 		Common commonFields = Common("CommonName", SuperCommon(12345));

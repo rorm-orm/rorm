@@ -525,7 +525,7 @@ unittest
 			long ownPrimaryKey;
 
 			@timestamp
-			Nullable!ulong creationTime;
+			Nullable!ulong someTimestamp;
 
 			@unique
 			int uuid;

@@ -163,14 +163,16 @@ struct DormDB
 				values[used] = conditionValue!field(mixin("validatorObject." ~ field.sourceColumn));
 				used++;
 			}
-			else static if (field.isNullable || field.hasDefaultValue)
+			else static if (field.hasGeneratedDefaultValue)
 			{
 				// OK
 			}
 			else static if (!is(T == DB))
 				static assert(false, "Trying to insert a patch " ~ T.stringof
-					~ " into " ~ DB.stringof ~ ", but it is missing the non-nullable, non-default, non-constructValue field "
-					~ field.sourceColumn ~ " defined in " ~ field.definedAt.toString ~ "!");
+					~ " into " ~ DB.stringof ~ ", but it is missing the required field "
+					~ field.sourceReferenceName ~ "! "
+					~ "Fields with auto-generated values may be omitted in patch types. "
+					~ ModelFormat.Field.humanReadableGeneratedDefaultValueTypes);
 			else
 				static assert(false, "wat? (defined DormField not found inside the Model class that defined it)");
 		}}
@@ -750,15 +752,6 @@ private T extractField(alias field, T, string errInfo)(ffi.DBRowHandle row, ref 
 			else assert(false);
 		case int64:
 			static if (field.type == int64) return fieldInto!(T, errInfo)(mixin(pre, "i64", suf), error);
-			else assert(false);
-		case uint8:
-			static if (field.type == uint8) return fieldInto!(T, errInfo)(mixin(pre, "i16", suf), error);
-			else assert(false);
-		case uint16:
-			static if (field.type == uint16) return fieldInto!(T, errInfo)(mixin(pre, "i32", suf), error);
-			else assert(false);
-		case uint32:
-			static if (field.type == uint32) return fieldInto!(T, errInfo)(mixin(pre, "i64", suf), error);
 			else assert(false);
 		case floatNumber:
 			static if (field.type == floatNumber) return fieldInto!(T, errInfo)(mixin(pre, "f32", suf), error);
