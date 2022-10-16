@@ -6,30 +6,50 @@ import dorm.declarative.conversion;
 import dorm.api.db;
 
 public import dorm.api.db : DormPatch;
+import std.algorithm;
+import std.string;
 import std.sumtype;
 import std.traits;
 
+/**
+ * Base Model class for all user-defined DORM Models. This implements running
+ * value constructors and validators as well as defining an optional default id
+ * field. The default id field is only used / available as getter/setter if
+ * there is no other `@Id` or `@primaryKey` field on the Model class.
+ *
+ * This is only checked at compile time using the `this This` template type, so
+ * only blocking invalid usage when calling it on an actual instance of the
+ * user-defined Model type. When casting to a base-class that uses the built-in
+ * generated ID field, it may be possible to circumvent this safety check.
+ */
 abstract class Model
 {
-    /// Auto-included ID field that's assigned on every model.
+    /// Auto-included ID field that's assigned on every model. May be overriden
+    /// by simply defining a custom `@Id` or `@primaryKey` annotated field.
     @Id @columnName("id") @modifiedIf("_modifiedId")
     public long _fallbackId;
+    /// Controls when the built-in ID is updated, automatically set by the
+    /// built-in id setter $(LREF id).
     @ignored
     public bool _modifiedId;
 
+    /// Gets or sets the builtin id, only available on Model classes that don't
+    /// define a custom `@Id` or `@primaryKey` field.
     public long id(this This)() const @property @safe nothrow @nogc pure
-    if (DormFields!This[0].isBuiltinId)
+    if (!is(This == Model) && DormFields!This[0].isBuiltinId)
     {
         return _fallbackId;
     }
 
+    /// ditto
     public long id(this This)(long value) @property @safe nothrow @nogc pure
-    if (DormFields!This[0].isBuiltinId)
+    if (!is(This == Model) && DormFields!This[0].isBuiltinId)
     {
         _modifiedId = true;
         return _fallbackId = value;
     }
 
+    /// Default constructor. Runs value constructors. (`@constructValue` UDAs)
     this(this This)()
     {
         applyConstructValue!This();
@@ -43,6 +63,12 @@ abstract class Model
         auto t = cast(This)this;
         foreach (i, ref field; patch.tupleof)
         {
+            static assert (__traits(hasMember, t, Patch.tupleof[i].stringof),
+                "\n" ~ SourceLocation(__traits(getLocation, Patch.tupleof[i])).toString
+                    ~ ": Error: Patch field `" ~ Patch.tupleof[i].stringof
+                    ~ "` is not defined on DB Type " ~ This.stringof
+                    ~ ".\n\tAvailable usable fields: "
+                        ~ DormFields!This.map!(f => f.sourceColumn).join(", "));
             __traits(getMember, t, Patch.tupleof[i].stringof) = field;
             alias mods = getUDAs!(__traits(getMember, t, Patch.tupleof[i].stringof), modifiedIf);
             static foreach (m; mods)
@@ -50,6 +76,9 @@ abstract class Model
         }
     }
 
+    /// Explicitly calls value constructors. (`@constructValue` UDAs)
+    /// This is already implicitly called by the default constructor and is
+    /// probably not needed to be called manually.
     void applyConstructValue(this This)()
     {
         enum constructorFuncs = {
