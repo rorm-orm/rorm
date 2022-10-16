@@ -2,11 +2,18 @@
 use std::marker::PhantomData;
 
 use futures::stream::BoxStream;
-use futures::StreamExt;
+use futures::{Stream, StreamExt};
 use rorm_db::{conditional::Condition, error::Error, row::Row, Database};
 
 use crate::crud::builder::ConditionMarker;
 use crate::model::{Model, Patch};
+
+/// Marker for type a [QueryBuilder]'s result should be converted to.
+///
+/// [`()`] simply means no further conversion possible.
+pub trait QueryResult<M: Model> {}
+impl<M: Model> QueryResult<M> for () {}
+impl<M: Model, P: Patch<Model = M>> QueryResult<M> for P {}
 
 /// Builder for creating queries
 ///
@@ -21,15 +28,15 @@ use crate::model::{Model, Patch};
 ///     - [`QueryBuilder::stream`] to get all rows in a stream
 ///     - [`QueryBuilder::one`] to get a single row
 ///     - [`QueryBuilder::optional`] to get an optional single row
-pub struct QueryBuilder<'a, P: Patch, C: ConditionMarker<'a>> {
+pub struct QueryBuilder<'a, M: Model, R: QueryResult<M>, C: ConditionMarker<'a>> {
     db: &'a Database,
     columns: &'a [&'a str],
-    _phantom: PhantomData<P>,
+    _phantom: PhantomData<(M, R)>,
 
     condition: C,
 }
 
-impl<'a, P: Patch> QueryBuilder<'a, P, ()> {
+impl<'a, M: Model> QueryBuilder<'a, M, (), ()> {
     /// Start building a query which selects a given set of columns
     pub fn select_columns(db: &'a Database, columns: &'a [&'a str]) -> Self {
         QueryBuilder {
@@ -40,16 +47,37 @@ impl<'a, P: Patch> QueryBuilder<'a, P, ()> {
             condition: (),
         }
     }
+}
 
+impl<'a, M: Model, P: Patch<Model = M>> QueryBuilder<'a, M, P, ()> {
     /// Start building a query which selects a patch's columns
     pub fn select_patch(db: &'a Database) -> Self {
-        Self::select_columns(db, P::COLUMNS)
+        QueryBuilder {
+            db,
+            columns: P::COLUMNS,
+            _phantom: PhantomData,
+
+            condition: (),
+        }
     }
 }
 
-impl<'a, P: Patch> QueryBuilder<'a, P, ()> {
+impl<'a, M: Model> QueryBuilder<'a, M, M, ()> {
+    /// Start building a query which selects all columns
+    pub fn select_model(db: &'a Database) -> Self {
+        QueryBuilder {
+            db,
+            columns: M::COLUMNS,
+            _phantom: PhantomData,
+
+            condition: (),
+        }
+    }
+}
+
+impl<'a, M: Model, R: QueryResult<M>> QueryBuilder<'a, M, R, ()> {
     /// Add a condition to the query
-    pub fn condition(&self, condition: Condition<'a>) -> QueryBuilder<'a, P, Condition<'a>> {
+    pub fn condition(&self, condition: Condition<'a>) -> QueryBuilder<'a, M, R, Condition<'a>> {
         QueryBuilder {
             db: self.db,
             columns: self.columns,
@@ -60,19 +88,41 @@ impl<'a, P: Patch> QueryBuilder<'a, P, ()> {
     }
 }
 
-impl<'a, P: Patch + Send + 'static, C: ConditionMarker<'a>> QueryBuilder<'a, P, C> {
-    /// Retrieve the query as a stream of Models
-    pub fn stream(&self) -> BoxStream<'a, Result<P, Error>> {
-        self.stream_as_row()
-            .map(|row| {
-                P::try_from(row?)
-                    .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
-            })
-            .boxed()
+// Execute query and return rows
+// This doesn't require any specific QueryResult
+impl<'a, M: Model, R: QueryResult<M>, C: ConditionMarker<'a>> QueryBuilder<'a, M, R, C> {
+    /// Retrieve all matching rows
+    pub async fn all_as_rows(&self) -> Result<Vec<Row>, Error> {
+        self.db
+            .query_all(M::table_name(), self.columns, self.condition.as_option())
+            .await
+    }
+
+    /// Retrieve exactly one matching row
+    ///
+    /// An error is returned if no value could be retrieved.
+    pub async fn one_as_row(&self) -> Result<Row, Error> {
+        self.db
+            .query_one(M::table_name(), self.columns, self.condition.as_option())
+            .await
+    }
+
+    /// Retrieve the query as a stream of rows
+    pub fn stream_as_row(&self) -> BoxStream<'a, Result<Row, Error>> {
+        self.db
+            .query_stream(M::table_name(), self.columns, self.condition.as_option())
+    }
+
+    /// Try to retrieve the a matching row
+    pub async fn optional_as_row(&self) -> Result<Option<Row>, Error> {
+        self.db
+            .query_optional(M::table_name(), self.columns, self.condition.as_option())
+            .await
     }
 }
 
-impl<'a, P: Patch, C: ConditionMarker<'a>> QueryBuilder<'a, P, C> {
+// Execute query and map result through TryFrom<Row>
+impl<'a, M: Model, P: Patch<Model = M>, C: ConditionMarker<'a>> QueryBuilder<'a, M, P, C> {
     /// Retrieve all matching rows as unpacked models
     pub async fn all(&self) -> Result<Vec<P>, Error> {
         self.all_as_rows()
@@ -84,17 +134,6 @@ impl<'a, P: Patch, C: ConditionMarker<'a>> QueryBuilder<'a, P, C> {
             .collect::<Result<Vec<_>, _>>()
     }
 
-    /// Retrieve all matching rows
-    pub async fn all_as_rows(&self) -> Result<Vec<Row>, Error> {
-        self.db
-            .query_all(
-                P::Model::table_name(),
-                self.columns,
-                self.condition.as_option(),
-            )
-            .await
-    }
-
     /// Retrieve exactly one matching row as Model
     ///
     /// An error is returned if no value could be retrieved.
@@ -103,26 +142,11 @@ impl<'a, P: Patch, C: ConditionMarker<'a>> QueryBuilder<'a, P, C> {
             .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
     }
 
-    /// Retrieve exactly one matching row
-    ///
-    /// An error is returned if no value could be retrieved.
-    pub async fn one_as_row(&self) -> Result<Row, Error> {
-        self.db
-            .query_one(
-                P::Model::table_name(),
-                self.columns,
-                self.condition.as_option(),
-            )
-            .await
-    }
-
-    /// Retrieve the query as a stream of rows
-    pub fn stream_as_row(&self) -> BoxStream<'a, Result<Row, Error>> {
-        self.db.query_stream(
-            P::Model::table_name(),
-            self.columns,
-            self.condition.as_option(),
-        )
+    /// Retrieve the query as a stream of Models
+    pub fn stream(&self) -> impl Stream<Item = Result<P, Error>> + 'a {
+        self.stream_as_row().map(|row| {
+            P::try_from(row?).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
+        })
     }
 
     /// Try to retrieve the a matching row as Model
@@ -135,17 +159,6 @@ impl<'a, P: Patch, C: ConditionMarker<'a>> QueryBuilder<'a, P, C> {
                 })?))
             }
         }
-    }
-
-    /// Try to retrieve the a matching row
-    pub async fn optional_as_row(&self) -> Result<Option<Row>, Error> {
-        self.db
-            .query_optional(
-                P::Model::table_name(),
-                self.columns,
-                self.condition.as_option(),
-            )
-            .await
     }
 }
 
