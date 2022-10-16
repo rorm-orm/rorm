@@ -63,7 +63,7 @@ pub(crate) fn trigger_annotation_to_trigger(
         DBImpl::SQLite => match annotation {
             Annotation::AutoUpdateTime => {
                 let update_statement = format!(
-                    "UPDATE {} SET {} = CURRENT_TIMESTAMP WHERE id = NEW.id;",
+                    "UPDATE {}  SET {} = CURRENT_TIMESTAMP WHERE ROWID = NEW.ROWID;",
                     table_name, column_name
                 );
                 statements.push((
@@ -71,7 +71,7 @@ pub(crate) fn trigger_annotation_to_trigger(
                         .create_trigger(
                             format!("{}_{}_auto_update_time", table_name, column_name).as_str(),
                             table_name,
-                            Some(SQLCreateTriggerPointInTime::Before),
+                            Some(SQLCreateTriggerPointInTime::After),
                             SQLCreateTriggerOperation::Update { columns: None },
                         )
                         .for_each_row()
