@@ -1,10 +1,8 @@
 //! Query builder and macro
-use futures::{Stream, StreamExt};
 use std::marker::PhantomData;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 
 use futures::stream::BoxStream;
+use futures::StreamExt;
 use rorm_db::{conditional::Condition, error::Error, row::Row, Database};
 
 use crate::crud::builder::ConditionMarker;
@@ -23,15 +21,15 @@ use crate::model::{Model, Patch};
 ///     - [`QueryBuilder::stream`] to get all rows in a stream
 ///     - [`QueryBuilder::one`] to get a single row
 ///     - [`QueryBuilder::optional`] to get an optional single row
-pub struct QueryBuilder<'a, M: Model, C: ConditionMarker<'a>> {
+pub struct QueryBuilder<'a, P: Patch, C: ConditionMarker<'a>> {
     db: &'a Database,
     columns: &'a [&'a str],
-    _phantom: PhantomData<M>,
+    _phantom: PhantomData<P>,
 
     condition: C,
 }
 
-impl<'a, M: Model> QueryBuilder<'a, M, ()> {
+impl<'a, P: Patch> QueryBuilder<'a, P, ()> {
     /// Start building a query which selects a given set of columns
     pub fn select_columns(db: &'a Database, columns: &'a [&'a str]) -> Self {
         QueryBuilder {
@@ -43,23 +41,15 @@ impl<'a, M: Model> QueryBuilder<'a, M, ()> {
         }
     }
 
-    /// Start building a query which selects every column
-    pub fn select_model(db: &'a Database) -> Self
-    where
-        M: Patch<Model = M>,
-    {
-        Self::select_patch::<M>(db)
-    }
-
     /// Start building a query which selects a patch's columns
-    pub fn select_patch<P: Patch<Model = M>>(db: &'a Database) -> Self {
+    pub fn select_patch(db: &'a Database) -> Self {
         Self::select_columns(db, P::COLUMNS)
     }
 }
 
-impl<'a, M: Model> QueryBuilder<'a, M, ()> {
+impl<'a, P: Patch> QueryBuilder<'a, P, ()> {
     /// Add a condition to the query
-    pub fn condition(&self, condition: Condition<'a>) -> QueryBuilder<'a, M, Condition<'a>> {
+    pub fn condition(&self, condition: Condition<'a>) -> QueryBuilder<'a, P, Condition<'a>> {
         QueryBuilder {
             db: self.db,
             columns: self.columns,
@@ -70,30 +60,26 @@ impl<'a, M: Model> QueryBuilder<'a, M, ()> {
     }
 }
 
-impl<'a, M: Model + TryFrom<Row> + Send + 'static, C: ConditionMarker<'a>> QueryBuilder<'a, M, C> {
+impl<'a, P: Patch + Send + 'static, C: ConditionMarker<'a>> QueryBuilder<'a, P, C> {
     /// Retrieve the query as a stream of Models
-    pub fn stream(&self) -> BoxStream<'a, Result<M, Error>> {
-        ModelStream {
-            query_stream: self.db.query_stream(
-                M::table_name(),
-                self.columns,
-                self.condition.as_option(),
-            ),
-            _phantom: self._phantom,
-        }
-        .boxed()
+    pub fn stream(&self) -> BoxStream<'a, Result<P, Error>> {
+        self.stream_as_row()
+            .map(|row| {
+                P::try_from(row?)
+                    .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
+            })
+            .boxed()
     }
 }
 
-impl<'a, M: Model + TryFrom<Row>, C: ConditionMarker<'a>> QueryBuilder<'a, M, C> {
+impl<'a, P: Patch, C: ConditionMarker<'a>> QueryBuilder<'a, P, C> {
     /// Retrieve all matching rows as unpacked models
-    pub async fn all(&self) -> Result<Vec<M>, Error> {
-        self.db
-            .query_all(M::table_name(), self.columns, self.condition.as_option())
+    pub async fn all(&self) -> Result<Vec<P>, Error> {
+        self.all_as_rows()
             .await?
             .into_iter()
             .map(|x| {
-                M::try_from(x).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
+                P::try_from(x).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
             })
             .collect::<Result<Vec<_>, _>>()
     }
@@ -101,20 +87,20 @@ impl<'a, M: Model + TryFrom<Row>, C: ConditionMarker<'a>> QueryBuilder<'a, M, C>
     /// Retrieve all matching rows
     pub async fn all_as_rows(&self) -> Result<Vec<Row>, Error> {
         self.db
-            .query_all(M::table_name(), self.columns, self.condition.as_option())
+            .query_all(
+                P::Model::table_name(),
+                self.columns,
+                self.condition.as_option(),
+            )
             .await
     }
 
     /// Retrieve exactly one matching row as Model
     ///
     /// An error is returned if no value could be retrieved.
-    pub async fn one(&self) -> Result<M, Error> {
-        M::try_from(
-            self.db
-                .query_one(M::table_name(), self.columns, self.condition.as_option())
-                .await?,
-        )
-        .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
+    pub async fn one(&self) -> Result<P, Error> {
+        P::try_from(self.one_as_row().await?)
+            .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
     }
 
     /// Retrieve exactly one matching row
@@ -122,27 +108,29 @@ impl<'a, M: Model + TryFrom<Row>, C: ConditionMarker<'a>> QueryBuilder<'a, M, C>
     /// An error is returned if no value could be retrieved.
     pub async fn one_as_row(&self) -> Result<Row, Error> {
         self.db
-            .query_one(M::table_name(), self.columns, self.condition.as_option())
+            .query_one(
+                P::Model::table_name(),
+                self.columns,
+                self.condition.as_option(),
+            )
             .await
     }
 
     /// Retrieve the query as a stream of rows
     pub fn stream_as_row(&self) -> BoxStream<'a, Result<Row, Error>> {
-        self.db
-            .query_stream(M::table_name(), self.columns, self.condition.as_option())
+        self.db.query_stream(
+            P::Model::table_name(),
+            self.columns,
+            self.condition.as_option(),
+        )
     }
 
     /// Try to retrieve the a matching row as Model
-    pub async fn optional(&self) -> Result<Option<M>, Error> {
-        let row_opt = self
-            .db
-            .query_optional(M::table_name(), self.columns, self.condition.as_option())
-            .await?;
-
-        match row_opt {
+    pub async fn optional(&self) -> Result<Option<P>, Error> {
+        match self.optional_as_row().await? {
             None => Ok(None),
             Some(row) => {
-                Ok(Some(M::try_from(row).map_err(|_| {
+                Ok(Some(P::try_from(row).map_err(|_| {
                     Error::DecodeError("Could not decode row".to_string())
                 })?))
             }
@@ -152,37 +140,12 @@ impl<'a, M: Model + TryFrom<Row>, C: ConditionMarker<'a>> QueryBuilder<'a, M, C>
     /// Try to retrieve the a matching row
     pub async fn optional_as_row(&self) -> Result<Option<Row>, Error> {
         self.db
-            .query_optional(M::table_name(), self.columns, self.condition.as_option())
+            .query_optional(
+                P::Model::table_name(),
+                self.columns,
+                self.condition.as_option(),
+            )
             .await
-    }
-}
-
-struct ModelStream<'a, M: Model + TryFrom<Row> + Send + 'static> {
-    query_stream: BoxStream<'a, Result<Row, Error>>,
-    _phantom: PhantomData<M>,
-}
-
-impl<M: Model + TryFrom<Row> + Send + 'static> Unpin for ModelStream<'_, M> {}
-
-impl<M: Model + TryFrom<Row> + Send + 'static> Stream for ModelStream<'_, M> {
-    type Item = Result<M, Error>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.query_stream.as_mut().poll_next(cx).map(|opt| {
-            opt.map(|result| {
-                result.map(|x| {
-                    M::try_from(x)
-                        .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
-                })
-            })
-            .map(|x| match x {
-                Ok(res) => match res {
-                    Ok(model) => Ok(model),
-                    Err(err) => Err(err),
-                },
-                Err(err) => Err(err),
-            })
-        })
     }
 }
 
