@@ -340,10 +340,8 @@ pub extern "C" fn rorm_db_query_one(
         }
     }
 
-    let cond = if condition.is_none() {
-        None
-    } else {
-        let cond_conv = condition.unwrap().try_into();
+    let cond = if let Some(cond) = condition {
+        let cond_conv = cond.try_into();
         if cond_conv.is_err() {
             match cond_conv.as_ref().err().unwrap() {
                 Error::InvalidStringError
@@ -357,6 +355,8 @@ pub extern "C" fn rorm_db_query_one(
             return;
         }
         Some(cond_conv.unwrap())
+    } else {
+        None
     };
 
     let fut = async move {
@@ -440,10 +440,8 @@ pub extern "C" fn rorm_db_query_all(
         }
     }
 
-    let cond = if condition.is_none() {
-        None
-    } else {
-        let cond_conv = condition.unwrap().try_into();
+    let cond = if let Some(cond) = condition {
+        let cond_conv = cond.try_into();
         if cond_conv.is_err() {
             match cond_conv.as_ref().err().unwrap() {
                 Error::InvalidStringError
@@ -457,6 +455,8 @@ pub extern "C" fn rorm_db_query_all(
             return;
         }
         Some(cond_conv.unwrap())
+    } else {
+        None
     };
 
     let fut = async move {
@@ -645,7 +645,6 @@ This function deletes rows from the database based on the given conditions.
 - `db`: Reference to the Database, provided by [rorm_db_connect].
 - `model`: Name of the table to query.
 - `condition`: Pointer to a [Condition].
-- `limit`: Optional limit of deletions that should be executed.
 - `callback`: callback function. Takes the `context`, a pointer to a vec of rows and an [Error].
 - `context`: Pass through void pointer.
 
@@ -674,10 +673,8 @@ pub extern "C" fn rorm_db_delete(
         return;
     }
 
-    let cond = if condition.is_none() {
-        None
-    } else {
-        let cond_conv = condition.unwrap().try_into();
+    let cond = if let Some(cond) = condition {
+        let cond_conv = cond.try_into();
         if cond_conv.is_err() {
             match cond_conv.as_ref().err().unwrap() {
                 Error::InvalidStringError
@@ -691,6 +688,8 @@ pub extern "C" fn rorm_db_delete(
             return;
         }
         Some(cond_conv.unwrap())
+    } else {
+        None
     };
 
     let fut = async move {
