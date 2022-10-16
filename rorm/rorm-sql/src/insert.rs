@@ -40,8 +40,8 @@ impl<'until_build, 'post_build> SQLInsert<'until_build, 'post_build> {
             "INSERT {}INTO ",
             match self.dialect {
                 DBImpl::SQLite | DBImpl::MySQL => match self.on_conflict {
-                    OnConflict::ABORT => " OR ABORT",
-                    OnConflict::ROLLBACK => " OR ROLLBACK",
+                    OnConflict::ABORT => "OR ABORT ",
+                    OnConflict::ROLLBACK => "OR ROLLBACK ",
                 },
                 DBImpl::Postgres => "",
             },
