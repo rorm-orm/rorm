@@ -390,3 +390,14 @@ impl<'a> TryFrom<&'a Condition<'a>> for rorm_db::conditional::Condition<'a> {
         }
     }
 }
+
+/**
+Representation of an update.
+
+Consists of a column and the value to set to this column.
+*/
+#[repr(C)]
+pub struct FFIUpdate<'a> {
+    pub(crate) column: FFIString<'a>,
+    pub(crate) value: &'a FFIValue<'a>,
+}

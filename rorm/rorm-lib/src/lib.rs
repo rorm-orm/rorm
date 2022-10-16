@@ -21,7 +21,7 @@ use rorm_db::{Database, DatabaseConfiguration};
 use tokio::runtime::Runtime;
 
 use crate::errors::Error;
-use crate::representations::{Condition, DBConnectOptions, FFIValue};
+use crate::representations::{Condition, DBConnectOptions, FFIUpdate, FFIValue};
 use crate::utils::{
     FFIDate, FFIDateTime, FFIOption, FFISlice, FFIString, FFITime, Stream, VoidPtr,
 };
@@ -930,6 +930,107 @@ pub extern "C" fn rorm_db_insert_bulk(
         unsafe { cb(context, Error::RuntimeError(err.as_str().into())) };
     };
     spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
+}
+
+// --------
+// UPDATE
+// --------
+
+/**
+This function updates rows in the database.
+
+**Parameter**:
+- `db`: Reference to the Database, provided by [rorm_db_connect].
+- `model`: Name of the table to query.
+- `condition`: Pointer to a [Condition].
+- `callback`: callback function. Takes the `context`, the rows affected and an [Error].
+- `context`: Pass through void pointer.
+
+**Important**:
+- Make sure that `db`, `model`,  are allocated until the callback is executed.
+
+This function is called from an asynchronous context.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_db_update(
+    db: &'static Database,
+    model: FFIString<'static>,
+    updates: FFISlice<'static, FFIUpdate<'static>>,
+    condition: Option<&'static Condition>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, u64, Error) -> ()>,
+    context: VoidPtr,
+) {
+    let cb = callback.expect("Callback must not be empty");
+
+    let model_conv = model.try_into();
+    if model_conv.is_err() {
+        unsafe { cb(context, u64::MAX, Error::InvalidStringError) };
+        return;
+    }
+    let model = model_conv.unwrap();
+
+    let mut up = vec![];
+    let update_slice: &[FFIUpdate] = updates.into();
+    for update in update_slice {
+        let column_conv = update.column.try_into();
+        if column_conv.is_err() {
+            unsafe { cb(context, u64::MAX, Error::InvalidStringError) };
+            return;
+        }
+
+        let value_conv: Result<Value, Error> = update.value.try_into();
+        if value_conv.is_err() {
+            unsafe { cb(context, u64::MAX, Error::InvalidStringError) };
+            return;
+        }
+
+        up.push((column_conv.unwrap(), value_conv.unwrap()));
+    }
+
+    let cond = if let Some(cond) = condition {
+        let cond_conv = cond.try_into();
+        if cond_conv.is_err() {
+            match cond_conv.as_ref().err().unwrap() {
+                Error::InvalidStringError
+                | Error::InvalidDateError
+                | Error::InvalidTimeError
+                | Error::InvalidDateTimeError => unsafe {
+                    cb(context, u64::MAX, cond_conv.err().unwrap())
+                },
+                _ => {}
+            }
+            return;
+        }
+        Some(cond_conv.unwrap())
+    } else {
+        None
+    };
+
+    let fut = async move {
+        let query_res = match cond {
+            None => db.update(model, up.as_slice(), None).await,
+            Some(cond) => db.update(model, up.as_slice(), Some(&cond)).await,
+        };
+
+        match query_res {
+            Ok(res) => unsafe {
+                cb(context, res, Error::NoError);
+            },
+            Err(err) => unsafe {
+                let ffi_err = err.to_string();
+                cb(
+                    context,
+                    u64::MAX,
+                    Error::DatabaseError(ffi_err.as_str().into()),
+                );
+            },
+        }
+    };
+
+    let f = |err: String| {
+        unsafe { cb(context, u64::MAX, Error::RuntimeError(err.as_str().into())) };
+    };
+    spawn_fut!(fut, cb(context, u64::MAX, Error::MissingRuntimeError), f);
 }
 
 // --------
