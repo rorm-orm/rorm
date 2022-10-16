@@ -331,4 +331,38 @@ impl Database {
             Err(err) => Err(Error::SqlxError(err)),
         }
     }
+
+    /**
+    Execute raw SQL statements on the database.
+
+    If possible, the statement is executed as prepared statement.
+
+    To bind parameter, use ? as placeholder in SQLite and MySQL
+    and $1, $2, $n in Postgres.
+
+    **Parameter**:
+    - `query_string`: Reference to a valid SQL query.
+    - `bind_params`: Optional list of values to bind in the query.
+
+    **Returns** a list of rows. If there are no values to retrieve, an empty
+    list is returned.
+    */
+    pub async fn raw_sql<'a>(
+        &self,
+        query_string: &'a str,
+        bind_params: Option<&[value::Value<'a>]>,
+    ) -> Result<Vec<Row>, Error> {
+        debug!("SQL: {}", query_string);
+
+        let mut q = sqlx::query(query_string);
+        if let Some(params) = bind_params {
+            for x in params {
+                q = utils::bind_param(q, *x);
+            }
+        }
+        q.fetch_all(&self.pool)
+            .await
+            .map(|vector| vector.into_iter().map(Row::from).collect())
+            .map_err(Error::SqlxError)
+    }
 }
