@@ -58,9 +58,6 @@ struct ModelFormat
 			int16, /// inferred from `short`
 			int32, /// inferred from `int`
 			int64, /// inferred from `long`
-			uint8, /// inferred from `ubyte`
-			uint16, /// inferred from `ushort`
-			uint32, /// inferred from `uint`
 			floatNumber, /// inferred from `float`
 			doubleNumber, /// inferred from `double`
 			boolean, /// inferred from `bool`

@@ -448,9 +448,9 @@ private enum guessDBTypeBase(T : byte) = ModelFormat.Field.DBType.int8;
 private enum guessDBTypeBase(T : short) = ModelFormat.Field.DBType.int16;
 private enum guessDBTypeBase(T : int) = ModelFormat.Field.DBType.int32;
 private enum guessDBTypeBase(T : long) = ModelFormat.Field.DBType.int64;
-private enum guessDBTypeBase(T : ubyte) = ModelFormat.Field.DBType.uint8;
-private enum guessDBTypeBase(T : ushort) = ModelFormat.Field.DBType.uint16;
-private enum guessDBTypeBase(T : uint) = ModelFormat.Field.DBType.uint32;
+private enum guessDBTypeBase(T : ubyte) = ModelFormat.Field.DBType.int16;
+private enum guessDBTypeBase(T : ushort) = ModelFormat.Field.DBType.int32;
+private enum guessDBTypeBase(T : uint) = ModelFormat.Field.DBType.int64;
 private enum guessDBTypeBase(T : float) = ModelFormat.Field.DBType.floatNumber;
 private enum guessDBTypeBase(T : double) = ModelFormat.Field.DBType.doubleNumber;
 private enum guessDBTypeBase(T : bool) = ModelFormat.Field.DBType.boolean;
@@ -562,7 +562,7 @@ unittest
 	assert(m.fields[i].annotations == [DBAnnotation(maxLength(255))]);
 
 	assert(m.fields[++i].columnName == "age");
-	assert(m.fields[i].type == ModelFormat.Field.DBType.uint8);
+	assert(m.fields[i].type == ModelFormat.Field.DBType.int16);
 	assert(m.fields[i].annotations == [DBAnnotation(AnnotationFlag.notNull)]);
 
 	assert(m.fields[++i].columnName == "birthday");
