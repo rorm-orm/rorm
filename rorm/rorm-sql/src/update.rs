@@ -11,9 +11,7 @@ pub struct SQLUpdate<'until_build, 'post_build> {
     pub(crate) dialect: DBImpl,
     pub(crate) model: &'until_build str,
     pub(crate) on_conflict: OnConflict,
-    pub(crate) single_column_updates: Vec<(&'until_build str, value::Value<'post_build>)>,
-    pub(crate) multiple_column_updates:
-        Vec<(&'until_build [&'until_build str], value::Value<'post_build>)>,
+    pub(crate) updates: Vec<(&'until_build str, value::Value<'post_build>)>,
     pub(crate) where_clause: Option<&'until_build conditional::Condition<'post_build>>,
     pub(crate) lookup: Vec<value::Value<'post_build>>,
 }
@@ -45,35 +43,18 @@ impl<'until_build, 'post_build> SQLUpdate<'until_build, 'post_build> {
     }
 
     /**
-    Add an update for a single column.
+    Add an update
 
     **Parameter**:
     - `column_name`: The column name to set the value to.
     - `column_value`: The value to set the column to.
     */
-    pub fn add_single_col_update(
+    pub fn add_update(
         mut self,
         column_name: &'until_build str,
         column_value: value::Value<'post_build>,
     ) -> Self {
-        self.single_column_updates.push((column_name, column_value));
-        self
-    }
-
-    /**
-    Add an update for multiple columns.
-
-    **Parameter**:
-    - `column_names`: The column names to set the value to.
-    - `column_value`: The value to set the columns to.
-     */
-    pub fn add_multiple_col_update(
-        mut self,
-        column_names: &'until_build [&'until_build str],
-        column_value: value::Value<'post_build>,
-    ) -> Self {
-        self.multiple_column_updates
-            .push((column_names, column_value));
+        self.updates.push((column_name, column_value));
         self
     }
 
@@ -85,7 +66,7 @@ impl<'until_build, 'post_build> SQLUpdate<'until_build, 'post_build> {
     This function returns an error, if no update statements are given previously.
     */
     pub fn build(mut self) -> Result<(String, Vec<value::Value<'post_build>>), Error> {
-        if self.single_column_updates.is_empty() && self.multiple_column_updates.is_empty() {
+        if self.updates.is_empty() {
             return Err(Error::SQLBuildError(String::from(
                 "There must be at least one update in an UPDATE statement",
             )));
@@ -107,38 +88,8 @@ impl<'until_build, 'post_build> SQLUpdate<'until_build, 'post_build> {
             DBImpl::Postgres => write!(s, "\"{}\" SET ", self.model).unwrap(),
         }
 
-        let multiple_columns_empty = self.multiple_column_updates.is_empty();
-        let multiple_columns_max_index = self.multiple_column_updates.len() - 1;
-        for (idx, (names, value)) in self.multiple_column_updates.into_iter().enumerate() {
-            write!(s, "(").unwrap();
-            for (idx, name) in names.iter().enumerate() {
-                match self.dialect {
-                    DBImpl::SQLite | DBImpl::MySQL => write!(s, "{}", name).unwrap(),
-                    DBImpl::Postgres => write!(s, "\"{}\"", name).unwrap(),
-                }
-
-                if idx != names.len() - 1 {
-                    write!(s, ", ").unwrap();
-                }
-            }
-
-            self.lookup.push(value);
-            match self.dialect {
-                DBImpl::SQLite | DBImpl::MySQL => write!(s, ") = ?").unwrap(),
-                DBImpl::Postgres => write!(s, ") = ${}", self.lookup.len()).unwrap(),
-            }
-
-            if idx != multiple_columns_max_index {
-                write!(s, ", ").unwrap();
-            }
-        }
-
-        if !multiple_columns_empty {
-            write!(s, ", ").unwrap();
-        }
-
-        let single_column_max_index = self.single_column_updates.len() - 1;
-        for (idx, (name, value)) in self.single_column_updates.into_iter().enumerate() {
+        let update_index = self.updates.len() - 1;
+        for (idx, (name, value)) in self.updates.into_iter().enumerate() {
             match self.dialect {
                 DBImpl::SQLite | DBImpl::MySQL => write!(s, "{}", name).unwrap(),
                 DBImpl::Postgres => write!(s, "\"{}\"", name).unwrap(),
@@ -150,7 +101,7 @@ impl<'until_build, 'post_build> SQLUpdate<'until_build, 'post_build> {
                 DBImpl::Postgres => write!(s, " = ${}", self.lookup.len()).unwrap(),
             }
 
-            if idx != single_column_max_index {
+            if idx != update_index {
                 write!(s, ", ").unwrap();
             }
         }

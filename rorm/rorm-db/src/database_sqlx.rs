@@ -347,17 +347,13 @@ impl Database {
     pub async fn update<'post_build>(
         &self,
         model: &str,
-        updates: &[(&[&str], value::Value<'post_build>)],
+        updates: &[(&str, value::Value<'post_build>)],
         condition: Option<&conditional::Condition<'post_build>>,
     ) -> Result<u64, Error> {
         let mut stmt = self.db_impl.update(model);
 
-        for (columns, value) in updates {
-            if columns.len() == 1 {
-                stmt = stmt.add_single_col_update(columns[0], *value);
-            } else {
-                stmt = stmt.add_multiple_col_update(columns, *value);
-            }
+        for (column, value) in updates {
+            stmt = stmt.add_update(column, *value);
         }
 
         if let Some(cond) = condition {

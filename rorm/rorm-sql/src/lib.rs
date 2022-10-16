@@ -277,8 +277,7 @@ impl DBImpl {
             dialect: *self,
             model: table_name,
             on_conflict: OnConflict::ABORT,
-            single_column_updates: vec![],
-            multiple_column_updates: vec![],
+            updates: vec![],
             where_clause: None,
             lookup: vec![],
         }
