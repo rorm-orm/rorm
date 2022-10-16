@@ -188,6 +188,108 @@ This function is called completely synchronously.
 pub extern "C" fn rorm_db_free(_: Box<Database>) {}
 
 // --------
+// SQL
+// --------
+
+/**
+This function executes a raw SQL statement.
+
+Statements are executed as prepared statements, if possible.
+
+To define placeholders, use `?` in SQLite and MySQL and $1, $n in Postgres.
+The corresponding parameters are bound in order to the query.
+
+The number of placeholder must match with the number of provided bind parameters.
+
+**Parameter**:
+- `db`: Reference to the Database, provided by [rorm_db_connect].
+- `query_string`: SQL statement to execute.
+- `bind_params`: Optional slice of FFIValues to bind to the query.
+- `callback`: callback function. Takes the `context`, a pointer to a slice of rows and an [Error].
+- `context`: Pass through void pointer.
+
+**Important**:
+- Make sure `db`, `query_string` and `bind_params` are allocated until
+the callback was executed.
+- The FFISlice returned in the callback is freed after the callback has ended.
+
+This function is called from an asynchronous context.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_db_raw_sql(
+    db: &'static Database,
+    query_string: FFIString<'static>,
+    bind_params: FFIOption<FFISlice<'static, FFIValue<'static>>>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, FFISlice<Row>, Error) -> ()>,
+    context: VoidPtr,
+) {
+    let cb = callback.expect("Callback must not be empty");
+
+    let query_str = query_string.try_into();
+    if query_str.is_err() {
+        unsafe { cb(context, FFISlice::empty(), Error::InvalidStringError) };
+        return;
+    }
+
+    let bind_params = match bind_params {
+        FFIOption::None => None,
+        FFIOption::Some(ffi_values) => {
+            let ffi_slice: &[FFIValue] = ffi_values.into();
+            let mut values: Vec<Value> = vec![];
+            for x in ffi_slice {
+                if let Ok(value) = x.try_into() {
+                    values.push(value);
+                } else {
+                    unsafe { cb(context, FFISlice::empty(), Error::InvalidStringError) };
+                    return;
+                }
+            }
+            Some(values)
+        }
+    };
+
+    let fut = async move {
+        let query_res = match bind_params {
+            None => db.raw_sql(query_str.unwrap(), None).await,
+            Some(bind_params) => {
+                db.raw_sql(query_str.unwrap(), Some(bind_params.as_slice()))
+                    .await
+            }
+        };
+
+        match query_res {
+            Ok(res) => {
+                let slice = res.as_slice().into();
+                unsafe { cb(context, slice, Error::NoError) };
+            }
+            Err(err) => unsafe {
+                let s = err.to_string();
+                cb(
+                    context,
+                    FFISlice::empty(),
+                    Error::DatabaseError(s.as_str().into()),
+                )
+            },
+        };
+    };
+
+    let f = |err: String| {
+        unsafe {
+            cb(
+                context,
+                FFISlice::empty(),
+                Error::RuntimeError(err.as_str().into()),
+            )
+        };
+    };
+    spawn_fut!(
+        fut,
+        cb(context, FFISlice::empty(), Error::MissingRuntimeError),
+        f
+    );
+}
+
+// --------
 // QUERY
 // --------
 
