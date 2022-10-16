@@ -1289,9 +1289,9 @@ pub extern "C" fn rorm_row_get_null_binary<'a>(
                 sqlx::Error::ColumnDecode { .. } => {
                     *error_ptr = Error::ColumnDecodeError;
                 }
-                _ => todo!("This error case should never occur"),
+                _ => unreachable!("This error case should never occur"),
             },
-            _ => todo!("This error case should never occur"),
+            _ => unreachable!("This error case should never occur"),
         };
         return FFIOption::None;
     }
@@ -1374,9 +1374,9 @@ pub extern "C" fn rorm_row_get_null_str<'a, 'b>(
                 sqlx::Error::ColumnDecode { .. } => {
                     *error_ptr = Error::ColumnDecodeError;
                 }
-                _ => todo!("This error case should never occur"),
+                _ => unreachable!("This error case should never occur"),
             },
-            _ => todo!("This error case should never occur"),
+            _ => unreachable!("This error case should never occur"),
         };
         return FFIOption::None;
     }
