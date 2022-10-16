@@ -15,4 +15,8 @@ pub enum Error {
     /// DecodeError
     #[error("decode error: {0}")]
     DecodeError(String),
+
+    /// SQL building error
+    #[error("sql error: {0}")]
+    SQLBuildError(#[from] rorm_sql::error::Error),
 }

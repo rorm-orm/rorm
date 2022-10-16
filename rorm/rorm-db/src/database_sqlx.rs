@@ -333,6 +333,52 @@ impl Database {
     }
 
     /**
+    This method is used to update rows in a table.
+
+    **Parameter**:
+    - `model`: Name of the model to update rows from
+    - `updates`: A list of updates. An update is a tuple that consists of a list of columns to
+    update as well as the value to set to the columns.
+    - `condition`: Optional condition to apply.
+
+    **Returns** the rows affected from the update statement. Note that this also includes
+    relations, etc.
+     */
+    pub async fn update<'post_build>(
+        &self,
+        model: &str,
+        updates: &[(&[&str], value::Value<'post_build>)],
+        condition: Option<&conditional::Condition<'post_build>>,
+    ) -> Result<u64, Error> {
+        let mut stmt = self.db_impl.update(model);
+
+        for (columns, value) in updates {
+            if columns.len() == 1 {
+                stmt = stmt.add_single_col_update(columns[0], *value);
+            } else {
+                stmt = stmt.add_multiple_col_update(columns, *value);
+            }
+        }
+
+        if let Some(cond) = condition {
+            stmt = stmt.where_clause(cond);
+        }
+
+        let (query_string, bind_params) = stmt.build()?;
+        debug!("SQL: {}", query_string);
+
+        let mut q = sqlx::query(&query_string);
+        for x in bind_params {
+            q = utils::bind_param(q, x);
+        }
+
+        Ok(q.execute(&self.pool)
+            .await
+            .map_err(|err| Error::SqlxError(err))?
+            .rows_affected())
+    }
+
+    /**
     Execute raw SQL statements on the database.
 
     If possible, the statement is executed as prepared statement.
