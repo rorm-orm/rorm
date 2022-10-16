@@ -28,6 +28,7 @@ pub mod select;
 /// Implementation of supported datatypes
 pub mod value;
 
+mod postgres;
 #[cfg(feature = "sqlite")]
 mod sqlite;
 
@@ -74,7 +75,7 @@ impl DBImpl {
             columns: vec![],
             if_not_exists: false,
             lookup: vec![],
-            trigger: vec![],
+            statements: vec![],
         }
     }
 
@@ -100,6 +101,7 @@ impl DBImpl {
             point_in_time,
             operation,
             statements: vec![],
+            for_each_row: false,
         }
     }
 
@@ -127,6 +129,7 @@ impl DBImpl {
     */
     pub fn drop_table(&self, name: &str) -> SQLDropTable {
         SQLDropTable {
+            dialect: *self,
             name: name.to_string(),
             if_exists: false,
         }
@@ -144,10 +147,11 @@ impl DBImpl {
         operation: SQLAlterTableOperation<'post_build>,
     ) -> SQLAlterTable<'post_build> {
         SQLAlterTable {
+            dialect: *self,
             name: name.to_string(),
             operation,
             lookup: vec![],
-            trigger: vec![],
+            statements: vec![],
         }
     }
 
@@ -203,6 +207,7 @@ impl DBImpl {
         from_clause: &str,
     ) -> SQLSelect<'until_build, '_> {
         SQLSelect {
+            dialect: *self,
             resulting_columns: columns,
             from_clause: from_clause.to_string(),
             where_clause: None,
@@ -228,6 +233,7 @@ impl DBImpl {
         insert_values: &'until_build [&'until_build [Value<'post_build>]],
     ) -> SQLInsert<'until_build, 'post_build> {
         SQLInsert {
+            dialect: *self,
             into_clause: into_clause.to_string(),
             columns: insert_columns,
             row_values: insert_values,
@@ -247,6 +253,7 @@ impl DBImpl {
         table_name: &'until_build str,
     ) -> SQLDelete<'until_build, 'post_query> {
         SQLDelete {
+            dialect: *self,
             model: table_name,
             lookup: vec![],
             where_clause: None,

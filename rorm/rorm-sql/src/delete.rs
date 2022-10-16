@@ -1,12 +1,13 @@
 use std::fmt::Write;
 
 use crate::conditional::BuildCondition;
-use crate::{conditional, value};
+use crate::{conditional, value, DBImpl};
 
 /**
 SQL representation of the DELETE operation.
 */
 pub struct SQLDelete<'until_build, 'post_query> {
+    pub(crate) dialect: DBImpl,
     pub(crate) model: &'until_build str,
     pub(crate) lookup: Vec<value::Value<'post_query>>,
     pub(crate) where_clause: Option<&'until_build conditional::Condition<'post_query>>,
@@ -29,7 +30,10 @@ impl<'until_build, 'post_query> SQLDelete<'until_build, 'post_query> {
     */
     pub fn build(mut self) -> (String, Vec<value::Value<'post_query>>) {
         let mut s = String::from("DELETE FROM ");
-        write!(s, "{} ", self.model).unwrap();
+        match self.dialect {
+            DBImpl::SQLite | DBImpl::MySQL => write!(s, "{} ", self.model).unwrap(),
+            DBImpl::Postgres => write!(s, "\"{}\"", self.model).unwrap(),
+        }
         if self.where_clause.is_some() {
             write!(
                 s,

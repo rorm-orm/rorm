@@ -1,7 +1,10 @@
+use crate::DBImpl;
+
 /**
 The representation of the drop table statement.
 */
 pub struct SQLDropTable {
+    pub(crate) dialect: DBImpl,
     pub(crate) name: String,
     pub(crate) if_exists: bool,
 }
@@ -21,7 +24,10 @@ impl SQLDropTable {
     pub fn build(self) -> String {
         format!(
             "DROP TABLE {} {};",
-            self.name.as_str(),
+            &match self.dialect {
+                DBImpl::SQLite | DBImpl::MySQL => self.name,
+                DBImpl::Postgres => format!("\"{}\"", self.name),
+            },
             if self.if_exists { "IF EXISTS" } else { "" }
         )
     }

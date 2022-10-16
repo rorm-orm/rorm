@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use crate::error::Error;
-use crate::{value, SQLCreateColumn};
+use crate::{value, DBImpl, SQLCreateColumn};
 
 /**
 Representation of operations to execute in the context of an ALTER TABLE statement.
@@ -36,17 +36,29 @@ impl<'post_build> SQLAlterTableOperation<'post_build> {
     fn build(
         self,
         s: &mut String,
-        trigger: &mut Vec<(String, Vec<value::Value<'post_build>>)>,
+        lookup: &mut Vec<value::Value<'post_build>>,
+        statements: &mut Vec<(String, Vec<value::Value<'post_build>>)>,
+        dialect: DBImpl,
     ) -> Result<(), Error> {
         match self {
             SQLAlterTableOperation::RenameTo { name } => write!(s, "RENAME TO {}", name).unwrap(),
             SQLAlterTableOperation::RenameColumnTo {
                 column_name,
                 new_column_name,
-            } => write!(s, "RENAME COLUMN {} TO {}", column_name, new_column_name).unwrap(),
+            } => match dialect {
+                DBImpl::SQLite | DBImpl::MySQL => {
+                    write!(s, "RENAME COLUMN {} TO {}", column_name, new_column_name).unwrap()
+                }
+                DBImpl::Postgres => write!(
+                    s,
+                    "RENAME COLUMN \"{}\" TO \"{}\"",
+                    column_name, new_column_name
+                )
+                .unwrap(),
+            },
             SQLAlterTableOperation::AddColumn { operation } => {
                 write!(s, "ADD COLUMN ").unwrap();
-                operation.build(s, trigger)?;
+                operation.build(s, lookup, statements)?;
             }
             SQLAlterTableOperation::DropColumn { name } => {
                 write!(s, "DROP COLUMN {}", name).unwrap();
@@ -60,31 +72,28 @@ impl<'post_build> SQLAlterTableOperation<'post_build> {
 Representation of an ALTER TABLE statement.
 */
 pub struct SQLAlterTable<'post_build> {
+    pub(crate) dialect: DBImpl,
     /// Name of the table to operate on
     pub(crate) name: String,
     /// Operation to execute
     pub(crate) operation: SQLAlterTableOperation<'post_build>,
     pub(crate) lookup: Vec<value::Value<'post_build>>,
-    pub(crate) trigger: Vec<(String, Vec<value::Value<'post_build>>)>,
+    pub(crate) statements: Vec<(String, Vec<value::Value<'post_build>>)>,
 }
 
 impl<'post_build> SQLAlterTable<'post_build> {
     /**
     This method is used to build the alter table statement.
     */
-    pub fn build(mut self) -> Result<(String, Vec<value::Value<'post_build>>), Error> {
+    pub fn build(mut self) -> Result<Vec<(String, Vec<value::Value<'post_build>>)>, Error> {
         let mut s = format!("ALTER TABLE {} ", self.name.as_str());
-        self.operation.build(&mut s, &mut self.trigger)?;
+        self.operation
+            .build(&mut s, &mut self.lookup, &mut self.statements, self.dialect)?;
+        write!(s, ";").unwrap();
 
-        self.trigger
-            .into_iter()
-            .map(|(trigger, bind_params)| {
-                self.lookup.extend(bind_params);
-                trigger
-            })
-            .collect::<Vec<String>>()
-            .join(" ");
+        let mut statements = vec![(s, self.lookup)];
+        statements.extend(self.statements);
 
-        Ok((s, self.lookup))
+        Ok(statements)
     }
 }

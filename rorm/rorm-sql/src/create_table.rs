@@ -12,7 +12,7 @@ pub struct SQLCreateTable<'post_build> {
     pub(crate) columns: Vec<SQLCreateColumn<'post_build>>,
     pub(crate) if_not_exists: bool,
     pub(crate) lookup: Vec<value::Value<'post_build>>,
-    pub(crate) trigger: Vec<(String, Vec<value::Value<'post_build>>)>,
+    pub(crate) statements: Vec<(String, Vec<value::Value<'post_build>>)>,
 }
 
 impl<'post_build> SQLCreateTable<'post_build> {
@@ -33,9 +33,12 @@ impl<'post_build> SQLCreateTable<'post_build> {
     }
 
     /**
-    This method is used to convert the current state for the given dialect in a [String].
+    This method is used to convert the current state for the given dialect in a
+    list of tuples.
+
+    Each tuple consists of the query string and the corresponding bind parameters.
     */
-    pub fn build(mut self) -> Result<(String, Vec<value::Value<'post_build>>), Error> {
+    pub fn build(mut self) -> Result<Vec<(String, Vec<value::Value<'post_build>>)>, Error> {
         let mut s = format!(
             "CREATE TABLE{} ",
             if self.if_not_exists {
@@ -46,16 +49,12 @@ impl<'post_build> SQLCreateTable<'post_build> {
         );
 
         match self.dialect {
-            DBImpl::SQLite | DBImpl::MySQL => {
-                write!(s, "{}", self.name).unwrap();
-            }
-            _ => todo!("Not implemented yet!"),
+            DBImpl::SQLite | DBImpl::MySQL => write!(s, "{} (", self.name).unwrap(),
+            DBImpl::Postgres => write!(s, "\"{}\" (", self.name).unwrap(),
         }
 
-        write!(s, " (").unwrap();
-
         for (idx, x) in self.columns.iter().enumerate() {
-            x.build(&mut s, &mut self.trigger)?;
+            x.build(&mut s, &mut self.lookup, &mut self.statements)?;
             if idx != self.columns.len() - 1 {
                 write!(s, ", ").unwrap();
             }
@@ -71,11 +70,9 @@ impl<'post_build> SQLCreateTable<'post_build> {
         )
         .unwrap();
 
-        for (trigger, bind_params) in self.trigger {
-            self.lookup.extend(bind_params);
-            write!(s, "{} ", trigger).unwrap();
-        }
+        let mut statements = vec![(s, self.lookup)];
+        statements.extend(self.statements);
 
-        Ok((s, self.lookup))
+        Ok(statements)
     }
 }

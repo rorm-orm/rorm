@@ -1,5 +1,5 @@
 use crate::conditional::BuildCondition;
-use crate::{conditional, value};
+use crate::{conditional, value, DBImpl};
 
 /**
 The representation of a FROM clause
@@ -10,6 +10,7 @@ pub enum SQLSelectFrom {}
 The representation of a select query.
 */
 pub struct SQLSelect<'until_build, 'post_query> {
+    pub(crate) dialect: DBImpl,
     pub(crate) resulting_columns: &'until_build [&'until_build str],
     pub(crate) limit: Option<u64>,
     pub(crate) offset: Option<u64>,
@@ -64,7 +65,10 @@ impl<'until_build, 'post_query> SQLSelect<'until_build, 'post_query> {
                 "SELECT {} {} FROM {} {};",
                 if self.distinct { "DISTINCT" } else { "" },
                 self.resulting_columns.join(", "),
-                self.from_clause,
+                match self.dialect {
+                    DBImpl::SQLite | DBImpl::MySQL => self.from_clause,
+                    DBImpl::Postgres => format!("\"{}\"", self.from_clause),
+                },
                 match self.where_clause {
                     None => {
                         "".to_string()

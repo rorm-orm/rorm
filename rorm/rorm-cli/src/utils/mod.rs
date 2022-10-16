@@ -10,7 +10,7 @@ macro_rules! log_sql {
     ($query:expr, $do_log:expr) => {{
         let log_sql_q: String = $query;
         if $do_log {
-            println!("SQL: {}", log_sql_q);
+            println!("{}", log_sql_q);
         }
         log_sql_q
     }};

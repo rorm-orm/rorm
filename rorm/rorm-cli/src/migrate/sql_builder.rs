@@ -31,20 +31,22 @@ pub async fn migration_to_sql<'a>(
                     ));
                 }
 
-                let (query_string, query_bind_params) = create_table.build()?;
+                let statements = create_table.build()?;
 
-                if do_log {
-                    println!("SQL: {}", query_string.as_str());
-                }
+                for (query_string, query_bind_params) in statements {
+                    if do_log {
+                        println!("{}", query_string.as_str());
+                    }
 
-                let mut q = sqlx::query(query_string.as_str());
-                for x in query_bind_params {
-                    q = bind::bind_param(q, x);
+                    let mut q = sqlx::query(query_string.as_str());
+                    for x in query_bind_params {
+                        q = bind::bind_param(q, x);
+                    }
+                    q.execute(&mut *tx).await?;
                 }
-                q.execute(&mut *tx).await?;
             }
             Operation::RenameModel { old, new } => {
-                let (query_string, query_bind_params) = db_impl
+                let statements = db_impl
                     .alter_table(
                         old.as_str(),
                         SQLAlterTableOperation::RenameTo {
@@ -53,27 +55,29 @@ pub async fn migration_to_sql<'a>(
                     )
                     .build()?;
 
-                if do_log {
-                    println!("SQL: {}", query_string.as_str());
-                }
+                for (query_string, query_bind_params) in statements {
+                    if do_log {
+                        println!("{}", query_string.as_str());
+                    }
 
-                let mut q = sqlx::query(query_string.as_str());
-                for x in query_bind_params {
-                    q = bind::bind_param(q, x);
+                    let mut q = sqlx::query(query_string.as_str());
+                    for x in query_bind_params {
+                        q = bind::bind_param(q, x);
+                    }
+                    q.execute(&mut *tx).await?;
                 }
-                q.execute(&mut *tx).await?;
             }
             Operation::DeleteModel { name } => {
                 let query_string = db_impl.drop_table(name.as_str()).build();
 
                 if do_log {
-                    println!("SQL: {}", query_string.as_str());
+                    println!("{}", query_string.as_str());
                 }
 
                 sqlx::query(query_string.as_str()).execute(&mut *tx).await?;
             }
             Operation::CreateField { model, field } => {
-                let (query_string, query_bind_params) = db_impl
+                let statements = db_impl
                     .alter_table(
                         model.as_str(),
                         SQLAlterTableOperation::AddColumn {
@@ -87,22 +91,24 @@ pub async fn migration_to_sql<'a>(
                     )
                     .build()?;
 
-                if do_log {
-                    println!("SQL: {}", query_string.as_str());
-                }
+                for (query_string, query_bind_params) in statements {
+                    if do_log {
+                        println!("{}", query_string.as_str());
+                    }
 
-                let mut q = sqlx::query(query_string.as_str());
-                for x in query_bind_params {
-                    q = bind::bind_param(q, x);
+                    let mut q = sqlx::query(query_string.as_str());
+                    for x in query_bind_params {
+                        q = bind::bind_param(q, x);
+                    }
+                    q.execute(&mut *tx).await?;
                 }
-                q.execute(&mut *tx).await?;
             }
             Operation::RenameField {
                 table_name,
                 old,
                 new,
             } => {
-                let (query_string, query_bind_params) = db_impl
+                let statements = db_impl
                     .alter_table(
                         table_name.as_str(),
                         SQLAlterTableOperation::RenameColumnTo {
@@ -112,33 +118,37 @@ pub async fn migration_to_sql<'a>(
                     )
                     .build()?;
 
-                if do_log {
-                    println!("SQL: {}", query_string.as_str());
-                }
+                for (query_string, query_bind_params) in statements {
+                    if do_log {
+                        println!("{}", query_string.as_str());
+                    }
 
-                let mut q = sqlx::query(query_string.as_str());
-                for x in query_bind_params {
-                    q = bind::bind_param(q, x);
+                    let mut q = sqlx::query(query_string.as_str());
+                    for x in query_bind_params {
+                        q = bind::bind_param(q, x);
+                    }
+                    q.execute(&mut *tx).await?;
                 }
-                q.execute(&mut *tx).await?;
             }
             Operation::DeleteField { model, name } => {
-                let (query_string, query_bind_params) = db_impl
+                let statements = db_impl
                     .alter_table(
                         model.as_str(),
                         SQLAlterTableOperation::DropColumn { name: name.clone() },
                     )
                     .build()?;
 
-                if do_log {
-                    println!("SQL: {}", query_string.as_str());
-                }
+                for (query_string, query_bind_params) in statements {
+                    if do_log {
+                        println!("{}", query_string.as_str());
+                    }
 
-                let mut q = sqlx::query(query_string.as_str());
-                for x in query_bind_params {
-                    q = bind::bind_param(q, x);
+                    let mut q = sqlx::query(query_string.as_str());
+                    for x in query_bind_params {
+                        q = bind::bind_param(q, x);
+                    }
+                    q.execute(&mut *tx).await?;
                 }
-                q.execute(&mut *tx).await?;
             }
         }
     }

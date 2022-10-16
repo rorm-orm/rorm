@@ -4,7 +4,7 @@ use rorm_declaration::imr::DefaultValue;
 
 use crate::create_trigger::trigger_annotation_to_trigger;
 use crate::error::Error;
-use crate::{value, Annotation, DBImpl, DbType};
+use crate::{postgres, value, Annotation, DBImpl, DbType};
 
 #[cfg(feature = "sqlite")]
 use crate::sqlite;
@@ -22,18 +22,24 @@ impl<'post_build> SQLAnnotation<'post_build> {
 
     `dialect`: [crate::DBImpl]: dialect to use
      */
-    pub fn build(&self, s: &mut String, dialect: DBImpl) {
+    pub fn build(
+        &self,
+        s: &mut String,
+        lookup: &mut Vec<value::Value<'post_build>>,
+        dialect: DBImpl,
+    ) {
         match &self.annotation {
             Annotation::AutoIncrement => match dialect {
                 DBImpl::SQLite => write!(s, "AUTOINCREMENT").unwrap(),
                 DBImpl::MySQL => write!(s, "AUTO_INCREMENT").unwrap(),
-                _ => todo!("Not implemented yet!"),
+                // AutoIncrement is not needed in postgres, as this is done via the datatype.
+                _ => {}
             },
             Annotation::AutoCreateTime => write!(s, "DEFAULT CURRENT_TIMESTAMP").unwrap(),
             Annotation::AutoUpdateTime => match dialect {
-                DBImpl::SQLite => {}
+                // Trigger will be created for SQLite and Postgres
+                DBImpl::SQLite | DBImpl::Postgres => {}
                 DBImpl::MySQL => write!(s, "ON UPDATE CURRENT_TIMESTAMP").unwrap(),
-                _ => todo!("Not implemented yet!"),
             },
             Annotation::DefaultValue(d) => match d {
                 DefaultValue::String(dv) => match dialect {
@@ -43,8 +49,11 @@ impl<'post_build> SQLAnnotation<'post_build> {
 
                         write!(s, "DEFAULT {}", sqlite::fmt(dv)).unwrap();
                     }
-                    DBImpl::MySQL => write!(s, "DEFAULT QUOTE({})", dv).unwrap(),
-                    _ => todo!("Not implemented yet!"),
+                    DBImpl::MySQL => {
+                        lookup.push(value::Value::String(dv));
+                        write!(s, "DEFAULT ?").unwrap();
+                    }
+                    DBImpl::Postgres => write!(s, "DEFAULT {}", postgres::fmt(dv)).unwrap(),
                 },
                 DefaultValue::Integer(i) => write!(s, "DEFAULT {}", i).unwrap(),
                 DefaultValue::Float(f) => write!(s, "DEFAULT {}", f).unwrap(),
@@ -82,7 +91,8 @@ impl<'post_build> SQLCreateColumn<'post_build> {
     pub fn build(
         &self,
         s: &mut String,
-        trigger: &mut Vec<(String, Vec<value::Value<'post_build>>)>,
+        lookup: &mut Vec<value::Value<'post_build>>,
+        statements: &mut Vec<(String, Vec<value::Value<'post_build>>)>,
     ) -> Result<(), Error> {
         write!(s, "{} ", self.name).unwrap();
 
@@ -177,7 +187,10 @@ impl<'post_build> SQLCreateColumn<'post_build> {
                                 "VARCHAR({}) ",
                                 values
                                     .iter()
-                                    .map(|x| format!("QUOTE({})", x))
+                                    .map(|x| {
+                                        lookup.push(value::Value::String(x));
+                                        String::from("?")
+                                    })
                                     .collect::<Vec<String>>()
                                     .join(", ")
                             )
@@ -194,7 +207,70 @@ impl<'post_build> SQLCreateColumn<'post_build> {
                     }
                 }
             },
-            _ => todo!("Not implemented yet!"),
+            DBImpl::Postgres => match self.data_type {
+                DbType::VarChar | DbType::Choices => {
+                    let a_opt = self
+                        .annotations
+                        .iter()
+                        .filter(|x| x.annotation.eq_shallow(&Annotation::MaxLength(0)))
+                        .next();
+
+                    if let Some(a) = a_opt {
+                        if let Annotation::MaxLength(max_length) = a.annotation {
+                            write!(s, "character varying ({}) ", max_length).unwrap();
+                        } else {
+                            return Err(Error::SQLBuildError(
+                                "character varying must have a max_length annotation".to_string(),
+                            ));
+                        }
+                    } else {
+                        return Err(Error::SQLBuildError(
+                            "character varying must have a max_length annotation".to_string(),
+                        ));
+                    }
+                }
+                DbType::VarBinary => write!(s, "bytea ").unwrap(),
+                DbType::Int8 => write!(s, "smallint ").unwrap(),
+                DbType::Int16 => {
+                    if self
+                        .annotations
+                        .iter()
+                        .any(|x| x.annotation.eq_shallow(&Annotation::AutoIncrement))
+                    {
+                        write!(s, "smallserial ").unwrap();
+                    } else {
+                        write!(s, "smallint ").unwrap();
+                    }
+                }
+                DbType::Int32 => {
+                    if self
+                        .annotations
+                        .iter()
+                        .any(|x| x.annotation.eq_shallow(&Annotation::AutoIncrement))
+                    {
+                        write!(s, "serial ").unwrap();
+                    } else {
+                        write!(s, "integer ").unwrap();
+                    }
+                }
+                DbType::Int64 => {
+                    if self
+                        .annotations
+                        .iter()
+                        .any(|x| x.annotation.eq_shallow(&Annotation::AutoIncrement))
+                    {
+                        write!(s, "bigserial ").unwrap();
+                    } else {
+                        write!(s, "bigint ").unwrap();
+                    }
+                }
+                DbType::Float => write!(s, "real ").unwrap(),
+                DbType::Double => write!(s, "double precision ").unwrap(),
+                DbType::Boolean => write!(s, "boolean ").unwrap(),
+                DbType::Date => write!(s, "date ").unwrap(),
+                DbType::DateTime | DbType::Timestamp => write!(s, "timestamp ").unwrap(),
+                DbType::Time => write!(s, "time ").unwrap(),
+            },
         };
 
         for (idx, x) in self.annotations.iter().enumerate() {
@@ -203,9 +279,9 @@ impl<'post_build> SQLCreateColumn<'post_build> {
                 x.annotation,
                 &self.table_name,
                 &self.name,
-                trigger,
+                statements,
             );
-            x.build(s, self.dialect);
+            x.build(s, lookup, self.dialect);
             if idx != self.annotations.len() - 1 {
                 write!(s, " ").unwrap();
             }

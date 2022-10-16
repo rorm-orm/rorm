@@ -57,7 +57,7 @@ pub(crate) fn trigger_annotation_to_trigger(
     annotation: &Annotation,
     table_name: &str,
     column_name: &str,
-    trigger: &mut Vec<(String, Vec<value::Value>)>,
+    statements: &mut Vec<(String, Vec<value::Value>)>,
 ) {
     match dialect {
         DBImpl::SQLite => match annotation {
@@ -66,30 +66,15 @@ pub(crate) fn trigger_annotation_to_trigger(
                     "UPDATE {} SET {} = CURRENT_TIMESTAMP WHERE id = NEW.id;",
                     table_name, column_name
                 );
-
-                trigger.push((
+                statements.push((
                     dialect
                         .create_trigger(
-                            format!("{}_{}_auto_update_time_insert", table_name, column_name)
-                                .as_str(),
+                            format!("{}_{}_auto_update_time", table_name, column_name).as_str(),
                             table_name,
-                            Some(SQLCreateTriggerPointInTime::After),
-                            SQLCreateTriggerOperation::Insert,
-                        )
-                        .if_not_exists()
-                        .add_statement(update_statement.clone())
-                        .build(),
-                    vec![],
-                ));
-                trigger.push((
-                    dialect
-                        .create_trigger(
-                            format!("{}_{}_auto_update_time_update", table_name, column_name)
-                                .as_str(),
-                            table_name,
-                            Some(SQLCreateTriggerPointInTime::After),
+                            Some(SQLCreateTriggerPointInTime::Before),
                             SQLCreateTriggerOperation::Update { columns: None },
                         )
+                        .for_each_row()
                         .if_not_exists()
                         .add_statement(update_statement.clone())
                         .build(),
@@ -99,7 +84,35 @@ pub(crate) fn trigger_annotation_to_trigger(
             _ => {}
         },
         DBImpl::MySQL => {}
-        _ => todo!("Not implemented yet!"),
+        DBImpl::Postgres => match annotation {
+            Annotation::AutoUpdateTime => {
+                statements.push(
+                    (
+                        format!(
+                            "CREATE OR REPLACE FUNCTION {}_{}_auto_update_time_update_procedure() RETURNS TRIGGER AS $$ BEGIN NEW.{} = now(); RETURN NEW; END; $$ language 'plpgsql';",
+                            table_name,
+                            column_name,
+                            column_name,
+                        ),
+                        vec![],
+                    )
+                );
+                statements.push(
+                    (
+                        format!(
+                            "CREATE OR REPLACE TRIGGER {}_{}_auto_update_time_update BEFORE UPDATE ON \"{}\" FOR EACH ROW WHEN (OLD IS DISTINCT FROM NEW) EXECUTE PROCEDURE {}_{}_auto_update_time_update_procedure();",
+                            table_name,
+                            column_name,
+                            table_name,
+                            table_name,
+                            column_name,
+                        ),
+                        vec![],
+                    )
+                );
+            }
+            _ => {}
+        },
     };
 }
 
@@ -113,6 +126,7 @@ pub struct SQLCreateTrigger {
     pub(crate) point_in_time: Option<SQLCreateTriggerPointInTime>,
     pub(crate) operation: SQLCreateTriggerOperation,
     pub(crate) statements: Vec<String>,
+    pub(crate) for_each_row: bool,
 }
 
 impl SQLCreateTrigger {
@@ -133,11 +147,19 @@ impl SQLCreateTrigger {
     }
 
     /**
+    Executes the given trigger statement for each row individually.
+    */
+    pub fn for_each_row(mut self) -> Self {
+        self.for_each_row = true;
+        self
+    }
+
+    /**
     Generate the resulting SQL string
     */
     pub fn build(self) -> String {
         format!(
-            "CREATE TRIGGER {} {} {} {} ON {} BEGIN {} END;",
+            "CREATE TRIGGER {} {} {} {} ON {}{} BEGIN {} END;",
             if self.if_not_exists {
                 "IF NOT EXISTS"
             } else {
@@ -150,6 +172,10 @@ impl SQLCreateTrigger {
             },
             self.operation,
             self.table_name,
+            match self.for_each_row {
+                true => " FOR EACH ROW",
+                false => "",
+            },
             self.statements.join(" "),
         )
     }

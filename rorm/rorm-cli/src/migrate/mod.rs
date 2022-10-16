@@ -61,20 +61,25 @@ pub async fn apply_migration(
         )
     })?;
 
-    query(
-        log_sql!(
-            format!(
-                "INSERT INTO {} (migration_name) VALUES (?);",
-                last_migration_table_name
-            ),
-            do_log
+    let (query_string, bind_params) = dialect
+        .insert(
+            last_migration_table_name,
+            &["migration_name"],
+            &[&[rorm_sql::value::Value::String(migration.id.as_str())]],
         )
-        .as_str(),
-    )
-    .bind(migration.id.as_str())
-    .execute(pool)
-    .await
-    .with_context(|| {
+        .rollback_transaction()
+        .build();
+
+    if do_log {
+        println!("{}", query_string);
+    }
+
+    let mut q = query(query_string.as_str());
+
+    for x in bind_params {
+        q = bind::bind_param(q, x);
+    }
+    q.execute(pool).await.with_context(|| {
         format!(
             "Error while inserting applied migration {} into last migration table",
             last_migration_table_name
@@ -136,7 +141,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
     }
 
     let db_impl = DBImpl::from(db_conf.driver);
-    let (query_str, bind_params) = db_impl
+    let statements = db_impl
         .create_table(db_conf.last_migration_table_name.as_str())
         .add_column(db_impl.create_column(
             db_conf.last_migration_table_name.as_str(),
@@ -159,17 +164,26 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
         .if_not_exists()
         .build()?;
 
-    if options.log_queries {
-        println!("{}", query_str.as_str());
+    let mut tx = pool
+        .begin()
+        .await
+        .with_context(|| "Could not create transaction")?;
+
+    for (query_string, bind_params) in statements {
+        if options.log_queries {
+            println!("{}", query_string.as_str());
+        }
+
+        let mut q = sqlx::query(query_string.as_str());
+        for x in bind_params {
+            q = bind::bind_param(q, x);
+        }
+        q.execute(&mut tx)
+            .await
+            .with_context(|| "Couldn't create internal last migration table")?;
     }
 
-    let mut q = query(query_str.as_str());
-
-    for x in bind_params {
-        q = bind::bind_param(q, x);
-    }
-
-    q.execute(&pool)
+    tx.commit()
         .await
         .with_context(|| "Couldn't create internal last migration table")?;
 
