@@ -157,7 +157,7 @@ impl<'until_build, 'post_build> SQLUpdate<'until_build, 'post_build> {
 
         match self.where_clause {
             None => {}
-            Some(cond) => write!(s, "{}", cond.build(&mut self.lookup)).unwrap(),
+            Some(cond) => write!(s, " WHERE {}", cond.build(&mut self.lookup)).unwrap(),
         }
 
         write!(s, ";").unwrap();
