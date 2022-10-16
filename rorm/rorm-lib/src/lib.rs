@@ -941,12 +941,14 @@ This function updates rows in the database.
 **Parameter**:
 - `db`: Reference to the Database, provided by [rorm_db_connect].
 - `model`: Name of the table to query.
+- `updates`: List of [FFIUpdate] to apply.
 - `condition`: Pointer to a [Condition].
 - `callback`: callback function. Takes the `context`, the rows affected and an [Error].
 - `context`: Pass through void pointer.
 
 **Important**:
-- Make sure that `db`, `model`,  are allocated until the callback is executed.
+- Make sure that `db`, `model`, `updates` and `condition`
+are allocated until the callback is executed.
 
 This function is called from an asynchronous context.
  */
