@@ -293,6 +293,12 @@ struct SourceLocation
 		else
 			return ret;
 	}
+
+	/// Same as toString, but bolds the string using ANSI escape codes
+	string toErrorString() const @safe
+	{
+		return "\x1B[1m" ~ toString ~ ": \x1B[1;31mError: \x1B[m";
+	}
 }
 
 /**

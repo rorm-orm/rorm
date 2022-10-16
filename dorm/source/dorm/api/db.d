@@ -74,6 +74,34 @@ struct DormPatch(User)
 {
 }
 
+/// Helper to validate if a DormPatch annotated field is valid for the given
+/// Model type.
+mixin template ValidatePatch(Patch, TModel)
+{
+	import std.traits : hasUDA;
+	import dorm.annotations : isDormFieldAttribute;
+
+	static assert (hasUDA!(Patch, DormPatch!TModel), "Patch struct " ~ Patch.stringof
+		~ " must be annoated using DormPatch!(" ~ TModel.stringof ~ ") exactly once!");
+
+	static foreach (i, field; Patch.tupleof)
+	{
+		static assert (__traits(hasMember, TModel.init, Patch.tupleof[i].stringof),
+			"\n" ~ SourceLocation(__traits(getLocation, Patch.tupleof[i])).toErrorString
+				~ "Patch field `" ~ Patch.tupleof[i].stringof
+				~ "` is not defined on DB Type " ~ TModel.stringof
+				~ ".\n\tAvailable usable fields: "
+					~ DormFields!TModel.map!(f => f.sourceColumn).join(", "));
+
+		static foreach (attr; __traits(getAttributes, Patch.tupleof[i]))
+			static assert (!isDormFieldAttribute!attr,
+				"\n" ~ SourceLocation(__traits(getLocation, Patch.tupleof[i])).toErrorString
+					~ "Patch field `" ~ Patch.tupleof[i].stringof
+					~ "` defines DB-related annotations, which is not"
+					~ " supported. Put annotations on the Model field instead!");
+	}
+}
+
 /**
  * High-level wrapper around a database. Through the driver implementation layer
  * this handles connection pooling and distributes work across a thread pool
@@ -183,7 +211,7 @@ struct DormDB
 
 			string error;
 			foreach (field; brokenFields)
-				error ~= "Field " ~ field.sourceColumn ~ " defined in "
+				error ~= "Field `" ~ field.sourceColumn ~ "` defined in "
 					~ field.definedAt.toString ~ " failed user validation.";
 			if (error.length)
 				throw new Exception(error);
@@ -205,7 +233,7 @@ struct DormDB
 							case sourceField.columnName:
 						}
 					}
-					error ~= "Field " ~ field.sourceColumn ~ " defined in "
+					error ~= "Field `" ~ field.sourceColumn ~ "` defined in "
 						~ field.definedAt.toString ~ " failed user validation.";
 					break;
 				default:
@@ -250,7 +278,10 @@ private template DBType(Selection...)
 		else static if (PatchAttrs.length == 1)
 		{
 			static if (is(PatchAttrs[0] == DormPatch!T, T))
+			{
+				mixin ValidatePatch!(Selection[0], T);
 				alias DBType = T;
+			}
 			else
 				static assert(false, "internal template error");
 		}
