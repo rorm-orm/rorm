@@ -25,6 +25,8 @@ pub mod insert;
 pub mod on_conflict;
 /// Implementation of SQL SELECT statements
 pub mod select;
+/// Implementation of SQL UPDATE statements
+pub mod update;
 /// Implementation of supported datatypes
 pub mod value;
 
@@ -46,6 +48,7 @@ use crate::drop_table::SQLDropTable;
 use crate::insert::SQLInsert;
 use crate::on_conflict::OnConflict;
 use crate::select::SQLSelect;
+use crate::update::SQLUpdate;
 use crate::value::Value;
 
 /**
@@ -257,6 +260,27 @@ impl DBImpl {
             model: table_name,
             lookup: vec![],
             where_clause: None,
+        }
+    }
+
+    /**
+    Build an update operation.
+
+    **Parameter**:
+    - `table_name`: Name of the table the updates should be executed for.
+    */
+    pub fn update<'until_build, 'post_query>(
+        &self,
+        table_name: &'until_build str,
+    ) -> SQLUpdate<'until_build, 'post_query> {
+        SQLUpdate {
+            dialect: *self,
+            model: table_name,
+            on_conflict: OnConflict::ABORT,
+            single_column_updates: vec![],
+            multiple_column_updates: vec![],
+            where_clause: None,
+            lookup: vec![],
         }
     }
 }
