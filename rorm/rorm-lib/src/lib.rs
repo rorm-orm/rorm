@@ -342,8 +342,16 @@ The corresponding parameters are bound in order to the query.
 
 The number of placeholder must match with the number of provided bind parameters.
 
+To include the statement in a transaction specify `transaction` as a valid
+Transaction. As the Transaction needs to be mutable, it is important to not
+use the Transaction anywhere else until the callback is finished.
+
+If the statement should be executed **not** in a Transaction,
+specify a null pointer.
+
 **Parameter**:
 - `db`: Reference to the Database, provided by [rorm_db_connect].
+- `transaction`: Mutable pointer to a Transaction. Can be a null pointer to ignore this parameter.
 - `query_string`: SQL statement to execute.
 - `bind_params`: Optional slice of FFIValues to bind to the query.
 - `callback`: callback function. Takes the `context`, a pointer to a slice of rows and an [Error].
@@ -359,6 +367,7 @@ This function is called from an asynchronous context.
 #[no_mangle]
 pub extern "C" fn rorm_db_raw_sql(
     db: &'static Database,
+    transaction: Option<&'static mut Transaction>,
     query_string: FFIString<'static>,
     bind_params: FFIOption<FFISlice<'static, FFIValue<'static>>>,
     callback: Option<unsafe extern "C" fn(VoidPtr, FFISlice<Row>, Error) -> ()>,
@@ -391,10 +400,14 @@ pub extern "C" fn rorm_db_raw_sql(
 
     let fut = async move {
         let query_res = match bind_params {
-            None => db.raw_sql(query_str.unwrap(), None, None).await,
+            None => db.raw_sql(query_str.unwrap(), None, transaction).await,
             Some(bind_params) => {
-                db.raw_sql(query_str.unwrap(), Some(bind_params.as_slice()), None)
-                    .await
+                db.raw_sql(
+                    query_str.unwrap(),
+                    Some(bind_params.as_slice()),
+                    transaction,
+                )
+                .await
             }
         };
 
@@ -437,8 +450,16 @@ pub extern "C" fn rorm_db_raw_sql(
 /**
 This function queries the database given the provided parameter and returns one matched row.
 
+To include the statement in a transaction specify `transaction` as a valid
+Transaction. As the Transaction needs to be mutable, it is important to not
+use the Transaction anywhere else until the callback is finished.
+
+If the statement should be executed **not** in a Transaction,
+specify a null pointer.
+
 **Parameter**:
 - `db`: Reference to the Database, provided by [rorm_db_connect].
+- `transaction`: Mutable pointer to a Transaction. Can be a null pointer to ignore this parameter.
 - `model`: Name of the table to query.
 - `columns`: Array of columns to retrieve from the database.
 - `condition`: Pointer to a [Condition].
@@ -454,6 +475,7 @@ This function is called from an asynchronous context.
 #[no_mangle]
 pub extern "C" fn rorm_db_query_one(
     db: &'static Database,
+    transaction: Option<&'static mut Transaction>,
     model: FFIString<'static>,
     columns: FFISlice<'static, FFIString<'static>>,
     condition: Option<&'static Condition>,
@@ -504,7 +526,12 @@ pub extern "C" fn rorm_db_query_one(
         match cond {
             None => {
                 match db
-                    .query_one(model_conv.unwrap(), column_vec.as_slice(), None, None)
+                    .query_one(
+                        model_conv.unwrap(),
+                        column_vec.as_slice(),
+                        None,
+                        transaction,
+                    )
                     .await
                 {
                     Ok(v) => unsafe { cb(context, Some(Box::new(v)), Error::NoError) },
@@ -515,7 +542,12 @@ pub extern "C" fn rorm_db_query_one(
                 };
             }
             Some(c) => match db
-                .query_one(model_conv.unwrap(), column_vec.as_slice(), Some(&c), None)
+                .query_one(
+                    model_conv.unwrap(),
+                    column_vec.as_slice(),
+                    Some(&c),
+                    transaction,
+                )
                 .await
             {
                 Ok(v) => unsafe { cb(context, Some(Box::new(v)), Error::NoError) },
@@ -536,8 +568,16 @@ pub extern "C" fn rorm_db_query_one(
 /**
 This function queries the database given the provided parameter and returns all matched rows.
 
+To include the statement in a transaction specify `transaction` as a valid
+Transaction. As the Transaction needs to be mutable, it is important to not
+use the Transaction anywhere else until the callback is finished.
+
+If the statement should be executed **not** in a Transaction,
+specify a null pointer.
+
 **Parameter**:
-- `db`: Reference to the Database, provided by [rorm_db_connect].
+- `db`: Reference to the Database, provided by [rorm_db_connect]
+- `transaction`: Mutable pointer to a Transaction. Can be a null pointer to ignore this parameter.
 - `model`: Name of the table to query.
 - `columns`: Array of columns to retrieve from the database.
 - `condition`: Pointer to a [Condition].
@@ -554,6 +594,7 @@ This function is called from an asynchronous context.
 #[no_mangle]
 pub extern "C" fn rorm_db_query_all(
     db: &'static Database,
+    transaction: Option<&'static mut Transaction>,
     model: FFIString<'static>,
     columns: FFISlice<'static, FFIString<'static>>,
     condition: Option<&'static Condition>,
@@ -603,15 +644,20 @@ pub extern "C" fn rorm_db_query_all(
     let fut = async move {
         let query_res = match cond {
             None => {
-                db.query_all(model_conv.unwrap(), column_vec.as_slice(), None, None)
-                    .await
+                db.query_all(
+                    model_conv.unwrap(),
+                    column_vec.as_slice(),
+                    None,
+                    transaction,
+                )
+                .await
             }
             Some(cond) => {
                 db.query_all(
                     model_conv.unwrap(),
                     column_vec.as_slice(),
                     Some(&cond),
-                    None,
+                    transaction,
                 )
                 .await
             }
@@ -657,6 +703,7 @@ Returns a pointer to the created stream.
 
 **Parameter**:
 - `db`: Reference to the Database, provided by [rorm_db_connect].
+- `transaction`: Mutable pointer to a Transaction. Can be a null pointer to ignore this parameter.
 - `model`: Name of the table to query.
 - `columns`: Array of columns to retrieve from the database.
 - `condition`: Pointer to a [Condition].
@@ -668,6 +715,7 @@ This function is called completely synchronously.
 #[no_mangle]
 pub extern "C" fn rorm_db_query_stream(
     db: &Database,
+    transaction: Option<&'static mut Transaction>,
     model: FFIString,
     columns: FFISlice<FFIString>,
     condition: Option<&Condition>,
@@ -694,7 +742,12 @@ pub extern "C" fn rorm_db_query_stream(
     }
 
     let query_stream = match condition {
-        None => db.query_stream(model_conv.unwrap(), column_vec.as_slice(), None, None),
+        None => db.query_stream(
+            model_conv.unwrap(),
+            column_vec.as_slice(),
+            None,
+            transaction,
+        ),
         Some(c) => {
             let cond_conv: Result<rorm_db::conditional::Condition, Error> = c.try_into();
             if cond_conv.is_err() {
@@ -713,7 +766,7 @@ pub extern "C" fn rorm_db_query_stream(
                 model_conv.unwrap(),
                 column_vec.as_slice(),
                 Some(&cond_conv.unwrap()),
-                None,
+                transaction,
             )
         }
     };
@@ -790,6 +843,7 @@ This function deletes rows from the database based on the given conditions.
 
 **Parameter**:
 - `db`: Reference to the Database, provided by [rorm_db_connect].
+- `transaction`: Mutable pointer to a Transaction. Can be a null pointer to ignore this parameter.
 - `model`: Name of the table to query.
 - `condition`: Pointer to a [Condition].
 - `callback`: callback function. Takes the `context`, a pointer to a vec of rows and an [Error].
@@ -807,6 +861,7 @@ This function is called from an asynchronous context.
 #[no_mangle]
 pub extern "C" fn rorm_db_delete(
     db: &'static Database,
+    transaction: Option<&'static mut Transaction>,
     model: FFIString<'static>,
     condition: Option<&'static Condition>,
     callback: Option<unsafe extern "C" fn(VoidPtr, u64, Error) -> ()>,
@@ -841,7 +896,7 @@ pub extern "C" fn rorm_db_delete(
 
     let fut = async move {
         match cond {
-            None => match db.delete(model_conv.unwrap(), None, None).await {
+            None => match db.delete(model_conv.unwrap(), None, transaction).await {
                 Ok(rows_affected) => unsafe { cb(context, rows_affected, Error::NoError) },
                 Err(err) => {
                     let ffi_err = err.to_string();
@@ -854,7 +909,7 @@ pub extern "C" fn rorm_db_delete(
                     };
                 }
             },
-            Some(v) => match db.delete(model_conv.unwrap(), Some(&v), None).await {
+            Some(v) => match db.delete(model_conv.unwrap(), Some(&v), transaction).await {
                 Ok(rows_affected) => unsafe { cb(context, rows_affected, Error::NoError) },
                 Err(err) => {
                     let ffi_err = err.to_string();
@@ -898,6 +953,7 @@ This function inserts a row into the database.
 
 **Parameter**:
 - `db`: Reference to the Database, provided by [rorm_db_connect].
+- `transaction`: Mutable pointer to a Transaction. Can be a null pointer to ignore this parameter.
 - `model`: Name of the table to query.
 - `columns`: Array of columns to insert to the table.
 - `row`: List of values to insert. Must be of the same length as `columns`.
@@ -912,6 +968,7 @@ This function is called from an asynchronous context.
 #[no_mangle]
 pub extern "C" fn rorm_db_insert(
     db: &'static Database,
+    transaction: Option<&'static mut Transaction>,
     model: FFIString<'static>,
     columns: FFISlice<'static, FFIString<'static>>,
     row: FFISlice<'static, FFIValue<'static>>,
@@ -961,7 +1018,12 @@ pub extern "C" fn rorm_db_insert(
 
     let fut = async move {
         match db
-            .insert(model, column_vec.as_slice(), value_vec.as_slice(), None)
+            .insert(
+                model,
+                column_vec.as_slice(),
+                value_vec.as_slice(),
+                transaction,
+            )
             .await
         {
             Err(err) => unsafe {
@@ -985,6 +1047,7 @@ This function inserts multiple rows into the database.
 
 **Parameter**:
 - `db`: Reference to the Database, provided by [rorm_db_connect].
+- `transaction`: Mutable pointer to a Transaction. Can be a null pointer to ignore this parameter.
 - `model`: Name of the table to query.
 - `columns`: Array of columns to insert to the table.
 - `rows`: List of list of values to insert. The inner lists must be of the same length as `columns`.
@@ -999,6 +1062,7 @@ This function is called from an asynchronous context.
 #[no_mangle]
 pub extern "C" fn rorm_db_insert_bulk(
     db: &'static Database,
+    transaction: Option<&'static mut Transaction>,
     model: FFIString<'static>,
     columns: FFISlice<'static, FFIString<'static>>,
     rows: FFISlice<'static, FFISlice<'static, FFIValue<'static>>>,
@@ -1061,7 +1125,7 @@ pub extern "C" fn rorm_db_insert_bulk(
                     .map(|x| x.as_slice())
                     .collect::<Vec<&[Value]>>()
                     .as_slice(),
-                None,
+                transaction,
             )
             .await
         {
@@ -1088,6 +1152,7 @@ This function updates rows in the database.
 
 **Parameter**:
 - `db`: Reference to the Database, provided by [rorm_db_connect].
+- `transaction`: Mutable pointer to a Transaction. Can be a null pointer to ignore this parameter.
 - `model`: Name of the table to query.
 - `updates`: List of [FFIUpdate] to apply.
 - `condition`: Pointer to a [Condition].
@@ -1103,6 +1168,7 @@ This function is called from an asynchronous context.
 #[no_mangle]
 pub extern "C" fn rorm_db_update(
     db: &'static Database,
+    transaction: Option<&'static mut Transaction>,
     model: FFIString<'static>,
     updates: FFISlice<'static, FFIUpdate<'static>>,
     condition: Option<&'static Condition>,
@@ -1157,8 +1223,11 @@ pub extern "C" fn rorm_db_update(
 
     let fut = async move {
         let query_res = match cond {
-            None => db.update(model, up.as_slice(), None, None).await,
-            Some(cond) => db.update(model, up.as_slice(), Some(&cond), None).await,
+            None => db.update(model, up.as_slice(), None, transaction).await,
+            Some(cond) => {
+                db.update(model, up.as_slice(), Some(&cond), transaction)
+                    .await
+            }
         };
 
         match query_res {
