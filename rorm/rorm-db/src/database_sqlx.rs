@@ -14,6 +14,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use crate::error::Error;
 use crate::result::QueryStream;
 use crate::row::Row;
+use crate::transaction::Transaction;
 use crate::{utils, DatabaseBackend, DatabaseConfiguration};
 
 /**
@@ -102,12 +103,14 @@ impl Database {
     - `model`: Name of the table.
     - `columns`: Columns to retrieve values from.
     - `conditions`: Optional conditions to apply.
+    - `transaction`: Optional transaction to execute the query on.
      */
     pub fn query_stream<'db, 'post_query, 'stream>(
         &'db self,
         model: &str,
         columns: &[&str],
         conditions: Option<&conditional::Condition<'post_query>>,
+        transaction: Option<&'stream mut Transaction>,
     ) -> BoxStream<'stream, Result<Row, Error>>
     where
         'post_query: 'stream,
@@ -122,7 +125,12 @@ impl Database {
 
         debug!("SQL: {}", query_string);
 
-        return QueryStream::build(query_string, bind_params, &self.pool).boxed();
+        match transaction {
+            None => QueryStream::build(query_string, bind_params, &self.pool).boxed(),
+            Some(transaction) => {
+                return QueryStream::build(query_string, bind_params, &mut transaction.tx).boxed()
+            }
+        }
     }
 
     /**
@@ -133,12 +141,14 @@ impl Database {
     - `model`: Model to query.
     - `columns`: Columns to retrieve values from.
     - `conditions`: Optional conditions to apply.
+    - `transaction`: Optional transaction to execute the query on.
      */
     pub async fn query_one(
         &self,
         model: &str,
         columns: &[&str],
         conditions: Option<&conditional::Condition<'_>>,
+        transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Row, Error> {
         let mut q = self.db_impl.select(columns, model);
         if conditions.is_some() {
@@ -154,10 +164,18 @@ impl Database {
             tmp = utils::bind_param(tmp, x);
         }
 
-        tmp.fetch_one(&self.pool)
-            .await
-            .map(Row::from)
-            .map_err(Error::SqlxError)
+        match transaction {
+            None => tmp
+                .fetch_one(&self.pool)
+                .await
+                .map(Row::from)
+                .map_err(Error::SqlxError),
+            Some(transaction) => tmp
+                .fetch_one(&mut transaction.tx)
+                .await
+                .map(Row::from)
+                .map_err(Error::SqlxError),
+        }
     }
 
     /**
@@ -167,12 +185,14 @@ impl Database {
     - `model`: Model to query.
     - `columns`: Columns to retrieve values from.
     - `conditions`: Optional conditions to apply.
+    - `transaction`: Optional transaction to execute the query on.
      */
     pub async fn query_optional(
         &self,
         model: &str,
         columns: &[&str],
         conditions: Option<&conditional::Condition<'_>>,
+        transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Option<Row>, Error> {
         let mut q = self.db_impl.select(columns, model);
         if conditions.is_some() {
@@ -188,10 +208,18 @@ impl Database {
             tmp = utils::bind_param(tmp, x);
         }
 
-        tmp.fetch_optional(&self.pool)
-            .await
-            .map(|option| option.map(Row::from))
-            .map_err(Error::SqlxError)
+        match transaction {
+            None => tmp
+                .fetch_optional(&self.pool)
+                .await
+                .map(|option| option.map(Row::from))
+                .map_err(Error::SqlxError),
+            Some(transaction) => tmp
+                .fetch_optional(&mut transaction.tx)
+                .await
+                .map(|option| option.map(Row::from))
+                .map_err(Error::SqlxError),
+        }
     }
 
     /**
@@ -201,12 +229,14 @@ impl Database {
     - `model`: Model to query.
     - `columns`: Columns to retrieve values from.
     - `conditions`: Optional conditions to apply.
+    - `transaction`: Optional transaction to execute the query on.
      */
     pub async fn query_all(
         &self,
         model: &str,
         columns: &[&str],
         conditions: Option<&conditional::Condition<'_>>,
+        transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Vec<Row>, Error> {
         let mut q = self.db_impl.select(columns, model);
         if conditions.is_some() {
@@ -222,10 +252,18 @@ impl Database {
             tmp = utils::bind_param(tmp, x);
         }
 
-        tmp.fetch_all(&self.pool)
-            .await
-            .map(|vector| vector.into_iter().map(Row::from).collect())
-            .map_err(Error::SqlxError)
+        match transaction {
+            None => tmp
+                .fetch_all(&self.pool)
+                .await
+                .map(|vector| vector.into_iter().map(Row::from).collect())
+                .map_err(Error::SqlxError),
+            Some(transaction) => tmp
+                .fetch_all(&mut transaction.tx)
+                .await
+                .map(|vector| vector.into_iter().map(Row::from).collect())
+                .map_err(Error::SqlxError),
+        }
     }
 
     /**
@@ -235,12 +273,14 @@ impl Database {
     - `model`: Table to insert to
     - `columns`: Columns to set `values` for.
     - `values`: Values to bind to the corresponding columns.
+    - `transaction`: Optional transaction to execute the query on.
      */
     pub async fn insert(
         &self,
         model: &str,
         columns: &[&str],
         values: &[value::Value<'_>],
+        transaction: Option<&mut Transaction<'_>>,
     ) -> Result<(), Error> {
         let value_rows = &[values];
         let q = self.db_impl.insert(model, columns, value_rows);
@@ -254,9 +294,15 @@ impl Database {
             tmp = utils::bind_param(tmp, x);
         }
 
-        match tmp.execute(&self.pool).await {
-            Ok(_) => Ok(()),
-            Err(err) => Err(Error::SqlxError(err)),
+        match transaction {
+            None => match tmp.execute(&self.pool).await {
+                Ok(_) => Ok(()),
+                Err(err) => Err(Error::SqlxError(err)),
+            },
+            Some(transaction) => match tmp.execute(&mut transaction.tx).await {
+                Ok(_) => Ok(()),
+                Err(err) => Err(Error::SqlxError(err)),
+            },
         }
     }
 
@@ -269,32 +315,54 @@ impl Database {
     - `model`: Table to insert to
     - `columns`: Columns to set `rows` for.
     - `rows`: List of values to bind to the corresponding columns.
+    - `transaction`: Optional transaction to execute the query on.
      */
     pub async fn insert_bulk(
         &self,
         model: &str,
         columns: &[&str],
         rows: &[&[value::Value<'_>]],
+        transaction: Option<&mut Transaction<'_>>,
     ) -> Result<(), Error> {
-        let mut tx = self.pool.begin().await?;
+        match transaction {
+            None => {
+                let mut tx = self.pool.begin().await?;
+                for chunk in rows.chunks(25) {
+                    let mut insert = self.db_impl.insert(model, columns, chunk);
+                    insert = insert.rollback_transaction();
+                    let (insert_query, insert_params) = insert.build();
 
-        for chunk in rows.chunks(25) {
-            let mut insert = self.db_impl.insert(model, columns, chunk);
-            insert = insert.rollback_transaction();
-            let (insert_query, insert_params) = insert.build();
+                    debug!("SQL: {}", insert_query);
 
-            debug!("SQL: {}", insert_query);
+                    let mut q = sqlx::query(insert_query.as_str());
 
-            let mut q = sqlx::query(insert_query.as_str());
+                    for x in insert_params {
+                        q = utils::bind_param(q, x);
+                    }
 
-            for x in insert_params {
-                q = utils::bind_param(q, x);
+                    q.execute(&mut tx).await?;
+                }
+                tx.commit().await.map_err(|e| Error::SqlxError(e))
             }
+            Some(transaction) => {
+                for chunk in rows.chunks(25) {
+                    let mut insert = self.db_impl.insert(model, columns, chunk);
+                    insert = insert.rollback_transaction();
+                    let (insert_query, insert_params) = insert.build();
 
-            q.execute(&mut tx).await?;
+                    debug!("SQL: {}", insert_query);
+
+                    let mut q = sqlx::query(insert_query.as_str());
+
+                    for x in insert_params {
+                        q = utils::bind_param(q, x);
+                    }
+
+                    q.execute(&mut transaction.tx).await?;
+                }
+                Ok(())
+            }
         }
-
-        tx.commit().await.map_err(|e| Error::SqlxError(e))
     }
 
     /**
@@ -303,6 +371,7 @@ impl Database {
     **Parameter**:
     - `model`: Name of the model to delete rows from
     - `condition`: Optional condition to apply.
+    - `transaction`: Optional transaction to execute the query on.
 
     **Returns** the rows affected of the delete statement. Note that this also includes
     relations, etc.
@@ -311,6 +380,7 @@ impl Database {
         &self,
         model: &str,
         condition: Option<&conditional::Condition<'post_build>>,
+        transaction: Option<&mut Transaction<'_>>,
     ) -> Result<u64, Error> {
         let mut q = self.db_impl.delete(model);
         if condition.is_some() {
@@ -326,9 +396,15 @@ impl Database {
             tmp = utils::bind_param(tmp, x);
         }
 
-        match tmp.execute(&self.pool).await {
-            Ok(qr) => Ok(qr.rows_affected()),
-            Err(err) => Err(Error::SqlxError(err)),
+        match transaction {
+            None => match tmp.execute(&self.pool).await {
+                Ok(qr) => Ok(qr.rows_affected()),
+                Err(err) => Err(Error::SqlxError(err)),
+            },
+            Some(transaction) => match tmp.execute(&mut transaction.tx).await {
+                Ok(qr) => Ok(qr.rows_affected()),
+                Err(err) => Err(Error::SqlxError(err)),
+            },
         }
     }
 
@@ -340,6 +416,7 @@ impl Database {
     - `updates`: A list of updates. An update is a tuple that consists of a list of columns to
     update as well as the value to set to the columns.
     - `condition`: Optional condition to apply.
+    - `transaction`: Optional transaction to execute the query on.
 
     **Returns** the rows affected from the update statement. Note that this also includes
     relations, etc.
@@ -349,6 +426,7 @@ impl Database {
         model: &str,
         updates: &[(&str, value::Value<'post_build>)],
         condition: Option<&conditional::Condition<'post_build>>,
+        transaction: Option<&mut Transaction<'_>>,
     ) -> Result<u64, Error> {
         let mut stmt = self.db_impl.update(model);
 
@@ -368,10 +446,18 @@ impl Database {
             q = utils::bind_param(q, x);
         }
 
-        Ok(q.execute(&self.pool)
-            .await
-            .map_err(|err| Error::SqlxError(err))?
-            .rows_affected())
+        Ok(match transaction {
+            None => q
+                .execute(&self.pool)
+                .await
+                .map_err(|err| Error::SqlxError(err))?
+                .rows_affected(),
+            Some(transaction) => q
+                .execute(&mut transaction.tx)
+                .await
+                .map_err(|err| Error::SqlxError(err))?
+                .rows_affected(),
+        })
     }
 
     /**
@@ -385,6 +471,7 @@ impl Database {
     **Parameter**:
     - `query_string`: Reference to a valid SQL query.
     - `bind_params`: Optional list of values to bind in the query.
+    - `transaction`: Optional transaction to execute the query on.
 
     **Returns** a list of rows. If there are no values to retrieve, an empty
     list is returned.
@@ -393,6 +480,7 @@ impl Database {
         &self,
         query_string: &'a str,
         bind_params: Option<&[value::Value<'a>]>,
+        transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Vec<Row>, Error> {
         debug!("SQL: {}", query_string);
 
@@ -402,9 +490,31 @@ impl Database {
                 q = utils::bind_param(q, *x);
             }
         }
-        q.fetch_all(&self.pool)
+
+        match transaction {
+            None => q
+                .fetch_all(&self.pool)
+                .await
+                .map(|vector| vector.into_iter().map(Row::from).collect())
+                .map_err(Error::SqlxError),
+            Some(transaction) => q
+                .fetch_all(&mut transaction.tx)
+                .await
+                .map(|vector| vector.into_iter().map(Row::from).collect())
+                .map_err(Error::SqlxError),
+        }
+    }
+
+    /**
+    Entry point for a [Transaction].
+    */
+    pub async fn start_transaction(&self) -> Result<Transaction, Error> {
+        let tx = self
+            .pool
+            .begin()
             .await
-            .map(|vector| vector.into_iter().map(Row::from).collect())
-            .map_err(Error::SqlxError)
+            .map_err(|err| Error::SqlxError(err))?;
+
+        Ok(Transaction { tx })
     }
 }

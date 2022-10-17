@@ -26,10 +26,20 @@ pub mod row;
 /// Utility functions
 pub mod utils;
 
+#[cfg(feature = "sqlx-dep")]
+#[path = "database_sqlx.rs"]
+pub mod database;
+#[cfg(not(feature = "sqlx-dep"))]
+#[path = "database_dummy.rs"]
+pub mod database;
+
+mod transaction;
+
 pub use rorm_sql::conditional;
 pub use rorm_sql::value;
 pub use rorm_sql::{and, or};
 
+pub use crate::database::Database;
 pub use crate::error::Error;
 pub use crate::row::Row;
 
@@ -75,11 +85,3 @@ pub struct DatabaseConfiguration {
     /// Maximum connections that allowed to be created.
     pub max_connections: u32,
 }
-
-#[cfg(feature = "sqlx-dep")]
-#[path = "database_sqlx.rs"]
-pub mod database;
-#[cfg(not(feature = "sqlx-dep"))]
-#[path = "database_dummy.rs"]
-pub mod database;
-pub use database::Database;

@@ -5,7 +5,7 @@ use futures::stream::BoxStream;
 use futures::Stream;
 use rorm_sql::value;
 use sqlx::any::AnyRow;
-use sqlx::AnyPool;
+use sqlx::Executor;
 
 use crate::error::Error;
 use crate::row::Row;
@@ -21,11 +21,14 @@ pub struct QueryStream<'post_query> {
 }
 
 impl<'post_query> QueryStream<'post_query> {
-    pub(crate) fn build(
+    pub(crate) fn build<E>(
         stmt: String,
         bind_params: Vec<value::Value<'post_query>>,
-        executor: &AnyPool,
-    ) -> QueryStream<'post_query> {
+        executor: E,
+    ) -> QueryStream<'post_query>
+    where
+        E: Executor<'post_query, Database = sqlx::Any>,
+    {
         QueryStream::new(stmt, bind_params, |stmt, bind_params| {
             let mut tmp = sqlx::query(stmt);
 

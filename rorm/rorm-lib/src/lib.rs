@@ -250,9 +250,9 @@ pub extern "C" fn rorm_db_raw_sql(
 
     let fut = async move {
         let query_res = match bind_params {
-            None => db.raw_sql(query_str.unwrap(), None).await,
+            None => db.raw_sql(query_str.unwrap(), None, None).await,
             Some(bind_params) => {
-                db.raw_sql(query_str.unwrap(), Some(bind_params.as_slice()))
+                db.raw_sql(query_str.unwrap(), Some(bind_params.as_slice()), None)
                     .await
             }
         };
@@ -363,7 +363,7 @@ pub extern "C" fn rorm_db_query_one(
         match cond {
             None => {
                 match db
-                    .query_one(model_conv.unwrap(), column_vec.as_slice(), None)
+                    .query_one(model_conv.unwrap(), column_vec.as_slice(), None, None)
                     .await
                 {
                     Ok(v) => unsafe { cb(context, Some(Box::new(v)), Error::NoError) },
@@ -374,7 +374,7 @@ pub extern "C" fn rorm_db_query_one(
                 };
             }
             Some(c) => match db
-                .query_one(model_conv.unwrap(), column_vec.as_slice(), Some(&c))
+                .query_one(model_conv.unwrap(), column_vec.as_slice(), Some(&c), None)
                 .await
             {
                 Ok(v) => unsafe { cb(context, Some(Box::new(v)), Error::NoError) },
@@ -462,12 +462,17 @@ pub extern "C" fn rorm_db_query_all(
     let fut = async move {
         let query_res = match cond {
             None => {
-                db.query_all(model_conv.unwrap(), column_vec.as_slice(), None)
+                db.query_all(model_conv.unwrap(), column_vec.as_slice(), None, None)
                     .await
             }
             Some(cond) => {
-                db.query_all(model_conv.unwrap(), column_vec.as_slice(), Some(&cond))
-                    .await
+                db.query_all(
+                    model_conv.unwrap(),
+                    column_vec.as_slice(),
+                    Some(&cond),
+                    None,
+                )
+                .await
             }
         };
         match query_res {
@@ -548,7 +553,7 @@ pub extern "C" fn rorm_db_query_stream(
     }
 
     let query_stream = match condition {
-        None => db.query_stream(model_conv.unwrap(), column_vec.as_slice(), None),
+        None => db.query_stream(model_conv.unwrap(), column_vec.as_slice(), None, None),
         Some(c) => {
             let cond_conv: Result<rorm_db::conditional::Condition, Error> = c.try_into();
             if cond_conv.is_err() {
@@ -567,6 +572,7 @@ pub extern "C" fn rorm_db_query_stream(
                 model_conv.unwrap(),
                 column_vec.as_slice(),
                 Some(&cond_conv.unwrap()),
+                None,
             )
         }
     };
@@ -694,7 +700,7 @@ pub extern "C" fn rorm_db_delete(
 
     let fut = async move {
         match cond {
-            None => match db.delete(model_conv.unwrap(), None).await {
+            None => match db.delete(model_conv.unwrap(), None, None).await {
                 Ok(rows_affected) => unsafe { cb(context, rows_affected, Error::NoError) },
                 Err(err) => {
                     let ffi_err = err.to_string();
@@ -707,7 +713,7 @@ pub extern "C" fn rorm_db_delete(
                     };
                 }
             },
-            Some(v) => match db.delete(model_conv.unwrap(), Some(&v)).await {
+            Some(v) => match db.delete(model_conv.unwrap(), Some(&v), None).await {
                 Ok(rows_affected) => unsafe { cb(context, rows_affected, Error::NoError) },
                 Err(err) => {
                     let ffi_err = err.to_string();
@@ -814,7 +820,7 @@ pub extern "C" fn rorm_db_insert(
 
     let fut = async move {
         match db
-            .insert(model, column_vec.as_slice(), value_vec.as_slice())
+            .insert(model, column_vec.as_slice(), value_vec.as_slice(), None)
             .await
         {
             Err(err) => unsafe {
@@ -914,6 +920,7 @@ pub extern "C" fn rorm_db_insert_bulk(
                     .map(|x| x.as_slice())
                     .collect::<Vec<&[Value]>>()
                     .as_slice(),
+                None,
             )
             .await
         {
@@ -1009,8 +1016,8 @@ pub extern "C" fn rorm_db_update(
 
     let fut = async move {
         let query_res = match cond {
-            None => db.update(model, up.as_slice(), None).await,
-            Some(cond) => db.update(model, up.as_slice(), Some(&cond)).await,
+            None => db.update(model, up.as_slice(), None, None).await,
+            Some(cond) => db.update(model, up.as_slice(), Some(&cond), None).await,
         };
 
         match query_res {
