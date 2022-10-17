@@ -16,6 +16,7 @@ use std::time::Duration;
 
 use futures::StreamExt;
 use rorm_db::row::Row;
+use rorm_db::transaction::Transaction;
 use rorm_db::value::Value;
 use rorm_db::{Database, DatabaseConfiguration};
 use tokio::runtime::Runtime;
@@ -186,6 +187,146 @@ This function is called completely synchronously.
  */
 #[no_mangle]
 pub extern "C" fn rorm_db_free(_: Box<Database>) {}
+
+// --------
+// TRANSACTION
+// --------
+
+/**
+Starts a transaction on the current database connection.
+
+**Parameter**:
+- `db`: Reference to the Database, provided by [rorm_db_connect].
+- `callback`: callback function. Takes the `context`, a pointer to a transaction and an [Error].
+- `context`: Pass through void pointer.
+
+**Important**:
+Rust does not manage the memory of the transaction.
+To properly free it, use [rorm_transaction_free], [rorm_transaction_commit]
+or [rorm_transaction_abort].
+
+This function is called from an asynchronous context.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_db_start_transaction(
+    db: &'static Database,
+    callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Transaction>>, Error) -> ()>,
+    context: VoidPtr,
+) {
+    let cb = callback.expect("Callback must not be empty");
+
+    let fut = async move {
+        match db.start_transaction().await {
+            Ok(t) => unsafe { cb(context, Some(Box::new(t)), Error::NoError) },
+            Err(err) => unsafe {
+                let ffi_err = err.to_string();
+                cb(context, None, Error::DatabaseError(ffi_err.as_str().into()));
+            },
+        }
+    };
+
+    let f = |err: String| {
+        unsafe { cb(context, None, Error::RuntimeError(err.as_str().into())) };
+    };
+    spawn_fut!(fut, cb(context, None, Error::MissingRuntimeError), f);
+}
+
+/**
+Commits a transaction.
+
+All previous operations will be applied to the database.
+
+**Parameter**:
+- `transaction`: Pointer to a valid transaction, provided by [rorm_db_start_transaction].
+- `callback`: callback function. Takes the `context` and an [Error].
+- `context`: Pass through void pointer.
+
+**Important**:
+Rust takes ownership of `transaction` and frees it after using.
+Don't use it anywhere else after calling this function!
+
+This function is called from an asynchronous context.
+*/
+#[no_mangle]
+pub extern "C" fn rorm_transaction_commit(
+    transaction: Option<Box<Transaction<'static>>>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, Error) -> ()>,
+    context: VoidPtr,
+) {
+    let transaction = transaction.expect("Transaction must not be empty");
+    let cb = callback.expect("Callback must not be empty");
+
+    let fut = async move {
+        match transaction.rollback().await {
+            Ok(_) => unsafe { cb(context, Error::NoError) },
+            Err(err) => unsafe {
+                let ffi_err = err.to_string();
+                cb(context, Error::DatabaseError(ffi_err.as_str().into()));
+            },
+        }
+    };
+
+    let f = |err: String| {
+        unsafe { cb(context, Error::RuntimeError(err.as_str().into())) };
+    };
+    spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
+}
+
+/**
+Rollback a transaction and abort it.
+
+All previous operations will be discarded.
+
+**Parameter**:
+- `transaction`: Pointer to a valid transaction, provided by [rorm_db_start_transaction].
+- `callback`: callback function. Takes the `context` and an [Error].
+- `context`: Pass through void pointer.
+
+**Important**:
+Rust takes ownership of `transaction` and frees it after using.
+Don't use it anywhere else after calling this function!
+
+This function is called from an asynchronous context.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_transaction_rollback(
+    transaction: Option<Box<Transaction<'static>>>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, Error) -> ()>,
+    context: VoidPtr,
+) {
+    let transaction = transaction.expect("Transaction must not be empty");
+    let cb = callback.expect("Callback must not be empty");
+
+    let fut = async move {
+        match transaction.commit().await {
+            Ok(_) => unsafe { cb(context, Error::NoError) },
+            Err(err) => unsafe {
+                let ffi_err = err.to_string();
+                cb(context, Error::DatabaseError(ffi_err.as_str().into()));
+            },
+        }
+    };
+
+    let f = |err: String| {
+        unsafe { cb(context, Error::RuntimeError(err.as_str().into())) };
+    };
+    spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
+}
+
+/**
+Free a transaction.
+
+If a transaction is not committed yet, a rollback is executed.
+
+Takes the pointer to the transaction.
+
+**Important**:
+Do not call this function more than once!
+
+This function is called completely synchronously.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_transaction_free(_: Box<Transaction>) {}
 
 // --------
 // SQL
