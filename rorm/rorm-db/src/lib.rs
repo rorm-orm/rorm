@@ -4,36 +4,32 @@
 //! `rorm-lib` implements C bindings for this crate.
 #![warn(missing_docs)]
 
-/**
-Errors of rorm-db will be specified here.
-*/
-pub mod error;
-
-#[cfg(feature = "sqlx-dep")]
-/**
-This module holds the results of a query
-*/
-pub mod result;
-
-#[cfg(feature = "sqlx-dep")]
-#[path = "row_sqlx.rs"]
-pub mod row;
-#[cfg(not(feature = "sqlx-dep"))]
-#[path = "row_dummy.rs"]
-pub mod row;
-
-#[cfg(feature = "sqlx-dep")]
-/// Utility functions
-pub mod utils;
-
 #[cfg(feature = "sqlx-dep")]
 #[path = "database_sqlx.rs"]
 pub mod database;
 #[cfg(not(feature = "sqlx-dep"))]
 #[path = "database_dummy.rs"]
 pub mod database;
-
-mod transaction;
+/**
+Errors of rorm-db will be specified here.
+*/
+pub mod error;
+#[cfg(feature = "sqlx-dep")]
+/**
+This module holds the results of a query
+*/
+pub mod result;
+#[cfg(feature = "sqlx-dep")]
+#[path = "row_sqlx.rs"]
+pub mod row;
+#[cfg(not(feature = "sqlx-dep"))]
+#[path = "row_dummy.rs"]
+pub mod row;
+/// This module holds the definition of transactions
+pub mod transaction;
+#[cfg(feature = "sqlx-dep")]
+/// Utility functions
+pub mod utils;
 
 pub use rorm_sql::conditional;
 pub use rorm_sql::value;

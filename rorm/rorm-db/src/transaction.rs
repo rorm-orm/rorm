@@ -22,7 +22,7 @@ impl<'db> Transaction<'db> {
     }
 
     /**
-    Use this function to abort or rollback to a savepoint.
+    Use this function to abort the transaction.
     */
     pub async fn rollback(self) -> Result<(), Error> {
         self.tx
