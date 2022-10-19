@@ -219,6 +219,9 @@ pub fn patch(strct: TokenStream) -> TokenStream {
 
     let mut field_idents = Vec::new();
     for field in strct.fields {
+        for meta in iter_rorm_attributes(&field.attrs, &errors) {
+            errors.push_new(meta.span(), "patches don't accept attributes on fields");
+        }
         if let Some(ident) = field.ident {
             field_idents.push(ident);
         } else {
