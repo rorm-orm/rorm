@@ -54,7 +54,7 @@ use std::io::Write;
 
 pub use crud::query::QueryBuilder;
 pub use linkme;
-pub use model::{DbEnum, Model};
+pub use model::{DbEnum, Model, Patch};
 pub use rorm_db::*;
 pub use rorm_macro::*;
 
