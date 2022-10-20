@@ -38,6 +38,11 @@ typedef struct Stream_ Stream;
 * Placeholder struct representing the row gathered from a stream.
 */
 typedef struct Row_ Row;
+
+/**
+* Placeholder struct representing a transaction
+*/
+typedef struct Transaction_ Transaction;
 """
 
 ############################ Code Style Options ################################
