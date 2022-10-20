@@ -99,4 +99,18 @@ pub enum Operation {
         /// Name of the field to delete
         name: String,
     },
+
+    /// Representation of a RawSQL operation
+    #[serde(rename_all = "PascalCase")]
+    RawSQL {
+        /// SQL for sqlite
+        #[serde(rename = "SQLite")]
+        sqlite: String,
+        /// SQL for postgres
+        #[serde(rename = "Postgres")]
+        postgres: String,
+        /// SQL for mysql
+        #[serde(rename = "MySQL")]
+        mysql: String,
+    },
 }

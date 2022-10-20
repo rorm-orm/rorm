@@ -2,7 +2,7 @@ use std::fs::{read_dir, read_to_string, DirEntry, File};
 use std::io::Write;
 use std::path::Path;
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use rorm_declaration::imr::{InternalModelFormat, Model};
 use rorm_declaration::migration::{Migration, MigrationFile, Operation};
 
@@ -113,14 +113,15 @@ pub fn convert_migrations_to_internal_models(
 ) -> anyhow::Result<InternalModelFormat> {
     let mut m = vec![];
 
-    migrations.iter().for_each(|x| {
-        x.operations.iter().for_each(|y| match y {
+    let res: anyhow::Result<_> = migrations.iter().try_for_each(|x| {
+        x.operations.iter().try_for_each(|y| match y {
             Operation::CreateModel { name, fields } => {
                 m.push(Model {
                     name: name.clone(),
                     fields: fields.clone(),
                     source_defined_at: None,
                 });
+                Ok(())
             }
             Operation::RenameModel { old, new } => {
                 m = m
@@ -133,9 +134,11 @@ pub fn convert_migrations_to_internal_models(
                         a
                     })
                     .collect();
+                Ok(())
             }
             Operation::DeleteModel { name } => {
                 m.retain(|z| z.name != *name);
+                Ok(())
             }
             Operation::CreateField { model, field } => {
                 for i in 0..m.len() {
@@ -143,6 +146,7 @@ pub fn convert_migrations_to_internal_models(
                         m[i].fields.push(field.clone());
                     }
                 }
+                Ok(())
             }
             Operation::RenameField {
                 table_name,
@@ -169,6 +173,7 @@ pub fn convert_migrations_to_internal_models(
                         a
                     })
                     .collect();
+                Ok(())
             }
             Operation::DeleteField { model, name } => {
                 for i in 0..m.len() {
@@ -176,9 +181,20 @@ pub fn convert_migrations_to_internal_models(
                         m[i].fields.retain(|z| z.name != *name);
                     }
                 }
+                Ok(())
             }
+            Operation::RawSQL { .. } => Err(anyhow!(
+                r#"RawSQL migration found!
+
+Can not proceed to generate migrations as the current database state can not be determined anymore!
+You can still write migrations with all available operations yourself.
+
+To use the make-migrations feature again, delete all RawSQL operations."#
+            )),
         })
     });
+
+    res?;
 
     Ok(InternalModelFormat { models: m })
 }

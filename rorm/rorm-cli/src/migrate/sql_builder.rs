@@ -150,6 +150,30 @@ pub async fn migration_to_sql<'a>(
                     q.execute(&mut *tx).await?;
                 }
             }
+            Operation::RawSQL {
+                mysql,
+                postgres,
+                sqlite,
+            } => match db_impl {
+                DBImpl::SQLite => {
+                    if do_log {
+                        println!("{}", sqlite);
+                    }
+                    sqlx::query(sqlite).execute(&mut *tx).await?;
+                }
+                DBImpl::Postgres => {
+                    if do_log {
+                        println!("{}", postgres);
+                    }
+                    sqlx::query(postgres).execute(&mut *tx).await?;
+                }
+                DBImpl::MySQL => {
+                    if do_log {
+                        println!("{}", mysql);
+                    }
+                    sqlx::query(mysql).execute(&mut *tx).await?;
+                }
+            },
         }
     }
 

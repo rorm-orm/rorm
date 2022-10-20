@@ -99,7 +99,8 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             return Ok(());
         }
 
-        let constructed = convert_migrations_to_internal_models(&existing_migrations)?;
+        let constructed = convert_migrations_to_internal_models(&existing_migrations)
+            .with_context(|| "Error while parsing existing migration files")?;
 
         let mut last_id: u16 = last_migration.id[..4]
             .parse()
