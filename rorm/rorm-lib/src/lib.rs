@@ -337,7 +337,7 @@ specify a null pointer.
 - `db`: Reference to the Database, provided by [rorm_db_connect].
 - `transaction`: Mutable pointer to a Transaction. Can be a null pointer to ignore this parameter.
 - `query_string`: SQL statement to execute.
-- `bind_params`: Optional slice of FFIValues to bind to the query.
+- `bind_params`: Slice of FFIValues to bind to the query.
 - `callback`: callback function. Takes the `context`, a pointer to a slice of rows and an [Error].
 - `context`: Pass through void pointer.
 
@@ -353,7 +353,7 @@ pub extern "C" fn rorm_db_raw_sql(
     db: &'static Database,
     transaction: Option<&'static mut Transaction>,
     query_string: FFIString<'static>,
-    bind_params: FFIOption<FFISlice<'static, FFIValue<'static>>>,
+    bind_params: FFISlice<'static, FFIValue<'static>>,
     callback: Option<unsafe extern "C" fn(VoidPtr, FFISlice<Row>, Error) -> ()>,
     context: VoidPtr,
 ) {
@@ -365,35 +365,28 @@ pub extern "C" fn rorm_db_raw_sql(
         return;
     }
 
-    let bind_params = match bind_params {
-        FFIOption::None => None,
-        FFIOption::Some(ffi_values) => {
-            let ffi_slice: &[FFIValue] = ffi_values.into();
-            let mut values: Vec<Value> = vec![];
-            for x in ffi_slice {
-                if let Ok(value) = x.try_into() {
-                    values.push(value);
-                } else {
-                    unsafe { cb(context, FFISlice::empty(), Error::InvalidStringError) };
-                    return;
-                }
+    let bind_params = {
+        let ffi_slice: &[FFIValue] = bind_params.into();
+        let mut values: Vec<Value> = vec![];
+        for x in ffi_slice {
+            if let Ok(value) = x.try_into() {
+                values.push(value);
+            } else {
+                unsafe { cb(context, FFISlice::empty(), Error::InvalidStringError) };
+                return;
             }
-            Some(values)
         }
+        values
     };
 
     let fut = async move {
-        let query_res = match bind_params {
-            None => db.raw_sql(query_str.unwrap(), None, transaction).await,
-            Some(bind_params) => {
-                db.raw_sql(
-                    query_str.unwrap(),
-                    Some(bind_params.as_slice()),
-                    transaction,
-                )
-                .await
-            }
-        };
+        let query_res = db
+            .raw_sql(
+                query_str.unwrap(),
+                Some(bind_params.as_slice()),
+                transaction,
+            )
+            .await;
 
         match query_res {
             Ok(res) => {
