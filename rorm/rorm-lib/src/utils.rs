@@ -306,9 +306,9 @@ macro_rules! get_data_from_row {
                     sqlx::Error::ColumnDecode { .. } => {
                         *$error = Error::ColumnDecodeError;
                     }
-                    _ => todo!("This error case should never occur"),
+                    _ => unreachable!("This error case should never occur"),
                 },
-                _ => todo!("This error case should never occur"),
+                _ => unreachable!("This error case should never occur"),
             };
             return $default_value;
         }
