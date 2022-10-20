@@ -1178,7 +1178,7 @@ pub extern "C" fn rorm_db_update(
             return;
         }
 
-        let value_conv: Result<Value, Error> = update.value.try_into();
+        let value_conv: Result<Value, Error> = (&update.value).try_into();
         if value_conv.is_err() {
             unsafe { cb(context, u64::MAX, Error::InvalidStringError) };
             return;

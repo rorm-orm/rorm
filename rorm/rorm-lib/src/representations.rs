@@ -399,5 +399,5 @@ Consists of a column and the value to set to this column.
 #[repr(C)]
 pub struct FFIUpdate<'a> {
     pub(crate) column: FFIString<'a>,
-    pub(crate) value: &'a FFIValue<'a>,
+    pub(crate) value: FFIValue<'a>,
 }
