@@ -202,8 +202,7 @@ Starts a transaction on the current database connection.
 
 **Important**:
 Rust does not manage the memory of the transaction.
-To properly free it, use [rorm_transaction_free], [rorm_transaction_commit]
-or [rorm_transaction_abort].
+To properly free it, use [rorm_transaction_commit] or [rorm_transaction_abort].
 
 This function is called from an asynchronous context.
 */
