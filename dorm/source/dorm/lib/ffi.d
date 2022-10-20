@@ -102,18 +102,23 @@ struct FFIOption(T)
 
 	alias asNullable this;
 	/// Converts the FFIOption to a std Nullable!T
-	Nullable!(T) asNullable() const @safe nothrow @nogc
+	auto asNullable() const @safe nothrow @nogc
 	{
-		return state == State.none
-			? typeof(return).init
-			: typeof(return)(raw_value);
+		static if (__traits(compiles, Nullable!(T)(raw_value)))
+			return state == State.none
+				? Nullable!(T).init
+				: Nullable!(T)(raw_value);
+		else
+			return state == State.none
+				? Nullable!(const T).init
+				: Nullable!(const T)(raw_value);
 	}
 
 	static if (__traits(compiles, { T v = null; }))
 	{
-		T embedNull() const @safe nothrow @nogc
+		inout(T) embedNull() inout @safe nothrow @nogc
 		{
-			return state == State.none ? T(null) : raw_value;
+			return state == State.none ? inout(T)(null) : raw_value;
 		}
 	}
 }
@@ -173,6 +178,8 @@ struct DBConnectOptions
 /// functions accidentally. Try not to use the init value, it's simply a null
 /// pointer.
 enum DBHandle : void* { init }
+/// ditto
+enum DBTransactionHandle : void* { init }
 /// ditto
 enum DBRowHandle : void* { init }
 /// ditto
@@ -373,6 +380,13 @@ struct FFIValue
 		/// Corresponds to Type.NaiveDateTime
 		FFIDateTime naiveDateTime;
 	}
+}
+
+/// Part of a table update, being one column with the new value.
+struct FFIUpdate
+{
+	FFIString column;
+	const FFIValue value;
 }
 
 /// Representation of a time of the day.
@@ -616,7 +630,8 @@ void rorm_db_free(DBHandle handle);
  * This function queries the database given the provided parameters.
  *
  * Parameters:
- *     box = Reference to the Database, provided by $(LREF rorm_db_connect).
+ *     handle = Reference to the Database, provided by $(LREF rorm_db_connect).
+ *     transaction = Mutable pointer to a transaction, can be null.
  *     model = Name of the table to query.
  *     columns = Array of columns to retrieve from the database.
  *     condition = Pointer to an $(LREF FFICondition).
@@ -631,23 +646,27 @@ void rorm_db_free(DBHandle handle);
  *
  * This function is called completely synchronously.
  */
-void rorm_db_query_all(DBHandle handle,
+void rorm_db_query_all(
+	DBHandle handle,
+	DBTransactionHandle transaction,
 	FFIString model,
 	FFIArray!FFIString columns,
 	scope const(FFICondition)* conditionTree,
 	DBQueryAllCallback callback,
 	void* context);
 /// ditto
-void rorm_db_query_one(DBHandle handle,
+void rorm_db_query_one(
+	DBHandle handle,
+	DBTransactionHandle transaction,
 	FFIString model,
 	FFIArray!FFIString columns,
 	scope const(FFICondition)* conditionTree,
 	DBQueryOneCallback callback,
 	void* context);
 /// ditto
-alias DBQueryOneCallback = extern(C) void function(void* context, DBRowHandle row, scope RormError);
+alias DBQueryOneCallback = extern(C) void function(void* context, scope DBRowHandle row, scope RormError);
 /// ditto
-alias DBQueryAllCallback = extern(C) void function(void* context, DBRowListHandle row, scope RormError);
+alias DBQueryAllCallback = extern(C) void function(void* context, scope FFIArray!DBRowHandle row, scope RormError);
 
 // ------ Querying (Streams) -------
 
@@ -655,7 +674,8 @@ alias DBQueryAllCallback = extern(C) void function(void* context, DBRowListHandl
  * This function queries the database given the provided parameters.
  *
  * Parameters:
- *     box = Reference to the Database, provided by $(LREF rorm_db_connect).
+ *     handle = Reference to the Database, provided by $(LREF rorm_db_connect).
+ *     transaction = Mutable pointer to a transaction, can be null.
  *     model = Name of the table to query.
  *     columns = Array of columns to retrieve from the database.
  *     condition = Pointer to an $(LREF FFICondition).
@@ -667,7 +687,9 @@ alias DBQueryAllCallback = extern(C) void function(void* context, DBRowListHandl
  *
  * This function is called completely synchronously.
  */
-void rorm_db_query_stream(DBHandle handle,
+void rorm_db_query_stream(
+	DBHandle handle,
+	DBTransactionHandle transaction,
 	FFIString model,
 	FFIArray!FFIString columns,
 	scope const(FFICondition)* conditionTree,
@@ -765,6 +787,7 @@ FFIOption!FFITime rorm_row_get_null_time(DBRowHandle handle, FFIString column, r
  *
  * Params:
  *     db = Reference to the Database, provided by $(LREF rorm_db_connect).
+ *     transaction = Mutable pointer to a transaction, can be null.
  *     model = Name of the table to insert into.
  *     columns = Array of columns, corresponding to `row` values to insert into the database.
  *     row = List of values to insert, indexes matching the `columns` parameter.
@@ -778,6 +801,7 @@ FFIOption!FFITime rorm_row_get_null_time(DBRowHandle handle, FFIString column, r
  */
 void rorm_db_insert(
 	DBHandle db,
+	DBTransactionHandle transaction,
 	FFIString model,
 	FFIArray!FFIString columns,
 	FFIArray!FFIValue row,
@@ -787,6 +811,7 @@ void rorm_db_insert(
 /// ditto
 void rorm_db_insert_bulk(
 	DBHandle db,
+	DBTransactionHandle transaction,
 	FFIString model,
 	FFIArray!FFIString columns,
 	FFIArray!(FFIArray!FFIValue) rows,
@@ -803,6 +828,7 @@ alias DBInsertCallback = extern(C) void function(void* context, scope RormError)
  *
  * Params:
  *     db = Reference to the Database, provided by $(LREF rorm_db_connect).
+ *     transaction = Mutable pointer to a transaction, can be null.
  *     model = Name of the table to query.
  *     condition = Query / condition to filter what to delete on.
  *     callback = Callback to call when finished, only passing in error information.
@@ -814,6 +840,7 @@ alias DBInsertCallback = extern(C) void function(void* context, scope RormError)
  */
 void rorm_db_delete(
 	DBHandle db,
+	DBTransactionHandle transaction,
 	FFIString model,
 	scope const(FFICondition)* conditionTree,
 	DBDeleteCallback callback,
@@ -821,6 +848,146 @@ void rorm_db_delete(
 );
 /// ditto
 alias DBDeleteCallback = extern(C) void function(void* context, ulong rowsAffected, scope RormError);
+
+/**
+ * This function executes a raw SQL statement.
+ *
+ * Statements are executed as prepared statements, if possible.
+ *
+ * To define placeholders, use `?` in SQLite and MySQL and $1, $n in Postgres.
+ * The corresponding parameters are bound in order to the query.
+ *
+ * The number of placeholder must match with the number of provided bind
+ * parameters.
+ *
+ * To include the statement in a transaction specify `transaction` as a valid
+ * Transaction. As the Transaction needs to be mutable, it is important to not
+ * use the Transaction anywhere else until the callback is finished.
+ *
+ * If the statement should be executed **not** in a Transaction, specify a null
+ * pointer.
+ *
+ * Params:
+ *     db = Reference to the Database, provided by [rorm_db_connect].
+ *     transaction = Mutable pointer to a Transaction. Can be a null pointer
+ *          to ignore this parameter.
+ *     query_string = SQL statement to execute.
+ *     bind_params = Optional slice of FFIValues to bind to the query.
+ *     callback = callback function. Takes the `context`, a pointer to a slice
+ *          of rows and an [Error].
+ *     context = Pass through void pointer.
+ *
+ * **Important**:
+ * Make sure `db`, `query_string` and `bind_params` are allocated until the
+ * callback was executed.
+ *
+ * The FFIArray returned in the callback is freed after the callback has ended.
+ *
+ * This function is called from an asynchronous context.
+ */
+void rorm_db_raw_sql(
+	const DBHandle db,
+	DBTransactionHandle transaction,
+	FFIString query_string,
+	FFIArray!FFIValue bind_params,
+	DBRawSQLCallback callback,
+	void* context);
+/// ditto
+alias DBRawSQLCallback = extern(C) void function(void* context, scope FFIArray!DBRowHandle rows, scope RormError);
+
+/**
+ * This function updates rows in the database.
+ *
+ * Params: 
+ *     db = Reference to the Database, provided by [rorm_db_connect]. 
+ *     transaction = Mutable pointer to a Transaction. Can be a null pointer to ignore this parameter. 
+ *     model = Name of the table to query. 
+ *     updates = List of [FFIUpdate] to apply. 
+ *     condition = Pointer to a [Condition]. 
+ *     callback = callback function. Takes the `context`, the rows affected and an [Error]. 
+ *     context = Pass through void pointer.
+ *
+ * **Important**: - Make sure that `db`, `model`, `updates` and `condition` are
+ * allocated until the callback is executed.
+ *
+ * This function is called from an asynchronous context.
+ */
+void rorm_db_update(
+	const DBHandle db,
+	DBTransactionHandle transaction,
+	FFIString model,
+	FFIArray!FFIUpdate updates,
+	const(FFICondition)* condition,
+	DBUpdateCallback callback,
+	void* context);
+/// ditto
+alias DBUpdateCallback = extern(C) void function(void* context, ulong rowsAffected, scope RormError);
+
+/**
+ * Starts a transaction on the current database connection.
+ *
+ * Params:
+ *     db = Reference to the Database, provided by [rorm_db_connect]. 
+ *     callback = callback function. Takes the `context`, a pointer to a transaction and an [Error]. 
+ *     context = Pass through void pointer.
+ *
+ * **Important**: Rust does not manage the memory of the transaction. To properly free it, use [rorm_transaction_free], [rorm_transaction_commit] or [rorm_transaction_abort].
+ *
+ * This function is called from an asynchronous context.
+ */
+void rorm_db_start_transaction(
+	const DBHandle db,
+	DBStartTransactionCallback callback,
+	void* context);
+/// ditto
+alias DBStartTransactionCallback = extern(C) void function(void* context, DBTransactionHandle handle, scope RormError);
+
+/**
+ * Commits a transaction.
+ *
+ * All previous operations will be applied to the database.
+ *
+ * Params:
+ *     transaction = Pointer to a valid transaction, provided by
+ *         [rorm_db_start_transaction].
+ *     callback = callback function. Takes the `context` and an [Error].
+ *     context = Pass through void pointer.
+ *
+ * **Important**: Rust takes ownership of `transaction` and frees it after using.
+ * Don't use it anywhere else after calling this function!
+ *
+ * This function is called from an asynchronous context.
+ */
+void rorm_transaction_commit(
+	DBTransactionHandle transaction,
+	DBTransactionCommitCallback callback,
+	void* context);
+/// ditto
+alias DBTransactionCommitCallback = extern(C) void function(void* context, scope RormError);
+
+/**
+ * Rollback a transaction and abort it.
+ *
+ * All previous operations will be discarded.
+ *
+ * Params:
+ *     transaction = Pointer to a valid transaction, provided by
+ *         [rorm_db_start_transaction].
+ *     callback = callback function. Takes the `context` and an [Error].
+ *     context = Pass through void pointer.
+ *
+ * **Important**: Rust takes ownership of `transaction` and frees it after using.
+ * Don't use it anywhere else after calling this function!
+ *
+ * This function is called from an asynchronous context.
+ */
+void rorm_transaction_rollback(
+	DBTransactionHandle transaction,
+	DBTransactionRollbackCallback callback,
+	void* context);
+/// ditto
+alias DBTransactionRollbackCallback = extern(C) void function(void* context, scope RormError);
+
 
 unittest
 {
@@ -840,7 +1007,7 @@ unittest
 	scope (exit)
 		rorm_db_free(dbHandle);
 
-	scope stream = sync_call!rorm_db_query_stream(dbHandle, "foo".ffi, ["name".ffi, "notes".ffi].ffi, null);
+	scope stream = sync_call!rorm_db_query_stream(dbHandle, null, "foo".ffi, ["name".ffi, "notes".ffi].ffi, null);
 	scope (exit)
 		rorm_stream_free(stream);
 

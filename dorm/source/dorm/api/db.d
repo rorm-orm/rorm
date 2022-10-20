@@ -107,7 +107,7 @@ mixin template ValidatePatch(Patch, TModel)
  * this handles connection pooling and distributes work across a thread pool
  * automatically.
  *
- * Use the UDA methods
+ * Use the (UFCS) methods
  *
  * - $(LREF select)
  * - $(LREF insert)
@@ -149,76 +149,401 @@ struct DormDB
 
 	@disable this(this);
 
+	DormTransaction startTransaction() return
+	{
+		ffi.DBTransactionHandle handle;
+		(() @trusted {
+			auto ctx = FreeableAsyncResult!(ffi.DBTransactionHandle).make;
+			ffi.rorm_db_start_transaction(this.handle, ctx.callback.expand);
+			handle = ctx.result();
+		})();
+		return DormTransaction(&this, handle);
+	}
+
 	void insert(T)(T value)
 	{
-		alias DB = DBType!T;
-		ffi.FFIString[DormFields!DB.length] columns;
-		ffi.FFIValue[DormFields!DB.length] values;
-		int used;
+		return (() @trusted => insertImpl!true(handle, (&value)[0 .. 1], null))();
+	}
 
-		static if (is(T == DB))
-			alias validatorObject = value;
+	void insert(T)(scope T[] value)
+	{
+		return insertImpl!false(handle, value, null);
+	}
+
+	/**
+	 * This function executes a raw SQL statement.
+	 *
+	 * Iterate over the result using `foreach`.
+	 *
+	 * Statements are executed as prepared statements, if possible.
+	 *
+	 * To define placeholders, use `?` in SQLite and MySQL and $1, $n in Postgres.
+	 * The corresponding parameters are bound in order to the query.
+	 *
+	 * The number of placeholder must match with the number of provided bind
+	 * parameters.
+	 *
+	 * To include the statement in a transaction specify `transaction` as a valid
+	 * Transaction. As the Transaction needs to be mutable, it is important to not
+	 * use the Transaction anywhere else until the callback is finished.
+	 *
+	 * Params:
+	 *     queryString = SQL statement to execute.
+	 *     bindParams = Parameters to fill into placeholders of `queryString`.
+	 */
+	RawSQLIterator rawSQL(scope return const(char)[] queryString, scope return ffi.FFIValue[] bindParams) return
+	{
+		return RawSQLIterator(&this, null, queryString, bindParams);
+	}
+}
+
+///
+struct RawSQLIterator
+{
+	private DormDB* db;
+	private ffi.DBTransactionHandle tx;
+	private const(char)[] queryString;
+	private ffi.FFIValue[] bindParams;
+	private size_t rowCountImpl = -1;
+
+	/// Returns the number of rows, only valid inside the foreach.
+	size_t rowCount()
+	{
+		assert(rowCountImpl != -1, "Calling rowCount is only valid inside the foreach / opApply");
+		return rowCountImpl;
+	}
+
+	/// Starts a new query and iterates all the results on each foreach call.
+	int opApply(scope int delegate(scope RawRow row) dg) @trusted
+	{
+		scope (exit)
+			rowCountImpl = -1;
+		assert(rowCountImpl == -1, "Don't iterate over the same RawSQLIterator on multiple threads!");
+
+		int result = 0;
+		auto ctx = FreeableAsyncResult!(void delegate(scope ffi.FFIArray!(ffi.DBRowHandle))).make;
+		ctx.forward_callback = (scope rows) {
+			rowCountImpl = rows.size;
+			foreach (row; rows[])
+			{
+				result = dg(RawRow(row));
+				if (result)
+					break;
+			}
+		};
+		ffi.rorm_db_raw_sql(db.handle,
+			tx,
+			ffi.ffi(queryString),
+			ffi.ffi(bindParams),
+			ctx.callback.expand);
+		ctx.result();
+		return result;
+	}
+}
+
+/// Allows column access on a raw DB row as returned by `db.rawSQL`.
+struct RawRow
+{
+	private ffi.DBRowHandle row;
+
+	@disable this(this);
+
+	private static template ffiConvPrimitive(T)
+	{
+		static if (is(T == short))
+			alias ffiConvPrimitive = ffi.rorm_row_get_i16;
+		else static if (is(T == int))
+			alias ffiConvPrimitive = ffi.rorm_row_get_i32;
+		else static if (is(T == long))
+			alias ffiConvPrimitive = ffi.rorm_row_get_i64;
+		else static if (is(T == float))
+			alias ffiConvPrimitive = ffi.rorm_row_get_f32;
+		else static if (is(T == double))
+			alias ffiConvPrimitive = ffi.rorm_row_get_f64;
+		else static if (is(T == bool))
+			alias ffiConvPrimitive = ffi.rorm_row_get_bool;
 		else
-			auto validatorObject = new DB();
+			static assert(false, "Unsupported column type: " ~ T.stringof);
+	}
 
-		static foreach (field; DormFields!DB)
-		{{
-			static if (is(typeof(mixin("value." ~ field.sourceColumn))))
-			{
-				enum modifiedIfsCode = {
-					string ret;
-					auto ifs = field.getModifiedIfs();
-					foreach (m; ifs)
-					{
-						if (ret.length) ret ~= " || ";
-						ret ~= m.makeCheckCode("value.");
-					}
-					return ret.length ? ret : "true";
-				}();
+	/// Gets the value of the column at the given column name assuming it is of
+	/// the given type. If the value is not of the given type, an exception will
+	/// be thrown.
+	///
+	/// Supported types:
+	/// - any string type (auto-converted from strings / varchar)
+	/// - `ubyte[]` for binary data
+	/// - `short`, `int`, `long`, `float`, `double`, `bool`
+	///
+	/// For nullable values, use $(LREF opt) instead.
+	T get(T)(scope const(char)[] column)
+	{
+		auto ffiColumn = ffi.ffi(column);
+		ffi.RormError error;
+		T result;
 
-				if (mixin(modifiedIfsCode)
-					&& !isImplicitlyIgnoredValue(mixin("value." ~ field.sourceColumn)))
-				{
-					columns[used] = ffi.ffi(field.columnName);
-					values[used] = conditionValue!field(mixin("value." ~ field.sourceColumn));
-					used++;
-				}
-			}
-			else static if (field.hasConstructValue)
-			{
-				// filled in by constructor
-				columns[used] = ffi.ffi(field.columnName);
-				values[used] = conditionValue!field(mixin("validatorObject." ~ field.sourceColumn));
-				used++;
-			}
-			else static if (field.hasGeneratedDefaultValue)
-			{
-				// OK
-			}
-			else static if (!is(T == DB))
-				static assert(false, "Trying to insert a patch " ~ T.stringof
-					~ " into " ~ DB.stringof ~ ", but it is missing the required field "
-					~ field.sourceReferenceName ~ "! "
-					~ "Fields with auto-generated values may be omitted in patch types. "
-					~ ModelFormat.Field.humanReadableGeneratedDefaultValueTypes);
-			else
-				static assert(false, "wat? (defined DormField not found inside the Model class that defined it)");
-		}}
-
-		static if (is(T == DB))
+		static if (isSomeString!T)
 		{
-			auto brokenFields = value.runValidators();
-
-			string error;
-			foreach (field; brokenFields)
-				error ~= "Field `" ~ field.sourceColumn ~ "` defined in "
-					~ field.definedAt.toString ~ " failed user validation.";
-			if (error.length)
-				throw new Exception(error);
+			auto slice = ffi.rorm_row_get_str(row, ffiColumn, error);
+			if (!error)
+			{
+				static if (is(T : char[]))
+					result = cast(T)slice[].dup;
+				else
+					result = slice[].to!T;
+			}
+		}
+		else static if (is(T : ubyte[]))
+		{
+			auto slice = ffi.rorm_row_get_binary(row, ffiColumn, error);
+			if (!error)
+				result = cast(T)slice[].dup;
 		}
 		else
 		{
-			validatorObject.applyPatch(value);
+			alias fn = ffiConvPrimitive!T;
+			result = fn(row, ffiColumn, error);
+		}
+
+		if (error)
+			throw error.makeException;
+		return result;
+	}
+
+	private static template ffiConvOptionalPrimitive(T)
+	{
+		static if (is(T == short))
+			alias ffiConvOptionalPrimitive = ffi.rorm_row_get_null_i16;
+		else static if (is(T == int))
+			alias ffiConvOptionalPrimitive = ffi.rorm_row_get_null_i32;
+		else static if (is(T == long))
+			alias ffiConvOptionalPrimitive = ffi.rorm_row_get_null_i64;
+		else static if (is(T == float))
+			alias ffiConvOptionalPrimitive = ffi.rorm_row_get_null_f32;
+		else static if (is(T == double))
+			alias ffiConvOptionalPrimitive = ffi.rorm_row_get_null_f64;
+		else static if (is(T == bool))
+			alias ffiConvOptionalPrimitive = ffi.rorm_row_get_null_bool;
+		else
+			static assert(false, "Unsupported column type: " ~ T.stringof);
+	}
+
+	/// Same as get, wraps primitives inside Nullable!T. Strings and ubyte[]
+	/// binary arrays will return `null` (checkable with `is null`), but
+	/// otherwise simply be embedded.
+	auto opt(T)(scope const(char)[] column)
+	{
+		auto ffiColumn = ffi.ffi(column);
+		ffi.RormError error;
+
+		static if (isSomeString!T)
+		{
+			auto slice = ffi.rorm_row_get_null_str(row, ffiColumn, error);
+			if (!error)
+			{
+				if (slice.isNull)
+					return null;
+				static if (is(T : char[]))
+					return cast(T)slice.raw_value[].dup;
+				else
+					return slice.raw_value[].to!T;
+			}
+			else
+				throw error.makeException;
+		}
+		else static if (is(T : ubyte[]))
+		{
+			auto slice = ffi.rorm_row_get_null_binary(row, ffiColumn, error);
+			if (slice.isNull)
+				return null;
+			if (!error)
+				return cast(T)slice.raw_value[].dup;
+			else
+				throw error.makeException;
+		}
+		else
+		{
+			Nullable!T result;
+			alias fn = ffiConvOptionalPrimitive!T;
+			auto opt = fn(row, ffiColumn, error);
+			if (error)
+				throw error.makeException;
+			if (!opt.isNull)
+				result = opt.raw_value;
+			return result;
+		}
+	}
+}
+
+/**
+ * Wrapper around a Database transaction. Most methods that can be used on a
+ * DormDB can also be used on a transaction.
+ *
+ * Performs a rollback when going out of scope and wasn't committed or rolled
+ * back explicitly.
+ */
+struct DormTransaction
+{
+@safe:
+	private DormDB* db;
+	private ffi.DBTransactionHandle txHandle;
+
+	@disable this(this);
+
+	~this()
+	{
+		if (txHandle)
+		{
+			rollback();
+		}
+	}
+
+	/// Commits this transaction, so the changes are recorded to the current
+	/// database state.
+	void commit()
+	{
+		scope (exit) txHandle = null;
+		(() @trusted {
+			auto ctx = FreeableAsyncResult!void.make;
+			ffi.rorm_transaction_commit(txHandle, ctx.callback.expand);
+			ctx.result();
+		})();
+	}
+
+	/// Rolls back this transaction, so the DB changes are reverted to before
+	/// the transaction was started.
+	void rollback()
+	{
+		scope (exit) txHandle = null;
+		(() @trusted {
+			auto ctx = FreeableAsyncResult!void.make;
+			ffi.rorm_transaction_rollback(txHandle, ctx.callback.expand);
+			ctx.result();
+		})();
+	}
+
+	/// Transacted variant of $(LREF DormDB.insert).
+	void insert(T)(T value)
+	{
+		return (() @trusted => insertImpl!true(db.handle, (&value)[0 .. 1], txHandle))();
+	}
+
+	void insert(T)(scope T[] value)
+	{
+		return insertImpl!false(db.handle, value, txHandle);
+	}
+}
+
+private void insertImpl(bool single, T)(scope ffi.DBHandle handle, scope T[] value, ffi.DBTransactionHandle transaction) @safe
+{
+	import core.lifetime;
+	alias DB = DBType!T;
+
+	enum NumColumns = {
+		int used;
+		static foreach (field; DormFields!DB)
+			static if (is(typeof(mixin("value[0]." ~ field.sourceColumn))) || field.hasConstructValue)
+				used++;
+		return used;
+	}();
+
+	ffi.FFIString[NumColumns] columns;
+	static if (single)
+	{
+		ffi.FFIValue[NumColumns][1] values;
+	}
+	else
+	{
+		ffi.FFIValue[NumColumns][] values;
+		values.length = value.length;
+
+		if (!values.length)
+			return;
+	}
+
+	int used;
+
+	static if (!is(T == DB))
+	{
+		auto validatorObject = new DB();
+		static if (!single)
+		{
+			DB validatorCopy;
+			if (values.length > 1)
+				copyEmplace(validatorObject, validatorCopy);
+		}
+	}
+
+	static foreach (field; DormFields!DB)
+	{{
+		static if (is(typeof(mixin("value[0]." ~ field.sourceColumn))))
+		{
+			columns[used] = ffi.ffi(field.columnName);
+			foreach (i; 0 .. values.length)
+				values[i][used] = conditionValue!field(mixin("value[i]." ~ field.sourceColumn));
+			used++;
+		}
+		else static if (field.hasConstructValue)
+		{
+			// filled in by constructor
+			columns[used] = ffi.ffi(field.columnName);
+			foreach (i; 0 .. values.length)
+			{
+				static if (is(T == DB))
+					values[i][used] = conditionValue!field(mixin("value[i]." ~ field.sourceColumn));
+				else
+					values[i][used] = conditionValue!field(mixin("validatorObject." ~ field.sourceColumn));
+			}
+			used++;
+		}
+		else static if (field.hasGeneratedDefaultValue)
+		{
+			// OK
+		}
+		else static if (!is(T == DB))
+			static assert(false, "Trying to insert a patch " ~ T.stringof
+				~ " into " ~ DB.stringof ~ ", but it is missing the required field "
+				~ field.sourceReferenceName ~ "! "
+				~ "Fields with auto-generated values may be omitted in patch types. "
+				~ ModelFormat.Field.humanReadableGeneratedDefaultValueTypes);
+		else
+			static assert(false, "wat? (defined DormField not found inside the Model class that defined it)");
+	}}
+
+	assert(used == NumColumns);
+
+	static if (is(T == DB))
+	{
+		foreach (i; 0 .. values.length)
+		{
+			auto brokenFields = value[i].runValidators();
+
+			string error;
+			foreach (field; brokenFields)
+			{
+				static if (single)
+					error ~= "Field `" ~ field.sourceColumn ~ "` defined in "
+						~ field.definedAt.toString ~ " failed user validation.";
+				else
+					error ~= "row[" ~ i.to!string
+						~ "] field `" ~ field.sourceColumn ~ "` defined in "
+						~ field.definedAt.toString ~ " failed user validation.";
+			}
+			if (error.length)
+				throw new Exception(error);
+		}
+	}
+	else
+	{
+		foreach (i; 0 .. values.length)
+		{
+			static if (!single)
+				if (i != 0)
+				{
+					copyEmplace(validatorCopy, validatorObject);
+				}
+
+			validatorObject.applyPatch(value[i]);
 			auto brokenFields = validatorObject.runValidators();
 
 			string error;
@@ -228,13 +553,18 @@ struct DormDB
 				{
 					static foreach (sourceField; DormFields!DB)
 					{
-						static if (is(typeof(mixin("value." ~ sourceField.sourceColumn))))
+						static if (is(typeof(mixin("value[i]." ~ sourceField.sourceColumn))))
 						{
 							case sourceField.columnName:
 						}
 					}
-					error ~= "Field `" ~ field.sourceColumn ~ "` defined in "
-						~ field.definedAt.toString ~ " failed user validation.";
+					static if (single)
+						error ~= "Field `" ~ field.sourceColumn ~ "` defined in "
+							~ field.definedAt.toString ~ " failed user validation.";
+					else
+						error ~= "row[" ~ i.to!string
+							~ "] field `" ~ field.sourceColumn ~ "` defined in "
+							~ field.definedAt.toString ~ " failed user validation.";
 					break;
 				default:
 					break;
@@ -244,24 +574,45 @@ struct DormDB
 			if (error.length)
 				throw new Exception(error);
 		}
-
-
-		(() @trusted {
-			auto ctx = FreeableAsyncResult!void.make;
-			ffi.rorm_db_insert(handle,
-				ffi.ffi(DormLayout!DB.tableName),
-				ffi.ffi(columns[0 .. used]),
-				ffi.ffi(values[0 .. used]), ctx.callback.expand);
-			ctx.result();
-		})();
 	}
+
+
+	(() @trusted {
+		auto ctx = FreeableAsyncResult!void.make;
+		static if (single)
+		{
+			ffi.rorm_db_insert(handle,
+				transaction,
+				ffi.ffi(DormLayout!DB.tableName),
+				ffi.ffi(columns),
+				ffi.ffi(values[0]), ctx.callback.expand);
+		}
+		else
+		{
+			auto rows = new ffi.FFIArray!(ffi.FFIValue)[values.length];
+			foreach (i; 0 .. values.length)
+				rows[i] = ffi.ffi(values[i]);
+
+			ffi.rorm_db_insert_bulk(handle,
+				transaction,
+				ffi.ffi(DormLayout!DB.tableName),
+				ffi.ffi(columns),
+				ffi.ffi(rows), ctx.callback.expand);
+		}
+		ctx.result();
+	})();
 }
 
 // defined this as global so that we can pass `Foo.fieldName` as alias argument,
 // to have it be selected.
-static SelectOperation!(DBType!(Selection), SelectType!(Selection)) select(Selection...)(return ref DormDB db) @trusted
+static SelectOperation!(DBType!(Selection), SelectType!(Selection)) select(Selection...)(return ref const DormDB db) @trusted
 {
-	return typeof(return)(&db);
+	return typeof(return)(&db, null);
+}
+
+static SelectOperation!(DBType!(Selection), SelectType!(Selection)) select(Selection...)(return ref const DormTransaction tx) @trusted
+{
+	return typeof(return)(tx.db, tx.txHandle);
 }
 
 private template DBType(Selection...)
@@ -504,7 +855,8 @@ struct SelectOperation(
 )
 {
 @safe:
-	private DormDB* db;
+	private const(DormDB)* db;
+	private ffi.DBTransactionHandle tx;
 	private ffi.FFICondition[] conditionTree;
 	private long offset, limit;
 
@@ -562,10 +914,29 @@ struct SelectOperation(
 		}
 	}
 
-	version(none)
-	TSelect[] array()
+	TSelect[] array() @trusted
 	{
-		scope handle = ffi.rorm_db_query_all();
+		enum fields = FilterLayoutFields!(T, TSelect);
+
+		ffi.FFIString[fields.length] columns;
+		static foreach (i, field; fields)
+			columns[i] = ffi.ffi(field.columnName);
+
+		TSelect[] ret;
+		auto ctx = FreeableAsyncResult!(void delegate(scope ffi.FFIArray!(ffi.DBRowHandle))).make;
+		ctx.forward_callback = (scope rows) {
+			ret.length = rows.size;
+			foreach (i; 0 .. rows.size)
+				ret[i] = unwrapRowResult!(T, TSelect)(rows.data[i]);
+		};
+		ffi.rorm_db_query_all(db.handle,
+			tx,
+			ffi.ffi(DormLayout!T.tableName),
+			ffi.ffi(columns),
+			conditionTree.length ? &conditionTree[0] : null,
+			ctx.callback.expand);
+		ctx.result();
+		return ret;
 	}
 
 	auto stream() @trusted
@@ -576,11 +947,35 @@ struct SelectOperation(
 		static foreach (i, field; fields)
 			columns[i] = ffi.ffi(field.columnName);
 		auto stream = sync_call!(ffi.rorm_db_query_stream)(db.handle,
+			tx,
 			ffi.ffi(DormLayout!T.tableName),
 			ffi.ffi(columns),
 			conditionTree.length ? &conditionTree[0] : null);
 
 		return RormStream!(T, TSelect)(stream);
+	}
+
+	TSelect findOne() @trusted
+	{
+		enum fields = FilterLayoutFields!(T, TSelect);
+
+		ffi.FFIString[fields.length] columns;
+		static foreach (i, field; fields)
+			columns[i] = ffi.ffi(field.columnName);
+
+		TSelect ret;
+		auto ctx = FreeableAsyncResult!(void delegate(scope ffi.DBRowHandle)).make;
+		ctx.forward_callback = (scope row) {
+			ret = unwrapRowResult!(T, TSelect)(row);
+		};
+		ffi.rorm_db_query_one(db.handle,
+			tx,
+			ffi.ffi(DormLayout!T.tableName),
+			ffi.ffi(columns),
+			conditionTree.length ? &conditionTree[0] : null,
+			ctx.callback.expand);
+		ctx.result();
+		return ret;
 	}
 }
 
@@ -983,9 +1378,6 @@ private T fieldInto(T, string errInfo, From)(scope From v, ref ffi.RormError err
 	else
 		static assert(false, "did not implement conversion from " ~ From.stringof ~ " into " ~ T.stringof ~ errInfo);
 }
-
-private bool isImplicitlyIgnoredValue(SysTime value) { return value == SysTime.init; }
-private bool isImplicitlyIgnoredValue(T)(T value) { return false; }
 
 mixin template SetupDormRuntime(alias timeout = 10.seconds)
 {

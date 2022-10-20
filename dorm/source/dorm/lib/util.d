@@ -11,7 +11,9 @@ import dorm.lib.ffi;
 struct FreeableAsyncResult(T)
 {
 	Event event;
-	static if (!is(T == void))
+	static if (is(T == void delegate(scope U value), U))
+		T forward_callback;
+	else static if (!is(T == void))
 		T raw_result;
 	Exception error;
 
@@ -29,8 +31,11 @@ struct FreeableAsyncResult(T)
 
 	static if (is(T == void))
 		alias Callback = extern(C) void function(void* data, scope RormError error) nothrow;
-	else
+	else static if (is(T == void delegate(scope V value), V))
+		alias Callback = extern(C) void function(void* data, scope V result, scope RormError error) nothrow;
+	else static if (__traits(isPOD, T) || is(T == P*, P))
 		alias Callback = extern(C) void function(void* data, T result, scope RormError error) nothrow;
+	else static assert(false, "Unsupported async type " ~ T.stringof);
 
 	Tuple!(Callback, void*) callback() return @safe
 	{
@@ -41,6 +46,27 @@ struct FreeableAsyncResult(T)
 				auto res = cast(FreeableAsyncResult*)data;
 				if (error)
 					res.error = error.makeException;
+				res.event.set();
+			}
+		}
+		else static if (is(T == void delegate(scope U value), U))
+		{
+			extern(C) static void ret(void* data, scope U result, scope RormError error) nothrow
+			{
+				auto res = cast(FreeableAsyncResult*)data;
+				if (error)
+					res.error = error.makeException;
+				else
+				{
+					try
+					{
+						res.forward_callback(result);
+					}
+					catch (Exception e)
+					{
+						res.error = e;
+					}
+				}
 				res.event.set();
 			}
 		}
@@ -60,19 +86,21 @@ struct FreeableAsyncResult(T)
 		return tuple(&ret, cast(void*)&this);
 	}
 
-	T result() @safe
+	auto result() @safe
 	{
 		(() @trusted => event.wait())();
 		if (error)
 			throw error;
-		static if (!is(T == void))
+		static if (!is(T == void)
+			&& !is(T == void delegate(scope U value), U))
 			return raw_result;
 	}
 
 	void reset() @safe
 	{
 		(() @trusted => event.reset())();
-		static if (!is(T == void))
+		static if (!is(T == void)
+			&& !is(T == void delegate(scope U value), U))
 			raw_result = T.init;
 		error = null;
 	}
