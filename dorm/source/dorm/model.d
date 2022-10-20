@@ -26,27 +26,15 @@ abstract class Model
 {
     /// Auto-included ID field that's assigned on every model. May be overriden
     /// by simply defining a custom `@Id` or `@primaryKey` annotated field.
-    @Id @columnName("id") @modifiedIf("_modifiedId")
+    @Id @columnName("id")
     public long _fallbackId;
-    /// Controls when the built-in ID is updated, automatically set by the
-    /// built-in id setter $(LREF id).
-    @ignored
-    public bool _modifiedId;
 
     /// Gets or sets the builtin id, only available on Model classes that don't
     /// define a custom `@Id` or `@primaryKey` field.
-    public long id(this This)() const @property @safe nothrow @nogc pure
+    public ref long id(this This)() const @property @safe nothrow @nogc pure
     if (!is(This == Model) && DormFields!This[0].isBuiltinId)
     {
         return _fallbackId;
-    }
-
-    /// ditto
-    public long id(this This)(long value) @property @safe nothrow @nogc pure
-    if (!is(This == Model) && DormFields!This[0].isBuiltinId)
-    {
-        _modifiedId = true;
-        return _fallbackId = value;
     }
 
     /// Default constructor. Runs value constructors. (`@constructValue` UDAs)
@@ -63,12 +51,7 @@ abstract class Model
 
         auto t = cast(This)this;
         foreach (i, ref field; patch.tupleof)
-        {
             __traits(getMember, t, Patch.tupleof[i].stringof) = field;
-            alias mods = getUDAs!(__traits(getMember, t, Patch.tupleof[i].stringof), modifiedIf);
-            static foreach (m; mods)
-                __traits(getMember, t, m.field) = m.equalsTo;
-        }
     }
 
     /// Explicitly calls value constructors. (`@constructValue` UDAs)

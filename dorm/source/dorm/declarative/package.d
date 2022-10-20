@@ -200,20 +200,6 @@ struct ModelFormat
 		}
 
 		@serdeIgnore
-		const(modifiedIf)[] getModifiedIfs() const @property
-		{
-			const(modifiedIf)[] ret;
-			foreach (annotation; internalAnnotations)
-			{
-				annotation.match!(
-					(const modifiedIf d) { ret ~= d; },
-					(_) {}
-				);
-			}
-			return ret;
-		}
-
-		@serdeIgnore
 		string sourceReferenceName(string modelName = null) const @property
 		{
 			if (modelName.length)
@@ -427,7 +413,6 @@ struct DBAnnotation
 alias InternalAnnotation = SumType!(
 	ConstructValueRef,
 	ValidatorRef,
-	modifiedIf
 );
 
 private struct IonDBAnnotation

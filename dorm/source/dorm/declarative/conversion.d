@@ -259,10 +259,6 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		{
 			field.columnName = attribute.name;
 		}
-		else static if (is(typeof(attribute) == modifiedIf))
-		{
-			field.internalAnnotations ~= InternalAnnotation(attribute);
-		}
 		else static if (isDormFieldAttribute!attribute)
 		{
 			static assert(false, "Unsupported attribute " ~ attribute.stringof ~ " on " ~ TModel.stringof ~ "." ~ fieldName);
@@ -636,7 +632,7 @@ unittest
 			DBAnnotation(AnnotationFlag.primaryKey),
 		]);
 
-	assert(m.fields[++i].columnName == "creation_time");
+	assert(m.fields[++i].columnName == "some_timestamp");
 	assert(m.fields[i].type == ModelFormat.Field.DBType.datetime);
 	assert(m.fields[i].annotations == []);
 
