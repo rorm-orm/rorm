@@ -313,21 +313,6 @@ pub extern "C" fn rorm_transaction_rollback(
     spawn_fut!(fut, cb(context, Error::MissingRuntimeError), f);
 }
 
-/**
-Free a transaction.
-
-If a transaction is not committed yet, a rollback is executed.
-
-Takes the pointer to the transaction.
-
-**Important**:
-Do not call this function more than once!
-
-This function is called completely synchronously.
- */
-#[no_mangle]
-pub extern "C" fn rorm_transaction_free(_: Box<Transaction>) {}
-
 // --------
 // SQL
 // --------
