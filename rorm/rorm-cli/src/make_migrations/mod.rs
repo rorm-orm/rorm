@@ -134,6 +134,8 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
         let mut renamed_fields: HashMap<String, Vec<(&Field, &Field)>> = HashMap::new();
         let mut new_fields: HashMap<String, Vec<&Field>> = HashMap::new();
         let mut deleted_fields: HashMap<String, Vec<&Field>> = HashMap::new();
+        // Mapping: Model name -> (Old field, new field)
+        let mut altered_fields: HashMap<String, Vec<(&Field, &Field)>> = HashMap::new();
 
         // Check if any new models exist
         internal_models.models.iter().for_each(|x| {
@@ -178,6 +180,19 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                         }
                         deleted_fields.get_mut(x.name.as_str()).unwrap().push(y);
                     }
+                });
+
+                // Check if a existing field got altered
+                old_lookup[x.name.as_str()].fields.iter().for_each(|y| {
+                    x.fields.iter().filter(|z| y.name == z.name).for_each(|z| {
+                        // Check for differences
+                        if y.db_type != z.db_type || y.annotations != z.annotations {
+                            if altered_fields.get(x.name.as_str()).is_none() {
+                                altered_fields.insert(x.name.clone(), vec![]);
+                            }
+                            altered_fields.get_mut(&x.name).unwrap().push((y, z));
+                        }
+                    });
                 });
             });
 
@@ -295,6 +310,44 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                 });
                 println!("Deleted field {} from model {}", z.name, x);
             })
+        });
+
+        // Create migration operations for altered fields in existing models
+        altered_fields.iter().for_each(|(model, af)| {
+            af.iter().for_each(|(old, new)| {
+                // Check datatype
+                if old.db_type != new.db_type {
+                    match (old.db_type, new.db_type) {
+                        // TODO:
+                        // There are cases where columns can be altered
+                        // e.g. i8 -> i16 or float -> double
+
+                        // Default case
+                        (_, _) => {
+                            op.push(Operation::DeleteField {
+                                model: model.clone(),
+                                name: old.name.clone(),
+                            });
+                            op.push(Operation::CreateField {
+                                model: model.clone(),
+                                field: (*new).clone(),
+                            });
+                            println!("Recreated field {} on model {}", &new.name, &model);
+                        }
+                    }
+                } else {
+                    // As the datatypes match, there must be a change in the annotations
+                    op.push(Operation::DeleteField {
+                        model: model.clone(),
+                        name: old.name.clone(),
+                    });
+                    op.push(Operation::CreateField {
+                        model: model.clone(),
+                        field: (*new).clone(),
+                    });
+                    println!("Recreated field {} on model {}", &new.name, &model);
+                }
+            });
         });
 
         let new_migration = Migration {
