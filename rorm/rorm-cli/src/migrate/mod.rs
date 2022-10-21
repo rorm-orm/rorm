@@ -107,6 +107,16 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
 
     let db_conf = deserialize_db_conf(db_conf_path)?;
 
+    let p = Path::new(options.migration_dir.as_str());
+    if !p.exists() || p.is_file() {
+        println!(
+            "Couldn't find the migration directory in {} \n\n\
+            You can specify an alternative path with --migration-dir <PATH>",
+            options.migration_dir.as_str()
+        );
+        return Ok(());
+    }
+
     let existing_migrations = get_existing_migrations(options.migration_dir.as_str())
         .with_context(|| "Couldn't retrieve existing migrations")?;
 
