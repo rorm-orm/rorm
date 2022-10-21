@@ -113,50 +113,67 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
     let pool_options = AnyPoolOptions::new().min_connections(1).max_connections(10);
     let pool;
 
-    match db_conf.driver {
-        DatabaseDriver::SQLite => {
+    match &db_conf.driver {
+        DatabaseDriver::SQLite { filename } => {
             let connect_options = SqliteConnectOptions::new()
                 .create_if_missing(true)
-                .filename(db_conf.name.as_str());
+                .filename(filename.as_str());
             pool = pool_options.connect_with(connect_options.into()).await?;
         }
-        DatabaseDriver::Postgres => {
+        DatabaseDriver::Postgres {
+            name,
+            host,
+            port,
+            user,
+            password,
+        } => {
             let connect_options = PgConnectOptions::new()
-                .host(db_conf.host.as_str())
-                .port(db_conf.port)
-                .username(db_conf.user.as_str())
-                .password(db_conf.password.as_str())
-                .database(db_conf.name.as_str());
+                .host(host.as_str())
+                .port(*port)
+                .username(user.as_str())
+                .password(password.as_str())
+                .database(name.as_str());
             pool = pool_options.connect_with(connect_options.into()).await?;
         }
-        DatabaseDriver::MySQL => {
+        DatabaseDriver::MySQL {
+            name,
+            host,
+            port,
+            user,
+            password,
+        } => {
             let connect_options = MySqlConnectOptions::new()
-                .host(db_conf.host.as_str())
-                .port(db_conf.port)
-                .username(db_conf.user.as_str())
-                .password(db_conf.password.as_str())
-                .database(db_conf.name.as_str());
+                .host(host.as_str())
+                .port(*port)
+                .username(user.as_str())
+                .password(password.as_str())
+                .database(name.as_str());
             pool = pool_options.connect_with(connect_options.into()).await?;
         }
     }
 
+    let last_migration_table_name = match db_conf.last_migration_table_name {
+        None => String::from("_rorm__last_migration"),
+        Some(s) => s,
+    };
+
     let db_impl = DBImpl::from(db_conf.driver);
     let statements = db_impl
-        .create_table(db_conf.last_migration_table_name.as_str())
+        .create_table(last_migration_table_name.as_str())
         .add_column(db_impl.create_column(
-            db_conf.last_migration_table_name.as_str(),
+            last_migration_table_name.as_str(),
             "id",
             DbType::Int64,
             &[Annotation::PrimaryKey, Annotation::AutoIncrement],
         ))
         .add_column(db_impl.create_column(
-            db_conf.last_migration_table_name.as_str(),
+            last_migration_table_name.as_str(),
             "updated_at",
             DbType::DateTime,
             &[Annotation::AutoUpdateTime],
         ))
         .add_column(db_impl.create_column(
-            db_conf.last_migration_table_name.as_str(),
+            last_migration_table_name.as_str(),
             "migration_name",
             DbType::VarChar,
             &[Annotation::NotNull, Annotation::MaxLength(255)],
@@ -191,7 +208,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
         log_sql!(
             format!(
                 "SELECT migration_name FROM {} ORDER BY id DESC LIMIT 1;",
-                &db_conf.last_migration_table_name
+                &last_migration_table_name
             ),
             options.log_queries
         )
@@ -209,10 +226,10 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
             // Apply all migrations
             for migration in &existing_migrations {
                 apply_migration(
-                    db_conf.driver.into(),
+                    db_impl,
                     migration,
                     &pool,
-                    db_conf.last_migration_table_name.as_str(),
+                    last_migration_table_name.as_str(),
                     options.log_queries,
                 )
                 .await?;
@@ -225,10 +242,10 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                 for (idx, migration) in existing_migrations.iter().enumerate() {
                     if apply {
                         apply_migration(
-                            db_conf.driver.into(),
+                            db_impl,
                             migration,
                             &pool,
-                            db_conf.last_migration_table_name.as_str(),
+                            last_migration_table_name.as_str(),
                             options.log_queries,
                         )
                         .await?;
@@ -252,7 +269,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
 Can not proceed any further without damaging data.
 To correct, empty the {} table or reset the whole database."#,
                     id.as_str(),
-                    db_conf.last_migration_table_name.as_str()
+                    last_migration_table_name.as_str()
                 ));
             }
         }

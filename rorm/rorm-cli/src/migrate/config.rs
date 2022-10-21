@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::fs::{read_to_string, File};
 use std::io::Write;
 use std::path::Path;
@@ -16,38 +17,73 @@ pub struct DatabaseConfigFile {
 }
 
 /**
-The configuration struct for database related settings
-*/
+The representation of all supported DB drivers
+ */
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
-pub struct DatabaseConfig {
-    pub driver: DatabaseDriver,
-    pub name: String,
-    pub host: String,
-    pub port: u16,
-    pub user: String,
-    pub password: String,
-    pub last_migration_table_name: String,
-}
-
-/**
-
-*/
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-#[serde(rename_all = "PascalCase")]
+#[serde(tag = "Driver")]
 pub enum DatabaseDriver {
-    SQLite,
-    Postgres,
-    MySQL,
+    #[serde(rename_all = "PascalCase")]
+    SQLite { filename: String },
+    #[serde(rename_all = "PascalCase")]
+    Postgres {
+        name: String,
+        host: String,
+        port: u16,
+        user: String,
+        password: String,
+    },
+    #[serde(rename_all = "PascalCase")]
+    MySQL {
+        name: String,
+        host: String,
+        port: u16,
+        user: String,
+        password: String,
+    },
 }
 
 impl From<DatabaseDriver> for DBImpl {
     fn from(v: DatabaseDriver) -> Self {
         match v {
-            DatabaseDriver::SQLite => DBImpl::SQLite,
-            DatabaseDriver::Postgres => DBImpl::Postgres,
-            DatabaseDriver::MySQL => DBImpl::MySQL,
+            DatabaseDriver::SQLite { .. } => DBImpl::SQLite,
+            DatabaseDriver::Postgres { .. } => DBImpl::Postgres,
+            DatabaseDriver::MySQL { .. } => DBImpl::MySQL,
         }
+    }
+}
+
+/**
+The configuration struct for database related settings
+*/
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct DatabaseConfig {
+    #[serde(flatten)]
+    pub driver: DatabaseDriver,
+    pub last_migration_table_name: Option<String>,
+}
+
+const EXAMPLE_DATABASE_CONFIG: &str = r#"[Database]
+# Valid driver types are: "MySQL", "Postgres" and "SQLite"
+Driver = "MySQL"
+
+# Name of the database. 
+Name = "dbname"
+
+Host = "127.0.0.1"
+Port = 3306
+User = "dbuser"
+Password = "super-secure-password"
+"#;
+
+#[cfg(test)]
+mod test {
+    use crate::migrate::config::{DatabaseConfigFile, EXAMPLE_DATABASE_CONFIG};
+
+    #[test]
+    fn test_example_database_config() {
+        let db_conf = toml::from_str::<DatabaseConfigFile>(EXAMPLE_DATABASE_CONFIG);
+        assert!(db_conf.is_ok());
     }
 }
 
@@ -55,24 +91,9 @@ impl From<DatabaseDriver> for DBImpl {
 Helper method to create a dummy database configuration file
  */
 pub fn create_db_config(path: &Path) -> anyhow::Result<()> {
-    let db_file = DatabaseConfigFile {
-        database: DatabaseConfig {
-            driver: DatabaseDriver::SQLite,
-            name: "database.sqlite3".to_string(),
-            host: "127.0.0.1".to_string(),
-            port: 3306,
-            user: "user".to_string(),
-            password: "change_me".to_string(),
-            last_migration_table_name: "_rorm__last_migration".to_string(),
-        },
-    };
-
-    let toml_str = toml::to_string_pretty(&db_file)
-        .with_context(|| "Error while serializing database configuration")?;
-
     let fh = File::create(path).with_context(|| format!("Couldn't open {:?} for writing", path))?;
 
-    writeln!(&fh, "{}", toml_str).with_context(|| {
+    writeln!(&fh, "{}", EXAMPLE_DATABASE_CONFIG).with_context(|| {
         format!(
             "Couldn't write serialized database configuration to {:?}",
             path
