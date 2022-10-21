@@ -120,6 +120,11 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
     let existing_migrations = get_existing_migrations(options.migration_dir.as_str())
         .with_context(|| "Couldn't retrieve existing migrations")?;
 
+    if existing_migrations.is_empty() {
+        println!("No migrations found.\nExiting.");
+        return Ok(());
+    }
+
     let pool_options = AnyPoolOptions::new().min_connections(1).max_connections(10);
     let pool;
 
