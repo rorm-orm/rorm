@@ -251,8 +251,11 @@ pub struct Field<T, D: hmr::db_type::DbType, A> {
     pub _phantom: PhantomData<(T, D)>,
 }
 
-impl<T: AsDbType, D: hmr::db_type::DbType, A: annotation_builder::AnnotationsDescriptor>
-    Field<T, D, A>
+impl<
+        T: AsDbType,
+        D: hmr::db_type::DbType,
+        A: annotation_builder::AnnotationsDescriptor + annotation_builder::ImplicitNotNull,
+    > Field<T, D, A>
 {
     /// Reexport [`AsDbType::from_primitive`]
     ///
@@ -271,56 +274,9 @@ impl<T: AsDbType, D: hmr::db_type::DbType, A: annotation_builder::AnnotationsDes
 
     /// This method is called at compile time by the derive macro to perform cross annotation checks.
     pub const fn check_annotations(&self) {
-        const N: usize = annotation_builder::NUM_ANNOTATIONS;
-        let mut footprint = [0u8; N + 1];
-        let mut i = 0;
-        while i < N {
-            footprint[i] = A::FOOTPRINT[i];
-            i += 1;
-        }
-        footprint[N] = (!T::IS_NULLABLE) as u8;
-
-        // CT - AutoCreateTime,
-        // UT - AutoUpdateTime,
-        // AI - AutoIncrement,
-        // CH - Choices,
-        // DE - DefaultValue,
-        // IN - Index,
-        // ML - MaxLength,
-        // PK - PrimaryKey,
-        // UN - Unique,
-        let err = match footprint {
-        //  CT UT AI CH DE IN ML PK UN NN
-            [1, _, 1, _, _, _, _, _, _, _] => "AutoCreateTime and AutoIncrement are mutually exclusive",
-            [1, _, _, 1, _, _, _, _, _, _] => "AutoCreateTime and Choices are mutually exclusive",
-            [1, _, _, _, 1, _, _, _, _, _] => "AutoCreateTime and Default are mutually exclusive",
-            [1, _, _, _, _, _, 1, _, _, _] => "AutoCreateTime and MaxLength are mutually exclusive",
-            [1, _, _, _, _, _, _, 1, _, _] => "AutoCreateTime and PrimaryKey are mutually exclusive",
-            [1, _, _, _, _, _, _, _, 1, _] => "AutoCreateTime and Unique are mutually exclusive",
-            [_, 1, 1, _, _, _, _, _, _, _] => "AutoUpdateTime and AutoIncrement are mutually exclusive",
-            [_, 1, _, 1, _, _, _, _, _, _] => "AutoUpdateTime and Choices are mutually exclusive",
-            [_, 1, _, _, 1, _, _, _, _, _] => "AutoUpdateTime and Default are mutually exclusive",
-            [_, 1, _, _, _, _, 1, _, _, _] => "AutoUpdateTime and MaxLength are mutually exclusive",
-            [_, 1, _, _, _, _, _, 1, _, _] => "AutoUpdateTime and PrimaryKey are mutually exclusive",
-            [_, 1, _, _, _, _, _, _, 1, _] => "AutoUpdateTime and Unique are mutually exclusive",
-            [_, _, 1, 1, _, _, _, _, _, _] => "AutoIncrement and Choices are mutually exclusive",
-            [_, _, 1, _, 1, _, _, _, _, _] => "AutoIncrement and Default are mutually exclusive",
-            [_, _, 1, _, _, _, 1, _, _, _] => "AutoIncrement and MaxLength are mutually exclusive",
-            [_, _, _, 1, _, _, 1, _, _, _] => "MaxLength and Choices are mutually exclusive",
-            [_, _, _, 1, _, _, _, 1, _, _] => "Choices and PrimaryKey are mutually exclusive",
-            [_, _, _, 1, _, _, _, _, 1, _] => "Choices and Unique are mutually exclusive",
-            [_, _, _, _, 1, _, _, 1, _, _] => "Default and PrimaryKey are mutually exclusive",
-            [_, _, _, _, 1, _, _, _, 1, _] => "Default and Unique are mutually exclusive",
-            [_, _, _, _, _, 1, _, 1, _, _] => "Index and PrimaryKey are mutually exclusive",
-            [_, _, _, _, _, _, _, 1, _, 0] => "PrimaryKey mustn't be nullable",
-
-            [0, 1, _, _, 0, _, _, _, _, 1] => "AutoUpdateTime must be a) nullable (i.e. Option<_>) or b) Default or c) AutoCreateTime",
-            [_, _, 1, _, _, _, _, 0, _, _] => "AutoIncrement has to be set on a key",
-            [_, _, _, 1, 0, _, _, _, _, _] => "Choices requires a Default",
-
-            [_, _, _, _, _, _, _, _, _, _] => "",
-        };
-        if err.len() > 0 {
+        let mut annotations: rorm_declaration::lints::Annotations = A::FOOTPRINT;
+        annotations.not_null = !T::IS_NULLABLE && !A::IMPLICIT_NOT_NULL;
+        if let Err(err) = annotations.check() {
             panic!("{}", err);
         }
     }

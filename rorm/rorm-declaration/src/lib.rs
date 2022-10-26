@@ -9,3 +9,5 @@ pub mod imr;
 pub mod migration;
 
 pub mod hmr;
+
+pub mod lints;
