@@ -85,26 +85,33 @@ mixin template ValidatePatch(Patch, TModel)
 	import std.traits : hasUDA;
 	import dorm.annotations : isDormFieldAttribute;
 
-	static assert (hasUDA!(Patch, DormPatch!TModel), "Patch struct " ~ Patch.stringof
-		~ " must be annoated using DormPatch!(" ~ TModel.stringof ~ ") exactly once!");
-
-	static foreach (i, field; Patch.tupleof)
+	static if (!isImplicitPatch!(Patch, TModel))
 	{
-		static assert (__traits(hasMember, TModel.init, Patch.tupleof[i].stringof),
-			"\n" ~ SourceLocation(__traits(getLocation, Patch.tupleof[i])).toErrorString
-				~ "Patch field `" ~ Patch.tupleof[i].stringof
-				~ "` is not defined on DB Type " ~ TModel.stringof
-				~ ".\n\tAvailable usable fields: "
-					~ DormFields!TModel.map!(f => f.sourceColumn).join(", "));
+		static assert (hasUDA!(Patch, DormPatch!TModel), "Patch struct " ~ Patch.stringof
+			~ " must be annoated using DormPatch!(" ~ TModel.stringof ~ ") exactly once!");
 
-		static foreach (attr; __traits(getAttributes, Patch.tupleof[i]))
-			static assert (!isDormFieldAttribute!attr,
+		static foreach (i, field; Patch.tupleof)
+		{
+			static assert (__traits(hasMember, TModel.init, Patch.tupleof[i].stringof),
 				"\n" ~ SourceLocation(__traits(getLocation, Patch.tupleof[i])).toErrorString
 					~ "Patch field `" ~ Patch.tupleof[i].stringof
-					~ "` defines DB-related annotations, which is not"
-					~ " supported. Put annotations on the Model field instead!");
+					~ "` is not defined on DB Type " ~ TModel.stringof
+					~ ".\n\tAvailable usable fields: "
+						~ DormFields!TModel.map!(f => f.sourceColumn).join(", "));
+
+			static foreach (attr; __traits(getAttributes, Patch.tupleof[i]))
+				static assert (!isDormFieldAttribute!attr,
+					"\n" ~ SourceLocation(__traits(getLocation, Patch.tupleof[i])).toErrorString
+						~ "Patch field `" ~ Patch.tupleof[i].stringof
+						~ "` defines DB-related annotations, which is not"
+						~ " supported. Put annotations on the Model field instead!");
+		}
 	}
 }
+
+/// Checks if Patch is an implicit patch of TModel. That is a child struct of
+/// the given model class.
+enum isImplicitPatch(Patch, TModel) = is(__traits(parent, Patch) == TModel);
 
 /**
  * High-level wrapper around a database. Through the driver implementation layer
@@ -454,15 +461,47 @@ struct DormTransaction
 	}
 }
 
+private string makePatchAccessPrefix(Patch, DB)()
+{
+	string ret;
+	static if (!is(Patch == DB)
+		&& is(__traits(parent, Patch) == DB))
+	{
+		static foreach (i, field; DB.tupleof)
+		{
+			static if (is(typeof(field) == Patch))
+			{
+				static foreach_reverse (j, field; DB.tupleof)
+					static if (is(typeof(field) == Patch))
+						static assert(i == j, "Multiple implicit "
+							~ Patch.stringof ~ " patches on the same "
+							~ DB.stringof ~ " Model class!");
+
+				ret = DB.tupleof[i].stringof ~ ".";
+			}
+		}
+	}
+	return ret;
+}
+
 private void insertImpl(bool single, T)(scope ffi.DBHandle handle, scope T[] value, ffi.DBTransactionHandle transaction) @safe
 {
 	import core.lifetime;
 	alias DB = DBType!T;
 
+	enum patchAccessPrefix = makePatchAccessPrefix!(T, DB);
+
+	static stripPrefix(string s)
+	{
+		return patchAccessPrefix.length && s.length > patchAccessPrefix.length
+			&& s[0 .. patchAccessPrefix.length] == patchAccessPrefix
+			? s[patchAccessPrefix.length .. $] : s;
+	}
+
 	enum NumColumns = {
 		int used;
 		static foreach (field; DormFields!DB)
-			static if (is(typeof(mixin("value[0]." ~ field.sourceColumn))) || field.hasConstructValue)
+			static if (is(typeof(mixin("value[0]." ~ stripPrefix(field.sourceColumn)))) || field.hasConstructValue)
 				used++;
 		return used;
 	}();
@@ -496,11 +535,11 @@ private void insertImpl(bool single, T)(scope ffi.DBHandle handle, scope T[] val
 
 	static foreach (field; DormFields!DB)
 	{{
-		static if (is(typeof(mixin("value[0]." ~ field.sourceColumn))))
+		static if (is(typeof(mixin("value[0]." ~ stripPrefix(field.sourceColumn)))))
 		{
 			columns[used] = ffi.ffi(field.columnName);
 			foreach (i; 0 .. values.length)
-				values[i][used] = conditionValue!field(mixin("value[i]." ~ field.sourceColumn));
+				values[i][used] = conditionValue!field(mixin("value[i]." ~ stripPrefix(field.sourceColumn)));
 			used++;
 		}
 		else static if (field.hasConstructValue)
@@ -512,7 +551,7 @@ private void insertImpl(bool single, T)(scope ffi.DBHandle handle, scope T[] val
 				static if (is(T == DB))
 					values[i][used] = conditionValue!field(mixin("value[i]." ~ field.sourceColumn));
 				else
-					values[i][used] = conditionValue!field(mixin("validatorObject." ~ field.sourceColumn));
+					values[i][used] = conditionValue!field(mixin("validatorObject." ~ stripPrefix(field.sourceColumn)));
 			}
 			used++;
 		}
@@ -523,7 +562,7 @@ private void insertImpl(bool single, T)(scope ffi.DBHandle handle, scope T[] val
 		else static if (!is(T == DB))
 			static assert(false, "Trying to insert a patch " ~ T.stringof
 				~ " into " ~ DB.stringof ~ ", but it is missing the required field "
-				~ field.sourceReferenceName ~ "! "
+				~ stripPrefix(field.sourceReferenceName) ~ "! "
 				~ "Fields with auto-generated values may be omitted in patch types. "
 				~ ModelFormat.Field.humanReadableGeneratedDefaultValueTypes);
 		else
@@ -571,7 +610,7 @@ private void insertImpl(bool single, T)(scope ffi.DBHandle handle, scope T[] val
 				{
 					static foreach (sourceField; DormFields!DB)
 					{
-						static if (is(typeof(mixin("value[i]." ~ sourceField.sourceColumn))))
+						static if (is(typeof(mixin("value[i]." ~ stripPrefix(sourceField.sourceColumn)))))
 						{
 							case sourceField.columnName:
 						}
@@ -638,12 +677,14 @@ private template DBType(Selection...)
 	static assert(Selection.length >= 1);
 
 	static if (Selection.length > 1)
-		alias DBType = Selection[0];
+	{
+		alias DBType = GetModelDBType!(Selection[0]);
+	}
 	else
 	{
 		alias PatchAttrs = getUDAs!(Selection[0], DormPatch);
 		static if (PatchAttrs.length == 0)
-			alias DBType = Selection[0];
+			alias DBType = GetModelDBType!(Selection[0]);
 		else static if (PatchAttrs.length == 1)
 		{
 			static if (is(PatchAttrs[0] == DormPatch!T, T))
@@ -657,6 +698,18 @@ private template DBType(Selection...)
 		else
 			static assert(false, "Cannot annotate DormPatch struct with multiple DormPatch UDAs.");
 	}
+}
+
+private template GetModelDBType(T)
+{
+	import dorm.model : Model;
+
+	static if (is(T : Model))
+		alias GetModelDBType = T;
+	else static if (is(__traits(parent, T) : Model))
+		alias GetModelDBType = __traits(parent, T);
+	else
+		static assert(false, "Passed in Non-Model Type where a Model was expected");
 }
 
 private template SelectType(T, Selection...)
