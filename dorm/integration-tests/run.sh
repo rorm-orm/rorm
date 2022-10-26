@@ -16,12 +16,7 @@ fi
 DATABASE_CONFIG=$(cat <<-END
 [Database]
 Driver = 'SQLite'
-Name = 'database.sqlite3'
-Host = '127.0.0.1'
-Port = 3306
-User = 'user'
-Password = 'change_me'
-LastMigrationTableName = '_drorm__last_migration'
+Filename = 'database.sqlite3'
 END
 )
 
