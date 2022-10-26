@@ -5,17 +5,21 @@ import dorm.declarative.conversion;
 import dorm.lib.util;
 import ffi = dorm.lib.ffi;
 
-import std.conv : text;
+import std.conv : text, to;
 import std.datetime : Clock, Date, DateTime, DateTimeException, SysTime, TimeOfDay, UTC;
 import std.meta;
 import std.range.primitives;
 import std.traits;
 
+import core.attribute;
 import core.time;
 
 public import dorm.lib.ffi : DBBackend;
 
 public import dorm.api.condition;
+
+static if (!is(typeof(mustuse)))
+	enum mustuse;
 
 /**
  * Configuration operation to connect to a database.
@@ -161,6 +165,7 @@ struct DormDB
 	}
 
 	void insert(T)(T value)
+	if (!is(T == U[], U))
 	{
 		return (() @trusted => insertImpl!true(handle, (&value)[0 .. 1], null))();
 	}
@@ -191,14 +196,14 @@ struct DormDB
 	 *     queryString = SQL statement to execute.
 	 *     bindParams = Parameters to fill into placeholders of `queryString`.
 	 */
-	RawSQLIterator rawSQL(scope return const(char)[] queryString, scope return ffi.FFIValue[] bindParams) return
+	RawSQLIterator rawSQL(scope return const(char)[] queryString, scope return ffi.FFIValue[] bindParams = null) return pure
 	{
 		return RawSQLIterator(&this, null, queryString, bindParams);
 	}
 }
 
 ///
-struct RawSQLIterator
+@mustuse struct RawSQLIterator
 {
 	private DormDB* db;
 	private ffi.DBTransactionHandle tx;
@@ -238,6 +243,21 @@ struct RawSQLIterator
 			ctx.callback.expand);
 		ctx.result();
 		return result;
+	}
+
+	/// Runs the raw SQL query, discarding results (throwing on error)
+	void exec()
+	{
+		assert(rowCountImpl == -1, "Don't iterate over the same RawSQLIterator on multiple threads!");
+
+		auto ctx = FreeableAsyncResult!(void delegate(scope ffi.FFIArray!(ffi.DBRowHandle))).make;
+		ctx.forward_callback = (scope rows) {};
+		ffi.rorm_db_raw_sql(db.handle,
+			tx,
+			ffi.ffi(queryString),
+			ffi.ffi(bindParams),
+			ctx.callback.expand);
+		ctx.result();
 	}
 }
 
@@ -470,7 +490,7 @@ private void insertImpl(bool single, T)(scope ffi.DBHandle handle, scope T[] val
 		{
 			DB validatorCopy;
 			if (values.length > 1)
-				copyEmplace(validatorObject, validatorCopy);
+				(() @trusted => copyEmplace(validatorObject, validatorCopy))();
 		}
 	}
 
@@ -539,9 +559,7 @@ private void insertImpl(bool single, T)(scope ffi.DBHandle handle, scope T[] val
 		{
 			static if (!single)
 				if (i != 0)
-				{
-					copyEmplace(validatorCopy, validatorObject);
-				}
+					(() @trusted => copyEmplace(validatorCopy, validatorObject))();
 
 			validatorObject.applyPatch(value[i]);
 			auto brokenFields = validatorObject.runValidators();
