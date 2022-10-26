@@ -29,6 +29,7 @@ auto defaultValue(T)(T value) if (isAllowedDefaultValueType!T)
 }
 alias PossibleDefaultValueTs = staticMap!(DefaultValue, AllowedDefaultValueTypes);
 
+enum defaultFromInit;
 enum primaryKey;
 enum unique;
 

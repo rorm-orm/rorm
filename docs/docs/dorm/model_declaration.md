@@ -55,6 +55,7 @@ adding another primary is possible with the `@primaryKey` annotation.
 | `@columnName(x)`        |                   any                   | Overwrite the default <br/> generated column name. [More](#column-name)                     |
 | `@constructValue!(x)`   |                   any                   | Set a constructed default value <br/> for the column. [More](#construct-value)              |
 | `@defaultValue(x)`      |                   any                   | Set a constant default value <br/> for the column. [More](#default-value)                   |
+| `@defaultFromInit`      |                   any                   | Set a constant default value <br/> for the column based on the <br/> default value on the D side. [More](#default-value)                   |
 | `@embedded`             |                `structs`                | Embed the annotated structs <br /> in the table. [More](#embedded)                          |
 | `@ignored`              |                   any                   | Ignores the annotated field. [More](#ignored)                                               |
 | `@index` or `@index(x)` |                   any                   | Create an index. [More](#indexes)                                                           |
@@ -184,7 +185,7 @@ class User : Model
 
 ## Default value
 
-With the `@defaultValue(x)` annotation, you can set the default value of the field,
+With the `@defaultValue(x)` or `@defaultFromInit` annotation, you can set the default value of the field,
 if omitted on creation.
 
 `x` must be of the same data type as the field.
@@ -195,9 +196,10 @@ class User : Model
     @maxLength(255)
     @defaultValue("")
     string comment;
-    
-    @defaultValue(1337)
-    int counter;
+
+    /// Inherits DB default from User.init
+    @defaultFromInit
+    int counter = 1337;
 }
 ```
 

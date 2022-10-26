@@ -156,6 +156,19 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 				__traits(allMembers, typeof(fieldAlias))
 			]));
 
+	void setDefaultValue(T)(T value)
+	{
+		static if (__traits(compiles, value !is null))
+		{
+			if (value !is null)
+				hasNonNullDefaultValue = true;
+		}
+		else
+			hasNonNullDefaultValue = true;
+
+		field.annotations ~= DBAnnotation(defaultValue(value));
+	}
+
 	static foreach (attribute; attributes)
 	{
 		static if (__traits(isSame, attribute, uda.autoCreateTime))
@@ -238,6 +251,17 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		else static if (is(attribute == validator!fn, alias fn))
 		{
 			field.internalAnnotations ~= InternalAnnotation(ValidatorRef(fieldName));
+		}
+		else static if (__traits(isSame, attribute, defaultFromInit))
+		{
+			static if (is(TModel == struct))
+			{
+				setDefaultValue(__traits(getMember, TModel.init, directFieldName));
+			}
+			else
+			{
+				setDefaultValue(__traits(getMember, new TModel(), directFieldName));
+			}
 		}
 		else static if (is(typeof(attribute) == maxLength)
 			|| is(typeof(attribute) == DefaultValue!T, T)
@@ -754,4 +778,46 @@ unittest
 	assert(m.fields[2].isNullable);
 	assert(!m.fields[3].isNullable);
 	assert(!m.fields[4].isNullable);
+}
+
+unittest
+{
+	struct Mod
+	{
+		class DefaultValues : Model
+		{
+			@defaultValue(10)
+			int f1;
+
+			@defaultValue(2)
+			int f2 = 1337;
+
+			@defaultFromInit
+			int f3 = 1337;
+		}
+	}
+
+	auto mod = processModelsToDeclarations!Mod;
+	assert(mod.models.length == 1);
+	auto m = mod.models[0];
+	// As Model also adds the id field
+	assert(m.fields.length == 4);
+
+	assert(m.fields[1].columnName == "f_1");
+	assert(m.fields[1].annotations == [
+		DBAnnotation(AnnotationFlag.notNull),
+		DBAnnotation(defaultValue(10))
+	]);
+
+	assert(m.fields[2].columnName == "f_2");
+	assert(m.fields[2].annotations == [
+		DBAnnotation(AnnotationFlag.notNull),
+		DBAnnotation(defaultValue(2))
+	]);
+
+	assert(m.fields[3].columnName == "f_3");
+	assert(m.fields[3].annotations == [
+		DBAnnotation(AnnotationFlag.notNull),
+		DBAnnotation(defaultValue(1337))
+	]);
 }

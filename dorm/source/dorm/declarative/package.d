@@ -148,8 +148,8 @@ struct ModelFormat
 		/// (non-required values) can be specified.
 		static immutable string humanReadableGeneratedDefaultValueTypes =
 			`Annotations for automatic value generation: @defaultValue(v), `
-			~ `@constructValue(() => v), @autoCreateTime, @autoIncrement `
-			~ `or change type to Nullable!T for default null.`;
+			~ `@defaultFromInit,  @constructValue(() => v), @autoCreateTime, `
+			~ `@autoIncrement or change type to Nullable!T for default null.`;
 
 		/**
 		 * Returns true if:
