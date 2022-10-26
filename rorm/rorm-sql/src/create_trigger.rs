@@ -1,3 +1,4 @@
+use rorm_declaration::imr::DbType;
 use std::fmt::{Display, Formatter};
 
 use crate::{value, Annotation, DBImpl};
@@ -55,6 +56,7 @@ impl Display for SQLCreateTriggerOperation {
 pub(crate) fn trigger_annotation_to_trigger(
     dialect: DBImpl,
     annotation: &Annotation,
+    db_type: &DbType,
     table_name: &str,
     column_name: &str,
     statements: &mut Vec<(String, Vec<value::Value>)>,
@@ -63,8 +65,16 @@ pub(crate) fn trigger_annotation_to_trigger(
         DBImpl::SQLite => match annotation {
             Annotation::AutoUpdateTime => {
                 let update_statement = format!(
-                    "UPDATE {}  SET {} = CURRENT_TIMESTAMP WHERE ROWID = NEW.ROWID;",
-                    table_name, column_name
+                    "UPDATE {} SET {} = {} WHERE ROWID = NEW.ROWID;",
+                    table_name,
+                    column_name,
+                    match db_type {
+                        DbType::Date => "CURRENT_DATE",
+                        DbType::DateTime => "CURRENT_TIMESTAMP",
+                        DbType::Timestamp => "CURRENT_TIMESTAMP",
+                        DbType::Time => "CURRENT_TIME",
+                        _ => "",
+                    }
                 );
                 statements.push((
                     dialect

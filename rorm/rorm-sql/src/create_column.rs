@@ -25,6 +25,7 @@ impl<'post_build> SQLAnnotation<'post_build> {
     pub fn build(
         &self,
         s: &mut String,
+        db_type: &DbType,
         lookup: &mut Vec<value::Value<'post_build>>,
         dialect: DBImpl,
     ) {
@@ -35,11 +36,37 @@ impl<'post_build> SQLAnnotation<'post_build> {
                 // AutoIncrement is not needed in postgres, as this is done via the datatype.
                 _ => {}
             },
-            Annotation::AutoCreateTime => write!(s, "DEFAULT CURRENT_TIMESTAMP").unwrap(),
+            Annotation::AutoCreateTime => {
+                write!(
+                    s,
+                    "DEFAULT {}",
+                    match db_type {
+                        DbType::Date => "CURRENT_DATE",
+                        DbType::DateTime => "CURRENT_TIMESTAMP",
+                        DbType::Timestamp => "CURRENT_TIMESTAMP",
+                        DbType::Time => "CURRENT_TIME",
+                        _ => "",
+                    }
+                )
+                .unwrap();
+            }
             Annotation::AutoUpdateTime => match dialect {
                 // Trigger will be created for SQLite and Postgres
                 DBImpl::SQLite | DBImpl::Postgres => {}
-                DBImpl::MySQL => write!(s, "ON UPDATE CURRENT_TIMESTAMP").unwrap(),
+                DBImpl::MySQL => {
+                    write!(
+                        s,
+                        "ON UPDATE {}",
+                        match db_type {
+                            DbType::Date => "CURRENT_DATE",
+                            DbType::DateTime => "CURRENT_TIMESTAMP",
+                            DbType::Timestamp => "CURRENT_TIMESTAMP",
+                            DbType::Time => "CURRENT_TIME",
+                            _ => "",
+                        }
+                    )
+                    .unwrap();
+                }
             },
             Annotation::DefaultValue(d) => match d {
                 DefaultValue::String(dv) => match dialect {
@@ -277,11 +304,12 @@ impl<'post_build> SQLCreateColumn<'post_build> {
             trigger_annotation_to_trigger(
                 self.dialect,
                 x.annotation,
+                &self.data_type,
                 &self.table_name,
                 &self.name,
                 statements,
             );
-            x.build(s, lookup, self.dialect);
+            x.build(s, &self.data_type, lookup, self.dialect);
             if idx != self.annotations.len() - 1 {
                 write!(s, " ").unwrap();
             }
