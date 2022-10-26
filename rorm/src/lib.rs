@@ -69,7 +69,6 @@ pub mod annotation_builder;
 /// [`Condition`]: rorm_db::conditional::Condition
 /// [`Field<T>`]: model::Field
 mod conditions;
-/// This module holds the CRUD interface.
 pub mod crud;
 /// This module holds traits and structs for working with models
 pub mod model;

@@ -1,6 +1,4 @@
-//! This module provides primitives used by the various builder in [`rorm::crud`]
-//!
-//! [`rorm::crud`]: crate::crud
+//! This module provides primitives used by the various builder.
 
 use rorm_db::conditional::Condition;
 

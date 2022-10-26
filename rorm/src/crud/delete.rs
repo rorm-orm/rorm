@@ -1,4 +1,4 @@
-//! Delete builder
+//! Delete builder and macro
 
 use std::future::{Future, IntoFuture};
 use std::marker::PhantomData;
@@ -13,6 +13,10 @@ use crate::crud::builder::{ConditionMarker, TransactionMarker};
 use crate::model::Model;
 
 /// Builder for delete queries
+///
+/// Is is recommended to start a builder using [delete!].
+///
+/// [delete!]: macro@crate::delete
 pub struct DeleteBuilder<
     'db: 'rf,
     'rf,
@@ -42,12 +46,29 @@ impl<'db, 'rf, M: Model> DeleteBuilder<'db, 'rf, M, (), ()> {
 
 impl<'db, 'rf, M: Model, T: TransactionMarker<'rf, 'db>> DeleteBuilder<'db, 'rf, M, (), T> {
     /// Set the condition to delete a single model instance
-    pub fn instance(self, model: &'rf M) -> DeleteBuilder<'db, 'rf, M, Condition<'rf>, T> {
+    pub fn single(self, model: &'rf M) -> DeleteBuilder<'db, 'rf, M, Condition<'rf>, T> {
         self.condition(
             model
                 .as_condition()
                 .expect("Model should always have a primary key"),
         )
+    }
+
+    /// Set the condition to delete a bulk of model instances
+    pub fn bulk(
+        self,
+        models: impl IntoIterator<Item = &'rf M>,
+    ) -> DeleteBuilder<'db, 'rf, M, Condition<'rf>, T> {
+        self.condition(Condition::Disjunction(
+            models
+                .into_iter()
+                .map(|model| {
+                    model
+                        .as_condition()
+                        .expect("Model should always have a primary key")
+                })
+                .collect(),
+        ))
     }
 
     /// Add a condition to the delete query
@@ -111,7 +132,52 @@ impl<'db, 'rf, M: Model + 'rf, T: TransactionMarker<'rf, 'db>> IntoFuture
     }
 }
 
-/// Slightly less verbose macro to start a [`DeleteBuilder`] from a patch
+/// Create a DELETE query.
+///
+/// 1. Give a reference to your db and the model whose table's rows you want to delete
+///
+///     `delete!(&db, MyModelType)`
+///
+/// 2. *Optionally* add this query to a transaction
+///
+///     `.transaction(&mut tr)`
+///
+/// 3. Specify what to delete. This can be done using an arbitrary [condition], a [single] instance or a [bulk] of instances.
+///
+///     `.condition(MyModelType::F.id.greater(0))`
+///
+///     `.single(&my_instance)`
+///
+///     `.bulk(&[one_instances, another_instance])`
+///
+/// 4. Execute. After step 3 you could already `.await`ed your query.
+///
+///     If you want to skip step 3, you'd have to call [`all`] to make sure you want a DELETE query without any condition.
+///
+/// Example:
+/// ```no_run
+/// # use rorm::{Model, Database, delete};
+/// #
+/// # #[derive(Model)]
+/// # struct User {
+/// #     #[rorm(id)]
+/// #     id: i64,
+/// #
+/// #     age: i32,
+/// # }
+/// #
+/// pub async fn delete_underaged(db: &Database) {
+///     delete!(db, User)
+///         .condition(User::F.age.less(18))
+///         .await
+///         .unwrap();
+/// }
+/// ```
+///
+/// [condition]: DeleteBuilder::condition
+/// [single]: DeleteBuilder::single
+/// [bulk]: DeleteBuilder::bulk
+/// [`all`]: DeleteBuilder::all
 #[macro_export]
 macro_rules! delete {
     ($db:expr, $model:path) => {
