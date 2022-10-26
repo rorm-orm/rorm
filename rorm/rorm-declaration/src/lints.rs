@@ -71,7 +71,6 @@ impl Annotations {
             A { not_null: true, primary_key: true, .. } => "NotNull and PrimaryKey are mutually exclusive",
 
             A { auto_increment: true, primary_key: false, .. } => "AutoIncrement requires PrimaryKey",
-            A { choices: true, default: false, .. } => "Choices requires DefaultValue",
 
             A { auto_update_time: true, not_null: true, auto_create_time: false, default: false, ..} => "AutoUpdateTime in combination with NotNull requires ether DefaultValue or AutoCreateTime",
 
