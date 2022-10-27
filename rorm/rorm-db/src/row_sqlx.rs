@@ -27,3 +27,38 @@ impl From<AnyRow> for Row {
         Row(any_row)
     }
 }
+
+/// Something which can be decoded from a [row](Row).
+///
+/// Auto-implemented for tuples of size 8 or less.
+pub trait FromRow: Sized {
+    /// Try decoding a [row](Row) into `Self`.
+    fn from_row(row: Row) -> Result<Self, Error>;
+}
+
+macro_rules! impl_from_row {
+    ($($generic:ident@$index:literal),+) => {
+        impl<$($generic),+> FromRow for ($($generic,)+)
+        where
+            $(
+                $generic: Type<AnyDb> + for<'r> Decode<'r, AnyDb>,
+            )+
+        {
+            fn from_row(row: Row) -> Result<Self, Error> {
+                Ok((
+                    $(
+                        row.get::<$generic, usize>($index)?,
+                    )+
+                ))
+            }
+        }
+    };
+}
+impl_from_row!(A@0);
+impl_from_row!(A@0, B@1);
+impl_from_row!(A@0, B@1, C@2);
+impl_from_row!(A@0, B@1, C@2, D@3);
+impl_from_row!(A@0, B@1, C@2, D@3, E@4);
+impl_from_row!(A@0, B@1, C@2, D@3, E@4, F@5);
+impl_from_row!(A@0, B@1, C@2, D@3, E@4, F@5, G@6);
+impl_from_row!(A@0, B@1, C@2, D@3, E@4, F@5, G@6, H@7);

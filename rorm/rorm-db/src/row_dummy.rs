@@ -23,3 +23,26 @@ impl Row {
 pub trait ColumnIndex {}
 impl ColumnIndex for usize {}
 impl ColumnIndex for &str {}
+
+/// Something which can be decoded from a [row](Row).
+///
+/// Auto-implemented for tuples of size 8 or less.
+pub trait FromRow: Sized {
+    /// Try decoding a [row](Row) into `Self`.
+    fn from_row(_row: Row) -> Result<Self, Error> {
+        Err(Error::ConfigurationError(
+            "Can't work with rows without sqlx".to_string(),
+        ))
+    }
+}
+macro_rules! impl_from_row {
+    (impl $($generic:ident,)+) => {
+        impl<$($generic),+> FromRow for ($($generic),+) {}
+    };
+    ($head:ident, $($list:ident,)*) => {
+        impl_from_row!(impl $head, $($list,)*);
+        impl_from_row!($($list,)*);
+    };
+    () => {};
+}
+impl_from_row!(A, B, C, D, E, F, G, H,);
