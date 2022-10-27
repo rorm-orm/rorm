@@ -24,6 +24,10 @@ pub trait ColumnIndex {}
 impl ColumnIndex for usize {}
 impl ColumnIndex for &str {}
 
+/// Something which can be decoded from a [row](Row)'s cell without borrowing.
+pub trait DecodeOwned: Type<AnyDb> + for<'r> sqlx::Decode<'r, AnyDb> {}
+impl<T: 'static> DecodeOwned for T {}
+
 /// Something which can be decoded from a [row](Row).
 ///
 /// Auto-implemented for tuples of size 8 or less.

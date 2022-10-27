@@ -3,17 +3,20 @@ use std::marker::PhantomData;
 
 use futures::stream::BoxStream;
 use futures::{Stream, StreamExt};
-use rorm_db::row::FromRow;
 use rorm_db::transaction::Transaction;
 use rorm_db::{conditional::Condition, error::Error, row::Row, Database};
+use rorm_declaration::hmr::db_type::DbType;
 
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
-use crate::model::{Model, Patch};
+use crate::model::{AsDbType, Field, Model, Patch};
 
-/// Specifies which columns to query and the rows should be decoded as.
+/// Specifies which columns to query and how to decode the rows into what.
 pub trait Selector<M: Model> {
     /// Type as which rows should be decoded
-    type Result: FromRow;
+    type Result;
+
+    /// Decode a row
+    fn decode(row: Row) -> Result<Self::Result, Error>;
 
     /// Columns to query
     fn columns(&self) -> &[&'static str];
@@ -37,6 +40,11 @@ impl<P: Patch> SelectPatch<P> {
 }
 impl<M: Model, P: Patch<Model = M>> Selector<M> for SelectPatch<P> {
     type Result = P;
+
+    fn decode(row: Row) -> Result<Self::Result, Error> {
+        P::from_row(row)
+    }
+
     fn columns(&self) -> &[&'static str] {
         P::COLUMNS
     }
@@ -164,8 +172,7 @@ impl<
             .await?
             .into_iter()
             .map(|x| {
-                S::Result::from_row(x)
-                    .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
+                S::decode(x).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
             })
             .collect::<Result<Vec<_>, _>>()
     }
@@ -174,15 +181,14 @@ impl<
     ///
     /// An error is returned if no value could be retrieved.
     pub async fn one(self) -> Result<S::Result, Error> {
-        S::Result::from_row(self.one_as_row().await?)
+        S::decode(self.one_as_row().await?)
             .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
     }
 
     /// Retrieve and decode the query as a stream
     pub fn stream(self) -> impl Stream<Item = Result<S::Result, Error>> + 'rf {
         self.stream_as_row().map(|row| {
-            S::Result::from_row(row?)
-                .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
+            S::decode(row?).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
         })
     }
 
@@ -191,7 +197,7 @@ impl<
         match self.optional_as_row().await? {
             None => Ok(None),
             Some(row) => {
-                Ok(Some(S::Result::from_row(row).map_err(|_| {
+                Ok(Some(S::decode(row).map_err(|_| {
                     Error::DecodeError("Could not decode row".to_string())
                 })?))
             }
@@ -202,10 +208,59 @@ impl<
 /// Slightly less verbose macro to start a [`QueryBuilder`] from a model or patch
 #[macro_export]
 macro_rules! query {
+    (replace $anything:tt with $result:tt) => { $result };
     ($db:expr, $patch:path) => {
         $crate::crud::query::QueryBuilder::new(
             $db,
             &$crate::crud::query::SelectPatch::<$patch>::new(),
         )
     };
+    ($db:expr, $model:path, ($($field:expr),+$(,)?)) => {
+        $crate::crud::query::QueryBuilder::<$model, _, _, _>::new(
+            $db,
+            &$crate::crud::query::SelectTuple::<_, { 0 $( + $crate::query!(replace {$field} with 1))+ }>::new(&($($field),+)),
+        )
+    };
 }
+
+/// The [Selector] for tuple
+///
+/// Implemented for tuple of size 8 or less.
+pub struct SelectTuple<T, const C: usize> {
+    tuple: PhantomData<T>,
+    columns: [&'static str; C],
+}
+macro_rules! impl_select_tuple {
+    ($C:literal, ($($index:tt: <$T:ident, $D:ident, $A:ident>,)+)) => {
+        impl<$($T, $D: DbType, $A,)+> SelectTuple<($(Field<$T, $D, $A>,)+), $C> {
+            /// Create a SelectTuple
+            pub const fn new(tuple: &($(Field<$T, $D, $A>,)+)) -> Self {
+                Self {
+                    tuple: PhantomData,
+                    columns: [$(tuple.$index.name),+],
+                }
+            }
+        }
+        impl<M: Model, $($T: AsDbType, $D: DbType, $A,)+> Selector<M>
+            for SelectTuple<($(Field<$T, $D, $A>,)+), $C>
+        {
+            type Result = ($($T,)+);
+
+            fn decode(row: Row) -> Result<Self::Result, Error> {
+                Ok(($($T::from_primitive(row.get::<$T::Primitive, usize>($index)?),)+))
+            }
+
+            fn columns(&self) -> &[&'static str] {
+                &self.columns
+            }
+        }
+    };
+}
+impl_select_tuple!(1, (0: <T0, D0, A0>,));
+impl_select_tuple!(2, (0: <T0, D0, A0>, 1: <T1, D1, A1>,));
+impl_select_tuple!(3, (0: <T0, D0, A0>, 1: <T1, D1, A1>, 2: <T2, D2, A2>,));
+impl_select_tuple!(4, (0: <T0, D0, A0>, 1: <T1, D1, A1>, 2: <T2, D2, A2>, 3: <T3, D3, A3>,));
+impl_select_tuple!(5, (0: <T0, D0, A0>, 1: <T1, D1, A1>, 2: <T2, D2, A2>, 3: <T3, D3, A3>, 4: <T4, D4, A4>,));
+impl_select_tuple!(6, (0: <T0, D0, A0>, 1: <T1, D1, A1>, 2: <T2, D2, A2>, 3: <T3, D3, A3>, 4: <T4, D4, A4>, 5: <T5, D5, A5>,));
+impl_select_tuple!(7, (0: <T0, D0, A0>, 1: <T1, D1, A1>, 2: <T2, D2, A2>, 3: <T3, D3, A3>, 4: <T4, D4, A4>, 5: <T5, D5, A5>, 6: <T6, D6, A6>,));
+impl_select_tuple!(8, (0: <T0, D0, A0>, 1: <T1, D1, A1>, 2: <T2, D2, A2>, 3: <T3, D3, A3>, 4: <T4, D4, A4>, 5: <T5, D5, A5>, 6: <T6, D6, A6>, 7: <T7, D7, A7>,));

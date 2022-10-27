@@ -28,6 +28,10 @@ impl From<AnyRow> for Row {
     }
 }
 
+/// Something which can be decoded from a [row](Row)'s cell without borrowing.
+pub trait DecodeOwned: Type<AnyDb> + for<'r> sqlx::Decode<'r, AnyDb> {}
+impl<T: Type<AnyDb> + for<'r> Decode<'r, AnyDb>> DecodeOwned for T {}
+
 /// Something which can be decoded from a [row](Row).
 ///
 /// Auto-implemented for tuples of size 8 or less.

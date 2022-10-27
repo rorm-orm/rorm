@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use rorm_db::conditional::{self, Condition};
-use rorm_db::row::FromRow;
+use rorm_db::row::{DecodeOwned, FromRow};
 use rorm_db::value::Value;
 use rorm_declaration::hmr;
 use rorm_declaration::hmr::annotations;
@@ -13,7 +13,7 @@ use crate::annotation_builder::NotSetAnnotations;
 /// This trait maps rust types to database types
 pub trait AsDbType {
     /// A type which can be retrieved from the db and then converted into Self.
-    type Primitive;
+    type Primitive: DecodeOwned;
 
     /// The database type as defined in the Intermediate Model Representation
     type DbType: hmr::db_type::DbType;
@@ -82,7 +82,7 @@ impl_as_db_type!(bool, Boolean, Bool);
 impl_as_db_type!(Vec<u8>, VarBinary, Binary using as_slice);
 impl_as_db_type!(String, VarChar, String using as_str);
 impl<T: AsDbType> AsDbType for Option<T> {
-    type Primitive = Self;
+    type Primitive = Option<T::Primitive>;
     type DbType = T::DbType;
 
     type Annotations = T::Annotations;
@@ -90,7 +90,7 @@ impl<T: AsDbType> AsDbType for Option<T> {
 
     #[inline(always)]
     fn from_primitive(primitive: Self::Primitive) -> Self {
-        primitive
+        primitive.map(T::from_primitive)
     }
 
     fn as_primitive(&self) -> Value {
