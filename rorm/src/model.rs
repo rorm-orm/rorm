@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
 use rorm_db::conditional::{self, Condition};
+use rorm_db::row::FromRow;
 use rorm_db::value::Value;
-use rorm_db::Row;
 use rorm_declaration::hmr;
 use rorm_declaration::hmr::annotations;
 use rorm_declaration::imr;
@@ -147,7 +147,7 @@ impl<E: DbEnum> AsDbType for E {
 /// Trait implemented on Patches i.e. a subset of a model's fields.
 ///
 /// Implemented by [`derive(Patch)`] as well as [`derive(Model)`].
-pub trait Patch: TryFrom<Row> {
+pub trait Patch: FromRow {
     /// The model this patch is for
     type Model: Model;
 

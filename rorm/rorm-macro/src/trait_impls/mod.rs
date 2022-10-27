@@ -30,10 +30,8 @@ pub fn patch<'a>(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> Toke
 
 pub fn try_from_row(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStream {
     quote! {
-        impl TryFrom<::rorm::row::Row> for #strct {
-            type Error = ::rorm::error::Error;
-
-            fn try_from(row: ::rorm::row::Row) -> Result<Self, Self::Error> {
+        impl ::rorm::row::FromRow for #strct {
+            fn from_row(row: ::rorm::row::Row) -> Result<Self, ::rorm::Error> {
                 Ok(#strct {
                     #(
                         #fields: <#model as ::rorm::model::Model>::FIELDS.#fields.convert_primitive(

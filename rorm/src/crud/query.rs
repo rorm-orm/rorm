@@ -3,42 +3,68 @@ use std::marker::PhantomData;
 
 use futures::stream::BoxStream;
 use futures::{Stream, StreamExt};
+use rorm_db::row::FromRow;
 use rorm_db::transaction::Transaction;
 use rorm_db::{conditional::Condition, error::Error, row::Row, Database};
 
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
 use crate::model::{Model, Patch};
 
-/// Marker for type a [QueryBuilder]'s result should be converted to.
+/// Specifies which columns to query and the rows should be decoded as.
+pub trait Selector<M: Model> {
+    /// Type as which rows should be decoded
+    type Result: FromRow;
+
+    /// Columns to query
+    fn columns(&self) -> &[&'static str];
+}
+
+/// The [Selector] for patches.
 ///
-/// [`()`] simply means no further conversion possible.
-pub trait QueryResult<M: Model> {}
-impl<M: Model> QueryResult<M> for () {}
-impl<M: Model, P: Patch<Model = M>> QueryResult<M> for P {}
+/// # Why implement `Selector` on `SelectPatch<P>` instead of `P` directly?
+/// Since a selector is used by reference, it needs a runtime value.
+/// But there wouldn't be any data to create a patch's instance with.
+/// On top of that all that data would be ignored anyway,
+/// because the columns to query are stored in the patch type.
+///
+/// => So create a struct without data to "wrap" the patch type.
+pub struct SelectPatch<P: Patch>(PhantomData<P>);
+impl<P: Patch> SelectPatch<P> {
+    /// Create a SelectPatch
+    pub const fn new() -> Self {
+        SelectPatch(PhantomData)
+    }
+}
+impl<M: Model, P: Patch<Model = M>> Selector<M> for SelectPatch<P> {
+    type Result = P;
+    fn columns(&self) -> &[&'static str] {
+        P::COLUMNS
+    }
+}
 
 /// Builder for creating queries
 pub struct QueryBuilder<
     'db,
     'a,
     M: Model,
-    R: QueryResult<M>,
+    S: Selector<M>,
     C: ConditionMarker<'a>,
     T: TransactionMarker<'a, 'db>,
 > {
     db: &'db Database,
-    columns: &'a [&'a str],
-    _phantom: PhantomData<(M, R)>,
+    selector: &'a S,
+    _phantom: PhantomData<M>,
 
     condition: C,
     transaction: T,
 }
 
-impl<'db, 'a, M: Model> QueryBuilder<'db, 'a, M, (), (), ()> {
-    /// Start building a query which selects a given set of columns
-    pub fn select_columns(db: &'db Database, columns: &'a [&'a str]) -> Self {
+impl<'db, 'rf, M: Model, S: Selector<M>> QueryBuilder<'db, 'rf, M, S, (), ()> {
+    /// Start building a query using a generic [Selector]
+    pub fn new(db: &'db Database, selector: &'rf S) -> QueryBuilder<'db, 'rf, M, S, (), ()> {
         QueryBuilder {
             db,
-            columns, // TODO: check for existence
+            selector,
             _phantom: PhantomData,
 
             condition: (),
@@ -47,81 +73,49 @@ impl<'db, 'a, M: Model> QueryBuilder<'db, 'a, M, (), (), ()> {
     }
 }
 
-impl<'db, 'a, M: Model, P: Patch<Model = M>> QueryBuilder<'db, 'a, M, P, (), ()> {
-    /// Start building a query which selects a patch's columns
-    pub fn select_patch(db: &'db Database) -> Self {
-        QueryBuilder {
-            db,
-            columns: P::COLUMNS,
-            _phantom: PhantomData,
-
-            condition: (),
-            transaction: (),
-        }
-    }
-}
-
-impl<'db, 'a, M: Model> QueryBuilder<'db, 'a, M, M, (), ()> {
-    /// Start building a query which selects all columns
-    pub fn select_model(db: &'db Database) -> Self {
-        QueryBuilder {
-            db,
-            columns: M::COLUMNS,
-            _phantom: PhantomData,
-
-            condition: (),
-            transaction: (),
-        }
-    }
-}
-
-impl<'db, 'a, M: Model, R: QueryResult<M>, T: TransactionMarker<'a, 'db>>
-    QueryBuilder<'db, 'a, M, R, (), T>
+impl<'db, 'a, M: Model, S: Selector<M>, T: TransactionMarker<'a, 'db>>
+    QueryBuilder<'db, 'a, M, S, (), T>
 {
     /// Add a condition to the query
     pub fn condition(
         self,
         condition: Condition<'a>,
-    ) -> QueryBuilder<'db, 'a, M, R, Condition<'a>, T> {
+    ) -> QueryBuilder<'db, 'a, M, S, Condition<'a>, T> {
         #[rustfmt::skip]
-        let QueryBuilder { db, columns, _phantom, transaction, .. } = self;
+        let QueryBuilder { db, selector, _phantom, transaction, .. } = self;
         #[rustfmt::skip]
-        return QueryBuilder { db, columns, _phantom, condition, transaction, };
+        return QueryBuilder { db, selector, _phantom, condition, transaction, };
     }
 }
 
-impl<'db, 'a, M: Model, R: QueryResult<M>, C: ConditionMarker<'a>>
-    QueryBuilder<'db, 'a, M, R, C, ()>
-{
+impl<'db, 'a, M: Model, S: Selector<M>, C: ConditionMarker<'a>> QueryBuilder<'db, 'a, M, S, C, ()> {
     /// Add a transaction to the query
     pub fn transaction(
         self,
         transaction: &'a mut Transaction<'db>,
-    ) -> QueryBuilder<'db, 'a, M, R, C, &'a mut Transaction<'db>> {
+    ) -> QueryBuilder<'db, 'a, M, S, C, &'a mut Transaction<'db>> {
         #[rustfmt::skip]
-        let QueryBuilder { db, columns, _phantom, condition, .. } = self;
+        let QueryBuilder { db, selector, _phantom, condition, .. } = self;
         #[rustfmt::skip]
-        return QueryBuilder { db, columns, _phantom, condition, transaction, };
+        return QueryBuilder { db, selector, _phantom, condition, transaction, };
     }
 }
 
-// Execute query and return rows
-// This doesn't require any specific QueryResult
 impl<
         'rf,
         'db: 'rf,
         M: Model,
-        R: QueryResult<M>,
+        S: Selector<M>,
         C: ConditionMarker<'rf>,
         T: TransactionMarker<'rf, 'db>,
-    > QueryBuilder<'db, 'rf, M, R, C, T>
+    > QueryBuilder<'db, 'rf, M, S, C, T>
 {
     /// Retrieve all matching rows
     pub async fn all_as_rows(self) -> Result<Vec<Row>, Error> {
         self.db
             .query_all(
                 M::table_name(),
-                self.columns,
+                self.selector.columns(),
                 self.condition.as_option(),
                 self.transaction.into_option(),
             )
@@ -135,7 +129,7 @@ impl<
         self.db
             .query_one(
                 M::table_name(),
-                self.columns,
+                self.selector.columns(),
                 self.condition.as_option(),
                 self.transaction.into_option(),
             )
@@ -146,7 +140,7 @@ impl<
     pub fn stream_as_row(self) -> BoxStream<'rf, Result<Row, Error>> {
         self.db.query_stream(
             M::table_name(),
-            self.columns,
+            self.selector.columns(),
             self.condition.as_option(),
             self.transaction.into_option(),
         )
@@ -157,56 +151,47 @@ impl<
         self.db
             .query_optional(
                 M::table_name(),
-                self.columns,
+                self.selector.columns(),
                 self.condition.as_option(),
                 self.transaction.into_option(),
             )
             .await
     }
-}
 
-// Execute query and map result through TryFrom<Row>
-impl<
-        'db: 'rf,
-        'rf,
-        M: Model,
-        P: Patch<Model = M>,
-        C: ConditionMarker<'rf>,
-        T: TransactionMarker<'rf, 'db>,
-    > QueryBuilder<'db, 'rf, M, P, C, T>
-{
-    /// Retrieve all matching rows as unpacked models
-    pub async fn all(self) -> Result<Vec<P>, Error> {
+    /// Retrieve and decode all matching rows
+    pub async fn all(self) -> Result<Vec<S::Result>, Error> {
         self.all_as_rows()
             .await?
             .into_iter()
             .map(|x| {
-                P::try_from(x).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
+                S::Result::from_row(x)
+                    .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
             })
             .collect::<Result<Vec<_>, _>>()
     }
 
-    /// Retrieve exactly one matching row as Model
+    /// Retrieve and decode exactly one matching row
     ///
     /// An error is returned if no value could be retrieved.
-    pub async fn one(self) -> Result<P, Error> {
-        P::try_from(self.one_as_row().await?)
+    pub async fn one(self) -> Result<S::Result, Error> {
+        S::Result::from_row(self.one_as_row().await?)
             .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
     }
 
-    /// Retrieve the query as a stream of Models
-    pub fn stream(self) -> impl Stream<Item = Result<P, Error>> + 'rf {
+    /// Retrieve and decode the query as a stream
+    pub fn stream(self) -> impl Stream<Item = Result<S::Result, Error>> + 'rf {
         self.stream_as_row().map(|row| {
-            P::try_from(row?).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
+            S::Result::from_row(row?)
+                .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
         })
     }
 
-    /// Try to retrieve the a matching row as Model
-    pub async fn optional(self) -> Result<Option<P>, Error> {
+    /// Try to retrieve and decode the a matching row
+    pub async fn optional(self) -> Result<Option<S::Result>, Error> {
         match self.optional_as_row().await? {
             None => Ok(None),
             Some(row) => {
-                Ok(Some(P::try_from(row).map_err(|_| {
+                Ok(Some(S::Result::from_row(row).map_err(|_| {
                     Error::DecodeError("Could not decode row".to_string())
                 })?))
             }
@@ -218,6 +203,9 @@ impl<
 #[macro_export]
 macro_rules! query {
     ($db:expr, $patch:path) => {
-        $crate::crud::query::QueryBuilder::<_, $patch, _, _>::select_patch($db)
+        $crate::crud::query::QueryBuilder::new(
+            $db,
+            &$crate::crud::query::SelectPatch::<$patch>::new(),
+        )
     };
 }
