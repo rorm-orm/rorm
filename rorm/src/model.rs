@@ -233,8 +233,15 @@ pub trait Model: Patch<Model = Self> {
 }
 
 /// All relevant information about a model's field
+///
+/// ## Generic Parameters
+/// - `T` is the rust data type stored in this field
+/// - `D` is the data type as which this field is stored in the db
+///     (Since this can depend on some attributes, namely `#[rorm(choices)]`, it needs to be stored separately from `T`)
+/// - `M` is the [Model] this field belongs to.
+/// - `A` is the concrete type of the generic [annotation builder](annotation_builder::Annotations).
 #[derive(Copy, Clone)]
-pub struct Field<T, D: hmr::db_type::DbType, A> {
+pub struct Field<T, D, M, A> {
     /// This field's position in the model.
     pub index: usize,
 
@@ -248,15 +255,10 @@ pub struct Field<T, D: hmr::db_type::DbType, A> {
     pub source: Option<Source>,
 
     #[doc(hidden)]
-    pub _phantom: PhantomData<(T, D)>,
+    pub _phantom: PhantomData<(T, D, M)>,
 }
 
-impl<
-        T: AsDbType,
-        D: hmr::db_type::DbType,
-        A: annotation_builder::AnnotationsDescriptor + annotation_builder::ImplicitNotNull,
-    > Field<T, D, A>
-{
+impl<T: AsDbType, D, M, A> Field<T, D, M, A> {
     /// Reexport [`AsDbType::from_primitive`]
     ///
     /// This method makes macros' syntax slightly cleaner
@@ -271,7 +273,15 @@ impl<
     pub const fn is_not_null(&self) -> bool {
         !T::IS_NULLABLE
     }
+}
 
+impl<
+        T: AsDbType,
+        D,
+        M,
+        A: annotation_builder::AnnotationsDescriptor + annotation_builder::ImplicitNotNull,
+    > Field<T, D, M, A>
+{
     /// This method is called at compile time by the derive macro to perform cross annotation checks.
     pub const fn check_annotations(&self) {
         let mut annotations: rorm_declaration::lints::Annotations = A::FOOTPRINT;
@@ -285,10 +295,11 @@ impl<
 impl<
         T: AsDbType,
         D: hmr::db_type::DbType,
-        A: hmr::annotations::AsImr<Imr = Vec<imr::Annotation>> + annotation_builder::ImplicitNotNull,
-    > From<&'_ Field<T, D, A>> for imr::Field
+        M,
+        A: annotations::AsImr<Imr = Vec<imr::Annotation>> + annotation_builder::ImplicitNotNull,
+    > From<&'_ Field<T, D, M, A>> for imr::Field
 {
-    fn from(field: &'_ Field<T, D, A>) -> Self {
+    fn from(field: &'_ Field<T, D, M, A>) -> Self {
         let mut annotations = field.annotations.as_imr();
         if !T::IS_NULLABLE && !A::IMPLICIT_NOT_NULL {
             annotations.push(imr::Annotation::NotNull);

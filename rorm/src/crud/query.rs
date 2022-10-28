@@ -232,9 +232,9 @@ pub struct SelectTuple<T, const C: usize> {
 }
 macro_rules! impl_select_tuple {
     ($C:literal, ($($index:tt: <$T:ident, $D:ident, $A:ident>,)+)) => {
-        impl<$($T, $D: DbType, $A,)+> SelectTuple<($(Field<$T, $D, $A>,)+), $C> {
+        impl<M: Model, $($T, $D, $A,)+> SelectTuple<($(Field<$T, $D, M, $A>,)+), $C> {
             /// Create a SelectTuple
-            pub const fn new(tuple: &($(Field<$T, $D, $A>,)+)) -> Self {
+            pub const fn new(tuple: &($(Field<$T, $D, M, $A>,)+)) -> Self {
                 Self {
                     tuple: PhantomData,
                     columns: [$(tuple.$index.name),+],
@@ -242,7 +242,7 @@ macro_rules! impl_select_tuple {
             }
         }
         impl<M: Model, $($T: AsDbType, $D: DbType, $A,)+> Selector<M>
-            for SelectTuple<($(Field<$T, $D, $A>,)+), $C>
+            for SelectTuple<($(Field<$T, $D, M, $A>,)+), $C>
         {
             type Result = ($($T,)+);
 

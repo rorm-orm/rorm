@@ -66,7 +66,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
             value_type,
             struct_type,
             construction,
-        }) = parse_field(index, field, &errors)
+        }) = parse_field(index, field, &strct.ident, &errors)
         {
             match (is_primary, primary_field.as_ref()) {
                 (true, None) => primary_field = Some(ident.clone()),
@@ -259,7 +259,12 @@ struct ParsedField {
     struct_type: TokenStream,
     construction: TokenStream,
 }
-fn parse_field(index: usize, field: syn::Field, errors: &Errors) -> Option<ParsedField> {
+fn parse_field(
+    index: usize,
+    field: syn::Field,
+    model_type: &Ident,
+    errors: &Errors,
+) -> Option<ParsedField> {
     let ident = if let Some(ident) = field.ident {
         ident
     } else {
@@ -318,6 +323,7 @@ fn parse_field(index: usize, field: syn::Field, errors: &Errors) -> Option<Parse
             ::rorm::model::Field<
                 #value_type,
                 #db_type,
+                #model_type,
                 #anno_type,
             >
         }),
