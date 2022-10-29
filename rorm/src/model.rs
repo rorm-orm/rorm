@@ -194,7 +194,7 @@ pub const fn contains_index<P: Patch>(field: usize) -> bool {
 ///
 /// This method can't be part of the [`Patch`] trait, since `impl Trait` is not allowed in traits.
 pub fn iter_columns<P: Patch>(patch: &P) -> impl Iterator<Item = Value> {
-    P::INDEXES.iter().map(|&index| patch.get(index)).flatten()
+    P::INDEXES.iter().filter_map(|&index| patch.get(index))
 }
 
 /// Trait implementing most database interactions for a struct.

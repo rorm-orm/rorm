@@ -232,7 +232,7 @@ impl<
 /// #
 /// pub async fn shame_users(db: &Database) {
 ///     for (id, password) in query!(db, (User::F.id, User::F.password)).all().await.unwrap() {
-///         if password.starts_with("password") {
+///         if password == "password" {
 ///             let user = query!(db, User)
 ///                 .condition(User::F.id.equals(id))
 ///                 .one()

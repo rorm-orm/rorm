@@ -11,7 +11,7 @@ use sqlx::any::{AnyPoolOptions, AnyRow};
 use sqlx::mysql::MySqlConnectOptions;
 use sqlx::postgres::PgConnectOptions;
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{query, AnyPool, Row};
+use sqlx::{query, Any, AnyPool, Pool, Row};
 
 use crate::log_sql;
 use crate::migrate::config::{create_db_config, deserialize_db_conf, DatabaseDriver};
@@ -126,14 +126,13 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
     }
 
     let pool_options = AnyPoolOptions::new().min_connections(1).max_connections(10);
-    let pool;
 
-    match &db_conf.driver {
+    let pool: Pool<Any> = match &db_conf.driver {
         DatabaseDriver::SQLite { filename } => {
             let connect_options = SqliteConnectOptions::new()
                 .create_if_missing(true)
                 .filename(filename.as_str());
-            pool = pool_options.connect_with(connect_options.into()).await?;
+            pool_options.connect_with(connect_options.into()).await?
         }
         DatabaseDriver::Postgres {
             name,
@@ -148,7 +147,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                 .username(user.as_str())
                 .password(password.as_str())
                 .database(name.as_str());
-            pool = pool_options.connect_with(connect_options.into()).await?;
+            pool_options.connect_with(connect_options.into()).await?
         }
         DatabaseDriver::MySQL {
             name,
@@ -163,9 +162,9 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                 .username(user.as_str())
                 .password(password.as_str())
                 .database(name.as_str());
-            pool = pool_options.connect_with(connect_options.into()).await?;
+            pool_options.connect_with(connect_options.into()).await?
         }
-    }
+    };
 
     let last_migration_table_name = match db_conf.last_migration_table_name {
         None => String::from("_rorm__last_migration"),

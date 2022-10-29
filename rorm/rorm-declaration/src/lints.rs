@@ -78,7 +78,7 @@ impl Annotations {
         };
 
         // Create Result based on error message length to avoid using Err() in the match expression.
-        if msg.len() > 0 {
+        if !msg.is_empty() {
             Err(msg)
         } else {
             Ok(())
