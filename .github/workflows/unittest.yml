@@ -1,10 +1,9 @@
 name: Run Unittests
 on:
   push:
-    paths:
-    - dorm
-    - rorm
-    - .github/workflows
+    paths-ignore:
+    - "*.md"
+    - docs
   pull_request:
 
 jobs:
