@@ -36,7 +36,7 @@ pub struct Migration {
     pub dependency: Option<u16>,
 
     /// List of migrations this migration replaces
-    pub replaces: Vec<String>,
+    pub replaces: Vec<u16>,
 
     /// The operations to execute
     pub operations: Vec<Operation>,

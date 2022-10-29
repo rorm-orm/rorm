@@ -58,6 +58,8 @@ pub fn convert_file_to_migration(path: &DirEntry) -> anyhow::Result<MigrationFil
 /**
 Helper function to retrieve a sorted list of migrations in a given directory.
 
+This strips also migrations, that were replaced.
+
 `migration_dir`: [&str] The directory to search for files.
 */
 pub fn get_existing_migrations(migration_dir: &str) -> anyhow::Result<Vec<Migration>> {
@@ -90,12 +92,16 @@ pub fn get_existing_migrations(migration_dir: &str) -> anyhow::Result<Vec<Migrat
             )
     });
 
-    let mut migration: Vec<Migration> = vec![];
+    let mut migration_list: Vec<Migration> = vec![];
     for file in &file_list {
-        migration.push(convert_file_to_migration(file)?.migration);
+        let m = convert_file_to_migration(file)?.migration;
+        if !m.replaces.is_empty() {
+            migration_list.retain(|x| !m.replaces.contains(&x.id))
+        }
+        migration_list.push(m);
     }
 
-    Ok(migration)
+    Ok(migration_list)
 }
 
 /**
