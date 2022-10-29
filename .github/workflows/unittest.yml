@@ -1,0 +1,82 @@
+name: Run Unittests
+on: [push, pull_request]
+
+jobs:
+  dubtest:
+    name: Dub Tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        dc: [dmd-latest, ldc-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install D compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ matrix.dc }}
+
+      - name: Run tests
+        run: dub test
+        working-directory: ./dorm
+
+  cargotest:
+    name: Cargo Tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Run CLI tests
+        run: cargo test -p rorm-cli
+        working-directory: ./rorm
+
+      - name: Run DB tests
+        run: cargo test -p rorm-db -F tokio-rustls
+        working-directory: ./rorm
+
+      - name: Run declaration tests
+        run: cargo test -p rorm-declaration
+        working-directory: ./rorm
+
+      - name: Run lib test
+        run: cargo test -p rorm-lib
+        working-directory: ./rorm
+
+      - name: Run macro test
+        run: cargo test -p rorm-macro
+        working-directory: ./rorm
+
+      - name: Run sql tests
+        run: cargo test -p rorm-sql -F sqlite
+        working-directory: ./rorm
+
+      - name: Run root test
+        run: cargo test -F tokio-rustls
+        working-directory: ./rorm
+
+  integration:
+    name: Integration Tests
+    needs: [dubtest]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        dc: [ldc-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install D compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ matrix.dc }}
+
+      - name: Run integration tests
+        run: ./run.sh
+        working-directory: ./dorm/integration-tests/
