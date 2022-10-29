@@ -166,28 +166,28 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
         }
     };
 
-    let last_migration_table_name = match db_conf.last_migration_table_name {
-        None => String::from("_rorm__last_migration"),
-        Some(s) => s,
-    };
+    let last_migration_table_name = db_conf
+        .last_migration_table_name
+        .as_ref()
+        .map_or("_rorm__last_migration", |x| x.as_str());
 
     let db_impl = DBImpl::from(db_conf.driver);
     let statements = db_impl
-        .create_table(last_migration_table_name.as_str())
+        .create_table(last_migration_table_name)
         .add_column(db_impl.create_column(
-            last_migration_table_name.as_str(),
+            last_migration_table_name,
             "id",
             DbType::Int64,
             &[Annotation::PrimaryKey, Annotation::AutoIncrement],
         ))
         .add_column(db_impl.create_column(
-            last_migration_table_name.as_str(),
+            last_migration_table_name,
             "updated_at",
             DbType::DateTime,
             &[Annotation::AutoUpdateTime],
         ))
         .add_column(db_impl.create_column(
-            last_migration_table_name.as_str(),
+            last_migration_table_name,
             "migration_name",
             DbType::VarChar,
             &[Annotation::NotNull, Annotation::MaxLength(255)],
@@ -243,7 +243,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                     db_impl,
                     migration,
                     &pool,
-                    last_migration_table_name.as_str(),
+                    last_migration_table_name,
                     options.log_queries,
                 )
                 .await?;
@@ -259,7 +259,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                             db_impl,
                             migration,
                             &pool,
-                            last_migration_table_name.as_str(),
+                            last_migration_table_name,
                             options.log_queries,
                         )
                         .await?;
@@ -283,7 +283,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
 Can not proceed any further without damaging data.
 To correct, empty the {} table or reset the whole database."#,
                     id.as_str(),
-                    last_migration_table_name.as_str()
+                    last_migration_table_name
                 ));
             }
         }
