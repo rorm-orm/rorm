@@ -9,12 +9,17 @@
 	"dependencies": {
 		"mir-ion": "~>2.1"
 	},
-	"preBuildCommands": ["cp ../rorm/target/release/librorm.a ."],
-	"extraDependencyFiles": [
+	"preBuildCommands-posix": ["cp ../rorm/target/release/librorm.a ."],
+	"preBuildCommands-windows": ["cp ../rorm/target/release/rorm.lib ."],
+	"extraDependencyFiles-posix": [
 		"../rorm/target/release/librorm.a"
 	],
+	"extraDependencyFiles-windows": [
+		"../rorm/target/release/rorm.lib"
+	],
 	"libs": ["rorm"],
-	"lflags": ["-L$PACKAGE_DIR", "-R$PACKAGE_DIR"],
+	"lflags-linux": ["-L$PACKAGE_DIR", "-R$PACKAGE_DIR"],
+	"lflags-osx": ["-L$PACKAGE_DIR"],
 	"description": "A D ORM.",
 	"dflags": [
 		"-lowmem"
