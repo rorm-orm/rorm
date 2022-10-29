@@ -10,46 +10,6 @@ use rorm_declaration::hmr::db_type::DbType;
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
 use crate::model::{AsDbType, Field, Model, Patch};
 
-/// Specifies which columns to query and how to decode the rows into what.
-pub trait Selector<M: Model> {
-    /// Type as which rows should be decoded
-    type Result;
-
-    /// Decode a row
-    fn decode(row: Row) -> Result<Self::Result, Error>;
-
-    /// Columns to query
-    fn columns(&self) -> &[&'static str];
-}
-
-/// The [Selector] for patches.
-///
-/// # Why implement `Selector` on `SelectPatch<P>` instead of `P` directly?
-/// Since a selector is used by reference, it needs a runtime value.
-/// But there wouldn't be any data to create a patch's instance with.
-/// On top of that all that data would be ignored anyway,
-/// because the columns to query are stored in the patch type.
-///
-/// => So create a struct without data to "wrap" the patch type.
-pub struct SelectPatch<P: Patch>(PhantomData<P>);
-impl<P: Patch> SelectPatch<P> {
-    /// Create a SelectPatch
-    pub const fn new() -> Self {
-        SelectPatch(PhantomData)
-    }
-}
-impl<M: Model, P: Patch<Model = M>> Selector<M> for SelectPatch<P> {
-    type Result = P;
-
-    fn decode(row: Row) -> Result<Self::Result, Error> {
-        P::from_row(row)
-    }
-
-    fn columns(&self) -> &[&'static str] {
-        P::COLUMNS
-    }
-}
-
 /// Builder for creating queries
 pub struct QueryBuilder<
     'db,
@@ -65,6 +25,18 @@ pub struct QueryBuilder<
 
     condition: C,
     transaction: T,
+}
+
+/// Specifies which columns to query and how to decode the rows into what.
+pub trait Selector<M: Model> {
+    /// Type as which rows should be decoded
+    type Result;
+
+    /// Decode a row
+    fn decode(row: Row) -> Result<Self::Result, Error>;
+
+    /// Columns to query
+    fn columns(&self) -> &[&'static str];
 }
 
 impl<'db, 'rf, M: Model, S: Selector<M>> QueryBuilder<'db, 'rf, M, S, (), ()> {
@@ -192,7 +164,7 @@ impl<
         })
     }
 
-    /// Try to retrieve and decode the a matching row
+    /// Try to retrieve and decode a matching row
     pub async fn optional(self) -> Result<Option<S::Result>, Error> {
         match self.optional_as_row().await? {
             None => Ok(None),
@@ -205,7 +177,72 @@ impl<
     }
 }
 
-/// Slightly less verbose macro to start a [`QueryBuilder`] from a model or patch
+/// Create a SELECT query.
+///
+/// 1. Give a reference to your db and the patch to query.
+///     If you just need a few fields and don't want to create a patch for it,
+///     you can specify these fields directly as a tuple as well.
+///
+///     `query!(&db, MyModelType)`
+///
+///     `query!(&db, (MyModelType::F.some_field, MyModelType::F.another_field, ))`
+///
+/// 2. Set a condition which rows to query.
+///
+///     `.condition(MyModelType::F.some_field.equals("some_value"))`
+///
+/// 3. *Optionally* add this query to a transaction
+///
+///     `.transaction(&mut tr)`
+///
+/// 4. Finally specify how to get the queries results. This will also execute the query.
+///     - Get [`all`](QueryBuilder::all) matching rows in a vector.
+///
+///         `.all().await`
+///
+///     - Get all matching rows in an async [`stream`](QueryBuilder::stream).
+///
+///         `.steam()`
+///
+///     - Just get exactly [`one`](QueryBuilder::one) row.
+///
+///         `.one().await`
+///
+///     - Get one row if any. ([`optional`](QueryBuilder::optional))
+///
+///         `.optional().await`
+///
+///     Each of these methods decodes the database's rows into the patch you specified in step 1.
+///     If you want to work with raw rows, each of the methods in step 4 has a `*_as_row` twin.
+///
+/// Example:
+/// ```no_run
+/// # use rorm::{Model, Database, query};
+/// #
+/// # #[derive(Model)]
+/// # struct User {
+/// #     #[rorm(id)]
+/// #     id: i64,
+/// #     username: String,
+/// #     password: String,
+/// # }
+/// #
+/// #
+/// # async fn shame_user(_user: &User) {}
+/// #
+/// pub async fn shame_users(db: &Database) {
+///     for (id, password) in query!(db, (User::F.id, User::F.password)).all().await.unwrap() {
+///         if password.starts_with("password") {
+///             let user = query!(db, User)
+///                 .condition(User::F.id.equals(id))
+///                 .one()
+///                 .await
+///                 .unwrap();
+///             shame_user(&user).await;
+///         }
+///     }
+/// }
+/// ```
 #[macro_export]
 macro_rules! query {
     (replace $anything:tt with $result:tt) => { $result };
@@ -215,17 +252,56 @@ macro_rules! query {
             &$crate::crud::query::SelectPatch::<$patch>::new(),
         )
     };
-    ($db:expr, $model:path, ($($field:expr),+$(,)?)) => {
-        $crate::crud::query::QueryBuilder::<$model, _, _, _>::new(
+    ($db:expr, ($($field:expr),+$(,)?)) => {
+        $crate::crud::query::QueryBuilder::new(
             $db,
             &$crate::crud::query::SelectTuple::<_, { 0 $( + $crate::query!(replace {$field} with 1))+ }>::new(&($($field),+)),
         )
     };
 }
 
+/// The [Selector] for patches.
+///
+/// # Why implement `Selector` on `SelectPatch<P>` instead of `P` directly?
+/// Since a selector is used by reference, it needs a runtime value.
+/// But there wouldn't be any data to create a patch's instance with.
+/// On top of that all that data would be ignored anyway,
+/// because the columns to query are stored in the patch type.
+///
+/// => So create a struct without data to "wrap" the patch type.
+pub struct SelectPatch<P: Patch>(PhantomData<P>);
+impl<P: Patch> SelectPatch<P> {
+    /// Create a SelectPatch
+    pub const fn new() -> Self {
+        SelectPatch(PhantomData)
+    }
+}
+impl<M: Model, P: Patch<Model = M>> Selector<M> for SelectPatch<P> {
+    type Result = P;
+
+    fn decode(row: Row) -> Result<Self::Result, Error> {
+        P::from_row(row)
+    }
+
+    fn columns(&self) -> &[&'static str] {
+        P::COLUMNS
+    }
+}
+
 /// The [Selector] for tuple
 ///
 /// Implemented for tuple of size 8 or less.
+///
+/// # Why `SelectTuple<T, const C: usize>`?
+/// Unlike patches (see [SelectPatch]) tuples are just normal datatypes. So why do they need a wrapper?
+///
+/// The [Selector] trait needs to produce a slice of columns to give to the database implementation.
+/// For a patch this is easy since the trait stores it in the associated constant [Patch::COLUMNS].
+/// For tuples the data is there, namely in `Field`'s `name` field, but stored in structs' fields in a tuple, not a simple slice.
+/// So in order to have a slice, these `name` fields have to be copied into some storage.
+/// But since `Selector::columns` just returns a slice, it can't do the copying, because the storage would be dropped immediately.
+///
+/// => So wrap the tuple and add an array of the correct size to copy the columns into.
 pub struct SelectTuple<T, const C: usize> {
     tuple: PhantomData<T>,
     columns: [&'static str; C],
