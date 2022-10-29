@@ -5,8 +5,6 @@ on:
     - dorm
     - rorm
     - .github/workflows
-    paths-ignore:
-    - "*.md"
   pull_request:
 
 jobs:
@@ -26,11 +24,11 @@ jobs:
 
       - name: Package artifact
         if: ${{ matrix.os == "windows-latest" }}
-        run: 7z a -m0=Copy rorm-lib-release-${{matrix.os}}.7z rorm/target/release
+        run: 7z a rorm-lib-release-${{matrix.os}}.7z rorm/target/release
 
       - name: Package artifact
         if: ${{ matrix.os != "windows-latest" }}
-        run: tar cf rorm-lib-release-${{matrix.os}}.tar rorm/target/release
+        run: tar --zstd -cf rorm-lib-release-${{matrix.os}}.tar.zstd rorm/target/release
 
       - uses: actions/upload-artifact@v3
         if: ${{ matrix.os == "windows-latest" }}
@@ -42,7 +40,7 @@ jobs:
         if: ${{ matrix.os != "windows-latest" }}
         with:
           name: rorm-lib-release-${{matrix.os}}
-          path: rorm-lib-release-${{matrix.os}}.tar
+          path: rorm-lib-release-${{matrix.os}}.tar.zstd
 
   build-debug:
     name: Build rorm-lib (debug)
@@ -60,11 +58,11 @@ jobs:
 
       - name: Package artifact
         if: ${{ matrix.os == "windows-latest" }}
-        run: 7z a -m0=Copy rorm-lib-debug-${{matrix.os}}.7z rorm/target/debug
+        run: 7z a rorm-lib-debug-${{matrix.os}}.7z rorm/target/debug
 
       - name: Package artifact
         if: ${{ matrix.os != "windows-latest" }}
-        run: tar cf rorm-lib-debug-${{matrix.os}}.tar rorm/target/debug
+        run: tar --zstd -cf rorm-lib-debug-${{matrix.os}}.tar.zstd rorm/target/debug
 
       - uses: actions/upload-artifact@v3
         if: ${{ matrix.os == "windows-latest" }}
@@ -76,7 +74,7 @@ jobs:
         if: ${{ matrix.os != "windows-latest" }}
         with:
           name: rorm-lib-debug-${{matrix.os}}
-          path: rorm-lib-debug-${{matrix.os}}.tar
+          path: rorm-lib-debug-${{matrix.os}}.tar.zstd
 
   dubtest:
     name: Dub Tests
@@ -99,7 +97,7 @@ jobs:
         if: ${{ matrix.os != "windows-latest" }}
         with:
           name: rorm-lib-release-${{matrix.os}}
-          path: rorm-lib-release-${{matrix.os}}.tar
+          path: rorm-lib-release-${{matrix.os}}.tar.zstd
 
       - name: Extract artifact
         if: ${{ matrix.os == "windows-latest" }}
@@ -107,7 +105,7 @@ jobs:
 
       - name: Extract artifact
         if: ${{ matrix.os != "windows-latest" }}
-        run: tar xvf rorm-lib-release-${{matrix.os}}.tar
+        run: tar xvf rorm-lib-release-${{matrix.os}}.tar.zstd
 
       - name: Install D compiler
         uses: dlang-community/setup-dlang@v1
@@ -138,7 +136,7 @@ jobs:
         if: ${{ matrix.os != "windows-latest" }}
         with:
           name: rorm-lib-debug-${{matrix.os}}
-          path: rorm-lib-debug-${{matrix.os}}.tar
+          path: rorm-lib-debug-${{matrix.os}}.tar.zstd
 
       - name: Extract artifact
         if: ${{ matrix.os == "windows-latest" }}
@@ -146,7 +144,7 @@ jobs:
 
       - name: Extract artifact
         if: ${{ matrix.os != "windows-latest" }}
-        run: tar xvf rorm-lib-debug-${{matrix.os}}.tar
+        run: tar xvf rorm-lib-debug-${{matrix.os}}.tar.zstd
 
       - name: Run CLI tests
         run: cargo test -p rorm-cli
@@ -197,7 +195,7 @@ jobs:
         if: ${{ matrix.os != "windows-latest" }}
         with:
           name: rorm-lib-release-${{matrix.os}}
-          path: rorm-lib-release-${{matrix.os}}.tar
+          path: rorm-lib-release-${{matrix.os}}.tar.zstd
 
       - name: Extract artifact
         if: ${{ matrix.os == "windows-latest" }}
@@ -205,7 +203,7 @@ jobs:
 
       - name: Extract artifact
         if: ${{ matrix.os != "windows-latest" }}
-        run: tar xvf rorm-lib-release-${{matrix.os}}.tar
+        run: tar xvf rorm-lib-release-${{matrix.os}}.tar.zstd
 
       - name: Install D compiler
         uses: dlang-community/setup-dlang@v1
