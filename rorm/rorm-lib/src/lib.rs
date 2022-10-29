@@ -10,7 +10,6 @@ pub mod representations;
 /// Utility functions and structs such as the ffi safe string implementation.
 pub mod utils;
 
-use std::str::Utf8Error;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -24,7 +23,8 @@ use tokio::runtime::Runtime;
 use crate::errors::Error;
 use crate::representations::{Condition, DBConnectOptions, FFIUpdate, FFIValue};
 use crate::utils::{
-    FFIDate, FFIDateTime, FFIOption, FFISlice, FFIString, FFITime, Stream, VoidPtr,
+    get_data_from_row, FFIDate, FFIDateTime, FFIOption, FFISlice, FFIString, FFITime, Stream,
+    VoidPtr,
 };
 
 static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
@@ -1231,7 +1231,6 @@ pub extern "C" fn rorm_db_update(
 // --------
 // ROW VALUE DECODING
 // --------
-
 /**
 Tries to retrieve a bool from the given row pointer.
 
@@ -1248,7 +1247,7 @@ pub extern "C" fn rorm_row_get_bool(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> bool {
-    get_data_from_row!(bool, false, row_ptr, index, error_ptr);
+    get_data_from_row(false, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1267,7 +1266,7 @@ pub extern "C" fn rorm_row_get_i64(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> i64 {
-    get_data_from_row!(i64, i64::MAX, row_ptr, index, error_ptr);
+    get_data_from_row(i64::MAX, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1286,7 +1285,7 @@ pub extern "C" fn rorm_row_get_i32(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> i32 {
-    get_data_from_row!(i32, i32::MAX, row_ptr, index, error_ptr);
+    get_data_from_row(i32::MAX, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1305,7 +1304,7 @@ pub extern "C" fn rorm_row_get_i16(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> i16 {
-    get_data_from_row!(i16, i16::MAX, row_ptr, index, error_ptr);
+    get_data_from_row(i16::MAX, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1324,8 +1323,7 @@ pub extern "C" fn rorm_row_get_binary<'a>(
     index: FFIString<'a>,
     error_ptr: &mut Error,
 ) -> FFISlice<'a, u8> {
-    let s: &[u8] = &[];
-    get_data_from_row!(&[u8], FFISlice::from(s), row_ptr, index, error_ptr);
+    get_data_from_row([0u8; 0].as_slice(), row_ptr, index, error_ptr)
 }
 
 /**
@@ -1344,7 +1342,7 @@ pub extern "C" fn rorm_row_get_f32(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> f32 {
-    get_data_from_row!(f32, f32::NAN, row_ptr, index, error_ptr);
+    get_data_from_row(f32::NAN, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1363,7 +1361,7 @@ pub extern "C" fn rorm_row_get_f64(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> f64 {
-    get_data_from_row!(f64, f64::NAN, row_ptr, index, error_ptr);
+    get_data_from_row(f64::NAN, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1382,7 +1380,7 @@ pub extern "C" fn rorm_row_get_str<'a, 'b>(
     index: FFIString<'_>,
     error_ptr: &'b mut Error,
 ) -> FFIString<'a> {
-    get_data_from_row!(&str, FFIString::from(""), row_ptr, index, error_ptr);
+    get_data_from_row("", row_ptr, index, error_ptr)
 }
 
 /**
@@ -1401,17 +1399,7 @@ pub extern "C" fn rorm_row_get_date(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> FFIDate {
-    get_data_from_row!(
-        chrono::NaiveDate,
-        FFIDate {
-            day: 0,
-            month: 0,
-            year: 0,
-        },
-        row_ptr,
-        index,
-        error_ptr
-    );
+    get_data_from_row(chrono::NaiveDate::MAX, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1430,16 +1418,11 @@ pub extern "C" fn rorm_row_get_time(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> FFITime {
-    get_data_from_row!(
-        chrono::NaiveTime,
-        FFITime {
-            hour: 0,
-            min: 0,
-            sec: 0,
-        },
+    get_data_from_row(
+        chrono::NaiveTime::from_hms(0, 0, 0),
         row_ptr,
         index,
-        error_ptr
+        error_ptr,
     )
 }
 
@@ -1459,19 +1442,11 @@ pub extern "C" fn rorm_row_get_datetime(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> FFIDateTime {
-    get_data_from_row!(
-        chrono::NaiveDateTime,
-        FFIDateTime {
-            year: 0,
-            month: 0,
-            day: 0,
-            hour: 0,
-            min: 0,
-            sec: 0,
-        },
+    get_data_from_row(
+        chrono::NaiveDateTime::new(chrono::NaiveDate::MAX, chrono::NaiveTime::from_hms(0, 0, 0)),
         row_ptr,
         index,
-        error_ptr
+        error_ptr,
     )
 }
 
@@ -1491,7 +1466,7 @@ pub extern "C" fn rorm_row_get_null_bool(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> FFIOption<bool> {
-    get_data_from_row!(Option<bool>, FFIOption::None, row_ptr, index, error_ptr);
+    get_data_from_row(None, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1510,7 +1485,7 @@ pub extern "C" fn rorm_row_get_null_i64(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> FFIOption<i64> {
-    get_data_from_row!(Option<i64>, FFIOption::None, row_ptr, index, error_ptr);
+    get_data_from_row(None, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1529,7 +1504,7 @@ pub extern "C" fn rorm_row_get_null_i32(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> FFIOption<i32> {
-    get_data_from_row!(Option<i32>, FFIOption::None, row_ptr, index, error_ptr);
+    get_data_from_row(None, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1548,7 +1523,7 @@ pub extern "C" fn rorm_row_get_null_i16(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> FFIOption<i16> {
-    get_data_from_row!(Option<i16>, FFIOption::None, row_ptr, index, error_ptr);
+    get_data_from_row(None, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1567,32 +1542,7 @@ pub extern "C" fn rorm_row_get_null_binary<'a>(
     index: FFIString<'a>,
     error_ptr: &mut Error,
 ) -> FFIOption<FFISlice<'a, u8>> {
-    let index_conv: Result<&str, Utf8Error> = index.try_into();
-    if index_conv.is_err() {
-        *error_ptr = Error::InvalidStringError;
-        return FFIOption::None;
-    }
-    let value_res: Result<Option<&[u8]>, rorm_db::error::Error> = row_ptr.get(index_conv.unwrap());
-    if value_res.is_err() {
-        match value_res.err().unwrap() {
-            rorm_db::error::Error::SqlxError(err) => match err {
-                sqlx::Error::ColumnIndexOutOfBounds { .. } => {
-                    *error_ptr = Error::ColumnIndexOutOfBoundsError;
-                }
-                sqlx::Error::ColumnNotFound(_) => {
-                    *error_ptr = Error::ColumnNotFoundError;
-                }
-                sqlx::Error::ColumnDecode { .. } => {
-                    *error_ptr = Error::ColumnDecodeError;
-                }
-                _ => unreachable!("This error case should never occur"),
-            },
-            _ => unreachable!("This error case should never occur"),
-        };
-        return FFIOption::None;
-    }
-
-    match value_res.unwrap() {
+    match get_data_from_row::<Option<&[u8]>, Option<&[u8]>>(None, row_ptr, index, error_ptr) {
         None => FFIOption::None,
         Some(v) => FFIOption::Some(v.into()),
     }
@@ -1614,7 +1564,7 @@ pub extern "C" fn rorm_row_get_null_f32(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> FFIOption<f32> {
-    get_data_from_row!(Option<f32>, FFIOption::None, row_ptr, index, error_ptr);
+    get_data_from_row(None, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1633,7 +1583,7 @@ pub extern "C" fn rorm_row_get_null_f64(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> FFIOption<f64> {
-    get_data_from_row!(Option<f64>, FFIOption::None, row_ptr, index, error_ptr);
+    get_data_from_row(None, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1652,32 +1602,7 @@ pub extern "C" fn rorm_row_get_null_str<'a, 'b>(
     index: FFIString<'_>,
     error_ptr: &'b mut Error,
 ) -> FFIOption<FFIString<'a>> {
-    let index_conv: Result<&str, Utf8Error> = index.try_into();
-    if index_conv.is_err() {
-        *error_ptr = Error::InvalidStringError;
-        return FFIOption::None;
-    }
-    let value_res: Result<Option<&str>, rorm_db::error::Error> = row_ptr.get(index_conv.unwrap());
-    if value_res.is_err() {
-        match value_res.err().unwrap() {
-            rorm_db::error::Error::SqlxError(err) => match err {
-                sqlx::Error::ColumnIndexOutOfBounds { .. } => {
-                    *error_ptr = Error::ColumnIndexOutOfBoundsError;
-                }
-                sqlx::Error::ColumnNotFound(_) => {
-                    *error_ptr = Error::ColumnNotFoundError;
-                }
-                sqlx::Error::ColumnDecode { .. } => {
-                    *error_ptr = Error::ColumnDecodeError;
-                }
-                _ => unreachable!("This error case should never occur"),
-            },
-            _ => unreachable!("This error case should never occur"),
-        };
-        return FFIOption::None;
-    }
-
-    match value_res.unwrap() {
+    match get_data_from_row::<Option<&str>, Option<&str>>(None, row_ptr, index, error_ptr) {
         None => FFIOption::None,
         Some(v) => match v.try_into() {
             Err(_) => {
@@ -1705,13 +1630,7 @@ pub extern "C" fn rorm_row_get_null_date(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> FFIOption<FFIDate> {
-    get_data_from_row!(
-        Option<chrono::NaiveDate>,
-        FFIOption::None,
-        row_ptr,
-        index,
-        error_ptr
-    );
+    get_data_from_row::<Option<chrono::NaiveDate>, _>(None, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1730,13 +1649,7 @@ pub extern "C" fn rorm_row_get_null_time(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> FFIOption<FFITime> {
-    get_data_from_row!(
-        Option<chrono::NaiveTime>,
-        FFIOption::None,
-        row_ptr,
-        index,
-        error_ptr
-    );
+    get_data_from_row::<Option<chrono::NaiveTime>, _>(None, row_ptr, index, error_ptr)
 }
 
 /**
@@ -1755,11 +1668,5 @@ pub extern "C" fn rorm_row_get_null_datetime(
     index: FFIString<'_>,
     error_ptr: &mut Error,
 ) -> FFIOption<FFIDateTime> {
-    get_data_from_row!(
-        Option<chrono::NaiveDateTime>,
-        FFIOption::None,
-        row_ptr,
-        index,
-        error_ptr
-    );
+    get_data_from_row::<Option<chrono::NaiveDateTime>, _>(None, row_ptr, index, error_ptr)
 }

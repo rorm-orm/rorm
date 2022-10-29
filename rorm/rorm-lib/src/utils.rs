@@ -4,6 +4,7 @@ use std::str::{from_utf8, Utf8Error};
 
 use chrono::{Datelike, Timelike};
 use futures::stream::BoxStream;
+use rorm_db::Row;
 
 use crate::Error;
 
@@ -274,45 +275,53 @@ macro_rules! spawn_fut {
 }
 
 /**
-This macro is used to simplify the retrieval of cells from a row.
+This function is used to simplify the retrieval of cells from a row.
 
 **Parameter**:
-- `$data_type`: The type to build the conversion for.
-- `$default_value`: The default value to insert in case of an error.
-- `$row_ptr`: The pointer to a row
-- `$index`: Name of the column to retrieve the value from
-- `$callback`: The callback to execute. Must be of the form fn(VoidPtr, $data_type, Error) -> ()
-- `$context`: Pass through void pointer
-*/
-#[macro_export]
-macro_rules! get_data_from_row {
-    ($data_type:ty, $default_value:expr, $row_ptr:expr, $index:expr, $error:expr) => {{
-        let index_conv: Result<&str, Utf8Error> = $index.try_into();
-        if index_conv.is_err() {
-            *$error = Error::InvalidStringError;
-            return $default_value;
+- `D`: The type to decode from db.
+- `R`: The type to return.
+- `default`: The default value to return in case of an error.
+- `row`: Pointer to a row.
+- `index`: Name of the column to retrieve the value from.
+- `error`: Pointer to write errors to.
+ */
+pub(crate) fn get_data_from_row<
+    'r,
+    D: sqlx::Decode<'r, sqlx::Any> + sqlx::Type<sqlx::Any>,
+    R: From<D>,
+>(
+    default: D,
+    row: &'r Row,
+    index: FFIString<'_>,
+    error: &mut Error,
+) -> R {
+    let index = match index.try_into() {
+        Ok(index) => index,
+        Err(_) => {
+            *error = Error::InvalidStringError;
+            return default.into();
         }
-        let value_res: Result<$data_type, rorm_db::error::Error> =
-            $row_ptr.get(index_conv.unwrap());
-        if value_res.is_err() {
-            match value_res.err().unwrap() {
+    };
+
+    match row.get::<D, &str>(index) {
+        Ok(value) => value.into(),
+        Err(err) => {
+            match err {
                 rorm_db::error::Error::SqlxError(err) => match err {
                     sqlx::Error::ColumnIndexOutOfBounds { .. } => {
-                        *$error = Error::ColumnIndexOutOfBoundsError;
+                        *error = Error::ColumnIndexOutOfBoundsError;
                     }
                     sqlx::Error::ColumnNotFound(_) => {
-                        *$error = Error::ColumnNotFoundError;
+                        *error = Error::ColumnNotFoundError;
                     }
                     sqlx::Error::ColumnDecode { .. } => {
-                        *$error = Error::ColumnDecodeError;
+                        *error = Error::ColumnDecodeError;
                     }
                     _ => unreachable!("This error case should never occur"),
                 },
                 _ => unreachable!("This error case should never occur"),
             };
-            return $default_value;
+            default.into()
         }
-
-        return value_res.unwrap().into();
-    }};
+    }
 }
