@@ -6,7 +6,6 @@ pub mod squash_migrations;
 pub mod utils;
 
 use clap::{ArgAction, Parser, Subcommand};
-use tokio;
 
 use crate::make_migrations::{run_make_migrations, MakeMigrationsOptions};
 use crate::migrate::{run_migrate, MigrateOptions};
@@ -58,7 +57,12 @@ enum Commands {
     },
 
     #[clap(about = "Squash migrations")]
-    SquashMigrations {},
+    SquashMigrations {
+        #[clap(short = 'm', long = "migration-dir")]
+        #[clap(default_value_t = String::from("./migrations/"))]
+        #[clap(help = "Destination to / from which migrations are written / read.")]
+        migration_dir: String,
+    },
 
     #[clap(about = "Merge migrations")]
     MergeMigrations {},
@@ -105,6 +109,7 @@ async fn main() -> anyhow::Result<()> {
             })
             .await?;
         }
+        Some(Commands::SquashMigrations { migration_dir }) => {}
         _ => {}
     }
     Ok(())
