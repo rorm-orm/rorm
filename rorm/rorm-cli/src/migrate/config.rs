@@ -4,6 +4,7 @@ use std::io::Write;
 use std::path::Path;
 
 use anyhow::Context;
+use rorm_declaration::config::{DatabaseConfig, DatabaseDriver};
 use rorm_sql::DBImpl;
 use serde::{Deserialize, Serialize};
 
@@ -17,50 +18,14 @@ pub struct DatabaseConfigFile {
 }
 
 /**
-The representation of all supported DB drivers
- */
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "Driver")]
-pub enum DatabaseDriver {
-    #[serde(rename_all = "PascalCase")]
-    SQLite { filename: String },
-    #[serde(rename_all = "PascalCase")]
-    Postgres {
-        name: String,
-        host: String,
-        port: u16,
-        user: String,
-        password: String,
-    },
-    #[serde(rename_all = "PascalCase")]
-    MySQL {
-        name: String,
-        host: String,
-        port: u16,
-        user: String,
-        password: String,
-    },
-}
-
-impl From<DatabaseDriver> for DBImpl {
-    fn from(v: DatabaseDriver) -> Self {
-        match v {
-            DatabaseDriver::SQLite { .. } => DBImpl::SQLite,
-            DatabaseDriver::Postgres { .. } => DBImpl::Postgres,
-            DatabaseDriver::MySQL { .. } => DBImpl::MySQL,
-        }
-    }
-}
-
-/**
-The configuration struct for database related settings
+Converts the [DatabaseDriver] to [DBImpl]
 */
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
-pub struct DatabaseConfig {
-    #[serde(flatten)]
-    pub driver: DatabaseDriver,
-    pub last_migration_table_name: Option<String>,
+pub fn convert_db_driver_to_db_impl(v: DatabaseDriver) -> DBImpl {
+    match v {
+        DatabaseDriver::SQLite { .. } => DBImpl::SQLite,
+        DatabaseDriver::Postgres { .. } => DBImpl::Postgres,
+        DatabaseDriver::MySQL { .. } => DBImpl::MySQL,
+    }
 }
 
 const EXAMPLE_DATABASE_CONFIG: &str = r#"[Database]

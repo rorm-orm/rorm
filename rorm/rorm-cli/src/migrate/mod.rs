@@ -4,6 +4,7 @@ pub mod sql_builder;
 use std::path::Path;
 
 use anyhow::{anyhow, Context};
+use rorm_declaration::config::DatabaseDriver;
 use rorm_declaration::imr::{Annotation, DbType};
 use rorm_declaration::migration::Migration;
 use rorm_sql::DBImpl;
@@ -14,7 +15,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query, Any, AnyPool, Pool, Row};
 
 use crate::log_sql;
-use crate::migrate::config::{create_db_config, deserialize_db_conf, DatabaseDriver};
+use crate::migrate::config::{convert_db_driver_to_db_impl, create_db_config, deserialize_db_conf};
 use crate::migrate::sql_builder::migration_to_sql;
 use crate::utils::bind;
 use crate::utils::migrations::get_existing_migrations;
@@ -171,7 +172,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
         .as_ref()
         .map_or("_rorm__last_migration", |x| x.as_str());
 
-    let db_impl = DBImpl::from(db_conf.driver);
+    let db_impl = convert_db_driver_to_db_impl(db_conf.driver);
     let statements = db_impl
         .create_table(last_migration_table_name)
         .add_column(db_impl.create_column(
