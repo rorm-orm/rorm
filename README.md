@@ -1,6 +1,6 @@
 # rorm
 
-[![Run Unittests](https://github.com/myOmikron/drorm/actions/workflows/unittest.yml/badge.svg)](https://github.com/myOmikron/drorm/actions/workflows/unittest.yml)
+![Crates.io](https://img.shields.io/crates/v/rorm) ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/myOmikron/drorm/Run%20Unittests) 
 
 `rorm` is an ORM (Object Relation Mapper) written in Rust.
 
