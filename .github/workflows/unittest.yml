@@ -2,8 +2,27 @@ name: Run Unittests
 on: [push, pull_request]
 
 jobs:
-  build-lib:
-    name: Build rorm-lib
+  build-release:
+    name: Build rorm-lib (release)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build rorm-lib (release)
+        run: cargo build -p rorm-lib -r
+        working-directory: ./rorm
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: rorm-lib-release-${{matrix.os}}
+          path: rorm/target/release/
+
+  build-debug:
+    name: Build rorm-lib (debug)
     strategy:
       fail-fast: false
       matrix:
@@ -16,18 +35,14 @@ jobs:
         run: cargo build -p rorm-lib
         working-directory: ./rorm
 
-      - name: Build rorm-lib (release)
-        run: cargo build -p rorm-lib -r
-        working-directory: ./rorm
-
       - uses: actions/upload-artifact@v3
         with:
-          name: rorm-lib-${{matrix.os}}
-          path: rorm/target/
+          name: rorm-lib-debug-${{matrix.os}}
+          path: rorm/target/debug/
 
   dubtest:
-    needs: build-lib
     name: Dub Tests
+    needs: [build-debug, build-release]
     strategy:
       fail-fast: false
       matrix:
@@ -39,8 +54,12 @@ jobs:
 
       - uses: actions/download-artifact@v3
         with:
-          name: rorm-lib-${{matrix.os}}
-          path: rorm/target/
+          name: rorm-lib-release-${{matrix.os}}
+          path: rorm/target/release/
+      - uses: actions/download-artifact@v3
+        with:
+          name: rorm-lib-debug-${{matrix.os}}
+          path: rorm/target/debug/
 
       - name: Install D compiler
         uses: dlang-community/setup-dlang@v1
@@ -56,8 +75,8 @@ jobs:
         working-directory: ./dorm
 
   cargotest:
-    needs: build-lib
     name: Cargo Tests
+    needs: [build-debug, build-release]
     strategy:
       fail-fast: false
       matrix:
@@ -68,8 +87,12 @@ jobs:
 
       - uses: actions/download-artifact@v3
         with:
-          name: rorm-lib-${{matrix.os}}
-          path: rorm/target/
+          name: rorm-lib-release-${{matrix.os}}
+          path: rorm/target/release/
+      - uses: actions/download-artifact@v3
+        with:
+          name: rorm-lib-debug-${{matrix.os}}
+          path: rorm/target/debug/
 
       - name: Run CLI tests
         run: cargo test -p rorm-cli
@@ -110,6 +133,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: rorm-lib-release-${{matrix.os}}
+          path: rorm/target/release/
+      - uses: actions/download-artifact@v3
+        with:
+          name: rorm-lib-debug-${{matrix.os}}
+          path: rorm/target/debug/
 
       - name: Install D compiler
         uses: dlang-community/setup-dlang@v1
