@@ -18,6 +18,10 @@ jobs:
         with:
           compiler: ${{ matrix.dc }}
 
+      - name: Build rorm-lib
+        run: cargo build -p rorm-lib -r
+        working-directory: ./rorm
+
       - name: Run tests
         run: dub test
         working-directory: ./dorm
@@ -62,7 +66,7 @@ jobs:
 
   integration:
     name: Integration Tests
-    needs: [dubtest]
+    needs: [dubtest, cargotest]
     strategy:
       fail-fast: false
       matrix:
