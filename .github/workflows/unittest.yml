@@ -1,5 +1,13 @@
 name: Run Unittests
-on: [push, pull_request]
+on:
+  push:
+    paths:
+    - dorm
+    - rorm
+    - .github/workflows
+    paths-ignore:
+    - "*.md"
+  pull_request:
 
 jobs:
   build-release:
@@ -16,10 +24,25 @@ jobs:
         run: cargo build -p rorm-lib -r
         working-directory: ./rorm
 
+      - name: Package artifact
+        if: ${{ matrix.os == "windows-latest" }}
+        run: 7z a rorm-lib-release-${{matrix.os}}.7z rorm/target/release
+
+      - name: Package artifact
+        if: ${{ matrix.os != "windows-latest" }}
+        run: tar --zstd -cf rorm-lib-release-${{matrix.os}}.tar.zstd rorm/target/release
+
       - uses: actions/upload-artifact@v3
+        if: ${{ matrix.os == "windows-latest" }}
         with:
           name: rorm-lib-release-${{matrix.os}}
-          path: rorm/target/release/
+          path: rorm-lib-release-${{matrix.os}}.7z
+
+      - uses: actions/upload-artifact@v3
+        if: ${{ matrix.os != "windows-latest" }}
+        with:
+          name: rorm-lib-release-${{matrix.os}}
+          path: rorm-lib-release-${{matrix.os}}.tar.zstd
 
   build-debug:
     name: Build rorm-lib (debug)
@@ -35,10 +58,25 @@ jobs:
         run: cargo build -p rorm-lib
         working-directory: ./rorm
 
+      - name: Package artifact
+        if: ${{ matrix.os == "windows-latest" }}
+        run: 7z a rorm-lib-debug-${{matrix.os}}.7z rorm/target/debug
+
+      - name: Package artifact
+        if: ${{ matrix.os != "windows-latest" }}
+        run: tar --zstd -cf rorm-lib-debug-${{matrix.os}}.tar.zstd rorm/target/debug
+
       - uses: actions/upload-artifact@v3
+        if: ${{ matrix.os == "windows-latest" }}
         with:
           name: rorm-lib-debug-${{matrix.os}}
-          path: rorm/target/debug/
+          path: rorm-lib-debug-${{matrix.os}}.7z
+
+      - uses: actions/upload-artifact@v3
+        if: ${{ matrix.os != "windows-latest" }}
+        with:
+          name: rorm-lib-debug-${{matrix.os}}
+          path: rorm-lib-debug-${{matrix.os}}.tar.zstd
 
   dubtest:
     name: Dub Tests
@@ -53,18 +91,28 @@ jobs:
       - uses: actions/checkout@v3
 
       - uses: actions/download-artifact@v3
+        if: ${{ matrix.os == "windows-latest" }}
         with:
           name: rorm-lib-release-${{matrix.os}}
-          path: rorm/target/release/
+          path: rorm-lib-release-${{matrix.os}}.7z
+      - uses: actions/download-artifact@v3
+        if: ${{ matrix.os != "windows-latest" }}
+        with:
+          name: rorm-lib-release-${{matrix.os}}
+          path: rorm-lib-release-${{matrix.os}}.tar.zstd
+
+      - name: Extract artifact
+        if: ${{ matrix.os == "windows-latest" }}
+        run: 7z x rorm-lib-release-${{matrix.os}}.7z
+
+      - name: Extract artifact
+        if: ${{ matrix.os != "windows-latest" }}
+        run: tar xvf rorm-lib-release-${{matrix.os}}.tar.zstd
 
       - name: Install D compiler
         uses: dlang-community/setup-dlang@v1
         with:
           compiler: ${{ matrix.dc }}
-
-      - name: Build rorm-lib
-        run: cargo build -p rorm-lib -r
-        working-directory: ./rorm
 
       - name: Run tests
         run: dub test
@@ -82,9 +130,23 @@ jobs:
       - uses: actions/checkout@v3
 
       - uses: actions/download-artifact@v3
+        if: ${{ matrix.os == "windows-latest" }}
         with:
           name: rorm-lib-debug-${{matrix.os}}
-          path: rorm/target/debug/
+          path: rorm-lib-debug-${{matrix.os}}.7z
+      - uses: actions/download-artifact@v3
+        if: ${{ matrix.os != "windows-latest" }}
+        with:
+          name: rorm-lib-debug-${{matrix.os}}
+          path: rorm-lib-debug-${{matrix.os}}.tar.zstd
+
+      - name: Extract artifact
+        if: ${{ matrix.os == "windows-latest" }}
+        run: 7z x rorm-lib-debug-${{matrix.os}}.7z
+
+      - name: Extract artifact
+        if: ${{ matrix.os != "windows-latest" }}
+        run: tar xvf rorm-lib-debug-${{matrix.os}}.tar.zstd
 
       - name: Run CLI tests
         run: cargo test -p rorm-cli
@@ -127,9 +189,23 @@ jobs:
       - uses: actions/checkout@v3
 
       - uses: actions/download-artifact@v3
+        if: ${{ matrix.os == "windows-latest" }}
         with:
           name: rorm-lib-release-${{matrix.os}}
-          path: rorm/target/release/
+          path: rorm-lib-release-${{matrix.os}}.7z
+      - uses: actions/download-artifact@v3
+        if: ${{ matrix.os != "windows-latest" }}
+        with:
+          name: rorm-lib-release-${{matrix.os}}
+          path: rorm-lib-release-${{matrix.os}}.tar.zstd
+
+      - name: Extract artifact
+        if: ${{ matrix.os == "windows-latest" }}
+        run: 7z x rorm-lib-release-${{matrix.os}}.7z
+
+      - name: Extract artifact
+        if: ${{ matrix.os != "windows-latest" }}
+        run: tar xvf rorm-lib-release-${{matrix.os}}.tar.zstd
 
       - name: Install D compiler
         uses: dlang-community/setup-dlang@v1
