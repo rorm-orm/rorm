@@ -69,17 +69,17 @@ enum Commands {
 }
 
 #[derive(Parser)]
-#[clap(version = "0.1.0", about = "CLI tool for drorm", long_about = None)]
+#[clap(version = "0.1.0", about = "CLI tool for rorm", long_about = None)]
 #[clap(arg_required_else_help = true)]
-#[clap(name = "drorm")]
-struct CLI {
+#[clap(name = "rorm-cli")]
+struct Cli {
     #[clap(subcommand)]
     command: Option<Commands>,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let cli: CLI = CLI::parse();
+    let cli: Cli = Cli::parse();
 
     match cli.command {
         Some(Commands::MakeMigrations {

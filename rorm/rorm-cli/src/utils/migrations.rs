@@ -49,13 +49,8 @@ pub fn convert_file_to_migration(path: &DirEntry) -> anyhow::Result<MigrationFil
         )
     })?;
 
-    migration.migration.id = path
-        .path()
-        .file_stem()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_string();
+    migration.migration.id = path.path().file_stem().unwrap().to_str().unwrap()[..4].parse()?;
+    migration.migration.name = path.path().file_stem().unwrap().to_str().unwrap()[5..].to_string();
 
     Ok(migration)
 }

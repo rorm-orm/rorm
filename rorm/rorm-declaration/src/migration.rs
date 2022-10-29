@@ -26,10 +26,14 @@ pub struct Migration {
 
     /// ID of the migration, derived from filename
     #[serde(skip)]
-    pub id: String,
+    pub id: u16,
+
+    /// Name of the migration, derived from filename
+    #[serde(skip)]
+    pub name: String,
 
     /// Migration this migration depends on
-    pub dependency: String,
+    pub dependency: Option<u16>,
 
     /// List of migrations this migration replaces
     pub replaces: Vec<String>,

@@ -90,6 +90,8 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
     internal_models.hash(&mut hasher);
     let h = hasher.finish();
 
+    let mut new_migration = None;
+
     if !existing_migrations.is_empty() {
         let last_migration = &existing_migrations[existing_migrations.len() - 1];
 
@@ -102,15 +104,8 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
         let constructed = convert_migrations_to_internal_models(&existing_migrations)
             .with_context(|| "Error while parsing existing migration files")?;
 
-        let mut last_id: u16 = last_migration.id[..4]
-            .parse()
-            .with_context(|| "Failed converting name of migration to int")?;
-        last_id += 1;
-
-        let name = match options.name {
-            None => format!("{:04}_placeholder", last_id),
-            Some(n) => format!("{:04}_{}", last_id, n),
-        };
+        let last_id: u16 = last_migration.id + 1;
+        let name = options.name.as_ref().map_or("placeholder", |x| x.as_str());
 
         let mut op: Vec<Operation> = vec![];
 
@@ -351,35 +346,30 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             });
         });
 
-        let new_migration = Migration {
+        new_migration = Some(Migration {
             hash: h.to_string(),
             initial: false,
-            id: name.clone(),
-            dependency: last_migration.id.clone(),
+            id: last_id,
+            name: name.to_string(),
+            dependency: Some(last_migration.id),
             replaces: vec![],
             operations: op,
-        };
-
-        // Write migration to disk
-        let path = Path::new(options.migration_dir.as_str()).join(format!("{}.toml", name));
-        convert_migration_to_file(new_migration, &path)
-            .with_context(|| "Error occurred while converting migration to file")?;
+        });
     } else {
         // If there are no models yet, no migrations must be created
         if internal_models.models.is_empty() {
             println!("No models found.");
         // New migration must be generated as no migration exists
         } else {
-            let name = match options.name {
-                None => "0001_initial".to_string(),
-                Some(n) => format!("0001_{}", n),
-            };
-
-            let new_migration = Migration {
+            new_migration = Some(Migration {
                 hash: h.to_string(),
                 initial: true,
-                id: name.clone(),
-                dependency: "".to_string(),
+                id: 1,
+                name: match &options.name {
+                    None => "initial".to_string(),
+                    Some(n) => n.clone(),
+                },
+                dependency: None,
                 replaces: vec![],
                 operations: internal_models
                     .models
@@ -402,13 +392,16 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                         o
                     })
                     .collect(),
-            };
-
-            // Write migration to disk
-            let path = Path::new(options.migration_dir.as_str()).join(format!("{}.toml", name));
-            convert_migration_to_file(new_migration, &path)
-                .with_context(|| "Error occurred while converting migration to file")?;
+            });
         }
+    }
+
+    if let Some(migration) = new_migration {
+        // Write migration to disk
+        let path = Path::new(options.migration_dir.as_str())
+            .join(format!("{:04}_{}.toml", migration.id, &migration.name));
+        convert_migration_to_file(migration, &path)
+            .with_context(|| "Error occurred while converting migration to file")?;
     }
 
     println!("Done.");

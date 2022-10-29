@@ -65,8 +65,8 @@ pub async fn apply_migration(
     let (query_string, bind_params) = dialect
         .insert(
             last_migration_table_name,
-            &["migration_name"],
-            &[&[rorm_sql::value::Value::String(migration.id.as_str())]],
+            &["migration_id"],
+            &[&[rorm_sql::value::Value::I32(migration.id as i32)]],
         )
         .rollback_transaction()
         .build();
@@ -87,7 +87,7 @@ pub async fn apply_migration(
         )
     })?;
 
-    println!("Applied migration {}", migration.id.as_str());
+    println!("Applied migration {:04}_{}", migration.id, migration.name);
     Ok(())
 }
 
@@ -189,9 +189,9 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
         ))
         .add_column(db_impl.create_column(
             last_migration_table_name,
-            "migration_name",
-            DbType::VarChar,
-            &[Annotation::NotNull, Annotation::MaxLength(255)],
+            "migration_id",
+            DbType::Int32,
+            &[Annotation::NotNull],
         ))
         .if_not_exists()
         .build()?;
@@ -219,10 +219,10 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
         .await
         .with_context(|| "Couldn't create internal last migration table")?;
 
-    let last_migration: Option<String> = query(
+    let last_migration: Option<i32> = query(
         log_sql!(
             format!(
-                "SELECT migration_name FROM {} ORDER BY id DESC LIMIT 1;",
+                "SELECT migration_id FROM {} ORDER BY id DESC LIMIT 1;",
                 &last_migration_table_name
             ),
             options.log_queries
@@ -251,6 +251,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
             }
         }
         Some(id) => {
+            let id = id as u16;
             // Search for last applied migration
             if existing_migrations.iter().any(|x| x.id == id) {
                 let mut apply = false;
@@ -283,7 +284,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
  
 Can not proceed any further without damaging data.
 To correct, empty the {} table or reset the whole database."#,
-                    id.as_str(),
+                    id,
                     last_migration_table_name
                 ));
             }
