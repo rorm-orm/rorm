@@ -12,6 +12,7 @@ use crate::model::{iter_columns, Model, Patch};
 /// Is is recommended to start a builder using [insert!].
 ///
 /// [insert!]: macro@crate::insert
+#[must_use]
 pub struct InsertBuilder<'db: 'rf, 'rf, P: Patch, T: TransactionMarker<'rf, 'db>> {
     db: &'db Database,
     transaction: T,

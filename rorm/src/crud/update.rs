@@ -28,6 +28,7 @@ impl<'a> ColumnsMarker for () {}
 /// Is is recommended to start a builder using [update!].
 ///
 /// [update!]: macro@crate::update
+#[must_use]
 pub struct UpdateBuilder<
     'db: 'rf,
     'rf,

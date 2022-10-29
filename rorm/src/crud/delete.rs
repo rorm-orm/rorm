@@ -17,6 +17,7 @@ use crate::model::Model;
 /// Is is recommended to start a builder using [delete!].
 ///
 /// [delete!]: macro@crate::delete
+#[must_use]
 pub struct DeleteBuilder<
     'db: 'rf,
     'rf,

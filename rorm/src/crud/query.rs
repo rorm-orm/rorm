@@ -10,7 +10,12 @@ use rorm_declaration::hmr::db_type::DbType;
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
 use crate::model::{AsDbType, Field, Model, Patch};
 
-/// Builder for creating queries
+/// Builder for select queries
+///
+/// Is is recommended to start a builder using [query!].
+///
+/// [query!]: macro@crate::query
+#[must_use]
 pub struct QueryBuilder<
     'db,
     'a,
