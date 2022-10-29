@@ -419,7 +419,7 @@ private struct IonDBAnnotation
 {
 	JsonAlgebraic data;
 
-	this(DBAnnotation a)
+	this(DBAnnotation a) @safe
 	{
 		a.match!(
 			(AnnotationFlag f) {
