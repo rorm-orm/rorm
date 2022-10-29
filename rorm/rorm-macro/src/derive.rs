@@ -55,6 +55,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let span = proc_macro2::Span::call_site();
 
     let mut primary_field: Option<Ident> = None;
+    let mut fields_vis = Vec::new();
     let mut fields_ident = Vec::new();
     let mut fields_value_type = Vec::new();
     let mut fields_struct_type = Vec::new();
@@ -62,6 +63,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
     for (index, field) in strct.fields.into_iter().enumerate() {
         if let Some(ParsedField {
             is_primary,
+            vis,
             ident,
             value_type,
             struct_type,
@@ -76,6 +78,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
                 ),
                 _ => {}
             }
+            fields_vis.push(vis);
             fields_ident.push(ident);
             fields_value_type.push(value_type);
             fields_struct_type.push(struct_type);
@@ -103,13 +106,14 @@ pub fn model(strct: TokenStream) -> TokenStream {
     // File, line and column the struct was defined in
     let model_source = get_source(&span);
 
+    let vis = strct.vis;
     let model = strct.ident;
     let impl_patch = trait_impls::patch(&model, &model, &fields_ident);
     let impl_try_from_row = trait_impls::try_from_row(&model, &model, &fields_ident);
     TokenStream::from(quote! {
         #[allow(non_camel_case_types)]
-        pub struct #fields_struct {
-            #(pub #fields_ident: #fields_struct_type),*
+        #vis struct #fields_struct {
+            #(#fields_vis #fields_ident: #fields_struct_type),*
         }
 
         impl ::rorm::model::Model for #model {
@@ -254,6 +258,7 @@ pub fn patch(strct: TokenStream) -> TokenStream {
 
 struct ParsedField {
     is_primary: bool,
+    vis: syn::Visibility,
     ident: Ident,
     value_type: syn::Type,
     struct_type: TokenStream,
@@ -338,5 +343,6 @@ fn parse_field(
         }),
         ident,
         value_type,
+        vis: field.vis,
     })
 }
