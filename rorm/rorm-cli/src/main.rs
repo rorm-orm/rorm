@@ -9,6 +9,7 @@ use clap::{ArgAction, Parser, Subcommand};
 
 use crate::make_migrations::{run_make_migrations, MakeMigrationsOptions};
 use crate::migrate::{run_migrate, MigrateOptions};
+use crate::squash_migrations::squash_migrations;
 
 #[derive(Subcommand)]
 enum Commands {
@@ -62,6 +63,12 @@ enum Commands {
         #[clap(default_value_t = String::from("./migrations/"))]
         #[clap(help = "Destination to / from which migrations are written / read.")]
         migration_dir: String,
+
+        #[clap(help = "First migration to start squashing from.")]
+        first_migration: u16,
+
+        #[clap(help = "Last migration to squash.")]
+        last_migration: u16,
     },
 
     #[clap(about = "Merge migrations")]
@@ -109,7 +116,13 @@ async fn main() -> anyhow::Result<()> {
             })
             .await?;
         }
-        Some(Commands::SquashMigrations { migration_dir }) => {}
+        Some(Commands::SquashMigrations {
+            migration_dir,
+            first_migration,
+            last_migration,
+        }) => {
+            squash_migrations(migration_dir, first_migration, last_migration).await?;
+        }
         _ => {}
     }
     Ok(())
