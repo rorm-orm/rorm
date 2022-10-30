@@ -55,18 +55,11 @@ pub fn convert_file_to_migration(path: &DirEntry) -> anyhow::Result<MigrationFil
     Ok(migration)
 }
 
-/**
-Helper function to retrieve a sorted list of migrations in a given directory.
-
-This strips also migrations, that were replaced.
-
-`migration_dir`: [&str] The directory to search for files.
-*/
-pub fn get_existing_migrations(migration_dir: &str) -> anyhow::Result<Vec<Migration>> {
+pub(crate) fn get_migration_files(migration_dir: &str) -> anyhow::Result<Vec<DirEntry>> {
     let dir_entries =
         read_dir(migration_dir).with_context(|| "Error while searching the migration directory")?;
 
-    let mut file_list: Vec<DirEntry> = dir_entries
+    let file_list: Vec<DirEntry> = dir_entries
         .filter(|x| {
             x.as_ref().unwrap().file_type().unwrap().is_file()
                 && RE.migration_allowed_name.is_match(
@@ -81,24 +74,86 @@ pub fn get_existing_migrations(migration_dir: &str) -> anyhow::Result<Vec<Migrat
         .map(|x| x.unwrap())
         .collect();
 
-    file_list.sort_by(|x, y| {
-        x.file_name().into_string().unwrap()[0..4]
-            .parse::<u16>()
-            .unwrap()
-            .cmp(
-                &y.file_name().into_string().unwrap()[0..4]
-                    .parse::<u16>()
-                    .unwrap(),
-            )
-    });
+    Ok(file_list)
+}
+
+/**
+Helper function to retrieve a sorted list of migrations in a given directory.
+
+This strips also migrations, that were replaced.
+
+**Parameter**:
+- `migration_dir`: [&str] The directory to search for files.
+this point onwards.
+*/
+pub fn get_existing_migrations(migration_dir: &str) -> anyhow::Result<Vec<Migration>> {
+    let migrations = get_all_existing_migrations(migration_dir)?;
 
     let mut migration_list: Vec<Migration> = vec![];
-    for file in &file_list {
-        let m = convert_file_to_migration(file)?.migration;
-        if !m.replaces.is_empty() {
-            migration_list.retain(|x| !m.replaces.contains(&x.id))
+
+    // Filter out migrations that replace migrations
+    for m in migrations {
+        if m.replaces.is_empty() {
+            migration_list.push(m);
         }
-        migration_list.push(m);
+    }
+
+    let mut sorted_migration_list: Vec<Migration> = vec![];
+
+    let mut current_id = None;
+    loop {
+        match current_id {
+            None => {
+                if let Some(&initial) = migration_list
+                    .iter()
+                    .filter(|x| x.initial)
+                    .collect::<Vec<&Migration>>()
+                    .first()
+                {
+                    current_id = Some(initial.id);
+                    sorted_migration_list.push(initial.clone());
+                    continue;
+                }
+            }
+            Some(curr) => {
+                if let Some(&next) = migration_list
+                    .iter()
+                    .filter(|x| {
+                        if let Some(dependency) = x.dependency {
+                            dependency == curr
+                        } else {
+                            false
+                        }
+                    })
+                    .collect::<Vec<&Migration>>()
+                    .first()
+                {
+                    current_id = Some(next.id);
+                    sorted_migration_list.push(next.clone());
+                    continue;
+                }
+            }
+        }
+        break;
+    }
+
+    if sorted_migration_list.len() != migration_list.len() {
+        return Err(anyhow!("Migrations does not assemble to a coherent list."));
+    }
+
+    Ok(sorted_migration_list)
+}
+
+/**
+Helper function to retrieve an unsorted list of **all** migrations in a given directory.
+
+`migration_dir`: [&str] The directory to search for files.
+ */
+pub fn get_all_existing_migrations(migration_dir: &str) -> anyhow::Result<Vec<Migration>> {
+    let file_list = get_migration_files(migration_dir)?;
+    let mut migration_list: Vec<Migration> = vec![];
+    for file in &file_list {
+        migration_list.push(convert_file_to_migration(file)?.migration);
     }
 
     Ok(migration_list)
@@ -142,9 +197,9 @@ pub fn convert_migrations_to_internal_models(
                 Ok(())
             }
             Operation::CreateField { model, field } => {
-                for i in 0..m.len() {
-                    if m[i].name == *model {
-                        m[i].fields.push(field.clone());
+                for i in &mut m {
+                    if i.name == *model {
+                        i.fields.push(field.clone());
                     }
                 }
                 Ok(())
@@ -177,9 +232,9 @@ pub fn convert_migrations_to_internal_models(
                 Ok(())
             }
             Operation::DeleteField { model, name } => {
-                for i in 0..m.len() {
-                    if m[i].name == *model {
-                        m[i].fields.retain(|z| z.name != *name);
+                for i in &mut m {
+                    if i.name == *model {
+                        i.fields.retain(|z| z.name != *name);
                     }
                 }
                 Ok(())
@@ -198,4 +253,91 @@ To use the make-migrations feature again, delete all RawSQL operations."#
     res?;
 
     Ok(InternalModelFormat { models: m })
+}
+
+#[cfg(test)]
+mod test {
+    use std::path::Path;
+
+    use rorm_declaration::migration::Migration;
+    use temp_dir::TempDir;
+
+    use crate::utils::migrations::{convert_migration_to_file, get_existing_migrations};
+
+    #[test]
+    fn test_get_existing_migrations_non_initial() {
+        let tmp = TempDir::new().expect("Could not create a temporary directory");
+        let p = tmp.path().join("0001_not_initial.toml");
+
+        let migration = Migration {
+            hash: "".to_string(),
+            initial: false,
+            id: 0,
+            name: "".to_string(),
+            dependency: None,
+            replaces: vec![],
+            operations: vec![],
+        };
+
+        convert_migration_to_file(migration, Path::new(p.to_str().unwrap()))
+            .expect("Could not write to file");
+
+        assert!(get_existing_migrations(tmp.path().to_str().unwrap()).is_err());
+    }
+
+    #[test]
+    fn test_get_existing_migrations_initial() {
+        let tmp = TempDir::new().expect("Could not create a temporary directory");
+        let p = tmp.path().join("0001_initial.toml");
+
+        let migration = Migration {
+            hash: "".to_string(),
+            initial: true,
+            id: 0,
+            name: "".to_string(),
+            dependency: None,
+            replaces: vec![],
+            operations: vec![],
+        };
+
+        convert_migration_to_file(migration, Path::new(p.to_str().unwrap()))
+            .expect("Could not write to file");
+
+        assert!(get_existing_migrations(tmp.path().to_str().unwrap()).is_ok());
+    }
+
+    #[test]
+    fn test_get_existing_migrations_multiple_connected() {
+        let tmp = TempDir::new().expect("Could not create a temporary directory");
+        let p = tmp.path().join("0001_initial.toml");
+        let p_2 = tmp.path().join("00002_foobar.toml");
+
+        let migration = Migration {
+            hash: "".to_string(),
+            initial: true,
+            id: 0,
+            name: "".to_string(),
+            dependency: None,
+            replaces: vec![],
+            operations: vec![],
+        };
+
+        convert_migration_to_file(migration, Path::new(p.to_str().unwrap()))
+            .expect("Could not write to file");
+
+        let migration = Migration {
+            hash: "".to_string(),
+            initial: false,
+            id: 0,
+            name: "".to_string(),
+            dependency: Some(1),
+            replaces: vec![],
+            operations: vec![],
+        };
+
+        convert_migration_to_file(migration, Path::new(p_2.to_str().unwrap()))
+            .expect("Could not write to file");
+
+        assert!(get_existing_migrations(tmp.path().to_str().unwrap()).is_ok());
+    }
 }

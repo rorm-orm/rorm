@@ -42,6 +42,10 @@ tokio = { version = "~1.21" }
 # Enum simplification
 strum = { version = "~0.24" }
 
+[dev-dependencies]
+# Creating and clearing temporary directories
+temp-dir = { version = "~0.1" }
+
 [features]
 default = [
     "sqlx/runtime-tokio-rustls",
