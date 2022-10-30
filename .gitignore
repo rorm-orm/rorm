@@ -30,3 +30,4 @@ rorm/**/target/
 database.toml
 *.h
 *.hpp
+.vagrant/
