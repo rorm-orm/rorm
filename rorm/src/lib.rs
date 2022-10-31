@@ -62,6 +62,9 @@ pub use rorm_macro::*;
 pub use rorm_declaration::hmr;
 pub use rorm_declaration::imr;
 
+// Reexported for use in parser structs of user
+pub use rorm_declaration::config;
+
 /// This module implements a struct to build and store annotations
 pub mod annotation_builder;
 /// Module implementing methods to [`Condition`] based on [`Field<T>`]
