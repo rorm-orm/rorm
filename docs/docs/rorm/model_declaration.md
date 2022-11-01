@@ -31,10 +31,11 @@ struct User {
 
 ## Annotations
 Annotations are the extra information defined in the `#[rorm(..)]` attributes.
-Some of them map directly to SQL annotations while other are purly for orm purposes.
+Some of them map directly to SQL annotations while other are purely for orm purposes.
 
 ### `autoincrement`
-The `autoincrement` annotation instructs the database to populate the field using a running counter when creating the rows of this model.
+The `autoincrement` annotation instructs the database to populate the
+field using a running counter when creating the rows of this model.
 
 ```rust
 #[derive(rorm::Model)]
@@ -47,7 +48,9 @@ struct Order {
 ```
 
 ### `auto_create_time` and `auto_update_time`
-You can utilize the annotations `auto_create_time` and `auto_update_time` to automatically set the current time on creation or on update of the model to the annotated field.
+You can utilize the annotations `auto_create_time` and `auto_update_time` to
+automatically set the current time on creation or on update of the model
+to the annotated field.
 
 ```rust
 #[derive(rorm::Model)]
@@ -63,7 +66,7 @@ struct File {
 ```
 
 ### `choices`
-The choices annotation is used to turn a String into a enum by enumerating all available values.
+The `choices` annotation is used to turn a String into an enum by enumerating all available values.
 
 If you prefer actual rust enums, you might want to look at `rorm::DbEnum`.
 
@@ -78,7 +81,9 @@ struct Car {
 ```
 
 ### `default`
-A value to populate this field with if a new model instance is created without mentioning this field.
+A default value to populate this field with, if a new model instance
+is created without mentioning this field. Note that you need a patch
+struct to utilize its advantage in the Rust code.
 
 ```rust
 #[derive(rorm::Model)]

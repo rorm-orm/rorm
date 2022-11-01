@@ -81,7 +81,7 @@ Make sure to have the CLI utility `rorm-cli` available:
 cargo install -f cargo-make rorm-cli
 ```
 
-Head over to [project setup](project_setup) for more details,
+Head over to [project setup](project_setup.md) for more details,
 especially if you encounter outdated issues in the CLI tools.
 
 ## Define a model
@@ -104,7 +104,7 @@ pub struct User {
 This simple example shows how to define a new database model in `rorm`. Just
 derive from `Model` and annotate the attributes of the struct with additional
 information. Some fields, for example strings, have mandatory annotations
-(in this case, `max_length`). See [model declaration](model_declaration)
+(in this case, `max_length`). See [model declaration](model_declaration.md)
 for further details.
 
 Since Rust structs don't provide default values, you can use special "patch
@@ -148,14 +148,14 @@ It requires the `rorm-main` feature to be set up properly
 rorm-cli make-migrations
 ```
 
-Otherwise, if you configured the commands as outlined [here](project_setup),
+Otherwise, if you configured the commands as outlined [here](project_setup.md),
 it's also possible to invoke those `rorm` CLI commands via `cargo make <cmd>`.
 
 This command will read the previously generated JSON file `.models.json`
 to compute the required database migrations as TOML files in the
 directory `migrations/`. Note that those TOML files need to be processed
 by yet another CLI utility later. Head over to the docs for those
-[migration files](../migrations/migration_files) for details about
+[migration files](../migrations/migration_files.md) for details about
 the file format.
 
 ### Configure the database connection
