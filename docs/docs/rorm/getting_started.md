@@ -97,7 +97,7 @@ pub struct User {
     #[rorm(max_length = 255)]
     pub(crate) username: String,
 
-    pub(crate) age: u8
+    pub(crate) age: i16
 }
 ```
 
@@ -106,6 +106,24 @@ derive from `Model` and annotate the attributes of the struct with additional
 information. Some fields, for example strings, have mandatory annotations
 (in this case, `max_length`). See [model declaration](model_declaration)
 for further details.
+
+Since Rust structs don't provide default values, you can use special "patch
+structs" that allow you to omit all but the specified values. Those patch
+structs come in handy to omit auto-generated or default values (e.g., the ID):
+
+```rust
+use rorm::Patch;
+
+#[derive(Clone, Debug, Patch)]
+#[rorm(model = "User")]
+pub(crate) struct UserNew {
+    pub(crate) username: String,
+    pub(crate) age: i16,
+}
+```
+
+There's a full example using the model as well as the creation
+patch at the [bottom of this page](#use-the-database-crud).
 
 ## Set up a database and migrations
 
@@ -173,3 +191,101 @@ Afterwards, the model has been transformed into a database table `users`.
 
 Use `--database-config` to specify an alternative location
 for the previously mentioned configuration file.
+
+## Use the database: CRUD
+
+The following snippet illustrates how to read the aforementioned config
+file to connect to the database, query all users and update, insert and
+delete some. Note that this is just the most basic functionality, but
+`rorm` will provide a lot more functionality in the future:
+
+```rust
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
+pub struct ConfigFile {
+    pub database: rorm::config::DatabaseConfig,
+    // more configuration parameters depending on your application ...
+}
+
+#[rorm::rorm_main]
+#[tokio::main]
+async fn main() {
+    // Read the config from a TOML file
+    let path = "config.toml";
+    let db_conf_file = toml::from_str::<ConfigFile>(
+        std::fs::read_to_string(&path)
+            .expect("File read error")
+            .as_str(),
+    )
+    .expect("Couldn't deserialize configuration file");
+
+    // Get a DB configuration from the deserialized TOML file
+    let db_conf = match db_conf_file.database.driver {
+        rorm::config::DatabaseDriver::SQLite { filename } => rorm::DatabaseConfiguration {
+            backend: rorm::DatabaseBackend::SQLite,
+            name: filename,
+            host: "".to_string(),
+            port: 0,
+            user: "".to_string(),
+            password: "".to_string(),
+            min_connections: 1,
+            max_connections: 1,
+        },
+        _ => panic!("omitted for simplicity"),
+    };
+
+    // Connect to the database to get the database handle
+    let db = rorm::Database::connect(db_conf)
+        .await
+        .expect("error connecting to the database");
+
+    // Query all users from the database
+    for user in rorm::query!(&db, User)
+        .all()
+        .await
+        .expect("querying failed")
+    {
+        println!(
+            "User {} '{}' is {} years old",
+            user.id, user.username, user.age
+        )
+    }
+
+    // Add three new users to the database
+    rorm::insert!(&db, UserNew)
+        .bulk(&[
+            UserNew {
+                username: "foo".to_string(),
+                age: 42,
+            },
+            UserNew {
+                username: "bar".to_string(),
+                age: 0,
+            },
+            UserNew {
+                username: "baz".to_string(),
+                age: 1337,
+            },
+        ])
+        .await;
+
+    // Update the second user by increasing its age
+    let all_users = rorm::query!(&db, User).all().await.expect("error");
+    rorm::update!(&db, User)
+        .set(User::FIELDS.age, all_users[2].age + 1)
+        .condition(User::FIELDS.id.equals(all_users[2].id))
+        .await
+        .expect("error");
+
+    // Delete some user with age 69 or older than 100 years
+    let zero_aged_user = rorm::query!(&db, User)
+        .condition(rorm::or!(
+            User::FIELDS.age.greater(100),
+            User::F.age.equals(69)
+        ))
+        .one()
+        .await
+        .expect("error");
+    rorm::delete!(&db, User).single(&zero_aged_user).await;
+}
+```
