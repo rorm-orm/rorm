@@ -207,7 +207,7 @@ impl<
 ///
 ///     - Get all matching rows in an async [`stream`](QueryBuilder::stream).
 ///
-///         `.steam()`
+///         `.stream()`
 ///
 ///     - Just get exactly [`one`](QueryBuilder::one) row.
 ///
