@@ -1,9 +1,14 @@
 use std::fmt::{Display, Formatter};
 
 #[cfg(any(feature = "postgres", feature = "sqlite"))]
-use crate::{value, Annotation, DBImpl};
+use rorm_declaration::imr::Annotation;
 #[cfg(feature = "sqlite")]
 use rorm_declaration::imr::DbType;
+
+#[cfg(feature = "sqlite")]
+use crate::DBImpl;
+#[cfg(any(feature = "sqlite", feature = "postgres"))]
+use crate::Value;
 
 /**
 Representation of a point in time definition of a create trigger statement
@@ -55,81 +60,85 @@ impl Display for SQLCreateTriggerOperation {
     }
 }
 
-#[cfg(any(feature = "sqlite", feature = "postgres"))]
-pub(crate) fn trigger_annotation_to_trigger(
-    dialect: DBImpl,
+// TODO: Make this more beautiful :D
+#[cfg(feature = "postgres")]
+pub(crate) fn trigger_annotation_to_trigger_postgres(
     annotation: &Annotation,
-    #[cfg(feature = "sqlite")] db_type: &DbType,
     table_name: &str,
     column_name: &str,
-    statements: &mut Vec<(String, Vec<value::Value>)>,
+    statements: &mut Vec<(String, Vec<Value>)>,
 ) {
-    match dialect {
-        #[cfg(feature = "sqlite")]
-        DBImpl::SQLite => match annotation {
-            Annotation::AutoUpdateTime => {
-                let update_statement = format!(
-                    "UPDATE {} SET {} = {} WHERE ROWID = NEW.ROWID;",
-                    table_name,
-                    column_name,
-                    match db_type {
-                        DbType::Date => "CURRENT_DATE",
-                        DbType::DateTime => "CURRENT_TIMESTAMP",
-                        DbType::Timestamp => "CURRENT_TIMESTAMP",
-                        DbType::Time => "CURRENT_TIME",
-                        _ => "",
-                    }
-                );
-                statements.push((
-                    dialect
-                        .create_trigger(
-                            format!("{}_{}_auto_update_time", table_name, column_name).as_str(),
-                            table_name,
-                            Some(SQLCreateTriggerPointInTime::After),
-                            SQLCreateTriggerOperation::Update { columns: None },
-                        )
-                        .for_each_row()
-                        .if_not_exists()
-                        .add_statement(update_statement.clone())
-                        .build(),
+    match annotation {
+        Annotation::AutoUpdateTime => {
+            statements.push(
+                (
+                    format!(
+                        "CREATE OR REPLACE FUNCTION {}_{}_auto_update_time_update_procedure() RETURNS TRIGGER AS $$ BEGIN NEW.{} = now(); RETURN NEW; END; $$ language 'plpgsql';",
+                        table_name,
+                        column_name,
+                        column_name,
+                    ),
                     vec![],
-                ))
-            }
-            _ => {}
-        },
-        #[cfg(feature = "mysql")]
-        DBImpl::MySQL => {}
-        #[cfg(feature = "postgres")]
-        DBImpl::Postgres => match annotation {
-            Annotation::AutoUpdateTime => {
-                statements.push(
-                    (
-                        format!(
-                            "CREATE OR REPLACE FUNCTION {}_{}_auto_update_time_update_procedure() RETURNS TRIGGER AS $$ BEGIN NEW.{} = now(); RETURN NEW; END; $$ language 'plpgsql';",
-                            table_name,
-                            column_name,
-                            column_name,
-                        ),
-                        vec![],
+                )
+            );
+            statements.push(
+                (
+                    format!(
+                        "CREATE OR REPLACE TRIGGER {}_{}_auto_update_time_update BEFORE UPDATE ON \"{}\" FOR EACH ROW WHEN (OLD IS DISTINCT FROM NEW) EXECUTE PROCEDURE {}_{}_auto_update_time_update_procedure();",
+                        table_name,
+                        column_name,
+                        table_name,
+                        table_name,
+                        column_name,
+                    ),
+                    vec![],
+                )
+            );
+        }
+        _ => {}
+    }
+}
+
+// TODO: Make this more beautiful :D
+#[cfg(feature = "sqlite")]
+pub(crate) fn trigger_annotation_to_trigger_sqlite(
+    annotation: &Annotation,
+    db_type: &DbType,
+    table_name: &str,
+    column_name: &str,
+    statements: &mut Vec<(String, Vec<Value>)>,
+) {
+    match annotation {
+        Annotation::AutoUpdateTime => {
+            let update_statement = format!(
+                "UPDATE {} SET {} = {} WHERE ROWID = NEW.ROWID;",
+                table_name,
+                column_name,
+                match db_type {
+                    DbType::Date => "CURRENT_DATE",
+                    DbType::DateTime => "CURRENT_TIMESTAMP",
+                    DbType::Timestamp => "CURRENT_TIMESTAMP",
+                    DbType::Time => "CURRENT_TIME",
+                    _ => "",
+                }
+            );
+            statements.push((
+                DBImpl::SQLite
+                    .create_trigger(
+                        format!("{}_{}_auto_update_time", table_name, column_name).as_str(),
+                        table_name,
+                        Some(SQLCreateTriggerPointInTime::After),
+                        SQLCreateTriggerOperation::Update { columns: None },
                     )
-                );
-                statements.push(
-                    (
-                        format!(
-                            "CREATE OR REPLACE TRIGGER {}_{}_auto_update_time_update BEFORE UPDATE ON \"{}\" FOR EACH ROW WHEN (OLD IS DISTINCT FROM NEW) EXECUTE PROCEDURE {}_{}_auto_update_time_update_procedure();",
-                            table_name,
-                            column_name,
-                            table_name,
-                            table_name,
-                            column_name,
-                        ),
-                        vec![],
-                    )
-                );
-            }
-            _ => {}
-        },
-    };
+                    .for_each_row()
+                    .if_not_exists()
+                    .add_statement(update_statement.clone())
+                    .build(),
+                vec![],
+            ))
+        }
+        _ => {}
+    }
 }
 
 /**

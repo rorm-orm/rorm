@@ -34,10 +34,10 @@ mod db_specific;
 
 use rorm_declaration::imr::{Annotation, DbType};
 
-use crate::alter_table::{SQLAlterTable, SQLAlterTableOperation};
-use crate::create_column::{SQLAnnotation, SQLCreateColumn};
-use crate::create_index::SQLCreateIndex;
-use crate::create_table::SQLCreateTable;
+use crate::alter_table::{AlterTable, AlterTableData, AlterTableImpl, AlterTableOperation};
+use crate::create_column::{CreateColumnImpl, SQLAnnotation};
+use crate::create_index::{CreateIndex, CreateIndexData, CreateIndexImpl};
+use crate::create_table::{CreateTable, CreateTableData, CreateTableImpl};
 use crate::create_trigger::{
     SQLCreateTrigger, SQLCreateTriggerOperation, SQLCreateTriggerPointInTime,
 };
@@ -48,6 +48,13 @@ use crate::on_conflict::OnConflict;
 use crate::select::{Select, SelectData, SelectImpl};
 use crate::update::{Update, UpdateData, UpdateImpl};
 use crate::value::Value;
+
+#[cfg(feature = "mysql")]
+use crate::create_column::CreateColumnMySQLData;
+#[cfg(feature = "postgres")]
+use crate::create_column::CreateColumnPostgresData;
+#[cfg(feature = "sqlite")]
+use crate::create_column::CreateColumnSQLiteData;
 
 /**
 The main interface for creating sql strings
@@ -72,14 +79,28 @@ impl DBImpl {
     `name`: [&str]: Name of the table
     `db_name`: [&str]: Name of the database.
     */
-    pub fn create_table<'post_build>(&self, name: &str) -> SQLCreateTable<'post_build> {
-        SQLCreateTable {
-            dialect: *self,
-            name: name.to_string(),
+    pub fn create_table<'until_build, 'post_build>(
+        &self,
+        name: &'until_build str,
+    ) -> impl CreateTable<'until_build, 'post_build>
+    where
+        'post_build: 'until_build,
+    {
+        let d = CreateTableData {
+            name,
             columns: vec![],
             if_not_exists: false,
             lookup: vec![],
             statements: vec![],
+        };
+
+        match self {
+            #[cfg(feature = "sqlite")]
+            DBImpl::SQLite => CreateTableImpl::SQLite(d),
+            #[cfg(feature = "mysql")]
+            DBImpl::MySQL => CreateTableImpl::MySQL(d),
+            #[cfg(feature = "postgres")]
+            DBImpl::Postgres => CreateTableImpl::Postgres(d),
         }
     }
 
@@ -115,14 +136,27 @@ impl DBImpl {
     `name`: [&str]: Name of the index.
     `table_name`: [&str]: Table to create the index on.
     */
-    pub fn create_index(&self, name: &str, table_name: &str) -> SQLCreateIndex {
-        SQLCreateIndex {
-            name: name.to_string(),
-            table_name: table_name.to_string(),
+    pub fn create_index<'until_build>(
+        &self,
+        name: &'until_build str,
+        table_name: &'until_build str,
+    ) -> impl CreateIndex<'until_build> {
+        let d = CreateIndexData {
+            name,
+            table_name,
             unique: false,
             if_not_exists: false,
             columns: vec![],
             condition: None,
+        };
+
+        match self {
+            #[cfg(feature = "sqlite")]
+            DBImpl::SQLite => CreateIndexImpl::Sqlite(d),
+            #[cfg(feature = "mysql")]
+            DBImpl::MySQL => CreateIndexImpl::MySQL(d),
+            #[cfg(feature = "postgres")]
+            DBImpl::Postgres => CreateIndexImpl::Postgres(d),
         }
     }
 
@@ -155,17 +189,28 @@ impl DBImpl {
     `name`: [&str]: Name of the table to execute the operation on.
     `operation`: [crate::alter_table::SQLAlterTableOperation]: The operation to execute.
     */
-    pub fn alter_table<'post_build>(
+    pub fn alter_table<'until_build, 'post_build>(
         &self,
-        name: &str,
-        operation: SQLAlterTableOperation<'post_build>,
-    ) -> SQLAlterTable<'post_build> {
-        SQLAlterTable {
-            dialect: *self,
-            name: name.to_string(),
+        name: &'until_build str,
+        operation: AlterTableOperation<'until_build, 'post_build>,
+    ) -> impl AlterTable<'post_build> + 'until_build
+    where
+        'post_build: 'until_build,
+    {
+        let d = AlterTableData {
+            name,
             operation,
             lookup: vec![],
             statements: vec![],
+        };
+
+        match self {
+            #[cfg(feature = "sqlite")]
+            DBImpl::SQLite => AlterTableImpl::SQLite(d),
+            #[cfg(feature = "mysql")]
+            DBImpl::MySQL => AlterTableImpl::MySQL(d),
+            #[cfg(feature = "postgres")]
+            DBImpl::Postgres => AlterTableImpl::Postgres(d),
         }
     }
 
@@ -177,13 +222,13 @@ impl DBImpl {
     - `data_type`: [DbType]: Data type of the column
     - `annotations`: [Vec<Annotation>]: List of annotations.
     */
-    pub fn create_column<'post_build>(
+    pub fn create_column<'until_build, 'post_build>(
         &self,
-        table_name: &str,
-        name: &str,
+        #[cfg(any(feature = "sqlite", feature = "postgres"))] table_name: &'until_build str,
+        name: &'until_build str,
         data_type: DbType,
         annotations: &'post_build [Annotation],
-    ) -> SQLCreateColumn<'post_build> {
+    ) -> CreateColumnImpl<'until_build, 'post_build> {
         // Sort the annotations
         let mut a = vec![];
 
@@ -199,12 +244,32 @@ impl DBImpl {
             }
         }
 
-        SQLCreateColumn {
-            dialect: *self,
-            name: name.to_string(),
-            table_name: table_name.to_string(),
-            data_type,
-            annotations: a,
+        match self {
+            #[cfg(feature = "sqlite")]
+            DBImpl::SQLite => CreateColumnImpl::SQLite(CreateColumnSQLiteData {
+                name,
+                table_name,
+                data_type,
+                annotations: a,
+                statements: None,
+                lookup: None,
+            }),
+            #[cfg(feature = "mysql")]
+            DBImpl::MySQL => CreateColumnImpl::MySQL(CreateColumnMySQLData {
+                name,
+                data_type,
+                annotations: vec![],
+                statements: None,
+                lookup: None,
+            }),
+            #[cfg(feature = "postgres")]
+            DBImpl::Postgres => CreateColumnImpl::Postgres(CreateColumnPostgresData {
+                name,
+                table_name,
+                data_type,
+                annotations: vec![],
+                statements: None,
+            }),
         }
     }
 

@@ -1,5 +1,7 @@
 use rorm_declaration::migration::{Migration, Operation};
-use rorm_sql::alter_table::SQLAlterTableOperation;
+use rorm_sql::alter_table::AlterTable;
+use rorm_sql::alter_table::AlterTableOperation;
+use rorm_sql::create_table::CreateTable;
 use rorm_sql::drop_table::DropTable;
 use rorm_sql::DBImpl;
 use sqlx::{Any, Transaction};
@@ -50,7 +52,7 @@ pub async fn migration_to_sql<'a>(
                 let statements = db_impl
                     .alter_table(
                         old.as_str(),
-                        SQLAlterTableOperation::RenameTo {
+                        AlterTableOperation::RenameTo {
                             name: new.to_string(),
                         },
                     )
@@ -81,7 +83,7 @@ pub async fn migration_to_sql<'a>(
                 let statements = db_impl
                     .alter_table(
                         model.as_str(),
-                        SQLAlterTableOperation::AddColumn {
+                        AlterTableOperation::AddColumn {
                             operation: db_impl.create_column(
                                 model.as_str(),
                                 field.name.as_str(),
@@ -112,7 +114,7 @@ pub async fn migration_to_sql<'a>(
                 let statements = db_impl
                     .alter_table(
                         table_name.as_str(),
-                        SQLAlterTableOperation::RenameColumnTo {
+                        AlterTableOperation::RenameColumnTo {
                             column_name: old.to_string(),
                             new_column_name: new.to_string(),
                         },
@@ -135,7 +137,7 @@ pub async fn migration_to_sql<'a>(
                 let statements = db_impl
                     .alter_table(
                         model.as_str(),
-                        SQLAlterTableOperation::DropColumn { name: name.clone() },
+                        AlterTableOperation::DropColumn { name: name.clone() },
                     )
                     .build()?;
 

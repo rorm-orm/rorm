@@ -7,6 +7,7 @@ use anyhow::{anyhow, Context};
 use rorm_declaration::config::DatabaseDriver;
 use rorm_declaration::imr::{Annotation, DbType};
 use rorm_declaration::migration::Migration;
+use rorm_sql::create_table::CreateTable;
 use rorm_sql::insert::Insert;
 use rorm_sql::DBImpl;
 use sqlx::any::{AnyPoolOptions, AnyRow};
