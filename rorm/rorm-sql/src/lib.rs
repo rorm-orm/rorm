@@ -1,13 +1,16 @@
 //! The module should be used to create sql queries for different SQL dialects.
 #![warn(missing_docs)]
 
+#[cfg(not(any(feature = "sqlite", feature = "postgres", feature = "mysql")))]
+compile_error!("One of the features sqlite, postgres, mysql must be activated");
+
 /// Implementation of SQL ALTER TABLE statements
 pub mod alter_table;
 ///This module defines the conditional statements
 pub mod conditional;
 /// Implementation of SQL CREATE COLUMN statements
 pub mod create_column;
-/// Implementation of SQL CREATE INDEX statements
+/// Implementation of SQL CREATE INDEX
 pub mod create_index;
 /// Implementation of SQL CREATE TABLE statements
 pub mod create_table;
