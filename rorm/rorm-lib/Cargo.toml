@@ -1,6 +1,6 @@
 [package]
 name = "rorm-lib"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 keywords = ["database", "library"]
 authors = ["myOmikron <git@omikron.dev>"]
@@ -16,7 +16,7 @@ name = "rorm"
 crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
-rorm-db = { version = "0.1.0", path = "../rorm-db" }
+rorm-db = { version = "~0.2", path = "../rorm-db" }
 
 # Runtime to execute the async context in
 tokio = { version = "^1.21" }

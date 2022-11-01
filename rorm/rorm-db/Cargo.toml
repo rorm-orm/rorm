@@ -1,6 +1,6 @@
 [package]
 name = "rorm-db"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 categories = ["database"]
 keywords = ["async", "orm", "database", "orm"]
@@ -23,7 +23,7 @@ futures = { version = "^0.3" }
 
 # SQL executor. Optional because it requires a runtime and a TLS implementation.
 # A compile error will be thrown if no runtime is chosen.
-sqlx = { version = "^0.6" }
+sqlx = { version = "^0.6", optional = true }
 
 # Error library to simplify the std::error::Error trait
 thiserror = { version = "^1.0" }
@@ -47,29 +47,29 @@ all-driver = [
 ]
 
 mysql = [
-    "sqlx/mysql",
+    "sqlx?/mysql",
     "rorm-sql/mysql",
 ]
 postgres = [
-    "sqlx/postgres",
+    "sqlx?/postgres",
     "rorm-sql/postgres",
 ]
 sqlite = [
-    "sqlx/sqlite",
+    "sqlx?/sqlite",
     "rorm-sql/sqlite"
 ]
 
 sqlx-all-extensions = [
-    "sqlx/uuid",
-    "sqlx/chrono",
-    "sqlx/time",
-    "sqlx/bstr",
-    "sqlx/bigdecimal",
-    "sqlx/decimal",
-    "sqlx/ipnetwork",
-    "sqlx/json",
-    "sqlx/any",
-    "sqlx/tls",
+    "sqlx?/uuid",
+    "sqlx?/chrono",
+    "sqlx?/time",
+    "sqlx?/bstr",
+    "sqlx?/bigdecimal",
+    "sqlx?/decimal",
+    "sqlx?/ipnetwork",
+    "sqlx?/json",
+    "sqlx?/any",
+    "sqlx?/tls",
 ]
 
 async-std = []

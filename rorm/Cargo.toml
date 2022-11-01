@@ -11,7 +11,7 @@ members = [
 
 [package]
 name = "rorm"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 repository = "https://github.com/myOmikron/drorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
@@ -37,9 +37,9 @@ linkme = { version = "~0.3" }
 # Time and date library
 chrono = { version = "~0.4" }
 
-rorm-db = { version = "0.1.0", path = "./rorm-db" }
-rorm-macro = { version = "0.1.0", path = "./rorm-macro" }
-rorm-declaration = { version = "0.2.0", path = "./rorm-declaration" }
+rorm-db = { version = "~0.2", path = "./rorm-db" }
+rorm-macro = { version = "~0.2", path = "./rorm-macro" }
+rorm-declaration = { version = "~0.2", path = "./rorm-declaration" }
 
 [package.metadata.docs.rs]
 features = ["async-std-rustls"]
