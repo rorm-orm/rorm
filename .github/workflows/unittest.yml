@@ -27,7 +27,7 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
+            rorm/target/
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-release
 
       - name: Build rorm-lib (release)
@@ -54,7 +54,7 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
+            rorm/target/
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-debug
 
       - name: Build rorm-lib (debug)
@@ -83,7 +83,7 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
+            rorm/target/
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-release
 
       - name: Build rorm-lib (release)
@@ -120,7 +120,7 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
+            rorm/target/
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-debug
 
       - name: Run CLI tests
@@ -173,7 +173,7 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
+            rorm/target/
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-release
 
       - name: Build rorm-lib (release)
