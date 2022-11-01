@@ -1,22 +1,13 @@
 use std::fmt::Write;
 
-use crate::conditional::BuildCondition;
+use crate::conditional::{BuildCondition, Condition};
 use crate::error::Error;
-use crate::{conditional, value, DBImpl, OnConflict};
+use crate::{OnConflict, Value};
 
 /**
-Implementation of SQLs UPDATE statement.
+Trait representing a update builder.
 */
-pub struct SQLUpdate<'until_build, 'post_build> {
-    pub(crate) dialect: DBImpl,
-    pub(crate) model: &'until_build str,
-    pub(crate) on_conflict: OnConflict,
-    pub(crate) updates: Vec<(&'until_build str, value::Value<'post_build>)>,
-    pub(crate) where_clause: Option<&'until_build conditional::Condition<'post_build>>,
-    pub(crate) lookup: Vec<value::Value<'post_build>>,
-}
-
-impl<'until_build, 'post_build> SQLUpdate<'until_build, 'post_build> {
+pub trait Update<'until_build, 'post_build> {
     /**
     Turns on ROLLBACK mode.
 
@@ -26,21 +17,12 @@ impl<'until_build, 'post_build> SQLUpdate<'until_build, 'post_build> {
     The default case is to just stop the transaction, but not rollback any
     prior successful executed queries.
      */
-    pub fn rollback_transaction(mut self) -> Self {
-        self.on_conflict = OnConflict::ROLLBACK;
-        self
-    }
+    fn rollback_transaction(self) -> Self;
 
     /**
-    Adds a [conditional::Condition] to the update query.
+    Adds a [Condition] to the update query.
      */
-    pub fn where_clause(
-        mut self,
-        condition: &'until_build conditional::Condition<'post_build>,
-    ) -> Self {
-        self.where_clause = Some(condition);
-        self
-    }
+    fn where_clause(self, condition: &'until_build Condition<'post_build>) -> Self;
 
     /**
     Add an update
@@ -48,15 +30,8 @@ impl<'until_build, 'post_build> SQLUpdate<'until_build, 'post_build> {
     **Parameter**:
     - `column_name`: The column name to set the value to.
     - `column_value`: The value to set the column to.
-    */
-    pub fn add_update(
-        mut self,
-        column_name: &'until_build str,
-        column_value: value::Value<'post_build>,
-    ) -> Self {
-        self.updates.push((column_name, column_value));
-        self
-    }
+     */
+    fn add_update(self, column_name: &'until_build str, column_value: Value<'post_build>) -> Self;
 
     /**
     Builds the given statement.
@@ -64,55 +39,181 @@ impl<'until_build, 'post_build> SQLUpdate<'until_build, 'post_build> {
     The query_string as well a list of values to bind are returned.
 
     This function returns an error, if no update statements are given previously.
-    */
-    pub fn build(mut self) -> Result<(String, Vec<value::Value<'post_build>>), Error> {
-        if self.updates.is_empty() {
-            return Err(Error::SQLBuildError(String::from(
-                "There must be at least one update in an UPDATE statement",
-            )));
-        }
+     */
+    fn build(self) -> Result<(String, Vec<Value<'post_build>>), Error>;
+}
 
-        let mut s = format!(
-            "UPDATE {}",
-            match self.dialect {
-                DBImpl::SQLite | DBImpl::MySQL => match self.on_conflict {
-                    OnConflict::ABORT => "OR ABORT ",
-                    OnConflict::ROLLBACK => "OR ROLLBACK ",
-                },
-                DBImpl::Postgres => "",
-            },
-        );
+/**
+Implementation of SQLs UPDATE statement.
+ */
+#[derive(Debug)]
+pub struct UpdateData<'until_build, 'post_build> {
+    pub(crate) model: &'until_build str,
+    pub(crate) on_conflict: OnConflict,
+    pub(crate) updates: Vec<(&'until_build str, Value<'post_build>)>,
+    pub(crate) where_clause: Option<&'until_build Condition<'post_build>>,
+    pub(crate) lookup: Vec<Value<'post_build>>,
+}
 
-        match self.dialect {
-            DBImpl::SQLite | DBImpl::MySQL => write!(s, "{} SET ", self.model).unwrap(),
-            DBImpl::Postgres => write!(s, "\"{}\" SET ", self.model).unwrap(),
-        }
+/**
+Implementation of the [Update] trait for the different implementations
+ */
+#[derive(Debug)]
+pub enum UpdateImpl<'until_build, 'post_build> {
+    /**
+    SQLite representation of the UPDATE operation.
+     */
+    #[cfg(feature = "sqlite")]
+    SQLite(UpdateData<'until_build, 'post_build>),
+    /**
+    MySQL representation of the UPDATE operation.
+     */
+    #[cfg(feature = "mysql")]
+    MySQL(UpdateData<'until_build, 'post_build>),
+    /**
+    Postgres representation of the UPDATE operation.
+     */
+    #[cfg(feature = "postgres")]
+    Postgres(UpdateData<'until_build, 'post_build>),
+}
 
-        let update_index = self.updates.len() - 1;
-        for (idx, (name, value)) in self.updates.into_iter().enumerate() {
-            match self.dialect {
-                DBImpl::SQLite | DBImpl::MySQL => write!(s, "{}", name).unwrap(),
-                DBImpl::Postgres => write!(s, "\"{}\"", name).unwrap(),
+impl<'until_build, 'post_build> Update<'until_build, 'post_build>
+    for UpdateImpl<'until_build, 'post_build>
+{
+    fn rollback_transaction(mut self) -> Self {
+        match self {
+            #[cfg(feature = "sqlite")]
+            UpdateImpl::SQLite(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
+            #[cfg(feature = "mysql")]
+            UpdateImpl::MySQL(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
+            #[cfg(feature = "postgres")]
+            UpdateImpl::Postgres(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
+        };
+        self
+    }
+
+    fn where_clause(mut self, condition: &'until_build Condition<'post_build>) -> Self {
+        match self {
+            #[cfg(feature = "sqlite")]
+            UpdateImpl::SQLite(ref mut d) => d.where_clause = Some(condition),
+            #[cfg(feature = "mysql")]
+            UpdateImpl::MySQL(ref mut d) => d.where_clause = Some(condition),
+            #[cfg(feature = "postgres")]
+            UpdateImpl::Postgres(ref mut d) => d.where_clause = Some(condition),
+        };
+        self
+    }
+
+    fn add_update(
+        mut self,
+        column_name: &'until_build str,
+        column_value: Value<'post_build>,
+    ) -> Self {
+        match self {
+            #[cfg(feature = "sqlite")]
+            UpdateImpl::SQLite(ref mut d) => d.updates.push((column_name, column_value)),
+            #[cfg(feature = "mysql")]
+            UpdateImpl::MySQL(ref mut d) => d.updates.push((column_name, column_value)),
+            #[cfg(feature = "postgres")]
+            UpdateImpl::Postgres(ref mut d) => d.updates.push((column_name, column_value)),
+        };
+        self
+    }
+
+    fn build(self) -> Result<(String, Vec<Value<'post_build>>), Error> {
+        match self {
+            #[cfg(feature = "sqlite")]
+            UpdateImpl::SQLite(mut d) => {
+                if d.updates.is_empty() {
+                    return Err(Error::SQLBuildError(String::from(
+                        "There must be at least one update in an UPDATE statement",
+                    )));
+                }
+                let mut s = format!(
+                    "UPDATE {}{} SET ",
+                    match d.on_conflict {
+                        OnConflict::ABORT => "OR ABORT ",
+                        OnConflict::ROLLBACK => "OR ROLLBACK ",
+                    },
+                    d.model,
+                );
+
+                let update_index = d.updates.len() - 1;
+                for (idx, (name, value)) in d.updates.into_iter().enumerate() {
+                    write!(s, "{} = ?", name).unwrap();
+                    d.lookup.push(value);
+                    if idx != update_index {
+                        write!(s, ", ").unwrap();
+                    }
+                }
+
+                if let Some(condition) = d.where_clause {
+                    write!(s, " WHERE {}", condition.build(&mut d.lookup)).unwrap();
+                }
+
+                write!(s, ";").unwrap();
+
+                Ok((s, d.lookup))
             }
+            #[cfg(feature = "mysql")]
+            UpdateImpl::MySQL(mut d) => {
+                if d.updates.is_empty() {
+                    return Err(Error::SQLBuildError(String::from(
+                        "There must be at least one update in an UPDATE statement",
+                    )));
+                }
+                let mut s = format!(
+                    "UPDATE {}{} SET ",
+                    match d.on_conflict {
+                        OnConflict::ABORT => "OR ABORT ",
+                        OnConflict::ROLLBACK => "OR ROLLBACK ",
+                    },
+                    d.model,
+                );
 
-            self.lookup.push(value);
-            match self.dialect {
-                DBImpl::SQLite | DBImpl::MySQL => write!(s, " = ?").unwrap(),
-                DBImpl::Postgres => write!(s, " = ${}", self.lookup.len()).unwrap(),
+                let update_index = d.updates.len() - 1;
+                for (idx, (name, value)) in d.updates.into_iter().enumerate() {
+                    write!(s, "{} = ?", name).unwrap();
+                    d.lookup.push(value);
+                    if idx != update_index {
+                        write!(s, ", ").unwrap();
+                    }
+                }
+
+                if let Some(condition) = d.where_clause {
+                    write!(s, " WHERE {}", condition.build(&mut d.lookup)).unwrap();
+                }
+
+                write!(s, ";").unwrap();
+
+                Ok((s, d.lookup))
             }
+            #[cfg(feature = "postgres")]
+            UpdateImpl::Postgres(mut d) => {
+                if d.updates.is_empty() {
+                    return Err(Error::SQLBuildError(String::from(
+                        "There must be at least one update in an UPDATE statement",
+                    )));
+                }
+                let mut s = format!("UPDATE \"{}\" SET ", d.model);
 
-            if idx != update_index {
-                write!(s, ", ").unwrap();
+                let update_index = d.updates.len() - 1;
+                for (idx, (name, value)) in d.updates.into_iter().enumerate() {
+                    write!(s, "\"{}\" = ?", name).unwrap();
+                    d.lookup.push(value);
+                    if idx != update_index {
+                        write!(s, ", ").unwrap();
+                    }
+                }
+
+                if let Some(condition) = d.where_clause {
+                    write!(s, " WHERE {}", condition.build(&mut d.lookup)).unwrap();
+                }
+
+                write!(s, ";").unwrap();
+
+                Ok((s, d.lookup))
             }
         }
-
-        match self.where_clause {
-            None => {}
-            Some(cond) => write!(s, " WHERE {}", cond.build(&mut self.lookup)).unwrap(),
-        }
-
-        write!(s, ";").unwrap();
-
-        Ok((s, self.lookup))
     }
 }

@@ -1,5 +1,6 @@
 use rorm_declaration::migration::{Migration, Operation};
 use rorm_sql::alter_table::SQLAlterTableOperation;
+use rorm_sql::drop_table::DropTable;
 use rorm_sql::DBImpl;
 use sqlx::{Any, Transaction};
 

@@ -1,7 +1,9 @@
-use rorm_declaration::imr::DbType;
 use std::fmt::{Display, Formatter};
 
+#[cfg(any(feature = "postgres", feature = "sqlite"))]
 use crate::{value, Annotation, DBImpl};
+#[cfg(feature = "sqlite")]
+use rorm_declaration::imr::DbType;
 
 /**
 Representation of a point in time definition of a create trigger statement
@@ -53,15 +55,17 @@ impl Display for SQLCreateTriggerOperation {
     }
 }
 
+#[cfg(any(feature = "sqlite", feature = "postgres"))]
 pub(crate) fn trigger_annotation_to_trigger(
     dialect: DBImpl,
     annotation: &Annotation,
-    db_type: &DbType,
+    #[cfg(feature = "sqlite")] db_type: &DbType,
     table_name: &str,
     column_name: &str,
     statements: &mut Vec<(String, Vec<value::Value>)>,
 ) {
     match dialect {
+        #[cfg(feature = "sqlite")]
         DBImpl::SQLite => match annotation {
             Annotation::AutoUpdateTime => {
                 let update_statement = format!(
@@ -93,7 +97,9 @@ pub(crate) fn trigger_annotation_to_trigger(
             }
             _ => {}
         },
+        #[cfg(feature = "mysql")]
         DBImpl::MySQL => {}
+        #[cfg(feature = "postgres")]
         DBImpl::Postgres => match annotation {
             Annotation::AutoUpdateTime => {
                 statements.push(

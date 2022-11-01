@@ -49,12 +49,19 @@ impl<'post_build> SQLCreateTable<'post_build> {
         );
 
         match self.dialect {
-            DBImpl::SQLite | DBImpl::MySQL => write!(s, "{} (", self.name).unwrap(),
+            #[cfg(feature = "sqlite")]
+            DBImpl::SQLite => write!(s, "{} (", self.name).unwrap(),
+            #[cfg(feature = "mysql")]
+            DBImpl::MySQL => write!(s, "{} (", self.name).unwrap(),
+            #[cfg(feature = "postgres")]
             DBImpl::Postgres => write!(s, "\"{}\" (", self.name).unwrap(),
         }
 
         for (idx, x) in self.columns.iter().enumerate() {
+            #[cfg(all(feature = "mysql", any(feature = "postgres", feature = "sqlite")))]
             x.build(&mut s, &mut self.lookup, &mut self.statements)?;
+            #[cfg(not(feature = "mysql"))]
+            x.build(&mut s, &mut self.statements)?;
             if idx != self.columns.len() - 1 {
                 write!(s, ", ").unwrap();
             }
@@ -64,8 +71,12 @@ impl<'post_build> SQLCreateTable<'post_build> {
             s,
             ") {}; ",
             match self.dialect {
+                #[cfg(feature = "sqlite")]
                 DBImpl::SQLite => "STRICT",
-                _ => "",
+                #[cfg(feature = "postgres")]
+                DBImpl::Postgres => "",
+                #[cfg(feature = "mysql")]
+                DBImpl::MySQL => "",
             }
         )
         .unwrap();

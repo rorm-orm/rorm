@@ -39,7 +39,7 @@ chrono = { version = "~0.4" }
 
 rorm-db = { version = "0.1.0", path = "./rorm-db" }
 rorm-macro = { version = "0.1.0", path = "./rorm-macro" }
-rorm-declaration = { version = "0.1.0", path = "./rorm-declaration" }
+rorm-declaration = { version = "0.2.0", path = "./rorm-declaration" }
 
 [package.metadata.docs.rs]
 features = ["async-std-rustls"]

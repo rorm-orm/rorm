@@ -13,8 +13,8 @@ description = "The cli tool for managing rorm applications."
 
 [dependencies]
 # Internal dependencies
-rorm-sql = { version = "0.1", path = "../rorm-sql" }
-rorm-declaration = { version = "0.1", path = "../rorm-declaration" }
+rorm-sql = { version = "~0.2", path = "../rorm-sql" }
+rorm-declaration = { version = "~0.2", path = "../rorm-declaration" }
 
 # CLI parsing tool
 clap = { version = "~4.0" }
@@ -31,7 +31,7 @@ anyhow = { version = "~1.0" }
 regex = { version = "~1.6" }
 
 # Lazy implementation
-once_cell = { version = "~1.15" }
+once_cell = { version = "~1.16" }
 
 # SQL database abstraction
 sqlx = { version = "~0.6" }
@@ -53,9 +53,15 @@ default = [
     "sqlx/sqlite",
     "sqlx/postgres",
     "sqlx/any",
-    "tokio/macros",
-    "serde/derive",
-    "clap/derive",
     "sqlx/chrono",
-    "rorm-sql/sqlite"
+
+    "tokio/macros",
+
+    "serde/derive",
+
+    "clap/derive",
+
+    "rorm-sql/sqlite",
+    "rorm-sql/postgres",
+    "rorm-sql/mysql",
 ]

@@ -1,49 +1,112 @@
 use std::fmt::Write;
 
-use crate::conditional::BuildCondition;
-use crate::{conditional, value, DBImpl};
+use crate::conditional::{BuildCondition, Condition};
+use crate::Value;
 
 /**
-SQL representation of the DELETE operation.
+Trait representing a delete builder.
 */
-pub struct SQLDelete<'until_build, 'post_query> {
-    pub(crate) dialect: DBImpl,
-    pub(crate) model: &'until_build str,
-    pub(crate) lookup: Vec<value::Value<'post_query>>,
-    pub(crate) where_clause: Option<&'until_build conditional::Condition<'post_query>>,
+pub trait Delete<'until_build, 'post_query>: Sized {
+    /**
+    Adds the a [Condition] to the delete query.
+
+    **Parameter**:
+    - `condition`: Condition to apply to the delete operation
+     */
+    fn where_clause(self, condition: &'until_build Condition<'post_query>) -> Self;
+
+    /**
+    Build the delete operation.
+
+    **Returns**:
+    - SQL query string
+    - List of [Value] parameters to bind to the query.
+    */
+    fn build(self) -> (String, Vec<Value<'post_query>>);
 }
 
-impl<'until_build, 'post_query> SQLDelete<'until_build, 'post_query> {
+/**
+SQLite representation of the DELETE operation.
+*/
+#[derive(Debug)]
+pub struct DeleteData<'until_build, 'post_query> {
+    pub(crate) model: &'until_build str,
+    pub(crate) lookup: Vec<Value<'post_query>>,
+    pub(crate) where_clause: Option<&'until_build Condition<'post_query>>,
+}
+
+/**
+Implementation of the [Delete] trait for the different implementations
+*/
+#[derive(Debug)]
+pub enum DeleteImpl<'until_build, 'post_query> {
     /**
-    Adds the a [conditional::Condition] to the delete query.
-    */
-    pub fn where_clause(
-        mut self,
-        condition: &'until_build conditional::Condition<'post_query>,
-    ) -> Self {
-        self.where_clause = Some(condition);
+    SQLite representation of the DELETE operation.
+     */
+    #[cfg(feature = "sqlite")]
+    SQLite(DeleteData<'until_build, 'post_query>),
+    /**
+    MySQL representation of the DELETE operation.
+     */
+    #[cfg(feature = "mysql")]
+    MySQL(DeleteData<'until_build, 'post_query>),
+    /**
+    Postgres representation of the DELETE operation.
+     */
+    #[cfg(feature = "postgres")]
+    Postgres(DeleteData<'until_build, 'post_query>),
+}
+
+impl<'until_build, 'post_query> Delete<'until_build, 'post_query>
+    for DeleteImpl<'until_build, 'post_query>
+{
+    fn where_clause(mut self, condition: &'until_build Condition<'post_query>) -> Self {
+        match self {
+            #[cfg(feature = "sqlite")]
+            DeleteImpl::SQLite(ref mut data) => data.where_clause = Some(condition),
+            #[cfg(feature = "mysql")]
+            DeleteImpl::MySQL(ref mut data) => data.where_clause = Some(condition),
+            #[cfg(feature = "postgres")]
+            DeleteImpl::Postgres(ref mut data) => data.where_clause = Some(condition),
+        };
         self
     }
 
-    /**
-    Build the DELETE operation
-    */
-    pub fn build(mut self) -> (String, Vec<value::Value<'post_query>>) {
-        let mut s = String::from("DELETE FROM ");
-        match self.dialect {
-            DBImpl::SQLite | DBImpl::MySQL => write!(s, "{} ", self.model).unwrap(),
-            DBImpl::Postgres => write!(s, "\"{}\"", self.model).unwrap(),
-        }
-        if self.where_clause.is_some() {
-            write!(
-                s,
-                "WHERE {} ",
-                self.where_clause.unwrap().build(&mut self.lookup)
-            )
-            .unwrap();
-        }
+    fn build(self) -> (String, Vec<Value<'post_query>>) {
+        match self {
+            #[cfg(feature = "sqlite")]
+            DeleteImpl::SQLite(mut d) => {
+                let mut s = format!("DELETE FROM {} ", d.model);
 
-        write!(s, ";").unwrap();
-        (s, self.lookup)
+                if d.where_clause.is_some() {
+                    write!(s, "WHERE {} ", d.where_clause.unwrap().build(&mut d.lookup)).unwrap();
+                }
+
+                write!(s, ";").unwrap();
+                (s, d.lookup)
+            }
+            #[cfg(feature = "mysql")]
+            DeleteImpl::MySQL(mut d) => {
+                let mut s = format!("DELETE FROM {} ", d.model);
+
+                if d.where_clause.is_some() {
+                    write!(s, "WHERE {} ", d.where_clause.unwrap().build(&mut d.lookup)).unwrap();
+                }
+
+                write!(s, ";").unwrap();
+                (s, d.lookup)
+            }
+            #[cfg(feature = "postgres")]
+            DeleteImpl::Postgres(mut d) => {
+                let mut s = format!("DELETE FROM \"{}\" ", d.model);
+
+                if d.where_clause.is_some() {
+                    write!(s, "WHERE {} ", d.where_clause.unwrap().build(&mut d.lookup)).unwrap();
+                }
+
+                write!(s, ";").unwrap();
+                (s, d.lookup)
+            }
+        }
     }
 }

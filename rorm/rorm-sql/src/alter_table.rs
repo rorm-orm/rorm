@@ -3,6 +3,10 @@ use std::fmt::Write;
 use crate::error::Error;
 use crate::{value, DBImpl, SQLCreateColumn};
 
+pub trait AlterTable {}
+
+pub struct AlterTableData {}
+
 /**
 Representation of operations to execute in the context of an ALTER TABLE statement.
 */
@@ -36,7 +40,7 @@ impl<'post_build> SQLAlterTableOperation<'post_build> {
     fn build(
         self,
         s: &mut String,
-        lookup: &mut Vec<value::Value<'post_build>>,
+        #[cfg(feature = "mysql")] lookup: &mut Vec<value::Value<'post_build>>,
         statements: &mut Vec<(String, Vec<value::Value<'post_build>>)>,
         dialect: DBImpl,
     ) -> Result<(), Error> {
@@ -46,9 +50,15 @@ impl<'post_build> SQLAlterTableOperation<'post_build> {
                 column_name,
                 new_column_name,
             } => match dialect {
-                DBImpl::SQLite | DBImpl::MySQL => {
+                #[cfg(feature = "sqlite")]
+                DBImpl::SQLite => {
                     write!(s, "RENAME COLUMN {} TO {}", column_name, new_column_name).unwrap()
                 }
+                #[cfg(feature = "mysql")]
+                DBImpl::MySQL => {
+                    write!(s, "RENAME COLUMN {} TO {}", column_name, new_column_name).unwrap()
+                }
+                #[cfg(feature = "postgres")]
                 DBImpl::Postgres => write!(
                     s,
                     "RENAME COLUMN \"{}\" TO \"{}\"",
@@ -56,9 +66,26 @@ impl<'post_build> SQLAlterTableOperation<'post_build> {
                 )
                 .unwrap(),
             },
+            #[cfg(any(feature = "postgres", feature = "sqlite"))]
             SQLAlterTableOperation::AddColumn { operation } => {
                 write!(s, "ADD COLUMN ").unwrap();
+                #[cfg(all(feature = "mysql", any(feature = "postgres", feature = "sqlite")))]
                 operation.build(s, lookup, statements)?;
+                #[cfg(all(not(feature = "mysql"), any(feature = "postgres", feature = "mysql")))]
+                operation.build(s, statements)?;
+                #[cfg(not(feature = "mysql"))]
+                operation.build(s, statements)?;
+            }
+            #[cfg(not(any(feature = "postgres", feature = "sqlite")))]
+            #[cfg(any(feature = "postgres", feature = "sqlite"))]
+            SQLAlterTableOperation::AddColumn { operation } => {
+                write!(s, "ADD COLUMN ").unwrap();
+                #[cfg(all(feature = "mysql", any(feature = "postgres", feature = "sqlite")))]
+                operation.build(s, lookup, statements)?;
+                #[cfg(all(not(feature = "mysql"), any(feature = "postgres", feature = "mysql")))]
+                operation.build(s, statements)?;
+                #[cfg(not(feature = "mysql"))]
+                operation.build(s, statements)?;
             }
             SQLAlterTableOperation::DropColumn { name } => {
                 write!(s, "DROP COLUMN {}", name).unwrap();
@@ -87,8 +114,12 @@ impl<'post_build> SQLAlterTable<'post_build> {
     */
     pub fn build(mut self) -> Result<Vec<(String, Vec<value::Value<'post_build>>)>, Error> {
         let mut s = format!("ALTER TABLE {} ", self.name.as_str());
+        #[cfg(feature = "mysql")]
         self.operation
             .build(&mut s, &mut self.lookup, &mut self.statements, self.dialect)?;
+        #[cfg(not(feature = "mysql"))]
+        self.operation
+            .build(&mut s, &mut self.statements, self.dialect)?;
         write!(s, ";").unwrap();
 
         let mut statements = vec![(s, self.lookup)];

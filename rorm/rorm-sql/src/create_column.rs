@@ -2,9 +2,13 @@ use std::fmt::Write;
 
 use rorm_declaration::imr::DefaultValue;
 
+#[cfg(any(feature = "sqlite", feature = "postgres"))]
 use crate::create_trigger::trigger_annotation_to_trigger;
 use crate::error::Error;
-use crate::{db_specific::postgres, value, Annotation, DBImpl, DbType};
+use crate::{value, Annotation, DBImpl, DbType};
+
+#[cfg(feature = "postgres")]
+use crate::db_specific::postgres;
 
 #[cfg(feature = "sqlite")]
 use crate::db_specific::sqlite;
@@ -26,15 +30,18 @@ impl<'post_build> SQLAnnotation<'post_build> {
         &self,
         s: &mut String,
         db_type: &DbType,
-        lookup: &mut Vec<value::Value<'post_build>>,
+        #[cfg(feature = "mysql")] lookup: &mut Vec<value::Value<'post_build>>,
         dialect: DBImpl,
     ) {
         match &self.annotation {
             Annotation::AutoIncrement => match dialect {
+                #[cfg(feature = "sqlite")]
                 DBImpl::SQLite => write!(s, "AUTOINCREMENT").unwrap(),
+                #[cfg(feature = "mysql")]
                 DBImpl::MySQL => write!(s, "AUTO_INCREMENT").unwrap(),
                 // AutoIncrement is not needed in postgres, as this is done via the datatype.
-                _ => {}
+                #[cfg(feature = "postgres")]
+                DBImpl::Postgres => {}
             },
             Annotation::AutoCreateTime => {
                 write!(
@@ -52,7 +59,11 @@ impl<'post_build> SQLAnnotation<'post_build> {
             }
             Annotation::AutoUpdateTime => match dialect {
                 // Trigger will be created for SQLite and Postgres
-                DBImpl::SQLite | DBImpl::Postgres => {}
+                #[cfg(feature = "sqlite")]
+                DBImpl::SQLite => {}
+                #[cfg(feature = "postgres")]
+                DBImpl::Postgres => {}
+                #[cfg(feature = "mysql")]
                 DBImpl::MySQL => {
                     write!(
                         s,
@@ -70,16 +81,16 @@ impl<'post_build> SQLAnnotation<'post_build> {
             },
             Annotation::DefaultValue(d) => match d {
                 DefaultValue::String(dv) => match dialect {
+                    #[cfg(feature = "sqlite")]
                     DBImpl::SQLite => {
-                        #[cfg(not(feature = "sqlite"))]
-                        compile_error!("You are using sqlite without the sqlite feature enabled!");
-
                         write!(s, "DEFAULT {}", sqlite::fmt(dv)).unwrap();
                     }
+                    #[cfg(feature = "mysql")]
                     DBImpl::MySQL => {
                         lookup.push(value::Value::String(dv));
                         write!(s, "DEFAULT ?").unwrap();
                     }
+                    #[cfg(feature = "postgres")]
                     DBImpl::Postgres => write!(s, "DEFAULT {}", postgres::fmt(dv)).unwrap(),
                 },
                 DefaultValue::Integer(i) => write!(s, "DEFAULT {}", i).unwrap(),
@@ -118,31 +129,30 @@ impl<'post_build> SQLCreateColumn<'post_build> {
     pub fn build(
         &self,
         s: &mut String,
-        lookup: &mut Vec<value::Value<'post_build>>,
-        statements: &mut Vec<(String, Vec<value::Value<'post_build>>)>,
+        #[cfg(feature = "mysql")] lookup: &mut Vec<value::Value<'post_build>>,
+        #[cfg(any(feature = "postgres", feature = "sqlite"))] statements: &mut Vec<(
+            String,
+            Vec<value::Value<'post_build>>,
+        )>,
     ) -> Result<(), Error> {
         write!(s, "{} ", self.name).unwrap();
 
         match self.dialect {
-            DBImpl::SQLite => {
-                #[cfg(not(feature = "sqlite"))]
-                compile_error!("You are using sqlite without the sqlite feature enabled!");
-                match self.data_type {
-                    DbType::VarBinary => write!(s, "BLOB ").unwrap(),
-                    DbType::VarChar
-                    | DbType::Date
-                    | DbType::DateTime
-                    | DbType::Timestamp
-                    | DbType::Time
-                    | DbType::Choices => write!(s, "TEXT ").unwrap(),
-                    DbType::Int8
-                    | DbType::Int16
-                    | DbType::Int32
-                    | DbType::Int64
-                    | DbType::Boolean => write!(s, "INTEGER ").unwrap(),
-                    DbType::Float | DbType::Double => write!(s, "REAL ").unwrap(),
+            #[cfg(feature = "sqlite")]
+            DBImpl::SQLite => match self.data_type {
+                DbType::VarBinary => write!(s, "BLOB ").unwrap(),
+                DbType::VarChar
+                | DbType::Date
+                | DbType::DateTime
+                | DbType::Timestamp
+                | DbType::Time
+                | DbType::Choices => write!(s, "TEXT ").unwrap(),
+                DbType::Int8 | DbType::Int16 | DbType::Int32 | DbType::Int64 | DbType::Boolean => {
+                    write!(s, "INTEGER ").unwrap()
                 }
-            }
+                DbType::Float | DbType::Double => write!(s, "REAL ").unwrap(),
+            },
+            #[cfg(feature = "mysql")]
             DBImpl::MySQL => match self.data_type {
                 DbType::VarChar => {
                     let a_opt = self
@@ -234,6 +244,7 @@ impl<'post_build> SQLCreateColumn<'post_build> {
                     }
                 }
             },
+            #[cfg(feature = "postgres")]
             DBImpl::Postgres => match self.data_type {
                 DbType::VarChar | DbType::Choices => {
                     let a_opt = self
@@ -301,6 +312,7 @@ impl<'post_build> SQLCreateColumn<'post_build> {
         };
 
         for (idx, x) in self.annotations.iter().enumerate() {
+            #[cfg(feature = "sqlite")]
             trigger_annotation_to_trigger(
                 self.dialect,
                 x.annotation,
@@ -309,7 +321,18 @@ impl<'post_build> SQLCreateColumn<'post_build> {
                 &self.name,
                 statements,
             );
+            #[cfg(all(not(feature = "sqlite"), feature = "postgres"))]
+            trigger_annotation_to_trigger(
+                self.dialect,
+                x.annotation,
+                &self.table_name,
+                &self.name,
+                statements,
+            );
+            #[cfg(feature = "mysql")]
             x.build(s, &self.data_type, lookup, self.dialect);
+            #[cfg(not(feature = "mysql"))]
+            x.build(s, &self.data_type, self.dialect);
             if idx != self.annotations.len() - 1 {
                 write!(s, " ").unwrap();
             }

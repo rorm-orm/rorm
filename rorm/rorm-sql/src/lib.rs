@@ -41,12 +41,12 @@ use crate::create_table::SQLCreateTable;
 use crate::create_trigger::{
     SQLCreateTrigger, SQLCreateTriggerOperation, SQLCreateTriggerPointInTime,
 };
-use crate::delete::SQLDelete;
-use crate::drop_table::SQLDropTable;
-use crate::insert::SQLInsert;
+use crate::delete::{Delete, DeleteData, DeleteImpl};
+use crate::drop_table::{DropTable, DropTableData, DropTableImpl};
+use crate::insert::{Insert, InsertData, InsertImpl};
 use crate::on_conflict::OnConflict;
-use crate::select::SQLSelect;
-use crate::update::SQLUpdate;
+use crate::select::{Select, SelectData, SelectImpl};
+use crate::update::{Update, UpdateData, UpdateImpl};
 use crate::value::Value;
 
 /**
@@ -55,10 +55,13 @@ The main interface for creating sql strings
 #[derive(Copy, Clone)]
 pub enum DBImpl {
     /// Implementation of SQLite
+    #[cfg(feature = "sqlite")]
     SQLite,
     /// Implementation of Postgres
+    #[cfg(feature = "postgres")]
     Postgres,
     /// Implementation of MySQL / MariaDB
+    #[cfg(feature = "mysql")]
     MySQL,
 }
 
@@ -128,11 +131,21 @@ impl DBImpl {
 
     `name`: [&str]: Name of the table to drop.
     */
-    pub fn drop_table(&self, name: &str) -> SQLDropTable {
-        SQLDropTable {
-            dialect: *self,
-            name: name.to_string(),
+    pub fn drop_table<'until_build>(
+        &self,
+        name: &'until_build str,
+    ) -> impl DropTable + 'until_build {
+        let d = DropTableData {
+            name,
             if_exists: false,
+        };
+        match self {
+            #[cfg(feature = "sqlite")]
+            DBImpl::SQLite => DropTableImpl::SQLite(d),
+            #[cfg(feature = "mysql")]
+            DBImpl::MySQL => DropTableImpl::MySQL(d),
+            #[cfg(feature = "postgres")]
+            DBImpl::Postgres => DropTableImpl::Postgres(d),
         }
     }
 
@@ -202,20 +215,27 @@ impl DBImpl {
     - `columns`: The columns to select.
     - `from_clause` specifies from what to select. This can be a table name or another query itself.
     */
-    pub fn select<'until_build>(
+    pub fn select<'until_build, 'post_build>(
         &self,
         columns: &'until_build [&'until_build str],
-        from_clause: &str,
-    ) -> SQLSelect<'until_build, '_> {
-        SQLSelect {
-            dialect: *self,
+        from_clause: &'until_build str,
+    ) -> impl Select<'until_build, 'post_build> {
+        let d = SelectData {
             resulting_columns: columns,
-            from_clause: from_clause.to_string(),
-            where_clause: None,
             limit: None,
             offset: None,
+            from_clause,
+            where_clause: None,
             distinct: false,
             lookup: vec![],
+        };
+        match self {
+            #[cfg(feature = "sqlite")]
+            DBImpl::SQLite => SelectImpl::SQLite(d),
+            #[cfg(feature = "mysql")]
+            DBImpl::MySQL => SelectImpl::MySQL(d),
+            #[cfg(feature = "postgres")]
+            DBImpl::Postgres => SelectImpl::Postgres(d),
         }
     }
 
@@ -229,17 +249,27 @@ impl DBImpl {
     */
     pub fn insert<'until_build, 'post_build>(
         &self,
-        into_clause: &str,
+        into_clause: &'until_build str,
         insert_columns: &'until_build [&'until_build str],
         insert_values: &'until_build [&'until_build [Value<'post_build>]],
-    ) -> SQLInsert<'until_build, 'post_build> {
-        SQLInsert {
-            dialect: *self,
-            into_clause: into_clause.to_string(),
+    ) -> impl Insert<'post_build>
+    where
+        'until_build: 'post_build,
+    {
+        let d = InsertData {
+            into_clause,
             columns: insert_columns,
             row_values: insert_values,
             lookup: vec![],
             on_conflict: OnConflict::ABORT,
+        };
+        match self {
+            #[cfg(feature = "sqlite")]
+            DBImpl::SQLite => InsertImpl::SQLite(d),
+            #[cfg(feature = "mysql")]
+            DBImpl::MySQL => InsertImpl::MySQL(d),
+            #[cfg(feature = "postgres")]
+            DBImpl::Postgres => InsertImpl::Postgres(d),
         }
     }
 
@@ -252,12 +282,19 @@ impl DBImpl {
     pub fn delete<'until_build, 'post_query>(
         &self,
         table_name: &'until_build str,
-    ) -> SQLDelete<'until_build, 'post_query> {
-        SQLDelete {
-            dialect: *self,
+    ) -> impl Delete<'until_build, 'post_query> {
+        let d = DeleteData {
             model: table_name,
             lookup: vec![],
             where_clause: None,
+        };
+        match self {
+            #[cfg(feature = "sqlite")]
+            DBImpl::SQLite => DeleteImpl::SQLite(d),
+            #[cfg(feature = "mysql")]
+            DBImpl::MySQL => DeleteImpl::MySQL(d),
+            #[cfg(feature = "postgres")]
+            DBImpl::Postgres => DeleteImpl::Postgres(d),
         }
     }
 
@@ -270,14 +307,21 @@ impl DBImpl {
     pub fn update<'until_build, 'post_query>(
         &self,
         table_name: &'until_build str,
-    ) -> SQLUpdate<'until_build, 'post_query> {
-        SQLUpdate {
-            dialect: *self,
+    ) -> impl Update<'until_build, 'post_query> {
+        let d = UpdateData {
             model: table_name,
             on_conflict: OnConflict::ABORT,
             updates: vec![],
             where_clause: None,
             lookup: vec![],
+        };
+        match self {
+            #[cfg(feature = "sqlite")]
+            DBImpl::SQLite => UpdateImpl::SQLite(d),
+            #[cfg(feature = "mysql")]
+            DBImpl::MySQL => UpdateImpl::MySQL(d),
+            #[cfg(feature = "postgres")]
+            DBImpl::Postgres => UpdateImpl::Postgres(d),
         }
     }
 }

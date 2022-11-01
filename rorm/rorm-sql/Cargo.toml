@@ -1,6 +1,6 @@
 [package]
 name = "rorm-sql"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 keywords = ["database", "abstraction-layer", "sqlite", "postgres", "mysql"]
 categories = ["database"]
@@ -13,17 +13,22 @@ description = "The sql abstraction layer."
 
 [dependencies]
 # Date & time library
-chrono = { version = "^0.4" }
+chrono = { version = "~0.4" }
 
 # Error library to simplify the std::error::Error trait
-thiserror = { version = "^1.0" }
+thiserror = { version = "~1.0" }
 
 # SQlite bindings for printf
-libsqlite3-sys = { version = "0.24", optional = true }
+libsqlite3-sys = { version = "~0.24", optional = true }
 
-rorm-declaration = { version = "0.1.0", path = "../rorm-declaration" }
+rorm-declaration = { version = "0.2.0", path = "../rorm-declaration" }
+
+[package.metadata.docs.rs]
+features = ["sqlite", "postgres", "mysql"]
 
 [features]
 sqlite = [
     "dep:libsqlite3-sys",
 ]
+mysql = []
+postgres = []

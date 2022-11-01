@@ -15,8 +15,8 @@ description = "The inner database abstraction layer from rorm."
 name = "rorm_db"
 
 [dependencies]
-rorm-sql = { version = "0.1.0", path = "../rorm-sql" }
-rorm-declaration = { version = "0.1.0", path = "../rorm-declaration" }
+rorm-sql = { version = "0.2.0", path = "../rorm-sql" }
+rorm-declaration = { version = "0.2.0", path = "../rorm-declaration" }
 
 # Abstractions for asynchronous programming.
 futures = { version = "^0.3" }
@@ -46,8 +46,14 @@ all-driver = [
     "sqlite"
 ]
 
-mysql = ["sqlx/mysql"]
-postgres = ["sqlx/postgres"]
+mysql = [
+    "sqlx/mysql",
+    "rorm-sql/mysql",
+]
+postgres = [
+    "sqlx/postgres",
+    "rorm-sql/postgres",
+]
 sqlite = [
     "sqlx/sqlite",
     "rorm-sql/sqlite"

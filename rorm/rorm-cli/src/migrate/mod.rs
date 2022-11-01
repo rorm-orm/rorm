@@ -7,6 +7,7 @@ use anyhow::{anyhow, Context};
 use rorm_declaration::config::DatabaseDriver;
 use rorm_declaration::imr::{Annotation, DbType};
 use rorm_declaration::migration::Migration;
+use rorm_sql::insert::Insert;
 use rorm_sql::DBImpl;
 use sqlx::any::{AnyPoolOptions, AnyRow};
 use sqlx::mysql::MySqlConnectOptions;
@@ -62,12 +63,9 @@ pub async fn apply_migration(
         )
     })?;
 
+    let v: &[&[rorm_sql::value::Value]] = &[&[rorm_sql::value::Value::I32(migration.id as i32)]];
     let (query_string, bind_params) = dialect
-        .insert(
-            last_migration_table_name,
-            &["migration_id"],
-            &[&[rorm_sql::value::Value::I32(migration.id as i32)]],
-        )
+        .insert(last_migration_table_name, &["migration_id"], v)
         .rollback_transaction()
         .build();
 

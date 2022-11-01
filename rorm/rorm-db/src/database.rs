@@ -5,6 +5,10 @@ This module defines the main API wrapper.
 use futures::stream::BoxStream;
 use futures::StreamExt;
 use log::debug;
+use rorm_sql::delete::Delete;
+use rorm_sql::insert::Insert;
+use rorm_sql::select::Select;
+use rorm_sql::update::Update;
 use rorm_sql::{conditional, value, DBImpl};
 use sqlx::any::AnyPoolOptions;
 use sqlx::mysql::MySqlConnectOptions;
