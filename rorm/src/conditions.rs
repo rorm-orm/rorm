@@ -23,16 +23,16 @@ impl<'a, S: AsRef<[u8]> + ?Sized> IntoCondValue<'a, VarBinary> for &'a S {
     }
 }
 
-impl<T, D: DbType, M, A> IntoCondValue<'static, D> for &'static Field<T, D, M, A> {
-    fn into_value(self) -> Value<'static> {
+impl<'a, T, D: DbType, M, A> IntoCondValue<'a, D> for &'static Field<T, D, M, A> {
+    fn into_value(self) -> Value<'a> {
         Value::Ident(self.name)
     }
 }
 
 macro_rules! impl_numeric {
     ($type:ty, $value_variant:ident, $db_type:ident) => {
-        impl IntoCondValue<'static, $db_type> for $type {
-            fn into_value(self) -> Value<'static> {
+        impl<'a> IntoCondValue<'a, $db_type> for $type {
+            fn into_value(self) -> Value<'a> {
                 Value::$value_variant(self)
             }
         }
