@@ -6,7 +6,7 @@ use crate::Value;
 /**
 Trait representing a delete builder.
 */
-pub trait Delete<'until_build, 'post_query>: Sized {
+pub trait Delete<'until_build, 'post_query> {
     /**
     Adds the a [Condition] to the delete query.
 
