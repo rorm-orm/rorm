@@ -1,6 +1,6 @@
 # Project setup
 
-Install the necessary cli tools:
+Install the necessary CLI tools:
 ```bash
 cargo install -f cargo-make rorm-cli
 ```
@@ -8,6 +8,10 @@ cargo install -f cargo-make rorm-cli
 - `cargo-make` will be used to simplify the creation of the 
 [internal model representation](/migrations/internal_model_representation).
 - `rorm-cli` is needed to create, manage and apply migrations files.
+
+Note that those commands use crates.io as package source. Since the CLI
+tools get updated frequently at the moment, you probably want to build the
+tools from git or from a local path using `--git` or `--path` respectively.
 
 ## Project initialization
 
