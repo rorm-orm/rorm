@@ -79,8 +79,8 @@ impl DBImpl {
     /**
     The entry point to create a table.
 
-    `name`: [&str]: Name of the table
-    `db_name`: [&str]: Name of the database.
+    **Parameter**:
+    - `name`: Name of the table
     */
     pub fn create_table<'until_build, 'post_build>(
         &self,
@@ -110,10 +110,11 @@ impl DBImpl {
     /**
     The entry point to create a trigger.
 
-    `name`: [&str]: Name of the trigger.
-    `table_name`: [&str]: Name of the table to create the trigger on.
-    `point_in_time`: [Option<SQLCreateTriggerPointInTime>]: When to execute the trigger.
-    `operation`: [SQLCreateTriggerOperation]: The operation that invokes the trigger.
+    **Parameter**:
+    - `name`: Name of the trigger.
+    - `table_name`: Name of the table to create the trigger on.
+    - `point_in_time`: [Option] of [SQLCreateTriggerPointInTime]: When to execute the trigger.
+    - `operation`: [SQLCreateTriggerOperation]: The operation that invokes the trigger.
     */
     pub fn create_trigger(
         &self,
@@ -136,8 +137,9 @@ impl DBImpl {
     /**
     The entry point to create an index.
 
-    `name`: [&str]: Name of the index.
-    `table_name`: [&str]: Table to create the index on.
+    **Parameter**:
+    - `name`: Name of the index.
+    - `table_name`: Table to create the index on.
     */
     pub fn create_index<'until_build>(
         &self,
@@ -166,7 +168,8 @@ impl DBImpl {
     /**
     The entry point to drop a table.
 
-    `name`: [&str]: Name of the table to drop.
+    **Parameter**:
+    - `name`: Name of the table to drop.
     */
     pub fn drop_table<'until_build>(
         &self,
@@ -190,7 +193,7 @@ impl DBImpl {
     The entry point to alter a table.
 
     **Parameter**:
-    - `name`: [&str]: Name of the table to execute the operation on.
+    - `name`: Name of the table to execute the operation on.
     - `operation`: [AlterTableOperation]: The operation to execute.
     */
     pub fn alter_table<'until_build, 'post_build>(
@@ -221,18 +224,22 @@ impl DBImpl {
     /**
     The entry point to create a column in a table.
 
-    - `table_name`: [&str]: Name of the table.
-    - `name`: [&str]: Name of the column.
+    **Parameter**:
+    - `table_name`: Name of the table.
+    - `name`: Name of the column.
     - `data_type`: [DbType]: Data type of the column
-    - `annotations`: [Vec<Annotation>]: List of annotations.
+    - `annotations`: slice of [Annotation]: List of annotations.
     */
     pub fn create_column<'until_build, 'post_build>(
         &self,
-        #[cfg(any(feature = "sqlite", feature = "postgres"))] table_name: &'until_build str,
+        table_name: &'until_build str,
         name: &'until_build str,
         data_type: DbType,
         annotations: &'post_build [Annotation],
     ) -> CreateColumnImpl<'until_build, 'post_build> {
+        #[cfg(not(any(feature = "postgres", feature = "sqlite")))]
+        let _ = table_name;
+
         // Sort the annotations
         let mut a = vec![];
 
@@ -282,7 +289,7 @@ impl DBImpl {
 
     **Parameter**:
     - `columns`: The columns to select.
-    - `from_clause` specifies from what to select. This can be a table name or another query itself.
+    - `from_clause`: Specifies from what to select. This can be a table name or another query itself.
     */
     pub fn select<'until_build, 'post_build>(
         &self,
@@ -314,7 +321,7 @@ impl DBImpl {
     **Parameter**:
     - `into_clause`: The table to insert into.
     - `insert_columns`: The column names to insert into.
-    - `insert_values`: The values to insert.
+    - `insert_values`: slice of slice of [Value]: The values to insert.
     */
     pub fn insert<'until_build, 'post_build>(
         &self,
