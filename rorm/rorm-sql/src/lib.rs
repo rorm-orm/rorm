@@ -189,8 +189,9 @@ impl DBImpl {
     /**
     The entry point to alter a table.
 
-    `name`: [&str]: Name of the table to execute the operation on.
-    `operation`: [crate::alter_table::SQLAlterTableOperation]: The operation to execute.
+    **Parameter**:
+    - `name`: [&str]: Name of the table to execute the operation on.
+    - `operation`: [AlterTableOperation]: The operation to execute.
     */
     pub fn alter_table<'until_build, 'post_build>(
         &self,
