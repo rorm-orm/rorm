@@ -1,4 +1,4 @@
-use rorm_db::{DatabaseBackend, DatabaseConfiguration};
+use rorm_db::{DatabaseConfiguration, DatabaseDriver};
 
 use crate::{Error, FFIDate, FFIDateTime, FFISlice, FFIString, FFITime};
 
@@ -18,19 +18,6 @@ pub enum DBBackend {
     MySQL,
     /// Postgres backend
     Postgres,
-}
-
-impl From<DBBackend> for Result<DatabaseBackend, Error<'_>> {
-    fn from(value: DBBackend) -> Self {
-        match value {
-            DBBackend::Invalid => Err(Error::ConfigurationError(FFIString::from(
-                "Invalid database backend selected",
-            ))),
-            DBBackend::SQLite => Ok(DatabaseBackend::SQLite),
-            DBBackend::Postgres => Ok(DatabaseBackend::Postgres),
-            DBBackend::MySQL => Ok(DatabaseBackend::MySQL),
-        }
-    }
 }
 
 /**
@@ -54,24 +41,39 @@ pub struct DBConnectOptions<'a> {
 
 impl From<DBConnectOptions<'_>> for Result<DatabaseConfiguration, Error<'_>> {
     fn from(config: DBConnectOptions) -> Self {
-        let db_backend_res: Result<DatabaseBackend, Error> = config.backend.into();
-        if db_backend_res.is_err() {
-            return Err(db_backend_res.err().unwrap());
-        }
-        let db_backend: DatabaseBackend = db_backend_res.unwrap();
         if config.min_connections == 0 || config.max_connections == 0 {
             return Err(Error::ConfigurationError(FFIString::from(
                 "DBConnectOptions.min_connections and DBConnectOptions.max_connections must not be 0",
             )));
         }
 
+        let d = match config.backend {
+            DBBackend::Invalid => {
+                return Err(Error::ConfigurationError(FFIString::from(
+                    "Invalid database backend selected",
+                )))
+            }
+            DBBackend::SQLite => DatabaseDriver::SQLite {
+                filename: <&str>::try_from(config.name).unwrap().to_owned(),
+            },
+            DBBackend::MySQL => DatabaseDriver::MySQL {
+                name: <&str>::try_from(config.name).unwrap().to_owned(),
+                host: <&str>::try_from(config.host).unwrap().to_owned(),
+                port: config.port,
+                user: <&str>::try_from(config.user).unwrap().to_owned(),
+                password: <&str>::try_from(config.password).unwrap().to_owned(),
+            },
+            DBBackend::Postgres => DatabaseDriver::Postgres {
+                name: <&str>::try_from(config.name).unwrap().to_owned(),
+                host: <&str>::try_from(config.host).unwrap().to_owned(),
+                port: config.port,
+                user: <&str>::try_from(config.user).unwrap().to_owned(),
+                password: <&str>::try_from(config.password).unwrap().to_owned(),
+            },
+        };
+
         Ok(DatabaseConfiguration {
-            backend: db_backend,
-            name: <&str>::try_from(config.name).unwrap().to_owned(),
-            host: <&str>::try_from(config.host).unwrap().to_owned(),
-            port: config.port,
-            user: <&str>::try_from(config.user).unwrap().to_owned(),
-            password: <&str>::try_from(config.password).unwrap().to_owned(),
+            driver: d,
             min_connections: config.min_connections,
             max_connections: config.max_connections,
         })

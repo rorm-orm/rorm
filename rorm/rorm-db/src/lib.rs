@@ -116,6 +116,7 @@ pub mod transaction;
 ))]
 pub mod utils;
 
+pub use rorm_declaration::config::DatabaseDriver;
 #[cfg(any(
     feature = "async-std-native-tls",
     feature = "async-std-rustls",
@@ -137,33 +138,7 @@ pub use rorm_sql::{and, conditional, or, value};
 pub use crate::{database::Database, error::Error, row::Row};
 
 /**
-Representation of different backends
- */
-#[cfg(any(
-    feature = "async-std-native-tls",
-    feature = "async-std-rustls",
-    feature = "tokio-native-tls",
-    feature = "tokio-rustls",
-    feature = "actix-native-tls",
-    feature = "actix-rustls"
-))]
-pub enum DatabaseBackend {
-    /// SQLite database backend
-    SQLite,
-    /// Postgres database backend
-    Postgres,
-    /// MySQL / MariaDB database backend
-    MySQL,
-}
-
-/**
 Configuration to create a database connection.
-
-If [DatabaseBackend::SQLite] is used as backend, `name` specifies the filename.
-`host`, `port`, `user`, `password` is not used in this case.
-
-If [DatabaseBackend::Postgres] or [DatabaseBackend::MySQL] is used, `name` specifies the
-database to connect to.
 
 `min_connections` and `max_connections` must be greater than 0
 and `max_connections` must be greater or equals `min_connections`.
@@ -177,18 +152,8 @@ and `max_connections` must be greater or equals `min_connections`.
     feature = "actix-rustls"
 ))]
 pub struct DatabaseConfiguration {
-    /// Specifies the driver that will be used
-    pub backend: DatabaseBackend,
-    /// Name of the database, in case of [DatabaseBackend::SQLite] name of the file.
-    pub name: String,
-    /// Host to connect to. Not used in case of [DatabaseBackend::SQLite].
-    pub host: String,
-    /// Port to connect to. Not used in case of [DatabaseBackend::SQLite].
-    pub port: u16,
-    /// Username to authenticate with. Not used in case of [DatabaseBackend::SQLite].
-    pub user: String,
-    /// Password to authenticate with. Not used in case of [DatabaseBackend::SQLite].
-    pub password: String,
+    /// The driver and its corresponding settings
+    pub driver: DatabaseDriver,
     /// Minimal connections to initialize upfront.
     pub min_connections: u32,
     /// Maximum connections that allowed to be created.

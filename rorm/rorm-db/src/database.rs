@@ -5,6 +5,7 @@ This module defines the main API wrapper.
 use futures::stream::BoxStream;
 use futures::StreamExt;
 use log::debug;
+use rorm_declaration::config::DatabaseDriver;
 use rorm_sql::delete::Delete;
 use rorm_sql::insert::Insert;
 use rorm_sql::select::Select;
@@ -19,7 +20,7 @@ use crate::error::Error;
 use crate::result::QueryStream;
 use crate::row::Row;
 use crate::transaction::Transaction;
-use crate::{utils, DatabaseBackend, DatabaseConfiguration};
+use crate::{utils, DatabaseConfiguration};
 
 /**
 Main API wrapper.
@@ -48,11 +49,29 @@ impl Database {
             )));
         }
 
-        if configuration.name == "" {
-            return Err(Error::ConfigurationError(String::from(
-                "name must not be empty",
-            )));
-        }
+        match &configuration.driver {
+            DatabaseDriver::SQLite { filename, .. } => {
+                if filename == "" {
+                    return Err(Error::ConfigurationError(String::from(
+                        "name must not be empty",
+                    )));
+                }
+            }
+            DatabaseDriver::Postgres { name, .. } => {
+                if name.is_empty() {
+                    return Err(Error::ConfigurationError(String::from(
+                        "name must not be empty",
+                    )));
+                }
+            }
+            DatabaseDriver::MySQL { name, .. } => {
+                if name.is_empty() {
+                    return Err(Error::ConfigurationError(String::from(
+                        "name must not be empty",
+                    )));
+                }
+            }
+        };
 
         let database;
         let pool_options = AnyPoolOptions::new()
@@ -61,43 +80,55 @@ impl Database {
 
         let pool;
 
-        match configuration.backend {
-            DatabaseBackend::SQLite => {
+        match &configuration.driver {
+            DatabaseDriver::SQLite { filename } => {
                 let connect_options = SqliteConnectOptions::new()
                     .create_if_missing(true)
-                    .filename(configuration.name);
+                    .filename(filename);
                 pool = pool_options.connect_with(connect_options.into()).await?;
             }
-            DatabaseBackend::Postgres => {
+            DatabaseDriver::Postgres {
+                host,
+                port,
+                name,
+                user,
+                password,
+            } => {
                 let connect_options = PgConnectOptions::new()
-                    .host(configuration.host.as_str())
-                    .port(configuration.port)
-                    .username(configuration.user.as_str())
-                    .password(configuration.password.as_str())
-                    .database(configuration.name.as_str());
+                    .host(host.as_str())
+                    .port(*port)
+                    .username(user.as_str())
+                    .password(password.as_str())
+                    .database(name.as_str());
                 pool = pool_options.connect_with(connect_options.into()).await?;
             }
-            DatabaseBackend::MySQL => {
+            DatabaseDriver::MySQL {
+                name,
+                host,
+                port,
+                user,
+                password,
+            } => {
                 let connect_options = MySqlConnectOptions::new()
-                    .host(configuration.host.as_str())
-                    .port(configuration.port)
-                    .username(configuration.user.as_str())
-                    .password(configuration.password.as_str())
-                    .database(configuration.name.as_str());
+                    .host(host.as_str())
+                    .port(*port)
+                    .username(user.as_str())
+                    .password(password.as_str())
+                    .database(name.as_str());
                 pool = pool_options.connect_with(connect_options.into()).await?;
             }
         }
 
         database = Database {
             pool,
-            db_impl: match configuration.backend {
-                DatabaseBackend::SQLite => DBImpl::SQLite,
-                DatabaseBackend::Postgres => DBImpl::Postgres,
-                DatabaseBackend::MySQL => DBImpl::MySQL,
+            db_impl: match &configuration.driver {
+                DatabaseDriver::SQLite { .. } => DBImpl::SQLite,
+                DatabaseDriver::Postgres { .. } => DBImpl::Postgres,
+                DatabaseDriver::MySQL { .. } => DBImpl::MySQL,
             },
         };
 
-        return Ok(database);
+        Ok(database)
     }
 
     /**
@@ -121,8 +152,8 @@ impl Database {
         'db: 'stream,
     {
         let mut q = self.db_impl.select(columns, model);
-        if conditions.is_some() {
-            q = q.where_clause(conditions.unwrap());
+        if let Some(c) = conditions {
+            q = q.where_clause(c);
         }
 
         let (query_string, bind_params) = q.build();
@@ -346,7 +377,7 @@ impl Database {
 
                     q.execute(&mut tx).await?;
                 }
-                tx.commit().await.map_err(|e| Error::SqlxError(e))
+                tx.commit().await.map_err(Error::SqlxError)
             }
             Some(transaction) => {
                 for chunk in rows.chunks(25) {
@@ -454,12 +485,12 @@ impl Database {
             None => q
                 .execute(&self.pool)
                 .await
-                .map_err(|err| Error::SqlxError(err))?
+                .map_err(Error::SqlxError)?
                 .rows_affected(),
             Some(transaction) => q
                 .execute(&mut transaction.tx)
                 .await
-                .map_err(|err| Error::SqlxError(err))?
+                .map_err(Error::SqlxError)?
                 .rows_affected(),
         })
     }
@@ -513,11 +544,7 @@ impl Database {
     Entry point for a [Transaction].
     */
     pub async fn start_transaction(&self) -> Result<Transaction, Error> {
-        let tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|err| Error::SqlxError(err))?;
+        let tx = self.pool.begin().await.map_err(Error::SqlxError)?;
 
         Ok(Transaction { tx })
     }
