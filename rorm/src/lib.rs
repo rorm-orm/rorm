@@ -50,13 +50,15 @@ compile_error!(
     actix-native-tls, actix-rustls is required"#
 );
 
-use std::io::Write;
+#[doc(hidden)]
+pub use linkme;
 
 pub use crud::query::QueryBuilder;
-pub use linkme;
 pub use model::{DbEnum, Model, Patch};
 pub use rorm_db::*;
 pub use rorm_macro::*;
+
+use std::io::Write;
 
 // Reexports to be used by macro
 pub use rorm_declaration::hmr;
@@ -81,6 +83,7 @@ pub mod model;
 /// [`Model`]: rorm_macro::Model
 #[allow(non_camel_case_types)]
 #[linkme::distributed_slice]
+#[doc(hidden)]
 pub static MODELS: [fn() -> imr::Model] = [..];
 
 /// Write all models in the Intermediate Model Representation to a [writer].
