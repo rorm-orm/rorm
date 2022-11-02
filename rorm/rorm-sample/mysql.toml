@@ -1,0 +1,11 @@
+[Database]
+# Valid driver types are: "MySQL", "Postgres" and "SQLite"
+Driver = "MySQL"
+
+# Name of the database
+Name = "database"
+
+Host = "127.0.0.1"
+Port = 3306
+User = "user"
+Password = "password"

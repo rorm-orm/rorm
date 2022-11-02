@@ -1,0 +1,6 @@
+[Database]
+# Valid driver types are: "MySQL", "Postgres" and "SQLite"
+Driver = "SQLite"
+
+# Filename of the database
+Filename = "sqlite.db"

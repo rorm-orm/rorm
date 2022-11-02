@@ -188,3 +188,54 @@ jobs:
       - name: Run integration tests
         run: ./run.sh
         working-directory: ./dorm/integration-tests/
+
+  sample-project:
+    name: Sample project usage
+    needs: [cargotest]
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-20.04, ubuntu-22.04]
+        cargo_flags: ["", "-r"]
+        config_file:
+          - mysql.toml
+          - postgres.toml
+          - sqlite.toml
+      runs-on: ${{ matrix.os }}
+      steps:
+        - uses: actions/checkout@v3
+
+        - name: Setup the databases
+          run: |
+            sudo systemctl start mysql.service
+            mysql -e "CREATE USER user IDENTIFIED BY 'password';" -u root -p"root" -v
+            mysql -e "CREATE DATABASE database;" -u root -p"root" -v
+            mysql -e "GRANT ALL PRIVILEGES ON database.* TO user;" -u root -p"root" -v
+            sudo systemctl start postgresql.service
+            sudo psql -v ON_ERROR_STOP=1 <<-EOSQL
+              CREATE USER user WITH PASSWORD 'password';
+              CREATE DATABASE database;
+              GRANT ALL PRIVILEGES ON DATABASE database TO user;
+            EOSQL
+
+        - name: Cargo build
+          run: cargo build ${{ matrix.cargo_flags }}
+          working-directory: ./rorm/rorm-sample
+
+        - name: Migrate the database
+          run: rorm-cli migrate --database-config ${{ matrix.config_file }}
+
+        - name: Rescan for changed models
+          run: cargo run -F rorm-main ${{ matrix.cargo_flags }}
+
+        - name: Make new migrations
+          run: rorm-cli make-migrations
+
+        - name: Apply new migrations
+          run: rorm-cli migrate --database-config ${{ matrix.config_file }}
+
+        - name: Run the sample help
+          run: cargo run -- --help
+
+        - name: Run the sample project
+          run: RUST_LOG=rorm=debug cargo run ${{ matrix.cargo_flags }} -- ${{ matrix.config_file }}
