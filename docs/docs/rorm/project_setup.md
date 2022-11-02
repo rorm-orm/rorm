@@ -6,7 +6,7 @@ cargo install -f cargo-make rorm-cli
 ```
 
 - `cargo-make` will be used to simplify the creation of the 
-[internal model representation](/migrations/internal_model_representation).
+[internal model representation](../migrations/internal_model_representation.md).
 - `rorm-cli` is needed to create, manage and apply migrations files.
 
 If you encounter problems with the CLI utilities, always check whether

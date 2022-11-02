@@ -351,25 +351,14 @@ async fn main() {
     )
     .expect("Couldn't deserialize configuration file");
 
-    // Get a DB configuration from the deserialized TOML file
-    let db_conf = match db_conf_file.database.driver {
-        rorm::config::DatabaseDriver::SQLite { filename } => rorm::DatabaseConfiguration {
-            backend: rorm::DatabaseBackend::SQLite,
-            name: filename,
-            host: "".to_string(),
-            port: 0,
-            user: "".to_string(),
-            password: "".to_string(),
-            min_connections: 1,
-            max_connections: 1,
-        },
-        _ => panic!("omitted for simplicity"),
-    };
-
-    // Connect to the database to get the database handle
-    let db = rorm::Database::connect(db_conf)
-        .await
-        .expect("error connecting to the database");
+    // Connect to the database to get the database handle using the TOML configuration
+    let db = rorm::Database::connect(DatabaseConfiguration {
+        driver: db_conf_file.database.driver,
+        min_connections: 1,
+        max_connections: 1,
+    })
+    .await
+    .expect("error connecting to the database");
 
     // Query all users from the database
     for user in rorm::query!(&db, User)
