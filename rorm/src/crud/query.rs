@@ -18,15 +18,15 @@ use crate::model::{AsDbType, Field, Model, Patch};
 #[must_use]
 pub struct QueryBuilder<
     'db,
-    'a,
+    'rf,
     M: Model,
     S: Selector<M>,
-    C: ConditionMarker<'a>,
-    T: TransactionMarker<'a, 'db>,
+    C: ConditionMarker<'rf>,
+    T: TransactionMarker<'rf, 'db>,
 > {
     db: &'db Database,
-    selector: &'a S,
-    _phantom: PhantomData<M>,
+    selector: S,
+    _phantom: PhantomData<&'rf M>,
 
     condition: C,
     transaction: T,
@@ -46,7 +46,7 @@ pub trait Selector<M: Model> {
 
 impl<'db, 'rf, M: Model, S: Selector<M>> QueryBuilder<'db, 'rf, M, S, (), ()> {
     /// Start building a query using a generic [Selector]
-    pub fn new(db: &'db Database, selector: &'rf S) -> QueryBuilder<'db, 'rf, M, S, (), ()> {
+    pub fn new(db: &'db Database, selector: S) -> QueryBuilder<'db, 'rf, M, S, (), ()> {
         QueryBuilder {
             db,
             selector,
@@ -254,13 +254,13 @@ macro_rules! query {
     ($db:expr, $patch:path) => {
         $crate::crud::query::QueryBuilder::new(
             $db,
-            &$crate::crud::query::SelectPatch::<$patch>::new(),
+            $crate::crud::query::SelectPatch::<$patch>::new(),
         )
     };
     ($db:expr, ($($field:expr),+$(,)?)) => {
         $crate::crud::query::QueryBuilder::new(
             $db,
-            &$crate::crud::query::SelectTuple::<_, { 0 $( + $crate::query!(replace {$field} with 1))+ }>::new(&($($field),+)),
+            $crate::crud::query::SelectTuple::<_, { 0 $( + $crate::query!(replace {$field} with 1))+ }>::new(&($(&$field),+)),
         )
     };
 }
@@ -313,9 +313,9 @@ pub struct SelectTuple<T, const C: usize> {
 }
 macro_rules! impl_select_tuple {
     ($C:literal, ($($index:tt: <$T:ident, $D:ident, $A:ident>,)+)) => {
-        impl<M: Model, $($T, $D, $A,)+> SelectTuple<($(Field<$T, $D, M, $A>,)+), $C> {
+        impl<M: Model, $($T, $D, $A,)+> SelectTuple<($(&'static Field<$T, $D, M, $A>,)+), $C> {
             /// Create a SelectTuple
-            pub const fn new(tuple: &($(Field<$T, $D, M, $A>,)+)) -> Self {
+            pub const fn new(tuple: &($(&'static Field<$T, $D, M, $A>,)+)) -> Self {
                 Self {
                     tuple: PhantomData,
                     columns: [$(tuple.$index.name),+],
@@ -323,7 +323,7 @@ macro_rules! impl_select_tuple {
             }
         }
         impl<M: Model, $($T: AsDbType, $D: DbType, $A,)+> Selector<M>
-            for SelectTuple<($(Field<$T, $D, M, $A>,)+), $C>
+            for SelectTuple<($(&'static Field<$T, $D, M, $A>,)+), $C>
         {
             type Result = ($($T,)+);
 
