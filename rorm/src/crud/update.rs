@@ -150,9 +150,9 @@ impl<'db, 'rf, M: Model + 'rf, C: ConditionMarker<'rf>, T: TransactionMarker<'rf
 
 /// Create a UPDATE query.
 ///
-/// 1. Give a reference to your db and the patch type you want to insert instances of.
+/// 1. Give a reference to your db and the patch type you want to update instances of
 ///
-///     `insert!(&db, MyModelType)`
+///     `update!(&db, MyModelType)`
 ///
 /// 2. Set some columns to update
 ///
