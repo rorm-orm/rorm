@@ -9,9 +9,8 @@ cargo install -f cargo-make rorm-cli
 [internal model representation](/migrations/internal_model_representation).
 - `rorm-cli` is needed to create, manage and apply migrations files.
 
-Note that those commands use crates.io as package source. Since the CLI
-tools get updated frequently at the moment, you probably want to build the
-tools from git or from a local path using `--git` or `--path` respectively.
+If you encounter problems with the CLI utilities, always check whether
+any of them are outdated by rebuilding with the above command.
 
 ## Project initialization
 
