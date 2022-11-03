@@ -189,9 +189,69 @@ jobs:
         run: ./run.sh
         working-directory: ./dorm/integration-tests/
 
+  install-rorm-cli:
+    name: Install rorm-cli (binary)
+    needs: [build-debug]
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          # - windows-latest
+          # - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            rorm/target/
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-project
+
+      - name: Install rorm-cli
+        run: cargo install -f rorm-cli --path .
+        working-directory: ./rorm/rorm-cli
+
+  build-sample:
+    name: Build the sample project
+    needs: [install-rorm-cli]
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          # - windows-latest
+          # - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            rorm/target/
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-project
+
+      - name: Create a debug build
+        run: cargo build
+        working-directory: ./rorm/rorm-sample
+
+      - name: Create a release build
+        run: cargo build --release
+        working-directory: ./rorm/rorm-sample
+
   sample-project:
     name: Sample project usage
-    needs: [cargotest]
+    needs: [build-sample]
     strategy:
       fail-fast: true
       matrix:
@@ -223,20 +283,30 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            rorm/target/
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-project
+
+      - name: Check for rorm-cli
+        run: if [[ -f "$(which rorm-cli)" ]] ; then echo "Found rorm-cli" ; else cargo install rorm-cli --path ../rorm-cli ; fi
+        working-directory: ./rorm/rorm-sample
+
+      - name: Cargo build using caches
+        run: cargo build ${{ matrix.cargo_flags }}
+        working-directory: ./rorm/rorm-sample
+
       - name: Setup the MySQL database
         run: |
           sudo systemctl start mysql.service
           mysql -e "CREATE USER user IDENTIFIED BY 'password';" -u root -p"root" -v
           mysql -e "CREATE DATABASE db;" -u root -p"root" -v
           mysql -e "GRANT ALL PRIVILEGES ON db.* TO user;" -u root -p"root" -v
-
-      - name: Cargo build
-        run: cargo build ${{ matrix.cargo_flags }}
-        working-directory: ./rorm/rorm-sample
-
-      - name: Install rorm-cli
-        run: cargo install -f rorm-cli
-        working-directory: ./rorm/rorm-sample
 
       - name: Migrate the database
         run: rorm-cli migrate --database-config ${{ matrix.config_file }}
