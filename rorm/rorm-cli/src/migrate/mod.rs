@@ -55,7 +55,12 @@ pub async fn apply_migration(
         .await
         .with_context(|| format!("Error while starting transaction {}", migration.id))?;
 
-    migration_to_sql(&mut tx, dialect, migration, do_log).await?;
+    if let Err(e) = migration_to_sql(&mut tx, dialect, migration, do_log).await {
+        tx.rollback()
+            .await
+            .with_context(|| "Error while rollback in transaction")?;
+        return Err(e);
+    }
 
     tx.commit().await.with_context(|| {
         format!(
