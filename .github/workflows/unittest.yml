@@ -234,6 +234,9 @@ jobs:
         run: cargo build ${{ matrix.cargo_flags }}
         working-directory: ./rorm/rorm-sample
 
+      - name: Install rorm-cli
+        run: cargo install -f rorm-cli
+
       - name: Migrate the database
         run: rorm-cli migrate --database-config ${{ matrix.config_file }}
 
