@@ -1,10 +1,10 @@
 use std::fs::read_to_string;
 
 use clap::Parser;
-use rorm::config::DatabaseConfig;
-use rorm::Database;
-use rorm::DatabaseConfiguration;
+use rorm::{config::DatabaseConfig, Database, DatabaseConfiguration};
 use serde::{Deserialize, Serialize};
+
+mod operations;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
@@ -25,19 +25,21 @@ async fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     // Get the config file from the CLI arguments
-    let cli: Cli = Cli::parse();
+    let path = Cli::parse().config_file;
 
     // Read the config from a TOML file
-    let db_conf_file: ConfigFile = toml::from_str(&read_to_string(&cli.config_file)?)?;
+    let db_conf_file: ConfigFile = toml::from_str(&read_to_string(&path)?)?;
 
     // Connect to the database to get the database handle using the TOML configuration
-    let _db = Database::connect(DatabaseConfiguration {
+    let db = Database::connect(DatabaseConfiguration {
         driver: db_conf_file.database.driver,
         min_connections: 1,
         max_connections: 1,
     })
     .await?;
-    // TODO
+
+    // Perform project-specific operations on the database
+    operations::operate(db).await;
 
     Ok(())
 }
