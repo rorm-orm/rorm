@@ -1,0 +1,36 @@
+[Migration]
+Hash = '2856395125008994900'
+Initial = true
+Replaces = []
+
+[[Migration.Operations]]
+Type = 'CreateModel'
+Name = 'user'
+
+[[Migration.Operations.Fields]]
+Name = 'id'
+Type = 'int64'
+
+[[Migration.Operations.Fields.Annotations]]
+Type = 'auto_increment'
+
+[[Migration.Operations.Fields.Annotations]]
+Type = 'primary_key'
+
+[[Migration.Operations.Fields]]
+Name = 'username'
+Type = 'varchar'
+
+[[Migration.Operations.Fields.Annotations]]
+Type = 'max_length'
+Value = 255
+
+[[Migration.Operations.Fields.Annotations]]
+Type = 'not_null'
+
+[[Migration.Operations.Fields]]
+Name = 'age'
+Type = 'int16'
+
+[[Migration.Operations.Fields.Annotations]]
+Type = 'not_null'
