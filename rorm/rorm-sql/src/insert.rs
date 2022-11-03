@@ -65,7 +65,7 @@ impl<'until_build, 'post_build> Insert<'post_build> for InsertImpl<'until_build,
             #[cfg(feature = "sqlite")]
             InsertImpl::SQLite(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
             #[cfg(feature = "mysql")]
-            InsertImpl::MySQL(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
+            InsertImpl::MySQL(_) => {}
             #[cfg(feature = "postgres")]
             InsertImpl::Postgres(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
         };

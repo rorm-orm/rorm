@@ -1,5 +1,8 @@
 /**
 Representation of an ON CONFLICT case in SQL.
+
+// TODO: Check ignore cases for different database backends
+// Mariadb: https://mariadb.com/kb/en/insert-ignore/
 */
 #[derive(Debug, Copy, Clone)]
 pub enum OnConflict {
