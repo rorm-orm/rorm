@@ -213,8 +213,7 @@ jobs:
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-project
 
       - name: Install rorm-cli
-        run: cargo install rorm-cli --path .
-        working-directory: ./rorm/rorm-cli
+        run: cargo install rorm-cli --path ./rorm/rorm-cli
 
   build-sample:
     name: Build the sample project
@@ -255,7 +254,7 @@ jobs:
       fail-fast: true
       matrix:
         # Only Linux distros are supported due to the Postgres service below
-        os: [ubuntu-20.04, ubuntu-22.04]
+        os: [ubuntu-latest]
         cargo_flags: ["", "--release"]
         config_file:
           - mysql.toml
