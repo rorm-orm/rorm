@@ -191,7 +191,6 @@ jobs:
 
   install-rorm-cli:
     name: Install rorm-cli (binary)
-    needs: [build-debug]
     strategy:
       fail-fast: false
       matrix:
@@ -214,7 +213,7 @@ jobs:
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-project
 
       - name: Install rorm-cli
-        run: cargo install -f rorm-cli --path .
+        run: cargo install rorm-cli --path .
         working-directory: ./rorm/rorm-cli
 
   build-sample:
