@@ -47,14 +47,14 @@ pub fn check_options(options: &MakeMigrationsOptions) -> anyhow::Result<()> {
         create_dir_all(migration_dir).with_context(|| "Couldn't create migration directory")?;
     }
 
-    match &options.name {
-        Some(name) => {
-            if !RE.migration_allowed_name.is_match(name.as_str()) {
-                return Err(anyhow!("Custom migration name is not allowed"));
-            }
+    if let Some(name) = &options.name {
+        if !RE.migration_allowed_comment.is_match(name.as_str()) {
+            return Err(anyhow!(
+                "Custom migration name contains illegal characters!"
+            ));
         }
-        None => {}
     }
+
     Ok(())
 }
 
