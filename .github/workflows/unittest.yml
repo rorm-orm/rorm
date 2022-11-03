@@ -213,7 +213,7 @@ jobs:
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-project
 
       - name: Install rorm-cli
-        run: cargo install rorm-cli --path ./rorm/rorm-cli
+        run: cargo install rorm-cli --path ./rorm/rorm-cli -f
 
   build-sample:
     name: Build the sample project
