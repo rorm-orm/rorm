@@ -197,7 +197,7 @@ jobs:
       matrix:
         # Only Linux distros are supported due to the Postgres service below
         os: [ubuntu-20.04, ubuntu-22.04]
-        cargo_flags: ["", "-r"]
+        cargo_flags: ["", "--release"]
         config_file:
           - mysql.toml
           - postgres.toml
@@ -236,21 +236,28 @@ jobs:
 
       - name: Install rorm-cli
         run: cargo install -f rorm-cli
+        working-directory: ./rorm/rorm-sample
 
       - name: Migrate the database
         run: rorm-cli migrate --database-config ${{ matrix.config_file }}
+        working-directory: ./rorm/rorm-sample
 
       - name: Rescan for changed models
         run: cargo run -F rorm-main ${{ matrix.cargo_flags }}
+        working-directory: ./rorm/rorm-sample
 
       - name: Make new migrations
         run: rorm-cli make-migrations
+        working-directory: ./rorm/rorm-sample
 
       - name: Apply new migrations
         run: rorm-cli migrate --database-config ${{ matrix.config_file }}
+        working-directory: ./rorm/rorm-sample
 
       - name: Run the sample help
         run: cargo run -- --help
+        working-directory: ./rorm/rorm-sample
 
       - name: Run the sample project
         run: RUST_LOG=rorm=debug cargo run ${{ matrix.cargo_flags }} -- ${{ matrix.config_file }}
+        working-directory: ./rorm/rorm-sample
