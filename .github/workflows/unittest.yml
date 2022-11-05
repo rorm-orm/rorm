@@ -364,7 +364,7 @@ jobs:
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-project
 
       - name: Build rorm-cli again
-        run: cargo install rorm-cli --path ../rorm-cli
+        run: cargo install rorm-cli --path ../rorm-cli -f
         working-directory: ./rorm/rorm-sample
 
       - name: Migrate the database

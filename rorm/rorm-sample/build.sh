@@ -47,10 +47,10 @@ run rorm-cli make-migrations
 
 run rorm-cli migrate --database-config "${CONFIG_FILE}" --log-sql
 
-run cargo run -- --help
+RUST_BACKTRACE=full run cargo run -- --help
 
 if [ -z ${CARGO_FLAGS+x} ]; then
-  RUST_LOG=rorm=debug run cargo run -- "${CONFIG_FILE}"
+  RUST_BACKTRACE=full RUST_LOG=rorm=debug run cargo run -- "${CONFIG_FILE}"
 else
-  RUST_LOG=rorm=debug run cargo run "${CARGO_FLAGS}" -- "${CONFIG_FILE}"
+  RUST_BACKTRACE=full RUST_LOG=rorm=debug run cargo run "${CARGO_FLAGS}" -- "${CONFIG_FILE}"
 fi
