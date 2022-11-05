@@ -33,12 +33,12 @@ async fn main() -> anyhow::Result<()> {
 
     // Connect to the database to get the database handle using the TOML configuration
     let db = Database::connect(DatabaseConfiguration {
-        driver: db_conf_file.database.driver,
+        driver: db_conf_file.database.driver.clone(),
         min_connections: 1,
         max_connections: 1,
     })
     .await?;
 
     // Perform project-specific operations on the database
-    operations::operate(db).await
+    operations::operate(db, &db_conf_file.database.driver.clone()).await
 }

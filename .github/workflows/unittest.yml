@@ -307,7 +307,7 @@ jobs:
           mysql -e "GRANT ALL PRIVILEGES ON db.* TO user;" -u root -p"root" -v
 
       - name: Migrate the database
-        run: rorm-cli migrate --database-config ${{ matrix.config_file }}
+        run: rorm-cli migrate --database-config ${{ matrix.config_file }} --log-sql
         working-directory: ./rorm/rorm-sample
 
       - name: Rescan for changed models
@@ -319,7 +319,7 @@ jobs:
         working-directory: ./rorm/rorm-sample
 
       - name: Apply new migrations
-        run: rorm-cli migrate --database-config ${{ matrix.config_file }}
+        run: rorm-cli migrate --database-config ${{ matrix.config_file }} --log-sql
         working-directory: ./rorm/rorm-sample
 
       - name: Run the sample help
