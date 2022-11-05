@@ -1,7 +1,7 @@
 use std::fs::read_to_string;
 
 use clap::Parser;
-use rorm::{config::DatabaseConfig, Database, DatabaseConfiguration};
+use rorm::{config::DatabaseConfig, Database, DatabaseConfiguration, DatabaseDriver};
 use serde::{Deserialize, Serialize};
 
 mod operations;
@@ -18,6 +18,23 @@ struct Cli {
     config_file: String,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum DatabaseVariant {
+    MySQL,
+    Postgres,
+    SQLite,
+}
+
+impl From<&DatabaseDriver> for DatabaseVariant {
+    fn from(db: &DatabaseDriver) -> Self {
+        match db {
+            DatabaseDriver::Postgres { .. } => DatabaseVariant::Postgres,
+            DatabaseDriver::MySQL { .. } => DatabaseVariant::MySQL,
+            DatabaseDriver::SQLite { .. } => DatabaseVariant::SQLite,
+        }
+    }
+}
+
 #[rorm::rorm_main]
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -31,13 +48,14 @@ async fn main() -> anyhow::Result<()> {
     let db_conf_file: ConfigFile = toml::from_str(&read_to_string(&path)?)?;
 
     // Connect to the database to get the database handle using the TOML configuration
+    let db_variant = (&db_conf_file.database.driver).into();
     let db = Database::connect(DatabaseConfiguration {
-        driver: db_conf_file.database.driver.clone(),
+        driver: db_conf_file.database.driver,
         min_connections: 1,
         max_connections: 1,
     })
     .await?;
 
     // Perform project-specific operations on the database
-    operations::operate(db, &db_conf_file.database.driver.clone()).await
+    operations::operate(db, db_variant).await
 }

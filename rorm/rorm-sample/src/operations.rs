@@ -4,6 +4,8 @@ use rorm::{config::DatabaseDriver, delete, insert, query, Database, Model, Patch
 
 mod prepared_statements;
 
+use crate::DatabaseVariant;
+
 #[derive(Clone, Debug, Model)]
 struct User {
     #[rorm(id)]
@@ -81,7 +83,7 @@ async fn create_cars(db: &Database) {
     insert!(db, Car).bulk(&cars).await.unwrap();
 }
 
-pub(crate) async fn operate(db: Database, driver: &DatabaseDriver) -> anyhow::Result<()> {
+pub(crate) async fn operate(db: Database, driver: DatabaseVariant) -> anyhow::Result<()> {
     // Ensure that there are no users, cars or counters in the database
     assert_eq!(0, query!(&db, User).all().await.unwrap().len());
     assert_eq!(0, query!(&db, Car).all().await.unwrap().len());
@@ -126,13 +128,13 @@ pub(crate) async fn operate(db: Database, driver: &DatabaseDriver) -> anyhow::Re
 
     // Ensure that prepared statements with raw SQL are working
     match driver {
-        DatabaseDriver::MySQL { .. } => {
+        DatabaseVariant::MySQL => {
             prepared_statements::check_raw_sql_mysql().await?;
         }
-        DatabaseDriver::Postgres { .. } => {
+        DatabaseVariant::Postgres => {
             prepared_statements::check_raw_sql_postgres().await?;
         }
-        DatabaseDriver::SQLite { .. } => {
+        DatabaseVariant::SQLite => {
             prepared_statements::check_raw_sql_sqlite().await?;
         }
     }
