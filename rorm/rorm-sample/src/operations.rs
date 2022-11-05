@@ -1,6 +1,6 @@
 use chrono::naive::NaiveDate;
 use futures::TryStreamExt;
-use rorm::{config::DatabaseDriver, delete, insert, query, Database, Model, Patch};
+use rorm::{delete, insert, query, Database, Model, Patch};
 
 mod prepared_statements;
 
@@ -105,37 +105,43 @@ pub(crate) async fn operate(db: Database, driver: DatabaseVariant) -> anyhow::Re
         "double it to get the answer to life, universe and everything"
     );
 
-    // Check the raw SQL features using a 'SELECT' query and the iterator of the rows
-    let rows = db.raw_sql("SELECT * FROM user", None, None).await?;
-    assert_eq!(rows.len(), 6, "we created six users");
-    let vector_of_user_ids: Vec<i64> = rows
-        .iter()
-        .map(|r| r.get::<i64, &str>("id").unwrap())
-        .collect();
-    assert_eq!(vec![1, 2, 3, 4, 5, 6], vector_of_user_ids);
-    let vector_of_user_names: Vec<&str> = rows
-        .iter()
-        .map(|r| r.get::<&str, &str>("username").unwrap())
-        .collect();
-    assert_eq!(
-        vec!["Alice", "Bob", "Charlie", "David", "Eve", "Francis"],
-        vector_of_user_names
-    );
-    assert_ne!(
-        vec!["Alice", "Bob", "Charlie", "David", "Eve", "Foo"],
-        vector_of_user_names
-    );
+    // Delete the user Eve for being very evil
+    delete!(&db, User)
+        .condition(User::FIELDS.username.equals("Eve"))
+        .await?;
+    assert_eq!(5, query!(&db, User).all().await?.len());
 
     // Ensure that prepared statements with raw SQL are working
     match driver {
         DatabaseVariant::MySQL => {
-            prepared_statements::check_raw_sql_mysql().await?;
+            prepared_statements::check_raw_sql_mysql(&db).await?;
         }
         DatabaseVariant::Postgres => {
-            prepared_statements::check_raw_sql_postgres().await?;
+            prepared_statements::check_raw_sql_postgres(&db).await?;
         }
         DatabaseVariant::SQLite => {
-            prepared_statements::check_raw_sql_sqlite().await?;
+            prepared_statements::check_raw_sql_sqlite(&db).await?;
+        }
+    }
+
+    // There are no cars with green color
+    if let Some(_) = query!(&db, Car)
+        .condition(Car::FIELDS.color.equals("green"))
+        .optional()
+        .await?
+    {
+        panic!("There should be no green car!")
+    }
+
+    // Drop eight single red cars
+    for _ in 0..8 {
+        if let Some(car) = query!(&db, Car)
+            .condition(Car::FIELDS.color.equals("red"))
+            .optional()
+            .await
+            .unwrap()
+        {
+            delete!(&db, Car).single(&car).await?;
         }
     }
 
