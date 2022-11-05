@@ -106,7 +106,7 @@ impl<T: AsDbType> AsDbType for Option<T> {
 /// Map a rust enum, whose variant don't hold any data, into a database enum
 ///
 /// ```rust
-/// #[derive(rorm::DbEnum)]
+/// #[derive(Copy, Clone, rorm::DbEnum)]
 /// pub enum Gender {
 ///     Male,
 ///     Female,
