@@ -269,7 +269,7 @@ impl DBImpl {
             DBImpl::MySQL => CreateColumnImpl::MySQL(CreateColumnMySQLData {
                 name,
                 data_type,
-                annotations: vec![],
+                annotations: a,
                 statements: None,
                 lookup: None,
             }),
@@ -278,7 +278,7 @@ impl DBImpl {
                 name,
                 table_name,
                 data_type,
-                annotations: vec![],
+                annotations: a,
                 statements: None,
             }),
         }
