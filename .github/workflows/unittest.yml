@@ -247,24 +247,65 @@ jobs:
         run: cargo build --release
         working-directory: ./rorm/rorm-sample
 
-  sample-project:
-    name: Sample project usage
+  sample-project-mysql:
+    name: Sample project (mysql)
     needs: [build-sample]
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
-        # Only Linux distros are supported due to the Postgres service below
+        # Only Linux distros are supported due to the service below
         os: [ubuntu-latest]
         cargo_flags: ["", "--release"]
-        config_file:
-          - mysql.toml
-          - postgres.toml
-          - sqlite.toml
+        mariadb_version: [10.5, 10.7, latest]
+    runs-on: ${{ matrix.os }}
+
+    services:
+      mariadb:
+        image: mariadb:${{ matrix.mariadb_version }}
+        env:
+          MARIADB_USER: user
+          MARIADB_PASSWORD: password
+          MARIADB_DATABASE: db
+        ports:
+          - 127.0.0.1:3306:3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            rorm/target/
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-project
+
+      - name: Build and run the project
+        run: CONFIG_FILE=mysql.toml CARGO_FLAGS=${{ matrix.cargo_flags }} bash ./build.sh
+        working-directory: ./rorm/rorm-sample
+
+  sample-project-postgres:
+    name: Sample project (postgres)
+    needs: [build-sample]
+    strategy:
+      fail-fast: false
+      matrix:
+        # Only Linux distros are supported due to the service below
+        os: [ubuntu-latest]
+        cargo_flags: ["", "--release"]
+        postgres_version: [13, 14, 15]
     runs-on: ${{ matrix.os }}
 
     services:
       postgres:
-        image: postgres:11
+        image: postgres:${{ matrix.postgres_version }}
         env:
           POSTGRES_USER: user
           POSTGRES_PASSWORD: password
@@ -291,41 +332,36 @@ jobs:
             rorm/target/
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-project
 
-      - name: Check for rorm-cli
-        run: if [[ -f "$(which rorm-cli)" ]] ; then echo "Found rorm-cli" ; else cargo install rorm-cli --path ../rorm-cli ; fi
+      - name: Build and run the project
+        run: CONFIG_FILE=postgres.toml CARGO_FLAGS=${{ matrix.cargo_flags }} bash ./build.sh
         working-directory: ./rorm/rorm-sample
 
-      - name: Cargo build using caches
-        run: cargo build ${{ matrix.cargo_flags }}
-        working-directory: ./rorm/rorm-sample
+  sample-project-sqlite:
+    name: Sample project (sqlite)
+    needs: [build-sample]
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        cargo_flags: ["", "--release"]
+    runs-on: ${{ matrix.os }}
 
-      - name: Setup the MySQL database
-        run: |
-          sudo systemctl start mysql.service
-          mysql -e "CREATE USER user IDENTIFIED BY 'password';" -u root -p"root" -v
-          mysql -e "CREATE DATABASE db;" -u root -p"root" -v
-          mysql -e "GRANT ALL PRIVILEGES ON db.* TO user;" -u root -p"root" -v
+    steps:
+      - uses: actions/checkout@v3
 
-      - name: Migrate the database
-        run: rorm-cli migrate --database-config ${{ matrix.config_file }} --log-sql
-        working-directory: ./rorm/rorm-sample
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            rorm/target/
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-project
 
-      - name: Rescan for changed models
-        run: cargo run -F rorm-main ${{ matrix.cargo_flags }}
-        working-directory: ./rorm/rorm-sample
-
-      - name: Make new migrations
-        run: rorm-cli make-migrations
-        working-directory: ./rorm/rorm-sample
-
-      - name: Apply new migrations
-        run: rorm-cli migrate --database-config ${{ matrix.config_file }} --log-sql
-        working-directory: ./rorm/rorm-sample
-
-      - name: Run the sample help
-        run: cargo run -- --help
-        working-directory: ./rorm/rorm-sample
-
-      - name: Run the sample project
-        run: RUST_LOG=rorm=debug cargo run ${{ matrix.cargo_flags }} -- ${{ matrix.config_file }}
+      - name: Build and run the project
+        run: CONFIG_FILE=sqlite.toml CARGO_FLAGS=${{ matrix.cargo_flags }} bash ./build.sh
         working-directory: ./rorm/rorm-sample
