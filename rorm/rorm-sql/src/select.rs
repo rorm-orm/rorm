@@ -1,5 +1,5 @@
 use crate::conditional::{BuildCondition, Condition};
-use crate::Value;
+use crate::{DBImpl, Value};
 
 /**
 Trait representing a select builder.
@@ -132,7 +132,7 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
                             "".to_string()
                         }
                         Some(condition) => {
-                            format!("WHERE {}", condition.build(&mut d.lookup))
+                            format!("WHERE {}", condition.build(DBImpl::SQLite, &mut d.lookup))
                         }
                     },
                 ),
@@ -150,7 +150,7 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
                             "".to_string()
                         }
                         Some(condition) => {
-                            format!("WHERE {}", condition.build(&mut d.lookup))
+                            format!("WHERE {}", condition.build(DBImpl::MySQL, &mut d.lookup))
                         }
                     },
                 ),
@@ -168,7 +168,7 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
                             "".to_string()
                         }
                         Some(condition) => {
-                            format!("WHERE {}", condition.build(&mut d.lookup))
+                            format!("WHERE {}", condition.build(DBImpl::Postgres, &mut d.lookup))
                         }
                     },
                 ),

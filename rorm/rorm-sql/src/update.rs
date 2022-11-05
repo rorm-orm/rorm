@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use crate::conditional::{BuildCondition, Condition};
 use crate::error::Error;
-use crate::{OnConflict, Value};
+use crate::{DBImpl, OnConflict, Value};
 
 /**
 Trait representing a update builder.
@@ -148,7 +148,12 @@ impl<'until_build, 'post_build> Update<'until_build, 'post_build>
                 }
 
                 if let Some(condition) = d.where_clause {
-                    write!(s, " WHERE {}", condition.build(&mut d.lookup)).unwrap();
+                    write!(
+                        s,
+                        " WHERE {}",
+                        condition.build(DBImpl::SQLite, &mut d.lookup)
+                    )
+                    .unwrap();
                 }
 
                 write!(s, ";").unwrap();
@@ -181,7 +186,12 @@ impl<'until_build, 'post_build> Update<'until_build, 'post_build>
                 }
 
                 if let Some(condition) = d.where_clause {
-                    write!(s, " WHERE {}", condition.build(&mut d.lookup)).unwrap();
+                    write!(
+                        s,
+                        " WHERE {}",
+                        condition.build(DBImpl::MySQL, &mut d.lookup)
+                    )
+                    .unwrap();
                 }
 
                 write!(s, ";").unwrap();
@@ -207,7 +217,12 @@ impl<'until_build, 'post_build> Update<'until_build, 'post_build>
                 }
 
                 if let Some(condition) = d.where_clause {
-                    write!(s, " WHERE {}", condition.build(&mut d.lookup)).unwrap();
+                    write!(
+                        s,
+                        " WHERE {}",
+                        condition.build(DBImpl::Postgres, &mut d.lookup)
+                    )
+                    .unwrap();
                 }
 
                 write!(s, ";").unwrap();
