@@ -266,6 +266,7 @@ jobs:
           MARIADB_USER: user
           MARIADB_PASSWORD: password
           MARIADB_DATABASE: db
+          MARIADB_RANDOM_ROOT_PASSWORD: yes
         ports:
           - 127.0.0.1:3306:3306/tcp
         options: >-
@@ -300,7 +301,7 @@ jobs:
         # Only Linux distros are supported due to the service below
         os: [ubuntu-latest]
         cargo_flags: ["", "--release"]
-        postgres_version: [13, 14, 15]
+        postgres_version: [11, 12, 13, 14, 15]
     runs-on: ${{ matrix.os }}
 
     services:
@@ -362,6 +363,30 @@ jobs:
             rorm/target/
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-project
 
-      - name: Build and run the project
-        run: CONFIG_FILE=sqlite.toml CARGO_FLAGS=${{ matrix.cargo_flags }} bash ./build.sh
+      - name: Build rorm-cli again
+        run: cargo install rorm-cli --path ../rorm-cli
+        working-directory: ./rorm/rorm-sample
+
+      - name: Migrate the database
+        run: rorm-cli migrate --database-config sqlite.toml --log-sql
+        working-directory: ./rorm/rorm-sample
+
+      - name: Rescan for changed models
+        run: cargo run -F rorm-main ${{ matrix.cargo_flags }}
+        working-directory: ./rorm/rorm-sample
+
+      - name: Make new migrations
+        run: rorm-cli make-migrations
+        working-directory: ./rorm/rorm-sample
+
+      - name: Apply new migrations
+        run: rorm-cli migrate --database-config sqlite.toml --log-sql
+        working-directory: ./rorm/rorm-sample
+
+      - name: Run the sample help
+        run: cargo run -- --help
+        working-directory: ./rorm/rorm-sample
+
+      - name: Run the sample project
+        run: RUST_LOG=rorm=debug cargo run ${{ matrix.cargo_flags }} -- sqlite.toml
         working-directory: ./rorm/rorm-sample
