@@ -65,7 +65,7 @@ impl<'until_build, 'post_build> Insert<'post_build> for InsertImpl<'until_build,
             #[cfg(feature = "sqlite")]
             InsertImpl::SQLite(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
             #[cfg(feature = "mysql")]
-            InsertImpl::MySQL(_) => {}
+            InsertImpl::MySQL(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
             #[cfg(feature = "postgres")]
             InsertImpl::Postgres(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
         };
@@ -118,14 +118,7 @@ impl<'until_build, 'post_build> Insert<'post_build> for InsertImpl<'until_build,
             }
             #[cfg(feature = "mysql")]
             InsertImpl::MySQL(mut d) => {
-                let mut s = format!(
-                    "INSERT {}INTO {} (",
-                    match d.on_conflict {
-                        OnConflict::ABORT => "OR ABORT ",
-                        OnConflict::ROLLBACK => "OR ROLLBACK ",
-                    },
-                    d.into_clause,
-                );
+                let mut s = format!("INSERT INTO {} (", d.into_clause,);
                 for (idx, x) in d.columns.iter().enumerate() {
                     write!(s, "{}", x).unwrap();
                     if idx != d.columns.len() - 1 {
