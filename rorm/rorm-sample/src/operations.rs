@@ -1,6 +1,6 @@
 use chrono::naive::NaiveDate;
 use futures::TryStreamExt;
-use rorm::{delete, insert, query, Database, Model, Patch};
+use rorm::{delete, insert, or, query, Database, Model, Patch};
 
 mod prepared_statements;
 
@@ -138,12 +138,20 @@ pub(crate) async fn operate(db: Database, driver: DatabaseVariant) -> anyhow::Re
         if let Some(car) = query!(&db, Car)
             .condition(Car::FIELDS.color.equals("red"))
             .optional()
-            .await
-            .unwrap()
+            .await?
         {
             delete!(&db, Car).single(&car).await?;
         }
     }
+
+    // Drop the one car with black color and all cars with a serial no above 1000
+    delete!(&db, Car)
+        .condition(or!(
+            Car::FIELDS.color.equals("black"),
+            Car::FIELDS.serial_no.greater(1000)
+        ))
+        .await?;
+    assert_eq!(991, query!(&db, Car).all().await?.len());
 
     Ok(())
 }
