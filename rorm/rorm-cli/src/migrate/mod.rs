@@ -34,6 +34,9 @@ pub struct MigrateOptions {
 
     /// Log all SQL statements
     pub log_queries: bool,
+
+    /// Apply only to (inclusive) the given id, if set
+    pub apply_until: Option<u16>,
 }
 
 /**
@@ -253,6 +256,16 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                     options.log_queries,
                 )
                 .await?;
+
+                if let Some(apply_until) = options.apply_until {
+                    if migration.id == apply_until {
+                        println!(
+                            "Applied all migrations until (inclusive) migration {:04}",
+                            apply_until
+                        );
+                        break;
+                    }
+                }
             }
         }
         Some(id) => {
@@ -278,6 +291,25 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
 
                         if idx == existing_migrations.len() - 1 {
                             println!("All migration have already been applied.");
+                        }
+                    }
+
+                    if let Some(apply_until) = options.apply_until {
+                        if migration.id == apply_until {
+                            if apply {
+                                println!(
+                                    "Applied all migrations until (inclusive) migration {:04}",
+                                    apply_until
+                                );
+                            } else {
+                                println!(
+                                    "All migrations until (inclusive) migration {:04} have already been applied",
+                                    apply_until
+                                );
+                            }
+                            break;
+                        } else if migration.id > apply_until {
+                            break;
                         }
                     }
                 }

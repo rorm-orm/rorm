@@ -1,3 +1,4 @@
+use crate::DBImpl;
 use std::fmt::{Debug, Error, Write};
 
 use crate::value::Value;
@@ -11,9 +12,9 @@ pub trait BuildCondition<'a>: 'a {
     /**
     This method is used to convert a condition to SQL.
      */
-    fn build(&self, lookup: &mut Vec<Value<'a>>) -> String {
+    fn build(&self, dialect: DBImpl, lookup: &mut Vec<Value<'a>>) -> String {
         let mut string = String::new();
-        self.build_to_writer(&mut string, lookup)
+        self.build_to_writer(&mut string, dialect, lookup)
             .expect("Writing to a string shouldn't fail");
         string
     }
@@ -24,6 +25,7 @@ pub trait BuildCondition<'a>: 'a {
     fn build_to_writer(
         &self,
         writer: &mut impl Write,
+        dialect: DBImpl,
         lookup: &mut Vec<Value<'a>>,
     ) -> Result<(), Error>;
 }
@@ -43,6 +45,7 @@ impl<'a> BuildCondition<'a> for TernaryCondition<'a> {
     fn build_to_writer(
         &self,
         writer: &mut impl Write,
+        dialect: DBImpl,
         lookup: &mut Vec<Value<'a>>,
     ) -> Result<(), Error> {
         let (keyword, [lhs, mhs, rhs]) = match self {
@@ -50,11 +53,11 @@ impl<'a> BuildCondition<'a> for TernaryCondition<'a> {
             TernaryCondition::NotBetween(params) => ("NOT BETWEEN", params.as_ref()),
         };
         write!(writer, "(")?;
-        lhs.build_to_writer(writer, lookup)?;
+        lhs.build_to_writer(writer, dialect, lookup)?;
         write!(writer, " {} ", keyword)?;
-        mhs.build_to_writer(writer, lookup)?;
+        mhs.build_to_writer(writer, dialect, lookup)?;
         write!(writer, " AND ")?;
-        rhs.build_to_writer(writer, lookup)?;
+        rhs.build_to_writer(writer, dialect, lookup)?;
         write!(writer, ")")?;
         Ok(())
     }
@@ -95,6 +98,7 @@ impl<'a> BuildCondition<'a> for BinaryCondition<'a> {
     fn build_to_writer(
         &self,
         writer: &mut impl Write,
+        dialect: DBImpl,
         lookup: &mut Vec<Value<'a>>,
     ) -> Result<(), Error> {
         let (keyword, [lhs, rhs]) = match self {
@@ -112,9 +116,9 @@ impl<'a> BuildCondition<'a> for BinaryCondition<'a> {
             BinaryCondition::NotIn(params) => ("NOT IN", params.as_ref()),
         };
         write!(writer, "(")?;
-        lhs.build_to_writer(writer, lookup)?;
+        lhs.build_to_writer(writer, dialect, lookup)?;
         write!(writer, " {} ", keyword)?;
-        rhs.build_to_writer(writer, lookup)?;
+        rhs.build_to_writer(writer, dialect, lookup)?;
         write!(writer, ")")?;
         Ok(())
     }
@@ -141,6 +145,7 @@ impl<'a> BuildCondition<'a> for UnaryCondition<'a> {
     fn build_to_writer(
         &self,
         writer: &mut impl Write,
+        dialect: DBImpl,
         lookup: &mut Vec<Value<'a>>,
     ) -> Result<(), Error> {
         let (postfix, keyword, value) = match self {
@@ -152,11 +157,11 @@ impl<'a> BuildCondition<'a> for UnaryCondition<'a> {
         };
         write!(writer, "(")?;
         if postfix {
-            value.build_to_writer(writer, lookup)?;
+            value.build_to_writer(writer, dialect, lookup)?;
             write!(writer, " {}", keyword)?;
         } else {
             write!(writer, "{} ", keyword)?;
-            value.build_to_writer(writer, lookup)?;
+            value.build_to_writer(writer, dialect, lookup)?;
         }
         write!(writer, ")")?;
         Ok(())
@@ -186,6 +191,7 @@ impl<'a> BuildCondition<'a> for Condition<'a> {
     fn build_to_writer(
         &self,
         writer: &mut impl Write,
+        dialect: DBImpl,
         lookup: &mut Vec<Value<'a>>,
     ) -> Result<(), Error> {
         match self {
@@ -197,23 +203,38 @@ impl<'a> BuildCondition<'a> for Condition<'a> {
                 };
                 write!(writer, "(")?;
                 if let Some(first) = conditions.first() {
-                    first.build_to_writer(writer, lookup)?;
+                    first.build_to_writer(writer, dialect, lookup)?;
                     for i in 1..conditions.len() {
                         write!(writer, " {} ", keyword)?;
-                        conditions[i].build_to_writer(writer, lookup)?;
+                        conditions[i].build_to_writer(writer, dialect, lookup)?;
                     }
                 }
                 write!(writer, ")")?;
                 Ok(())
             }
-            Condition::UnaryCondition(unary) => unary.build_to_writer(writer, lookup),
-            Condition::BinaryCondition(binary) => binary.build_to_writer(writer, lookup),
-            Condition::TernaryCondition(ternary) => ternary.build_to_writer(writer, lookup),
+            Condition::UnaryCondition(unary) => unary.build_to_writer(writer, dialect, lookup),
+            Condition::BinaryCondition(binary) => binary.build_to_writer(writer, dialect, lookup),
+            Condition::TernaryCondition(ternary) => {
+                ternary.build_to_writer(writer, dialect, lookup)
+            }
             Condition::Value(value) => match value {
                 Value::Ident(string) => write!(writer, "{}", string),
                 _ => {
                     lookup.push(*value);
-                    write!(writer, "?")
+                    match dialect {
+                        #[cfg(feature = "sqlite")]
+                        DBImpl::SQLite => {
+                            write!(writer, "?")
+                        }
+                        #[cfg(feature = "mysql")]
+                        DBImpl::MySQL => {
+                            write!(writer, "?")
+                        }
+                        #[cfg(feature = "postgres")]
+                        DBImpl::Postgres => {
+                            write!(writer, "${}", lookup.len())
+                        }
+                    }
                 }
             },
         }

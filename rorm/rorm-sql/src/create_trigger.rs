@@ -81,10 +81,17 @@ pub(crate) fn trigger_annotation_to_trigger_postgres(
                     vec![],
                 )
             );
+            statements.push((
+                format!(
+                    "DROP TRIGGER IF EXISTS {}_{}_auto_update_time_update ON \"{}\";",
+                    table_name, column_name, table_name
+                ),
+                vec![],
+            ));
             statements.push(
                 (
                     format!(
-                        "CREATE OR REPLACE TRIGGER {}_{}_auto_update_time_update BEFORE UPDATE ON \"{}\" FOR EACH ROW WHEN (OLD IS DISTINCT FROM NEW) EXECUTE PROCEDURE {}_{}_auto_update_time_update_procedure();",
+                        "CREATE TRIGGER {}_{}_auto_update_time_update BEFORE UPDATE ON \"{}\" FOR EACH ROW WHEN (OLD IS DISTINCT FROM NEW) EXECUTE PROCEDURE {}_{}_auto_update_time_update_procedure();",
                         table_name,
                         column_name,
                         table_name,
