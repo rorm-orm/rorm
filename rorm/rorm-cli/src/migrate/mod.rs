@@ -134,6 +134,10 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // todo:
+    // max_connections > 1 result in broken migrations
+    // in case of sqlite.
+    // use rorm-sample in this branch to reproduce
     let pool_options = AnyPoolOptions::new().min_connections(1).max_connections(10);
 
     let pool: Pool<Any> = match &db_conf.driver {
