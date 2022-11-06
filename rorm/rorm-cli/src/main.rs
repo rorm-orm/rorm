@@ -55,6 +55,11 @@ enum Commands {
         #[clap(action = ArgAction::SetTrue)]
         #[clap(help = "If turned on, all queries to the database will be logged")]
         log_queries: bool,
+
+        #[clap(long = "apply-until")]
+        #[clap(id = "MIGRATION_ID")]
+        #[clap(help = "Only apply the migrations to (inclusive) the given migration.")]
+        apply_until: Option<u16>,
     },
 
     #[clap(about = "Squash migrations")]
@@ -108,11 +113,13 @@ async fn main() -> anyhow::Result<()> {
             migration_dir,
             database_config,
             log_queries,
+            apply_until,
         }) => {
             run_migrate(MigrateOptions {
                 migration_dir,
                 database_config,
                 log_queries,
+                apply_until,
             })
             .await?;
         }
