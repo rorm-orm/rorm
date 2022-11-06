@@ -80,7 +80,7 @@ pub(crate) fn get_migration_files(migration_dir: &str) -> anyhow::Result<Vec<Dir
 /**
 Helper function to retrieve a sorted list of migrations in a given directory.
 
-This strips also migrations, that were replaced.
+This also strips migrations that were replaced by another migration.
 
 **Parameter**:
 - `migration_dir`: [&str] The directory to search for files.
@@ -88,15 +88,25 @@ this point onwards.
 */
 pub fn get_existing_migrations(migration_dir: &str) -> anyhow::Result<Vec<Migration>> {
     let migrations = get_all_existing_migrations(migration_dir)?;
+    let mut included_migrations: Vec<u16> = vec![];
 
-    let mut migration_list: Vec<Migration> = vec![];
-
-    // Filter out migrations that replace migrations
-    for m in migrations {
-        if m.replaces.is_empty() {
-            migration_list.push(m);
+    // Filter out migrations that were replaced by other migrations
+    for m in &migrations {
+        let mut include = true;
+        for other_migration in &migrations {
+            if m.id != other_migration.id && other_migration.replaces.contains(&m.id) {
+                include = false;
+            }
+        }
+        if include {
+            included_migrations.push(m.id);
         }
     }
+
+    let migration_list = migrations
+        .into_iter()
+        .filter(move |m| included_migrations.contains(&m.id))
+        .collect::<Vec<Migration>>();
 
     let mut sorted_migration_list: Vec<Migration> = vec![];
 
