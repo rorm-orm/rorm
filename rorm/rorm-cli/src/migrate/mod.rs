@@ -134,7 +134,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let pool_options = AnyPoolOptions::new().min_connections(1).max_connections(10);
+    let pool_options = AnyPoolOptions::new().min_connections(1).max_connections(1);
 
     let pool: Pool<Any> = match &db_conf.driver {
         DatabaseDriver::SQLite { filename } => {
