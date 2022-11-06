@@ -256,7 +256,7 @@ jobs:
         # Only Linux distros are supported due to the service below
         os: [ubuntu-latest]
         cargo_flags: ["", "--release"]
-        mariadb_version: [10.5, 10.7, latest]
+        mariadb_version: [10.5, 10.6, 10.8, 10.9]
     runs-on: ${{ matrix.os }}
 
     services:
