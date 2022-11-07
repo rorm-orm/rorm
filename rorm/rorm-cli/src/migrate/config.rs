@@ -44,6 +44,7 @@ Filename = ""
 # -------------------------------
 # Example MySQL configuration
 # -------------------------------
+# Driver = "MySQL"
 # Name = "dbname"
 # Host = "127.0.0.1"
 # Port = 3306
@@ -53,9 +54,10 @@ Filename = ""
 # -------------------------------
 # Example Postgres configuration
 # -------------------------------
+# Driver = "Postgres"
 # Name = "dbname"
 # Host = "127.0.0.1"
-# Port = 3306
+# Port = 5432
 # User = "dbuser"
 # Password = "super-secure-password"
 "#;
