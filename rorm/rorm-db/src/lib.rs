@@ -151,7 +151,7 @@ and `max_connections` must be greater or equals `min_connections`.
     feature = "actix-native-tls",
     feature = "actix-rustls"
 ))]
-#[derive(Debug, Serialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct DatabaseConfiguration {
     /// The driver and its corresponding settings
     pub driver: DatabaseDriver,
