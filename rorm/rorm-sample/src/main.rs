@@ -31,12 +31,7 @@ async fn main() -> anyhow::Result<()> {
     let db_conf_file: ConfigFile = toml::from_str(&read_to_string(&cli.config_file)?)?;
 
     // Connect to the database to get the database handle using the TOML configuration
-    let _db = Database::connect(DatabaseConfiguration {
-        driver: db_conf_file.database.driver,
-        min_connections: 1,
-        max_connections: 1,
-    })
-    .await?;
+    let _db = Database::connect(DatabaseConfiguration::new(db_conf_file.database.driver)).await?;
     // TODO
 
     Ok(())

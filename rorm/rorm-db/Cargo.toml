@@ -42,6 +42,7 @@ default = [
     "sqlx-all-extensions",
     "all-driver",
     "serde/derive",
+    "log/serde"
 ]
 
 all-driver = [

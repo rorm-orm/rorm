@@ -1,0 +1,31 @@
+
+# Example database configuration for each supported database.
+# Uncomment the database you'd like to use.
+
+[Database]
+# -------------------------------
+# Example SQLite configuration
+# -------------------------------
+Driver = "SQLite"
+ 
+# Filename / path of the sqlite database 
+Filename = ""
+
+# -------------------------------
+# Example MySQL configuration
+# -------------------------------
+# Name = "dbname"
+# Host = "127.0.0.1"
+# Port = 3306
+# User = "dbuser"
+# Password = "super-secure-password"
+
+# -------------------------------
+# Example Postgres configuration
+# -------------------------------
+# Name = "dbname"
+# Host = "127.0.0.1"
+# Port = 3306
+# User = "dbuser"
+# Password = "super-secure-password"
+

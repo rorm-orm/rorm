@@ -76,6 +76,9 @@ impl From<DBConnectOptions<'_>> for Result<DatabaseConfiguration, Error<'_>> {
             driver: d,
             min_connections: config.min_connections,
             max_connections: config.max_connections,
+            disable_logging: Some(true),
+            statement_log_level: None,
+            slow_statement_log_level: None,
         })
     }
 }
