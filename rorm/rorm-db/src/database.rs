@@ -52,9 +52,9 @@ impl Database {
 
         match &configuration.driver {
             DatabaseDriver::SQLite { filename, .. } => {
-                if filename == "" {
+                if filename.is_empty() {
                     return Err(Error::ConfigurationError(String::from(
-                        "name must not be empty",
+                        "filename must not be empty",
                     )));
                 }
             }
