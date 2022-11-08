@@ -27,6 +27,7 @@ Main API wrapper.
 
 All operations can be started with methods of this struct.
  */
+#[derive(Clone)]
 pub struct Database {
     pool: sqlx::Pool<sqlx::Any>,
     db_impl: DBImpl,
