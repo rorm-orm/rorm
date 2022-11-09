@@ -34,6 +34,9 @@ pub struct Annotations {
 
     /// Does the field have the [Annotation::Unique]?
     pub unique: bool,
+
+    /// Does the field have the [Annotation::ForeignKey]?
+    pub foreign_key: bool,
 }
 
 impl Annotations {
@@ -101,6 +104,7 @@ impl From<&[Annotation]> for Annotations {
                 Annotation::NotNull => result.not_null = true,
                 Annotation::PrimaryKey => result.primary_key = true,
                 Annotation::Unique => result.unique = true,
+                Annotation::ForeignKey(_) => result.foreign_key = true,
             }
         }
         result

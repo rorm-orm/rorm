@@ -156,6 +156,7 @@ pub fn impl_anno_builder(args: TokenStream) -> TokenStream {
                         #fields: #alphabet::IS_SET,
                     )*
                     not_null: false,
+                    foreign_key: false,
                 };
             }
 

@@ -286,6 +286,7 @@ impl<
     pub const fn check_annotations(&self) {
         let mut annotations: rorm_declaration::lints::Annotations = A::FOOTPRINT;
         annotations.not_null = !T::IS_NULLABLE && !A::IMPLICIT_NOT_NULL;
+        // TODO FOREIGN KEY
         if let Err(err) = annotations.check() {
             panic!("{}", err);
         }
