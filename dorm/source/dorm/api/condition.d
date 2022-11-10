@@ -89,13 +89,20 @@ struct TernaryCondition
 
 FFIValue conditionValue(ModelFormat.Field fieldInfo, T)(T c) @trusted
 {
+	import dorm.types.relations : ModelRef;
+
 	FFIValue ret;
 	static if (is(T == Nullable!U, U))
 	{
 		if (c.isNull)
 			ret.type = FFIValue.Type.Null;
 		else
-			return conditionValue!fieldInfo(c.get);
+			ret = conditionValue!fieldInfo(c.get);
+	}
+	else static if (is(T == ModelRef!U, alias U)
+		|| is(T == ModelRef!V, V))
+	{
+		ret = conditionValue!fieldInfo(c.foreignKey);
 	}
 	else static if (fieldInfo.type == ModelFormat.Field.DBType.datetime
 		&& (is(T == long) || is(T == ulong)))
@@ -177,7 +184,7 @@ FFIValue conditionValue(ModelFormat.Field fieldInfo, T)(T c) @trusted
 	}
 	else
 		static assert(false, "Unsupported condition value type: " ~ T.stringof
-			~ text(" in column ", field.sourceColumn, " in file ", field.definedAt).idup);
+			~ text(" in column ", fieldInfo.sourceColumn, " in file ", fieldInfo.definedAt).idup);
 	return ret;
 }
 

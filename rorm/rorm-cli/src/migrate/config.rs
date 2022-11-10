@@ -28,17 +28,38 @@ pub fn convert_db_driver_to_db_impl(v: DatabaseDriver) -> DBImpl {
     }
 }
 
-const EXAMPLE_DATABASE_CONFIG: &str = r#"[Database]
-# Valid driver types are: "MySQL", "Postgres" and "SQLite"
-Driver = "MySQL"
+const EXAMPLE_DATABASE_CONFIG: &str = r#"
+# Example database configuration for each supported database.
+# Uncomment the database you'd like to use.
 
-# Name of the database. 
-Name = "dbname"
+[Database]
+# -------------------------------
+# Example SQLite configuration
+# -------------------------------
+Driver = "SQLite"
+ 
+# Filename / path of the sqlite database 
+Filename = ""
 
-Host = "127.0.0.1"
-Port = 3306
-User = "dbuser"
-Password = "super-secure-password"
+# -------------------------------
+# Example MySQL configuration
+# -------------------------------
+# Driver = "MySQL"
+# Name = "dbname"
+# Host = "127.0.0.1"
+# Port = 3306
+# User = "dbuser"
+# Password = "super-secure-password"
+
+# -------------------------------
+# Example Postgres configuration
+# -------------------------------
+# Driver = "Postgres"
+# Name = "dbname"
+# Host = "127.0.0.1"
+# Port = 5432
+# User = "dbuser"
+# Password = "super-secure-password"
 "#;
 
 #[cfg(test)]

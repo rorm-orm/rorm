@@ -106,7 +106,7 @@ impl<T: AsDbType> AsDbType for Option<T> {
 /// Map a rust enum, whose variant don't hold any data, into a database enum
 ///
 /// ```rust
-/// #[derive(rorm::DbEnum)]
+/// #[derive(Copy, Clone, rorm::DbEnum)]
 /// pub enum Gender {
 ///     Male,
 ///     Female,
@@ -286,6 +286,7 @@ impl<
     pub const fn check_annotations(&self) {
         let mut annotations: rorm_declaration::lints::Annotations = A::FOOTPRINT;
         annotations.not_null = !T::IS_NULLABLE && !A::IMPLICIT_NOT_NULL;
+        // TODO FOREIGN KEY
         if let Err(err) = annotations.check() {
             panic!("{}", err);
         }

@@ -1,0 +1,4 @@
+name "one-to-many"
+
+dependency "dorm" path="../.."
+dependency "dorm:build-models" path="../.."

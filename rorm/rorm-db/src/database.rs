@@ -2,9 +2,11 @@
 This module defines the main API wrapper.
 */
 
+use std::time::Duration;
+
 use futures::stream::BoxStream;
 use futures::StreamExt;
-use log::debug;
+use log::{debug, LevelFilter};
 use rorm_declaration::config::DatabaseDriver;
 use rorm_sql::delete::Delete;
 use rorm_sql::insert::Insert;
@@ -15,22 +17,84 @@ use sqlx::any::AnyPoolOptions;
 use sqlx::mysql::MySqlConnectOptions;
 use sqlx::postgres::PgConnectOptions;
 use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::ConnectOptions;
 
 use crate::error::Error;
 use crate::result::QueryStream;
 use crate::row::Row;
 use crate::transaction::Transaction;
-use crate::{utils, DatabaseConfiguration};
+use crate::utils;
+
+/**
+Configuration to create a database connection.
+
+`min_connections` and `max_connections` must be greater than 0
+and `max_connections` must be greater or equals `min_connections`.
+ */
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct DatabaseConfiguration {
+    /// The driver and its corresponding settings
+    pub driver: DatabaseDriver,
+    /// Minimal connections to initialize upfront.
+    pub min_connections: u32,
+    /// Maximum connections that allowed to be created.
+    pub max_connections: u32,
+    /// If set to true, logging will be completely disabled.
+    ///
+    /// In case of None, false will be used.
+    pub disable_logging: Option<bool>,
+    /// Set the log level of SQL statements
+    ///
+    /// In case of None, [LevelFilter::Debug] will be used.
+    pub statement_log_level: Option<LevelFilter>,
+    /// Log level in case of slow statements (>300 ms)
+    ///
+    /// In case of None, [LevelFilter::Warn] will be used.
+    pub slow_statement_log_level: Option<LevelFilter>,
+}
+
+impl DatabaseConfiguration {
+    /**
+    Create a new database configuration with some defaults set.
+
+    **Defaults**:
+    - `min_connections`: 1
+    - `max_connections`: 10
+    - `disable_logging`: None
+    - `statement_log_level`: [Some] of [LevelFilter::Debug]
+    - `slow_statement_log_level`: [Some] of [LevelFilter::Warn]
+
+    **Parameter**:
+    - `driver`: [DatabaseDriver]: Configuration of the database driver.
+    */
+    pub fn new(driver: DatabaseDriver) -> Self {
+        DatabaseConfiguration {
+            driver,
+            min_connections: 1,
+            max_connections: 10,
+            disable_logging: None,
+            statement_log_level: Some(LevelFilter::Debug),
+            slow_statement_log_level: Some(LevelFilter::Warn),
+        }
+    }
+}
 
 /**
 Main API wrapper.
 
 All operations can be started with methods of this struct.
  */
+#[derive(Clone)]
 pub struct Database {
     pool: sqlx::Pool<sqlx::Any>,
     db_impl: DBImpl,
 }
+
+/**
+All statements that take longer to execute than this value are considered
+as slow statements.
+*/
+const SLOW_STATEMENTS: Duration = Duration::from_millis(300);
 
 impl Database {
     /**
@@ -51,9 +115,9 @@ impl Database {
 
         match &configuration.driver {
             DatabaseDriver::SQLite { filename, .. } => {
-                if filename == "" {
+                if filename.is_empty() {
                     return Err(Error::ConfigurationError(String::from(
-                        "name must not be empty",
+                        "filename must not be empty",
                     )));
                 }
             }
@@ -78,14 +142,28 @@ impl Database {
             .min_connections(configuration.min_connections)
             .max_connections(configuration.max_connections);
 
-        let pool;
+        let slow_log_level = configuration
+            .slow_statement_log_level
+            .unwrap_or(LevelFilter::Warn);
+        let log_level = configuration
+            .statement_log_level
+            .unwrap_or(LevelFilter::Debug);
+        let disabled_logging = configuration.disable_logging.unwrap_or(false);
 
-        match &configuration.driver {
+        let pool: sqlx::Pool<sqlx::Any> = match &configuration.driver {
             DatabaseDriver::SQLite { filename } => {
-                let connect_options = SqliteConnectOptions::new()
+                let mut connect_options = SqliteConnectOptions::new()
                     .create_if_missing(true)
                     .filename(filename);
-                pool = pool_options.connect_with(connect_options.into()).await?;
+
+                if disabled_logging {
+                    connect_options.disable_statement_logging();
+                } else {
+                    connect_options.log_statements(log_level);
+                    connect_options.log_slow_statements(slow_log_level, SLOW_STATEMENTS);
+                }
+
+                pool_options.connect_with(connect_options.into()).await?
             }
             DatabaseDriver::Postgres {
                 host,
@@ -94,13 +172,21 @@ impl Database {
                 user,
                 password,
             } => {
-                let connect_options = PgConnectOptions::new()
+                let mut connect_options = PgConnectOptions::new()
                     .host(host.as_str())
                     .port(*port)
                     .username(user.as_str())
                     .password(password.as_str())
                     .database(name.as_str());
-                pool = pool_options.connect_with(connect_options.into()).await?;
+
+                if disabled_logging {
+                    connect_options.disable_statement_logging();
+                } else {
+                    connect_options.log_statements(log_level);
+                    connect_options.log_slow_statements(slow_log_level, SLOW_STATEMENTS);
+                }
+
+                pool_options.connect_with(connect_options.into()).await?
             }
             DatabaseDriver::MySQL {
                 name,
@@ -109,15 +195,23 @@ impl Database {
                 user,
                 password,
             } => {
-                let connect_options = MySqlConnectOptions::new()
+                let mut connect_options = MySqlConnectOptions::new()
                     .host(host.as_str())
                     .port(*port)
                     .username(user.as_str())
                     .password(password.as_str())
                     .database(name.as_str());
-                pool = pool_options.connect_with(connect_options.into()).await?;
+
+                if disabled_logging {
+                    connect_options.disable_statement_logging();
+                } else {
+                    connect_options.log_statements(log_level);
+                    connect_options.log_slow_statements(slow_log_level, SLOW_STATEMENTS);
+                }
+
+                pool_options.connect_with(connect_options.into()).await?
             }
-        }
+        };
 
         database = Database {
             pool,

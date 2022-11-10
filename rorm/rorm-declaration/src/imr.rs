@@ -157,6 +157,8 @@ pub enum Annotation {
     PrimaryKey,
     /// UNIQUE constraint
     Unique,
+    /// Foreign Key constraint
+    ForeignKey(ForeignKey),
 }
 
 impl Annotation {
@@ -192,6 +194,8 @@ impl Annotation {
             (Annotation::PrimaryKey, _) => false,
             (Annotation::Unique, Annotation::Unique) => true,
             (Annotation::Unique, _) => false,
+            (Annotation::ForeignKey(_), Annotation::ForeignKey(_)) => true,
+            (Annotation::ForeignKey(_), _) => false,
         }
     }
 
@@ -218,6 +222,7 @@ impl Annotation {
             Annotation::NotNull => state.write_i8(7),
             Annotation::PrimaryKey => state.write_i8(8),
             Annotation::Unique => state.write_i8(9),
+            Annotation::ForeignKey(_) => state.write_i8(10),
         }
         state.finish()
     }
@@ -254,6 +259,26 @@ mod test {
                 name: "foo".to_string()
             })))
         );
+    }
+}
+
+/// Represents a foreign key
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ForeignKey {
+    /// Name of the table that should be referenced
+    pub table_name: String,
+
+    /// Name of the column that should be referenced
+    pub column_name: String,
+}
+
+impl Default for ForeignKey {
+    fn default() -> Self {
+        ForeignKey {
+            table_name: String::from(""),
+            column_name: String::from(""),
+        }
     }
 }
 

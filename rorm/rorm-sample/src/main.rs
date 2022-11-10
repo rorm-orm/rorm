@@ -1,9 +1,9 @@
 use std::fs::read_to_string;
 
 use clap::Parser;
+use log::LevelFilter;
 use rorm::{config::DatabaseConfig, Database, DatabaseConfiguration, DatabaseDriver};
 use serde::{Deserialize, Serialize};
-use toml;
 
 mod operations;
 
@@ -54,6 +54,9 @@ async fn main() -> anyhow::Result<()> {
         driver: db_conf_file.database.driver,
         min_connections: 1,
         max_connections: 1,
+        disable_logging: Some(false),
+        statement_log_level: Some(LevelFilter::Debug),
+        slow_statement_log_level: Some(LevelFilter::Error),
     })
     .await?;
 

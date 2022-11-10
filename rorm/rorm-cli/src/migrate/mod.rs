@@ -34,6 +34,9 @@ pub struct MigrateOptions {
 
     /// Log all SQL statements
     pub log_queries: bool,
+
+    /// Apply only to (inclusive) the given id, if set
+    pub apply_until: Option<u16>,
 }
 
 /**
@@ -55,14 +58,12 @@ pub async fn apply_migration(
         .await
         .with_context(|| format!("Error while starting transaction {}", migration.id))?;
 
-    migration_to_sql(&mut tx, dialect, migration, do_log).await?;
-
-    tx.commit().await.with_context(|| {
-        format!(
-            "Error while committing transaction {}",
-            last_migration_table_name
-        )
-    })?;
+    if let Err(e) = migration_to_sql(&mut tx, dialect, migration, do_log).await {
+        tx.rollback()
+            .await
+            .with_context(|| "Error while rollback in transaction")?;
+        return Err(e);
+    }
 
     let v: &[&[rorm_sql::value::Value]] = &[&[rorm_sql::value::Value::I32(migration.id as i32)]];
     let (query_string, bind_params) = dialect
@@ -79,7 +80,7 @@ pub async fn apply_migration(
     for x in bind_params {
         q = bind::bind_param(q, x);
     }
-    q.execute(pool).await.with_context(|| {
+    q.execute(&mut tx).await.with_context(|| {
         format!(
             "Error while inserting applied migration {} into last migration table",
             last_migration_table_name
@@ -87,6 +88,14 @@ pub async fn apply_migration(
     })?;
 
     println!("Applied migration {:04}_{}", migration.id, migration.name);
+
+    tx.commit().await.with_context(|| {
+        format!(
+            "Error while committing transaction {}",
+            last_migration_table_name
+        )
+    })?;
+
     Ok(())
 }
 
@@ -125,7 +134,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let pool_options = AnyPoolOptions::new().min_connections(1).max_connections(10);
+    let pool_options = AnyPoolOptions::new().min_connections(1).max_connections(1);
 
     let pool: Pool<Any> = match &db_conf.driver {
         DatabaseDriver::SQLite { filename } => {
@@ -247,6 +256,16 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                     options.log_queries,
                 )
                 .await?;
+
+                if let Some(apply_until) = options.apply_until {
+                    if migration.id == apply_until {
+                        println!(
+                            "Applied all migrations until (inclusive) migration {:04}",
+                            apply_until
+                        );
+                        break;
+                    }
+                }
             }
         }
         Some(id) => {
@@ -272,6 +291,25 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
 
                         if idx == existing_migrations.len() - 1 {
                             println!("All migration have already been applied.");
+                        }
+                    }
+
+                    if let Some(apply_until) = options.apply_until {
+                        if migration.id == apply_until {
+                            if apply {
+                                println!(
+                                    "Applied all migrations until (inclusive) migration {:04}",
+                                    apply_until
+                                );
+                            } else {
+                                println!(
+                                    "All migrations until (inclusive) migration {:04} have already been applied",
+                                    apply_until
+                                );
+                            }
+                            break;
+                        } else if migration.id > apply_until {
+                            break;
                         }
                     }
                 }

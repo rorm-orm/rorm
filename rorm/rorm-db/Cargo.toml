@@ -34,10 +34,15 @@ ouroboros = { version = "^0.15" }
 # Logging facade
 log = { version = "~0.4" }
 
+# Serialization
+serde = { version = "1.0" }
+
 [features]
 default = [
     "sqlx-all-extensions",
     "all-driver",
+    "serde/derive",
+    "log/serde"
 ]
 
 all-driver = [

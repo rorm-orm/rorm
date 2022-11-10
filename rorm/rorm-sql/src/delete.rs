@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use crate::conditional::{BuildCondition, Condition};
-use crate::Value;
+use crate::{DBImpl, Value};
 
 /**
 Trait representing a delete builder.
@@ -79,7 +79,12 @@ impl<'until_build, 'post_query> Delete<'until_build, 'post_query>
                 let mut s = format!("DELETE FROM {} ", d.model);
 
                 if d.where_clause.is_some() {
-                    write!(s, "WHERE {} ", d.where_clause.unwrap().build(&mut d.lookup)).unwrap();
+                    write!(
+                        s,
+                        "WHERE {} ",
+                        d.where_clause.unwrap().build(DBImpl::SQLite, &mut d.lookup)
+                    )
+                    .unwrap();
                 }
 
                 write!(s, ";").unwrap();
@@ -90,7 +95,12 @@ impl<'until_build, 'post_query> Delete<'until_build, 'post_query>
                 let mut s = format!("DELETE FROM {} ", d.model);
 
                 if d.where_clause.is_some() {
-                    write!(s, "WHERE {} ", d.where_clause.unwrap().build(&mut d.lookup)).unwrap();
+                    write!(
+                        s,
+                        "WHERE {} ",
+                        d.where_clause.unwrap().build(DBImpl::MySQL, &mut d.lookup)
+                    )
+                    .unwrap();
                 }
 
                 write!(s, ";").unwrap();
@@ -101,7 +111,14 @@ impl<'until_build, 'post_query> Delete<'until_build, 'post_query>
                 let mut s = format!("DELETE FROM \"{}\" ", d.model);
 
                 if d.where_clause.is_some() {
-                    write!(s, "WHERE {} ", d.where_clause.unwrap().build(&mut d.lookup)).unwrap();
+                    write!(
+                        s,
+                        "WHERE {} ",
+                        d.where_clause
+                            .unwrap()
+                            .build(DBImpl::Postgres, &mut d.lookup)
+                    )
+                    .unwrap();
                 }
 
                 write!(s, ";").unwrap();

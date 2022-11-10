@@ -135,27 +135,8 @@ pub use rorm_sql::{and, conditional, or, value};
     feature = "actix-native-tls",
     feature = "actix-rustls"
 ))]
-pub use crate::{database::Database, error::Error, row::Row};
-
-/**
-Configuration to create a database connection.
-
-`min_connections` and `max_connections` must be greater than 0
-and `max_connections` must be greater or equals `min_connections`.
- */
-#[cfg(any(
-    feature = "async-std-native-tls",
-    feature = "async-std-rustls",
-    feature = "tokio-native-tls",
-    feature = "tokio-rustls",
-    feature = "actix-native-tls",
-    feature = "actix-rustls"
-))]
-pub struct DatabaseConfiguration {
-    /// The driver and its corresponding settings
-    pub driver: DatabaseDriver,
-    /// Minimal connections to initialize upfront.
-    pub min_connections: u32,
-    /// Maximum connections that allowed to be created.
-    pub max_connections: u32,
-}
+pub use crate::{
+    database::{Database, DatabaseConfiguration},
+    error::Error,
+    row::Row,
+};

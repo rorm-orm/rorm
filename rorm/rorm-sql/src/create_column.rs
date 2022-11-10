@@ -134,8 +134,8 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                         trigger_annotation_to_trigger_sqlite(
                             x.annotation,
                             &d.data_type,
-                            &d.table_name,
-                            &d.name,
+                            d.table_name,
+                            d.name,
                             s,
                         );
                     }
@@ -173,6 +173,9 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                         Annotation::NotNull => write!(s, "NOT NULL").unwrap(),
                         Annotation::PrimaryKey => write!(s, "PRIMARY KEY").unwrap(),
                         Annotation::Unique => write!(s, "UNIQUE").unwrap(),
+                        Annotation::ForeignKey(fk) => {
+                            write!(s, "REFERENCES {} ({})", fk.table_name, fk.column_name).unwrap()
+                        }
                         _ => {}
                     }
 
@@ -192,8 +195,7 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                         let a_opt = d
                             .annotations
                             .iter()
-                            .filter(|x| x.annotation.eq_shallow(&Annotation::MaxLength(0)))
-                            .next();
+                            .find(|x| x.annotation.eq_shallow(&Annotation::MaxLength(0)));
 
                         if let Some(a) = a_opt {
                             if let Annotation::MaxLength(max_length) = a.annotation {
@@ -213,8 +215,7 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                         let a_opt = d
                             .annotations
                             .iter()
-                            .filter(|x| x.annotation.eq_shallow(&Annotation::MaxLength(0)))
-                            .next();
+                            .find(|x| x.annotation.eq_shallow(&Annotation::MaxLength(0)));
 
                         if let Some(a) = a_opt {
                             if let Annotation::MaxLength(max_length) = a.annotation {
@@ -242,14 +243,10 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                     DbType::Timestamp => write!(s, "TIMESTAMP ").unwrap(),
                     DbType::Time => write!(s, "TIME ").unwrap(),
                     DbType::Choices => {
-                        let a_opt = d
-                            .annotations
-                            .iter()
-                            .filter(|x| {
-                                x.annotation
-                                    .eq_shallow(&Annotation::Choices(Default::default()))
-                            })
-                            .next();
+                        let a_opt = d.annotations.iter().find(|x| {
+                            x.annotation
+                                .eq_shallow(&Annotation::Choices(Default::default()))
+                        });
 
                         if let Some(a) = a_opt {
                             if let Annotation::Choices(values) = a.annotation {
@@ -330,6 +327,9 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                         Annotation::NotNull => write!(s, "NOT NULL").unwrap(),
                         Annotation::PrimaryKey => write!(s, "PRIMARY KEY").unwrap(),
                         Annotation::Unique => write!(s, "UNIQUE").unwrap(),
+                        Annotation::ForeignKey(fk) => {
+                            write!(s, "REFERENCES {}({})", fk.table_name, fk.column_name).unwrap()
+                        }
                         _ => {}
                     }
 
@@ -349,8 +349,7 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                         let a_opt = d
                             .annotations
                             .iter()
-                            .filter(|x| x.annotation.eq_shallow(&Annotation::MaxLength(0)))
-                            .next();
+                            .find(|x| x.annotation.eq_shallow(&Annotation::MaxLength(0)));
 
                         if let Some(a) = a_opt {
                             if let Annotation::MaxLength(max_length) = a.annotation {
@@ -411,8 +410,8 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                     if let Some(ref mut s) = d.statements {
                         trigger_annotation_to_trigger_postgres(
                             x.annotation,
-                            &d.table_name,
-                            &d.name,
+                            d.table_name,
+                            d.name,
                             s,
                         );
                     }
@@ -449,6 +448,10 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                         Annotation::NotNull => write!(s, "NOT NULL").unwrap(),
                         Annotation::PrimaryKey => write!(s, "PRIMARY KEY").unwrap(),
                         Annotation::Unique => write!(s, "UNIQUE").unwrap(),
+                        Annotation::ForeignKey(fk) => {
+                            write!(s, "REFERENCES \"{}\"({})", fk.table_name, fk.column_name)
+                                .unwrap()
+                        }
                         _ => {}
                     };
 

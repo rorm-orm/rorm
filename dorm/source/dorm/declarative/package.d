@@ -210,6 +210,16 @@ struct ModelFormat
 				return sourceType ~ " " ~ sourceColumn
 					~ " (from " ~ definedAt.toString ~ ")";
 		}
+
+		@serdeIgnore
+		DBAnnotation[] foreignKeyAnnotations() const @property
+		{
+			DBAnnotation[] ret;
+			foreach (annotation; annotations)
+				if (annotation.isForeignKeyInheritable)
+					ret ~= annotation;
+			return ret;
+		}
 	}
 
 	/// The exact name of the table later used in the DB, not neccessarily
@@ -354,7 +364,8 @@ struct DBAnnotation
 		maxLength,
 		PossibleDefaultValueTs,
 		Choices,
-		index
+		index,
+		ForeignKeyImpl
 	) value;
 	alias value this;
 
@@ -405,8 +416,33 @@ struct DBAnnotation
 				return true;
 			},
 			(index lhs, index rhs) => true,
+			(ForeignKeyImpl lhs, AnnotationFlag rhs) => !rhs.among!(
+				AnnotationFlag.autoCreateTime,
+				AnnotationFlag.autoUpdateTime,
+				AnnotationFlag.autoIncrement,
+				AnnotationFlag.primaryKey,
+				AnnotationFlag.unique,
+			),
+			(ForeignKeyImpl lhs, ForeignKeyImpl rhs) => false,
+			(ForeignKeyImpl lhs, Choices rhs) => false,
+			(ForeignKeyImpl lhs, _) => true,
 			(a, b) => firstTry ? other.isCompatibleWith(this, false) : false
 		)(value, other.value);
+	}
+
+	bool isForeignKeyInheritable() const
+	{
+		return value.match!(
+			(const AnnotationFlag _) => false,
+			(const maxLength _) => true,
+			(someDefaultValue) {
+				static assert(is(typeof(someDefaultValue) : DefaultValue!T, T));
+				return false;
+			},
+			(const Choices _) => false,
+			(const index _) => false,
+			(const ForeignKeyImpl _) => false
+		);
 	}
 }
 
@@ -484,6 +520,19 @@ private struct IonDBAnnotation
 					"Value": JsonAlgebraic(binary.value.toHexString)
 				]);
 			},
+			(ForeignKeyImpl foreignKey) {
+				import std.digest : toHexString;
+
+				data = JsonAlgebraic([
+					"Type": JsonAlgebraic("foreign_key"),
+					"Value": JsonAlgebraic([
+						"TableName": JsonAlgebraic(foreignKey.table),
+						"ColumnName": JsonAlgebraic(foreignKey.column),
+						"OnUpdate": JsonAlgebraic(foreignKey.onUpdate.toPascalCase),
+						"OnDelete": JsonAlgebraic(foreignKey.onDelete.toPascalCase)
+					])
+				]);
+			},
 			(rest) {
 				static assert(is(typeof(rest) == DefaultValue!U, U));
 				static if (__traits(hasMember, rest.value, "toISOExtString"))
@@ -509,6 +558,17 @@ private struct IonDBAnnotation
 		import mir.ser : serializeValue;
 
 		serializeValue(serializer, data);
+	}
+}
+
+private string toPascalCase(OnUpdateDeleteType type) @safe nothrow @nogc pure
+{
+	final switch (type)
+	{
+		case doNothing: return "DoNothing";
+		case cascade: return "Cascade";
+		case setNull: return "SetNull";
+		case setDefault: return "SetDefault";
 	}
 }
 

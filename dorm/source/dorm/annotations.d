@@ -77,3 +77,35 @@ template isDormModelAttribute(alias attr)
 	pragma(msg, "TODO: check if " ~ attr.stringof ~ " is a DORM Model annotation");
 	enum isDormFieldAttribute = true;
 }
+
+/// Automatically generated foreign key attribute for one-to-many and many-to-many
+/// relations. Does not need to be assigned onto any variables.
+struct ForeignKeyImpl
+{
+	string table, column;
+	OnUpdateDeleteType onUpdate; // TODO: decide on defaults
+	OnUpdateDeleteType onDelete;
+}
+
+enum OnUpdateDeleteType
+{
+	doNothing,
+	cascade,
+	setNull,
+	setDefault
+}
+
+enum doNothing = OnUpdateDeleteType.doNothing;
+enum cascade = OnUpdateDeleteType.cascade;
+enum setNull = OnUpdateDeleteType.setNull;
+enum setDefault = OnUpdateDeleteType.setDefault;
+
+struct onUpdate
+{
+	OnUpdateDeleteType type;
+}
+
+struct onDelete
+{
+	OnUpdateDeleteType type;
+}
