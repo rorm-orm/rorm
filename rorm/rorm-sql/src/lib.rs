@@ -24,6 +24,8 @@ pub mod drop_table;
 pub mod error;
 /// Implementation of SQL INSERT statements
 pub mod insert;
+/// Implementation of JOIN statements
+pub mod join_table;
 /// Implementation of SQL ON CONFLICT extensions
 pub mod on_conflict;
 /// Implementation of SQL SELECT statements
@@ -38,6 +40,7 @@ mod db_specific;
 use rorm_declaration::imr::{Annotation, DbType};
 
 use crate::alter_table::{AlterTable, AlterTableData, AlterTableImpl, AlterTableOperation};
+use crate::conditional::Condition;
 use crate::create_column::{CreateColumnImpl, SQLAnnotation};
 use crate::create_index::{CreateIndex, CreateIndexData, CreateIndexImpl};
 use crate::create_table::{CreateTable, CreateTableData, CreateTableImpl};
@@ -47,6 +50,7 @@ use crate::create_trigger::{
 use crate::delete::{Delete, DeleteData, DeleteImpl};
 use crate::drop_table::{DropTable, DropTableData, DropTableImpl};
 use crate::insert::{Insert, InsertData, InsertImpl};
+use crate::join_table::{JoinTable, JoinTableData, JoinTableImpl, JoinType};
 use crate::on_conflict::OnConflict;
 use crate::select::{Select, SelectData, SelectImpl};
 use crate::update::{Update, UpdateData, UpdateImpl};
@@ -297,6 +301,7 @@ impl DBImpl {
         from_clause: &'until_build str,
     ) -> impl Select<'until_build, 'post_build> {
         let d = SelectData {
+            join_tables: vec![],
             resulting_columns: columns,
             limit: None,
             offset: None,
@@ -398,6 +403,39 @@ impl DBImpl {
             DBImpl::MySQL => UpdateImpl::MySQL(d),
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => UpdateImpl::Postgres(d),
+        }
+    }
+
+    /**
+    The entry point for a JOIN expression builder.
+
+    **Parameter**:
+    - `join_type`: [JoinType]: Type for a JOIN expression
+    - `table_name`: Table to perform the join on
+    - `join_alias`: Alias for the join table
+    - `join_condition`: [Condition] to apply to the join
+    */
+    pub fn join_table<'until_build, 'post_query>(
+        &self,
+        join_type: JoinType,
+        table_name: &'until_build str,
+        join_alias: &'until_build str,
+        join_condition: &'until_build Condition<'post_query>,
+    ) -> impl JoinTable<'post_query> + 'until_build {
+        let d = JoinTableData {
+            join_type,
+            table_name,
+            join_alias,
+            join_condition,
+        };
+
+        match self {
+            #[cfg(feature = "sqlite")]
+            DBImpl::SQLite => JoinTableImpl::SQLite(d),
+            #[cfg(feature = "mysql")]
+            DBImpl::MySQL => JoinTableImpl::MySQL(d),
+            #[cfg(feature = "postgres")]
+            DBImpl::Postgres => JoinTableImpl::Postgres(d),
         }
     }
 }

@@ -1,4 +1,7 @@
+use std::fmt::Write;
+
 use crate::conditional::{BuildCondition, Condition};
+use crate::join_table::{JoinTable, JoinTableImpl};
 use crate::{DBImpl, Value};
 
 /**
@@ -43,6 +46,7 @@ pub struct SelectData<'until_build, 'post_query> {
     pub(crate) where_clause: Option<&'until_build Condition<'post_query>>,
     pub(crate) distinct: bool,
     pub(crate) lookup: Vec<Value<'post_query>>,
+    pub(crate) join_tables: Vec<JoinTableImpl<'until_build, 'post_query>>,
 }
 
 /**
@@ -121,59 +125,74 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
     fn build(self) -> (String, Vec<Value<'post_build>>) {
         match self {
             #[cfg(feature = "sqlite")]
-            SelectImpl::SQLite(mut d) => (
-                format!(
-                    "SELECT {} {} FROM {} {};",
+            SelectImpl::SQLite(mut d) => {
+                let mut s = format!(
+                    "SELECT {} {} FROM {}",
                     if d.distinct { "DISTINCT" } else { "" },
                     d.resulting_columns.join(", "),
                     d.from_clause,
-                    match d.where_clause {
-                        None => {
-                            "".to_string()
-                        }
-                        Some(condition) => {
-                            format!("WHERE {}", condition.build(DBImpl::SQLite, &mut d.lookup))
-                        }
-                    },
-                ),
-                d.lookup,
-            ),
+                );
+
+                for x in &d.join_tables {
+                    write!(s, " ").unwrap();
+                    x.build(&mut s, &mut d.lookup);
+                }
+
+                match d.where_clause {
+                    None => write!(s, ";").unwrap(),
+                    Some(c) => {
+                        write!(s, " WHERE {};", c.build(DBImpl::SQLite, &mut d.lookup)).unwrap()
+                    }
+                }
+
+                (s, d.lookup)
+            }
             #[cfg(feature = "mysql")]
-            SelectImpl::MySQL(mut d) => (
-                format!(
-                    "SELECT {} {} FROM {} {};",
+            SelectImpl::MySQL(mut d) => {
+                let mut s = format!(
+                    "SELECT {} {} FROM {}",
                     if d.distinct { "DISTINCT" } else { "" },
                     d.resulting_columns.join(", "),
                     d.from_clause,
-                    match d.where_clause {
-                        None => {
-                            "".to_string()
-                        }
-                        Some(condition) => {
-                            format!("WHERE {}", condition.build(DBImpl::MySQL, &mut d.lookup))
-                        }
-                    },
-                ),
-                d.lookup,
-            ),
+                );
+
+                for x in d.join_tables {
+                    write!(s, " ").unwrap();
+                    x.build(&mut s, &mut d.lookup);
+                }
+
+                match d.where_clause {
+                    None => write!(s, ";").unwrap(),
+                    Some(c) => {
+                        write!(s, " WHERE {};", c.build(DBImpl::MySQL, &mut d.lookup)).unwrap()
+                    }
+                }
+
+                (s, d.lookup)
+            }
             #[cfg(feature = "postgres")]
-            SelectImpl::Postgres(mut d) => (
-                format!(
-                    "SELECT {} {} FROM {} {};",
+            SelectImpl::Postgres(mut d) => {
+                let mut s = format!(
+                    "SELECT {} {} FROM \"{}\"",
                     if d.distinct { "DISTINCT" } else { "" },
                     d.resulting_columns.join(", "),
-                    format!("\"{}\"", d.from_clause),
-                    match d.where_clause {
-                        None => {
-                            "".to_string()
-                        }
-                        Some(condition) => {
-                            format!("WHERE {}", condition.build(DBImpl::Postgres, &mut d.lookup))
-                        }
-                    },
-                ),
-                d.lookup,
-            ),
+                    d.from_clause,
+                );
+
+                for x in d.join_tables {
+                    write!(s, " ").unwrap();
+                    x.build(&mut s, &mut d.lookup);
+                }
+
+                match d.where_clause {
+                    None => write!(s, ";").unwrap(),
+                    Some(c) => {
+                        write!(s, " WHERE {};", c.build(DBImpl::SQLite, &mut d.lookup)).unwrap()
+                    }
+                }
+
+                (s, d.lookup)
+            }
         }
     }
 }
