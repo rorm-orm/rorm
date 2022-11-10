@@ -14,8 +14,8 @@ jobs:
       matrix:
         os:
         - ubuntu-latest
-        # - windows-latest
-        # - macos-latest
+        - windows-latest
+        - macos-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -41,8 +41,8 @@ jobs:
       matrix:
         os:
         - ubuntu-latest
-        # - windows-latest
-        # - macos-latest
+        - windows-latest
+        - macos-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -189,53 +189,143 @@ jobs:
         run: ./run.sh
         working-directory: ./dorm/integration-tests/
 
+  install-rorm-cli:
+    name: Install rorm-cli (binary)
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            rorm/target/
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-project
+
+      - name: Install rorm-cli
+        run: cargo install rorm-cli --path ./rorm/rorm-cli
+
+  build-sample:
+    name: Build the sample project
+    needs: [install-rorm-cli]
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            rorm/target/
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-project
+
+      - name: Create a debug build
+        run: cargo build
+        working-directory: ./rorm/rorm-sample
+
+      - name: Create a release build
+        run: cargo build --release
+        working-directory: ./rorm/rorm-sample
+
   sample-project:
     name: Sample project usage
-    needs: [cargotest]
+    needs: [build-sample]
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
-        cargo_flags: ["", "-r"]
+        # Only Linux distros are supported due to the Postgres service below
+        os: [ubuntu-latest]
+        cargo_flags: ["", "--release"]
         config_file:
           - mysql.toml
           - postgres.toml
           - sqlite.toml
     runs-on: ${{ matrix.os }}
+
+    services:
+      postgres:
+        image: postgres:11
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: db
+        ports:
+          - 127.0.0.1:5432:5432/tcp
+        # Options are needed because the Postgres container does not provide a health check
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup the databases
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            rorm/target/
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-project
+
+      - name: Check for rorm-cli
+        run: if [[ -f "$(which rorm-cli)" ]] ; then echo "Found rorm-cli" ; else cargo install rorm-cli --path ../rorm-cli ; fi
+        working-directory: ./rorm/rorm-sample
+
+      - name: Cargo build using caches
+        run: cargo build ${{ matrix.cargo_flags }}
+        working-directory: ./rorm/rorm-sample
+
+      - name: Setup the MySQL database
         run: |
           sudo systemctl start mysql.service
           mysql -e "CREATE USER user IDENTIFIED BY 'password';" -u root -p"root" -v
           mysql -e "CREATE DATABASE db;" -u root -p"root" -v
           mysql -e "GRANT ALL PRIVILEGES ON db.* TO user;" -u root -p"root" -v
-          sudo systemctl start postgresql.service
-          sudo psql -v ON_ERROR_STOP=1 <<-EOSQL
-            CREATE USER user WITH PASSWORD 'password';
-            CREATE DATABASE db;
-            GRANT ALL PRIVILEGES ON DATABASE db TO user;
-          EOSQL
-
-      - name: Cargo build
-        run: cargo build ${{ matrix.cargo_flags }}
-        working-directory: ./rorm/rorm-sample
 
       - name: Migrate the database
         run: rorm-cli migrate --database-config ${{ matrix.config_file }}
+        working-directory: ./rorm/rorm-sample
 
       - name: Rescan for changed models
         run: cargo run -F rorm-main ${{ matrix.cargo_flags }}
+        working-directory: ./rorm/rorm-sample
 
       - name: Make new migrations
         run: rorm-cli make-migrations
+        working-directory: ./rorm/rorm-sample
 
       - name: Apply new migrations
         run: rorm-cli migrate --database-config ${{ matrix.config_file }}
+        working-directory: ./rorm/rorm-sample
 
       - name: Run the sample help
         run: cargo run -- --help
+        working-directory: ./rorm/rorm-sample
 
       - name: Run the sample project
         run: RUST_LOG=rorm=debug cargo run ${{ matrix.cargo_flags }} -- ${{ matrix.config_file }}
+        working-directory: ./rorm/rorm-sample
