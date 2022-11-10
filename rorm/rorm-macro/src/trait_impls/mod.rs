@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens};
 
-pub fn patch<'a>(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStream {
+pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStream {
     quote! {
         impl ::rorm::model::Patch for #strct {
             type Model = #model;

@@ -96,7 +96,7 @@ Helper method to deserialize an existing database configuration file
  */
 pub fn deserialize_db_conf(path: &Path) -> anyhow::Result<DatabaseConfig> {
     let db_conf_toml =
-        read_to_string(&path).with_context(|| "Couldn't read database configuration file")?;
+        read_to_string(path).with_context(|| "Couldn't read database configuration file")?;
 
     let db_conf = toml::from_str::<DatabaseConfigFile>(db_conf_toml.as_str())
         .with_context(|| "Couldn't deserialize database configuration file")?

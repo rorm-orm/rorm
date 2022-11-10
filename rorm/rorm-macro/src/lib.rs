@@ -83,8 +83,8 @@ pub fn rorm_main(args: TokenStream, item: TokenStream) -> TokenStream {
     let errors = Errors::new();
 
     let main = syn::parse_macro_input!(item as syn::ItemFn);
-    let feature =
-        syn::parse::<syn::LitStr>(args).unwrap_or(syn::LitStr::new("rorm-main", Span::call_site()));
+    let feature = syn::parse::<syn::LitStr>(args)
+        .unwrap_or_else(|_| syn::LitStr::new("rorm-main", Span::call_site()));
     if main.sig.ident != "main" {
         errors.push_new(Span::call_site(), "only allowed on main function");
     }

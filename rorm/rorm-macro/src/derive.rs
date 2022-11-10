@@ -110,7 +110,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let model = strct.ident;
     let impl_patch = trait_impls::patch(&model, &model, &fields_ident);
     let impl_try_from_row = trait_impls::try_from_row(&model, &model, &fields_ident);
-    TokenStream::from(quote! {
+    quote! {
         #[allow(non_camel_case_types)]
         #vis struct #fields_struct {
             #(#fields_vis #fields_ident: #fields_struct_type),*
@@ -172,7 +172,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
         static #static_get_imr: fn() -> ::rorm::imr::Model = <#model as ::rorm::model::Model>::get_imr;
 
         #errors
-    })
+    }
 }
 
 pub fn patch(strct: TokenStream) -> TokenStream {
@@ -237,7 +237,7 @@ pub fn patch(strct: TokenStream) -> TokenStream {
     let compile_check = format_ident!("__compile_check_{}", patch);
     let impl_patch = trait_impls::patch(&patch, &model_path, &field_idents);
     let impl_try_from_row = trait_impls::try_from_row(&patch, &model_path, &field_idents);
-    TokenStream::from(quote! {
+    quote! {
         #[allow(non_snake_case)]
         fn #compile_check(model: #model_path) {
             // check fields exist on model and match model's types
@@ -253,7 +253,7 @@ pub fn patch(strct: TokenStream) -> TokenStream {
         #impl_try_from_row
 
         #errors
-    })
+    }
 }
 
 struct ParsedField {
@@ -278,7 +278,7 @@ fn parse_field(
     };
 
     let mut annotations = Annotations::new();
-    for meta in iter_rorm_attributes(&field.attrs, &errors) {
+    for meta in iter_rorm_attributes(&field.attrs, errors) {
         // Get the annotation's identifier.
         // Since one is required for every annotation, error if it is missing.
         let ident = if let Some(ident) = meta.path().get_ident() {
@@ -290,7 +290,7 @@ fn parse_field(
 
         for &annotation in annotations::ANNOTATIONS {
             if annotation.applies(ident) {
-                annotation.parse(ident, &meta, &mut annotations, &errors);
+                annotation.parse(ident, &meta, &mut annotations, errors);
                 break;
             }
         }
@@ -324,15 +324,15 @@ fn parse_field(
 
     Some(ParsedField {
         is_primary,
-        struct_type: TokenStream::from(quote! {
+        struct_type: quote! {
             ::rorm::model::Field<
                 #value_type,
                 #db_type,
                 #model_type,
                 #anno_type,
             >
-        }),
-        construction: TokenStream::from(quote! {
+        },
+        construction: quote! {
             ::rorm::model::Field {
                 index: #index,
                 name: #db_name,
@@ -340,7 +340,7 @@ fn parse_field(
                 source: #source,
                 _phantom: ::std::marker::PhantomData,
             }
-        }),
+        },
         ident,
         value_type,
         vis: field.vis,

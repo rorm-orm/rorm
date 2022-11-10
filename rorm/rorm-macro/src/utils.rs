@@ -34,16 +34,15 @@ pub fn get_source<T: Spanned>(_spanned: &T) -> TokenStream {
 /// It enforces the rorm attributes to look like function calls (see [syn::Meta::List])
 /// as well as excluding literals as their direct arguments (see [syn::NestedMeta::lit])
 pub fn iter_rorm_attributes<'a>(
-    attrs: &'a Vec<syn::Attribute>,
+    attrs: &'a [syn::Attribute],
     errors: &'a Errors,
 ) -> impl Iterator<Item = syn::Meta> + 'a {
     attrs
         .iter()
         .filter(|attr| attr.path.is_ident("rorm"))
         .map(syn::Attribute::parse_meta)
-        .map(Result::ok)
-        .flatten()
-        .map(|meta| match meta {
+        .filter_map(Result::ok)
+        .filter_map(|meta| match meta {
             syn::Meta::List(syn::MetaList { nested, .. }) => Some(nested.into_iter()),
             _ => {
                 errors.push_new(meta.span(), "Attribute should be of shape: `rorm(..)`");
@@ -51,8 +50,7 @@ pub fn iter_rorm_attributes<'a>(
             }
         })
         .flatten()
-        .flatten()
-        .map(|nested_meta| match nested_meta {
+        .filter_map(|nested_meta| match nested_meta {
             syn::NestedMeta::Meta(meta) => Some(meta),
             syn::NestedMeta::Lit(_) => {
                 errors.push_new(
@@ -62,5 +60,4 @@ pub fn iter_rorm_attributes<'a>(
                 None
             }
         })
-        .flatten()
 }

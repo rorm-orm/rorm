@@ -55,10 +55,7 @@ impl Errors {
     pub fn push_new_spanned<T: Display>(&self, start: Span, end: Span, msg: T) {
         let start = Ident::new("__placeholder", start);
         let end = Ident::new("__placeholder", end);
-        self.push(syn::Error::new_spanned(
-            TokenStream::from(quote! {#start #end}),
-            msg,
-        ))
+        self.push(syn::Error::new_spanned(quote! {#start #end}, msg))
     }
 
     pub fn is_empty(&self) -> bool {

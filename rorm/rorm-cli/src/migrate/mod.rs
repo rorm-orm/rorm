@@ -1,6 +1,7 @@
 pub mod config;
 pub mod sql_builder;
 
+use std::cmp::Ordering;
 use std::path::Path;
 
 use anyhow::{anyhow, Context};
@@ -295,21 +296,23 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
                     }
 
                     if let Some(apply_until) = options.apply_until {
-                        if migration.id == apply_until {
-                            if apply {
-                                println!(
-                                    "Applied all migrations until (inclusive) migration {:04}",
-                                    apply_until
-                                );
-                            } else {
-                                println!(
-                                    "All migrations until (inclusive) migration {:04} have already been applied",
-                                    apply_until
-                                );
+                        match migration.id.cmp(&apply_until) {
+                            Ordering::Equal => {
+                                if apply {
+                                    println!(
+                                        "Applied all migrations until (inclusive) migration {:04}",
+                                        apply_until
+                                    );
+                                } else {
+                                    println!(
+                                        "All migrations until (inclusive) migration {:04} have already been applied",
+                                        apply_until
+                                    );
+                                }
+                                break;
                             }
-                            break;
-                        } else if migration.id > apply_until {
-                            break;
+                            Ordering::Greater => break,
+                            Ordering::Less => {}
                         }
                     }
                 }

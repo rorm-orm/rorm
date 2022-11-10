@@ -19,15 +19,15 @@ impl Annotations {
         Annotations(Vec::new())
     }
 
-    pub fn iter_steps<'a>(&'a self) -> impl Iterator<Item = TokenStream> + 'a {
+    pub fn iter_steps(&self) -> impl Iterator<Item = TokenStream> + '_ {
         self.iter().map(
             |ParsedAnnotation {
                  annotation,
                  span,
                  expr,
              }| {
-                let field = Ident::new(annotation.field(), span.clone());
-                let variant = Ident::new(annotation.variant(), span.clone());
+                let field = Ident::new(annotation.field(), *span);
+                let variant = Ident::new(annotation.variant(), *span);
                 if let Some(expr) = expr.as_ref() {
                     quote! {
                         .#field(::rorm::hmr::annotations::#variant(#expr))
@@ -49,7 +49,7 @@ impl Annotations {
             annotation, span, ..
         } in self.iter()
         {
-            let anno = Ident::new(annotation.variant(), span.clone());
+            let anno = Ident::new(annotation.variant(), *span);
             anno_type = quote! {
                 ::rorm::annotation_builder::Add<::rorm::hmr::annotations::#anno, #anno_type>
             };

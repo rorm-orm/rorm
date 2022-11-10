@@ -21,7 +21,7 @@ pub trait ColumnsMarker: Sealed {}
 
 impl<'a> Sealed for Vec<(&'static str, Value<'a>)> {}
 impl<'a> ColumnsMarker for Vec<(&'static str, Value<'a>)> {}
-impl<'a> ColumnsMarker for () {}
+impl ColumnsMarker for () {}
 
 /// Builder for update queries
 ///
@@ -120,7 +120,7 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
     ) -> Self {
         let mut builder = self;
         builder.columns.push((field.name, value.into_value()));
-        return builder;
+        builder
     }
 
     /// Perform the update operation

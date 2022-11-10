@@ -18,16 +18,13 @@ impl<'db> Transaction<'db> {
     This function commits the transaction.
     */
     pub async fn commit(self) -> Result<(), Error> {
-        self.tx.commit().await.map_err(|err| Error::SqlxError(err))
+        self.tx.commit().await.map_err(Error::SqlxError)
     }
 
     /**
     Use this function to abort the transaction.
     */
     pub async fn rollback(self) -> Result<(), Error> {
-        self.tx
-            .rollback()
-            .await
-            .map_err(|err| Error::SqlxError(err))
+        self.tx.rollback().await.map_err(Error::SqlxError)
     }
 }

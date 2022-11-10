@@ -36,7 +36,7 @@ impl<'post_query> QueryStream<'post_query> {
                 tmp = utils::bind_param(tmp, *x);
             }
 
-            return tmp.fetch(executor);
+            tmp.fetch(executor)
         })
     }
 
