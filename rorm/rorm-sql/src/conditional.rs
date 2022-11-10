@@ -204,10 +204,13 @@ impl<'a> BuildCondition<'a> for Condition<'a> {
                 write!(writer, "(")?;
                 if let Some(first) = conditions.first() {
                     first.build_to_writer(writer, dialect, lookup)?;
-                    for i in 1..conditions.len() {
-                        write!(writer, " {} ", keyword)?;
-                        conditions[i].build_to_writer(writer, dialect, lookup)?;
-                    }
+                    conditions.iter().enumerate().try_for_each(|(idx, cond)| {
+                        if idx > 0 {
+                            write!(writer, " {}", keyword)?;
+                            cond.build_to_writer(writer, dialect, lookup)?;
+                        }
+                        Ok(())
+                    })?;
                 }
                 write!(writer, ")")?;
                 Ok(())

@@ -68,41 +68,38 @@ pub(crate) fn trigger_annotation_to_trigger_postgres(
     column_name: &str,
     statements: &mut Vec<(String, Vec<Value>)>,
 ) {
-    match annotation {
-        Annotation::AutoUpdateTime => {
-            statements.push(
-                (
-                    format!(
-                        "CREATE OR REPLACE FUNCTION {}_{}_auto_update_time_update_procedure() RETURNS TRIGGER AS $$ BEGIN NEW.{} = now(); RETURN NEW; END; $$ language 'plpgsql';",
-                        table_name,
-                        column_name,
-                        column_name,
-                    ),
-                    vec![],
-                )
-            );
-            statements.push((
+    if annotation == &Annotation::AutoUpdateTime {
+        statements.push(
+            (
                 format!(
-                    "DROP TRIGGER IF EXISTS {}_{}_auto_update_time_update ON \"{}\";",
-                    table_name, column_name, table_name
+                    "CREATE OR REPLACE FUNCTION {}_{}_auto_update_time_update_procedure() RETURNS TRIGGER AS $$ BEGIN NEW.{} = now(); RETURN NEW; END; $$ language 'plpgsql';",
+                    table_name,
+                    column_name,
+                    column_name,
                 ),
                 vec![],
-            ));
-            statements.push(
-                (
-                    format!(
-                        "CREATE TRIGGER {}_{}_auto_update_time_update BEFORE UPDATE ON \"{}\" FOR EACH ROW WHEN (OLD IS DISTINCT FROM NEW) EXECUTE PROCEDURE {}_{}_auto_update_time_update_procedure();",
-                        table_name,
-                        column_name,
-                        table_name,
-                        table_name,
-                        column_name,
-                    ),
-                    vec![],
-                )
-            );
-        }
-        _ => {}
+            )
+        );
+        statements.push((
+            format!(
+                "DROP TRIGGER IF EXISTS {}_{}_auto_update_time_update ON \"{}\";",
+                table_name, column_name, table_name
+            ),
+            vec![],
+        ));
+        statements.push(
+            (
+                format!(
+                    "CREATE TRIGGER {}_{}_auto_update_time_update BEFORE UPDATE ON \"{}\" FOR EACH ROW WHEN (OLD IS DISTINCT FROM NEW) EXECUTE PROCEDURE {}_{}_auto_update_time_update_procedure();",
+                    table_name,
+                    column_name,
+                    table_name,
+                    table_name,
+                    column_name,
+                ),
+                vec![],
+            )
+        );
     }
 }
 
@@ -115,36 +112,33 @@ pub(crate) fn trigger_annotation_to_trigger_sqlite(
     column_name: &str,
     statements: &mut Vec<(String, Vec<Value>)>,
 ) {
-    match annotation {
-        Annotation::AutoUpdateTime => {
-            let update_statement = format!(
-                "UPDATE {} SET {} = {} WHERE ROWID = NEW.ROWID;",
-                table_name,
-                column_name,
-                match db_type {
-                    DbType::Date => "CURRENT_DATE",
-                    DbType::DateTime => "CURRENT_TIMESTAMP",
-                    DbType::Timestamp => "CURRENT_TIMESTAMP",
-                    DbType::Time => "CURRENT_TIME",
-                    _ => "",
-                }
-            );
-            statements.push((
-                DBImpl::SQLite
-                    .create_trigger(
-                        format!("{}_{}_auto_update_time", table_name, column_name).as_str(),
-                        table_name,
-                        Some(SQLCreateTriggerPointInTime::After),
-                        SQLCreateTriggerOperation::Update { columns: None },
-                    )
-                    .for_each_row()
-                    .if_not_exists()
-                    .add_statement(update_statement.clone())
-                    .build(),
-                vec![],
-            ))
-        }
-        _ => {}
+    if annotation == &Annotation::AutoUpdateTime {
+        let update_statement = format!(
+            "UPDATE {} SET {} = {} WHERE ROWID = NEW.ROWID;",
+            table_name,
+            column_name,
+            match db_type {
+                DbType::Date => "CURRENT_DATE",
+                DbType::DateTime => "CURRENT_TIMESTAMP",
+                DbType::Timestamp => "CURRENT_TIMESTAMP",
+                DbType::Time => "CURRENT_TIME",
+                _ => "",
+            }
+        );
+        statements.push((
+            DBImpl::SQLite
+                .create_trigger(
+                    format!("{}_{}_auto_update_time", table_name, column_name).as_str(),
+                    table_name,
+                    Some(SQLCreateTriggerPointInTime::After),
+                    SQLCreateTriggerOperation::Update { columns: None },
+                )
+                .for_each_row()
+                .if_not_exists()
+                .add_statement(update_statement)
+                .build(),
+            vec![],
+        ))
     }
 }
 
@@ -167,7 +161,7 @@ impl SQLCreateTrigger {
     */
     pub fn if_not_exists(mut self) -> Self {
         self.if_not_exists = true;
-        return self;
+        self
     }
 
     /**
@@ -175,7 +169,7 @@ impl SQLCreateTrigger {
     */
     pub fn add_statement(mut self, statement: String) -> Self {
         self.statements.push(statement);
-        return self;
+        self
     }
 
     /**
