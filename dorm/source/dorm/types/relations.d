@@ -123,7 +123,6 @@ static struct ModelRef(alias idOrModel)
 	alias PrimaryKeyType = typeof(primaryKeyAlias);
 
 	PrimaryKeyType foreignKey;
-	bool toSet;
 
 	private T cached;
 	private bool resolved;
@@ -140,7 +139,6 @@ static struct ModelRef(alias idOrModel)
 	{
 		resolved = true;
 		cached = value;
-		toSet = true;
 		foreignKey = __traits(child, value, primaryKeyAlias);
 		return value;
 	}

@@ -89,6 +89,8 @@ struct TernaryCondition
 
 FFIValue conditionValue(ModelFormat.Field fieldInfo, T)(T c) @trusted
 {
+	import dorm.types.relations : ModelRef;
+
 	FFIValue ret;
 	static if (is(T == Nullable!U, U))
 	{
@@ -96,6 +98,11 @@ FFIValue conditionValue(ModelFormat.Field fieldInfo, T)(T c) @trusted
 			ret.type = FFIValue.Type.Null;
 		else
 			return conditionValue!fieldInfo(c.get);
+	}
+	else static if (is(T == ModelRef!U, alias U)
+		|| is(T == ModelRef!V, V))
+	{
+		return conditionValue!fieldInfo(c.foreignKey);
 	}
 	else static if (fieldInfo.type == ModelFormat.Field.DBType.datetime
 		&& (is(T == long) || is(T == ulong)))
