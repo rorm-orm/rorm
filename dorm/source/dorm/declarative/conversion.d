@@ -7,6 +7,7 @@ module dorm.declarative.conversion;
 import dorm.annotations;
 import dorm.declarative;
 import dorm.model;
+import dorm.types;
 
 import std.conv;
 import std.datetime;
@@ -97,7 +98,7 @@ template DormLayout(TModel : Model)
 	static if (Impl.errors.length)
 		static assert(false, "Model Definition contains errors:" ~ Impl.errors);
 	else
-		enum DormLayout = Impl.ret;
+		enum ModelFormat DormLayout = Impl.ret;
 }
 
 enum DormFields(TModel : Model) = DormLayout!TModel.fields;
@@ -106,10 +107,21 @@ enum DormFieldIndex(TModel : Model, string sourceName) = findFieldIdx(DormFields
 enum hasDormField(TModel : Model, string sourceName) = DormFieldIndex!(TModel, sourceName) != -1;
 enum DormField(TModel : Model, string sourceName) = DormFields!TModel[DormFieldIndex!(TModel, sourceName)];
 
+enum DormPrimaryKeyIndex(TModel : Model) = findPrimaryFieldIdx(DormFields!TModel);
+enum DormPrimaryKey(TModel : Model) = DormFields!TModel[DormPrimaryKeyIndex!TModel];
+
 private auto findFieldIdx(ModelFormat.Field[] fields, string name, string modelName)
 {
 	foreach (i, ref field; fields)
 		if (field.sourceColumn == name)
+			return i;
+	return -1;
+}
+
+private auto findPrimaryFieldIdx(ModelFormat.Field[] fields)
+{
+	foreach (i, ref field; fields)
+		if (field.isPrimaryKey)
 			return i;
 	return -1;
 }
@@ -143,18 +155,39 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 	field.sourceColumn = fieldName;
 	field.type = guessDBType!(typeof(fieldAlias));
 
+	static if (is(typeof(fieldAlias) == Nullable!T, T))
+	{
+		alias UnnullType = T;
+		enum isNullable = true;
+	}
+	else
+	{
+		alias UnnullType = typeof(fieldAlias);
+		enum isNullable = false;
+	}
+
 	bool explicitNotNull = false;
 	bool nullable = false;
 	bool mustBeNullable = false;
 	bool hasNonNullDefaultValue = false;
-	static if (is(typeof(fieldAlias) == Nullable!T, T)
-		|| is(typeof(fieldAlias) : Model))
+	static if (isNullable || is(typeof(fieldAlias) : Model))
 		nullable = true;
 
-	static if (is(typeof(fieldAlias) == enum))
+	static if (is(UnnullType == enum))
 		field.annotations ~= DBAnnotation(Choices([
-				__traits(allMembers, typeof(fieldAlias))
+				__traits(allMembers, UnnullType)
 			]));
+	else static if (is(UnnullType : ModelRef!U, alias U))
+	{
+		ForeignKeyImpl foreignKeyImpl;
+		enum foreignKeyInfo = UnnullType.primaryKeyField;
+		field.type = foreignKeyInfo.type;
+		field.annotations ~= foreignKeyInfo.foreignKeyAnnotations;
+		foreignKeyImpl.column = foreignKeyInfo.columnName;
+		foreignKeyImpl.table = DormLayout!(UnnullType.T).tableName;
+	}
+
+	enum bool isForeignKey = is(typeof(foreignKeyImpl));
 
 	void setDefaultValue(T)(T value)
 	{
@@ -283,11 +316,24 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		{
 			field.columnName = attribute.name;
 		}
+		else static if (is(typeof(attribute) == uda.onUpdate)
+			&& isForeignKey)
+		{
+			foreignKeyImpl.onUpdate = attribute.type;
+		}
+		else static if (is(typeof(attribute) == uda.onDelete)
+			&& isForeignKey)
+		{
+			foreignKeyImpl.onDelete = attribute.type;
+		}
 		else static if (isDormFieldAttribute!attribute)
 		{
 			static assert(false, "Unsupported attribute " ~ attribute.stringof ~ " on " ~ TModel.stringof ~ "." ~ fieldName);
 		}
 	}
+
+	static if (isForeignKey)
+		field.annotations ~= DBAnnotation(foreignKeyImpl);
 
 	if (include)
 	{
@@ -819,5 +865,48 @@ unittest
 	assert(m.fields[3].annotations == [
 		DBAnnotation(AnnotationFlag.notNull),
 		DBAnnotation(defaultValue(1337))
+	]);
+}
+
+unittest
+{
+	struct Mod
+	{
+		class User : Model
+		{
+			@maxLength(255) @primaryKey
+			string username;
+		}
+
+		class Toot : Model
+		{
+			ModelRef!(User.username) author;
+		}
+	}
+
+	auto mod = processModelsToDeclarations!Mod;
+	assert(mod.models.length == 2);
+	auto m = mod.models[0];
+	// @primaryKey overrides built-in ID field
+	assert(m.fields.length == 1);
+
+	assert(m.fields[0].columnName == "username");
+	assert(m.fields[0].annotations == [
+		DBAnnotation(maxLength(255)),
+		DBAnnotation(AnnotationFlag.primaryKey)
+	]);
+
+	m = mod.models[1];
+	// contains auto-generated ID field
+	assert(m.fields.length == 2);
+
+	assert(m.fields[1].columnName == "author");
+	assert(m.fields[1].annotations == [
+		DBAnnotation(AnnotationFlag.notNull),
+		DBAnnotation(maxLength(255)),
+		DBAnnotation(ForeignKeyImpl(
+			"user", "username",
+			doNothing, doNothing
+		))
 	]);
 }
