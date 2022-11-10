@@ -524,10 +524,13 @@ private struct IonDBAnnotation
 				import std.digest : toHexString;
 
 				data = JsonAlgebraic([
-					"TableName": JsonAlgebraic(foreignKey.table),
-					"ColumnName": JsonAlgebraic(foreignKey.column),
-					"OnUpdate": JsonAlgebraic(foreignKey.onUpdate.toPascalCase),
-					"OnDelete": JsonAlgebraic(foreignKey.onDelete.toPascalCase),
+					"Type": JsonAlgebraic("foreign_key"),
+					"Value": JsonAlgebraic([
+						"TableName": JsonAlgebraic(foreignKey.table),
+						"ColumnName": JsonAlgebraic(foreignKey.column),
+						"OnUpdate": JsonAlgebraic(foreignKey.onUpdate.toPascalCase),
+						"OnDelete": JsonAlgebraic(foreignKey.onDelete.toPascalCase)
+					])
 				]);
 			},
 			(rest) {

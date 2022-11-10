@@ -177,7 +177,8 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		field.annotations ~= DBAnnotation(Choices([
 				__traits(allMembers, UnnullType)
 			]));
-	else static if (is(UnnullType : ModelRef!U, alias U))
+	else static if (is(UnnullType : ModelRef!U, alias U)
+		|| is(UnnullType : ModelRef!V, V))
 	{
 		ForeignKeyImpl foreignKeyImpl;
 		enum foreignKeyInfo = UnnullType.primaryKeyField;
