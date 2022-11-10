@@ -97,12 +97,12 @@ FFIValue conditionValue(ModelFormat.Field fieldInfo, T)(T c) @trusted
 		if (c.isNull)
 			ret.type = FFIValue.Type.Null;
 		else
-			return conditionValue!fieldInfo(c.get);
+			ret = conditionValue!fieldInfo(c.get);
 	}
 	else static if (is(T == ModelRef!U, alias U)
 		|| is(T == ModelRef!V, V))
 	{
-		return conditionValue!fieldInfo(c.foreignKey);
+		ret = conditionValue!fieldInfo(c.foreignKey);
 	}
 	else static if (fieldInfo.type == ModelFormat.Field.DBType.datetime
 		&& (is(T == long) || is(T == ulong)))

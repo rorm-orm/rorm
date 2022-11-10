@@ -31,5 +31,5 @@ void main(string[] args)
 	Toot toot = new Toot();
 	toot.message = "Hello world!";
 	toot.author = user;
-	// db.insert(toot);
+	db.insert(toot);
 }
