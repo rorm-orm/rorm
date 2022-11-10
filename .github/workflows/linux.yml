@@ -1,0 +1,328 @@
+name: Build & Test for Linux
+on:
+  push:
+    paths-ignore:
+      - docs
+  pull_request:
+
+# This CI configuration makes heavy use of the local cache of a self-hosted Linux runner
+jobs:
+  build-linux:
+    name: Build rorm (stable)
+    runs-on: [ self-hosted, linux, x64 ]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup the cache
+        run: |
+          mkdir -pv ~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          ln -s ~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target rorm/target
+
+      - name: Build rorm-lib (debug)
+        run: ~/.cargo/bin/cargo build -p rorm-lib
+        working-directory: ./rorm
+
+      - name: Build rorm-lib (release)
+        run: ~/.cargo/bin/cargo build -p rorm-lib -r
+        working-directory: ./rorm
+
+      - name: Install rorm-cli (release)
+        run: ~/.cargo/bin/cargo install rorm-cli --path ./rorm/rorm-cli
+
+      - name: Build rorm-sample (debug)
+        run: ~/.cargo/bin/cargo build
+        working-directory: ./rorm/rorm-sample
+
+      - name: Build rorm-sample (release)
+        run: ~/.cargo/bin/cargo build --release
+        working-directory: ./rorm/rorm-sample
+
+      - name: Finish cache actions
+        run: rm -v rorm/target
+
+  cargo-test-stable-linux:
+    name: Cargo Tests (stable)
+    needs: build-linux
+    runs-on: [ self-hosted, linux, x64 ]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup the cache
+        run: |
+          mkdir -pv ~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          ln -s ~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target rorm/target
+
+      - name: Build rorm (debug + coverage)
+        run: ~/.cargo/bin/cargo build -F tokio-rustls
+        working-directory: ./rorm
+
+      - name: Install coverage utilitiy
+        run: ~/.cargo/bin/cargo install grcov
+
+      - name: Run CLI tests
+        run: ~/.cargo/bin/cargo test -p rorm-cli
+        working-directory: ./rorm
+
+      - name: Run DB tests
+        run: ~/.cargo/bin/cargo test -p rorm-db -F tokio-rustls
+        working-directory: ./rorm
+
+      - name: Run declaration tests
+        run: ~/.cargo/bin/cargo test -p rorm-declaration
+        working-directory: ./rorm
+
+      - name: Run lib test
+        run: ~/.cargo/bin/cargo test -p rorm-lib
+        working-directory: ./rorm
+
+      - name: Run macro test
+        run: ~/.cargo/bin/cargo test -p rorm-macro
+        working-directory: ./rorm
+
+      - name: Run SQL tests
+        run: ~/.cargo/bin/cargo test -p rorm-sql -F sqlite
+        working-directory: ./rorm
+
+      - name: Run root test
+        run: ~/.cargo/bin/cargo test -F tokio-rustls
+        working-directory: ./rorm
+
+      - name: Finish cache actions
+        run: rm -v rorm/target
+
+  clippy-analyze-linux:
+    name: Clippy Analyze
+    needs: build-linux
+    runs-on: [ self-hosted, linux, x64 ]
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup the cache
+        run: |
+          mkdir -pv ~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          ln -s ~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target rorm/target
+
+      - name: Setup utilities
+        run: |
+          ~/.cargo/bin/rustup component add clippy
+          ~/.cargo/bin/cargo install clippy-sarif sarif-fmt
+
+      - name: Run rust-clippy
+        run: |
+          export PATH=~/.cargo/bin:$PATH
+          cargo clippy -F tokio-rustls --message-format=json | clippy-sarif | tee ../rust-clippy-results.sarif | sarif-fmt
+        continue-on-error: true
+        working-directory: rorm
+
+      - name: Upload analysis results to GitHub
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: rust-clippy-results.sarif
+          wait-for-processing: true
+
+      - name: Finish cache actions
+        run: rm -v rorm/target
+
+  cargo-test-nightly-linux:
+    name: Cargo Tests (nightly)
+    needs: cargo-test-stable-linux
+    env:
+      RUSTFLAGS: "-Zinstrument-coverage"
+      LLVM_PROFILE_FILE: "coverage-rorm_%p-%m.profraw"
+    runs-on: [ self-hosted, linux, x64 ]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup the cache
+        run: |
+          mkdir -pv ~/actions/cache/nightly/${GITHUB_REPOSITORY}/rorm/target
+          ln -s ~/actions/cache/nightly/${GITHUB_REPOSITORY}/rorm/target rorm/target
+
+      - name: Build rorm (debug + coverage)
+        run: ~/.cargo/bin/cargo +nightly build -F tokio-rustls
+        working-directory: ./rorm
+
+      - name: Install coverage utilitiy
+        run: ~/.cargo/bin/cargo install grcov
+
+      - name: Run CLI tests
+        run: ~/.cargo/bin/cargo +nightly test -p rorm-cli
+        working-directory: ./rorm
+
+      - name: Run DB tests
+        run: ~/.cargo/bin/cargo +nightly test -p rorm-db -F tokio-rustls
+        working-directory: ./rorm
+
+      - name: Run declaration tests
+        run: ~/.cargo/bin/cargo +nightly test -p rorm-declaration
+        working-directory: ./rorm
+
+      - name: Run lib test
+        run: ~/.cargo/bin/cargo +nightly test -p rorm-lib
+        working-directory: ./rorm
+
+      - name: Run macro test
+        run: ~/.cargo/bin/cargo +nightly test -p rorm-macro
+        working-directory: ./rorm
+
+      - name: Run SQL tests
+        run: ~/.cargo/bin/cargo +nightly test -p rorm-sql -F sqlite
+        working-directory: ./rorm
+
+      - name: Run root test
+        run: ~/.cargo/bin/cargo +nightly test -F tokio-rustls
+        working-directory: ./rorm
+
+      - name: Create code coverage report
+        run: |
+          ~/.cargo/bin/grcov . --binary-path ./target/debug -s . -t html --branch --ignore-not-existing -o ./coverage
+          cp -rv coverage-rorm*raw ./coverage
+        working-directory: ./rorm
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: rorm/coverage
+
+      - name: Finish cache actions
+        run: rm -v rorm/target
+
+  dub-test-linux:
+    name: Dub Test
+    needs: build-linux
+    runs-on: [ self-hosted, linux, x64 ]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup the cache
+        run: |
+          mkdir -pv ~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          ln -s ~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target rorm/target
+
+      - name: Build rorm-lib (release)
+        run: ~/.cargo/bin/cargo build -p rorm-lib -r
+        working-directory: ./rorm
+
+      - name: Run tests
+        run: dub test
+        env:
+          DFLAGS: "-lowmem"
+        working-directory: ./dorm
+
+      - name: Finish cache actions
+        run: rm -v rorm/target
+
+  integration-test-linux:
+    name: Integration Test
+    needs: [ dub-test-linux, cargo-test-stable-linux ]
+    runs-on: [ self-hosted, linux, x64 ]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup the cache
+        run: |
+          mkdir -pv ~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          ln -s ~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target rorm/target
+
+      - name: Build rorm-lib (release)
+        run: ~/.cargo/bin/cargo build -p rorm-lib -r
+        working-directory: ./rorm
+
+      - name: Run integration tests
+        env:
+          DFLAGS: "-lowmem"
+        run: |
+          export PATH=~/.cargo/bin:$PATH
+          ./run.sh
+        working-directory: ./dorm/integration-tests/
+
+      - name: Finish cache actions
+        run: rm -v rorm/target
+
+  sample-project-linux:
+    name: Sample project
+    needs: [ cargo-test-stable-linux ]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: mariadb:10.9
+            health_cmd: "mysqladmin ping"
+            config: sqlite.toml
+          - image: mariadb:10.9
+            health_cmd: "mysqladmin ping"
+            config: mysql.toml
+          - image: mariadb:10.8
+            health_cmd: "mysqladmin ping"
+            config: mysql.toml
+          - image: mariadb:10.6
+            health_cmd: "mysqladmin ping"
+            config: mysql.toml
+          - image: mariadb:10.5
+            health_cmd: "mysqladmin ping"
+            config: mysql.toml
+          - image: postgres:15
+            health_cmd: pg_isready
+            config: postgres.toml
+          - image: postgres:14
+            health_cmd: pg_isready
+            config: postgres.toml
+          - image: postgres:13
+            health_cmd: pg_isready
+            config: postgres.toml
+          - image: postgres:12
+            health_cmd: pg_isready
+            config: postgres.toml
+          - image: postgres:11
+            health_cmd: pg_isready
+            config: postgres.toml
+    runs-on: [ self-hosted, linux, x64 ]
+
+    services:
+      database:
+        image: ${{ matrix.image }}
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: db
+          MARIADB_USER: user
+          MARIADB_PASSWORD: password
+          MARIADB_DATABASE: db
+          MARIADB_RANDOM_ROOT_PASSWORD: yes
+        ports:
+          - 127.0.0.1:5432:5432/tcp
+          - 127.0.0.1:3306:3306/tcp
+        options: >-
+          --health-cmd="${{ matrix.health_cmd }}"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup the cache
+        run: ln -s ~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target rorm/target
+
+      - name: Run the sample help
+        run: RUST_BACKTRACE=full ~/.cargo/bin/cargo run -- --help
+        working-directory: ./rorm/rorm-sample
+
+      - name: Run the project for ${{ matrix.config }}
+        env:
+          CONFIG_FILE: ${{ matrix.config }}
+        run: |
+          echo Config: ${CONFIG_FILE}
+          rm -rvf .models.json
+          ~/.cargo/bin/rorm-cli migrate --database-config "${CONFIG_FILE}" --log-sql
+          ~/.cargo/bin/cargo run -F rorm-main
+          ~/.cargo/bin/rorm-cli make-migrations
+          ~/.cargo/bin/rorm-cli migrate --database-config "${CONFIG_FILE}" --log-sql
+          RUST_BACKTRACE=full RUST_LOG=rorm=debug ~/.cargo/bin/cargo run -- "${CONFIG_FILE}"
+        working-directory: ./rorm/rorm-sample
+
+      - name: Finish cache actions
+        run: rm -v rorm/target
