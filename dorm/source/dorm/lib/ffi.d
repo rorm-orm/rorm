@@ -56,6 +56,13 @@ struct FFIArray(T)
 	{
 		return FFIArray(data.ptr, data.length);
 	}
+
+	string toString() const @trusted pure
+	{
+		import std.conv;
+
+		return data.to!string;
+	}
 }
 
 /// Representation of a string.
@@ -88,6 +95,12 @@ struct FFIOption(T)
 	State state;
 	/// raw value access
 	T raw_value;
+
+	this(T value)
+	{
+		state = State.some;
+		raw_value = value;
+	}
 
 	/// Returns true if the value is set, otherwise false.
 	bool opCast(T : bool)() const @safe nothrow @nogc
@@ -1066,4 +1079,17 @@ version (unittest)
 			res.raw_result = result;
 		res.event.set();
 	}
+}
+
+enum FFIJoinType
+{
+	join,
+}
+
+struct FFIJoin
+{
+	FFIJoinType type;
+	FFIString modelName;
+	FFIString placeholder;
+	FFIOption!FFICondition condition;
 }

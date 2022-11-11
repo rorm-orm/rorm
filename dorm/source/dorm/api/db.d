@@ -3,8 +3,10 @@ module dorm.api.db;
 import dorm.declarative;
 import dorm.declarative.conversion;
 import dorm.lib.util;
+import dorm.types;
 import ffi = dorm.lib.ffi;
 
+import std.algorithm : move;
 import std.conv : text, to;
 import std.datetime : Clock, Date, DateTime, DateTimeException, SysTime, TimeOfDay, UTC;
 import std.meta;
@@ -604,16 +606,41 @@ static SelectOperation!(DBType!(Selection), SelectType!(Selection)) select(Selec
 	return typeof(return)(tx.db, tx.txHandle);
 }
 
+private struct ConditionBuilderData
+{
+	@disable this(this);
+
+	ffi.FFICondition[64] conditionStack;
+	size_t conditionStackIndex;
+	JoinInformation joinInformation;
+}
 
 struct ConditionBuilder(T)
 {
+	private ConditionBuilderData* builderData;
+
 	static foreach (i, member; T.tupleof)
+	{
 		static if (hasDormField!(T, T.tupleof[i].stringof))
-			mixin("ConditionBuilderField!(typeof(T.tupleof[i]), DormField!(T, T.tupleof[i].stringof)) ",
-				T.tupleof[i].stringof,
-				" = ConditionBuilderField!(typeof(T.tupleof[i]), DormField!(T, T.tupleof[i].stringof))(`",
-				DormField!(T, T.tupleof[i].stringof).columnName,
-				"`);");
+		{
+			static if (DormField!(T, T.tupleof[i].stringof).isForeignKey)
+			{
+				mixin("ForeignModelConditionBuilderField!(typeof(T.tupleof[i]), DormField!(T, T.tupleof[i].stringof)) ",
+					T.tupleof[i].stringof,
+					"() return { return typeof(return)(builderData, `",
+					DormField!(T, T.tupleof[i].stringof).columnName,
+					"`); }");
+			}
+			else
+			{
+				mixin("ConditionBuilderField!(typeof(T.tupleof[i]), DormField!(T, T.tupleof[i].stringof)) ",
+					T.tupleof[i].stringof,
+					" = ConditionBuilderField!(typeof(T.tupleof[i]), DormField!(T, T.tupleof[i].stringof))(`",
+					DormField!(T, T.tupleof[i].stringof).columnName,
+					"`);");
+			}
+		}
+	}
 
 	static if (__traits(allMembers, NotConditionBuilder!T).length > 1)
 		NotConditionBuilder!T not;
@@ -668,6 +695,76 @@ private Condition* makeConditionConstant(ModelFormat.Field fieldInfo, T)(T value
 {
 	// TODO: think of how we can abstract memory allocation here
 	return new Condition(conditionValue!fieldInfo(value));
+}
+
+struct ForeignModelConditionBuilderField(ModelRef, ModelFormat.Field field)
+{
+	alias RefDB = ModelRef.TModel;
+
+	private ConditionBuilderData* data;
+	private string columnName;
+
+	this(ConditionBuilderData* data, string columnName) @safe
+	{
+		this.data = data;
+		this.columnName = columnName;
+	}
+
+	string ensureJoined() @trusted
+	{
+		auto ji = &data.joinInformation;
+		string fkName = field.columnName;
+		auto exist = fkName in ji.joinedTables;
+		if (exist)
+		{
+			return *exist;
+		}
+		else
+		{
+			string placeholder = "_" ~ ji.joinedTables.length.to!string;
+			ji.joinedTables[fkName] = placeholder;
+			ffi.FFICondition condition;
+			condition.type = ffi.FFICondition.Type.BinaryCondition;
+			condition.binaryCondition.type = ffi.FFIBinaryCondition.Type.Equals;
+			auto sides = data.conditionStack[data.conditionStackIndex ..
+				data.conditionStackIndex += 2];
+			assert(sides.length == 2);
+			sides[0].type = ffi.FFICondition.Type.Value;
+			sides[0].value = conditionIdentifier(placeholder ~ "." ~ ModelRef.primaryKeyField.columnName);
+			sides[1].type = ffi.FFICondition.Type.Value;
+			sides[1].value = conditionIdentifier(field.columnName);
+			condition.binaryCondition.lhs = &sides[0];
+			condition.binaryCondition.rhs = &sides[1];
+
+			ji.joins ~= ffi.FFIJoin(
+				ffi.FFIJoinType.join,
+				ffi.ffi(DormLayout!RefDB.tableName),
+				ffi.ffi(placeholder),
+				ffi.FFIOption!(ffi.FFICondition)(condition)
+			);
+			return placeholder;
+		}
+	}
+
+	static foreach (i, member; RefDB.tupleof)
+	{
+		static if (__traits(isSame, ModelRef.primaryKeyAlias, member))
+		{
+			mixin("ConditionBuilderField!(ModelRef.PrimaryKeyType, field) ",
+				RefDB.tupleof[i].stringof,
+				" = ConditionBuilderField!(ModelRef.PrimaryKeyType, field)(`",
+				field.columnName,
+				"`);");
+		}
+		else static if (hasDormField!(RefDB, RefDB.tupleof[i].stringof))
+		{
+			mixin("ConditionBuilderField!(typeof(RefDB.tupleof[i]), DormField!(RefDB, RefDB.tupleof[i].stringof)) ",
+				RefDB.tupleof[i].stringof,
+				"() @safe return { string placeholder = ensureJoined(); return typeof(return)(placeholder ~ `.",
+				DormField!(RefDB, RefDB.tupleof[i].stringof).columnName,
+				"`); }");
+		}
+	}
 }
 
 struct ConditionBuilderField(T, ModelFormat.Field field)
@@ -781,6 +878,13 @@ struct ConditionBuilderField(T, ModelFormat.Field field)
 	}
 }
 
+private struct JoinInformation
+{
+	private ffi.FFIJoin[] joins;
+	/// Lookup foreign key name -> join placeholder
+	private string[string] joinedTables;
+}
+
 struct SelectOperation(
 	T,
 	TSelect,
@@ -794,6 +898,7 @@ struct SelectOperation(
 	private const(DormDB)* db;
 	private ffi.DBTransactionHandle tx;
 	private ffi.FFICondition[] conditionTree;
+	private JoinInformation joinInformation;
 	private long offset, limit;
 
 	static if (!hasWhere)
@@ -802,8 +907,12 @@ struct SelectOperation(
 
 		SelectOperation!(T, TSelect, true, hasOrder, hasLimit) condition(SelectBuilder callback) return @trusted
 		{
-			ConditionBuilder!T builder;
+			scope ConditionBuilderData data;
+			scope ConditionBuilder!T builder;
+			builder.builderData = &data;
+			data.joinInformation = move(joinInformation);
 			conditionTree = callback(builder).makeTree;
+			joinInformation = move(data.joinInformation);
 			return cast(typeof(return))this;
 		}
 	}
@@ -858,17 +967,20 @@ struct SelectOperation(
 		static foreach (i, field; fields)
 			columns[i] = ffi.ffi(field.columnName);
 
+		mixin(makeRtColumns);
+
 		TSelect[] ret;
 		auto ctx = FreeableAsyncResult!(void delegate(scope ffi.FFIArray!(ffi.DBRowHandle))).make;
 		ctx.forward_callback = (scope rows) {
 			ret.length = rows.size;
 			foreach (i; 0 .. rows.size)
-				ret[i] = unwrapRowResult!(T, TSelect)(rows.data[i]);
+				ret[i] = unwrapRowResult!(T, TSelect)(rows.data[i], joinInformation);
 		};
+		// TODO: pass in joins, limit, offset
 		ffi.rorm_db_query_all(db.handle,
 			tx,
 			ffi.ffi(DormLayout!T.tableName),
-			ffi.ffi(columns),
+			ffi.ffi(rtColumns),
 			conditionTree.length ? &conditionTree[0] : null,
 			ctx.callback.expand);
 		ctx.result();
@@ -882,13 +994,17 @@ struct SelectOperation(
 		ffi.FFIString[fields.length] columns;
 		static foreach (i, field; fields)
 			columns[i] = ffi.ffi(field.columnName);
+
+		mixin(makeRtColumns);
+
+		// TODO: pass in joins, limit, offset
 		auto stream = sync_call!(ffi.rorm_db_query_stream)(db.handle,
 			tx,
 			ffi.ffi(DormLayout!T.tableName),
-			ffi.ffi(columns),
+			ffi.ffi(rtColumns),
 			conditionTree.length ? &conditionTree[0] : null);
 
-		return RormStream!(T, TSelect)(stream);
+		return RormStream!(T, TSelect)(stream, joinInformation);
 	}
 
 	TSelect findOne() @trusted
@@ -899,21 +1015,48 @@ struct SelectOperation(
 		static foreach (i, field; fields)
 			columns[i] = ffi.ffi(field.columnName);
 
+		mixin(makeRtColumns);
+
 		TSelect ret;
 		auto ctx = FreeableAsyncResult!(void delegate(scope ffi.DBRowHandle)).make;
 		ctx.forward_callback = (scope row) {
-			ret = unwrapRowResult!(T, TSelect)(row);
+			ret = unwrapRowResult!(T, TSelect)(row, joinInformation);
 		};
+		// TODO: pass in joins, offset
 		ffi.rorm_db_query_one(db.handle,
 			tx,
 			ffi.ffi(DormLayout!T.tableName),
-			ffi.ffi(columns),
+			ffi.ffi(rtColumns),
 			conditionTree.length ? &conditionTree[0] : null,
 			ctx.callback.expand);
 		ctx.result();
 		return ret;
 	}
 }
+
+private enum makeRtColumns = q{
+	// inputs: ffi.FFIString[n] columns;
+	//         JoinInformation joinInformation;
+	//         T (template type)
+	// output: ffi.FFIString[] rtColumns;
+
+	ffi.FFIString[] rtColumns = columns[];
+	if (joinInformation.joins.length)
+	{
+		static foreach (fk; DormForeignKeys!T)
+		{{
+			if (auto joinPrefix = fk.columnName in joinInformation.joinedTables)
+			{
+				enum filteredFields = FilterLayoutFields!(T, TSelect);
+				size_t start = rtColumns.length;
+				size_t i = 0;
+				rtColumns.length += filteredFields.length;
+				static foreach (field; filteredFields)
+					rtColumns[start + (i++)] = ffi.ffi(*joinPrefix ~ ("." ~ field.columnName));
+			}
+		}}
+	}
+};
 
 private struct RormStream(T, TSelect)
 {
@@ -946,11 +1089,13 @@ private struct RormStream(T, TSelect)
 
 	private ffi.DBStreamHandle handle;
 	private RowHandleState currentHandle;
+	private JoinInformation joinInformation;
 	private bool started;
 
-	this(ffi.DBStreamHandle handle) @trusted
+	this(ffi.DBStreamHandle handle, JoinInformation joinInformation = JoinInformation.init) @trusted
 	{
 		this.handle = handle;
+		this.joinInformation = joinInformation;
 		currentHandle = RowHandleState(FreeableAsyncResult!(ffi.DBRowHandle).make);
 	}
 
@@ -995,7 +1140,7 @@ private struct RormStream(T, TSelect)
 	auto front() @property @trusted
 	{
 		if (!started) nextIteration();
-		return unwrapRowResult!(T, TSelect)(currentHandle.result());
+		return unwrapRowResult!(T, TSelect)(currentHandle.result(), joinInformation);
 	}
 	
 	bool empty() @property @trusted
@@ -1030,8 +1175,39 @@ private struct RormStream(T, TSelect)
 	static assert(isInputRange!RormStream, "implementation error: did not become an input range");
 }
 
+TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row, JoinInformation ji) @safe
+{
+	auto base = unwrapRowResultImpl!(T, TSelect, false)(row, null);
+	if (ji.joins.length)
+	{
+		static foreach (fk; DormForeignKeys!T)
+		{{
+			if (auto pprefix = fk.columnName in ji.joinedTables)
+			{
+				string prefix = *pprefix;
+				alias ModelRef = typeof(__traits(getMember, T, fk.sourceColumn));
+				__traits(getMember, base, fk.sourceColumn) =
+					unwrapRowResult!(ModelRef.TModel, ModelRef.TSelect)(row, prefix);
+			}
+		}}
+	}
+	return base;
+}
 
 TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row) @safe
+{
+	return unwrapRowResultImpl!(T, TSelect, false)(row, null);
+}
+
+TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row, string placeholder) @safe
+{
+	scope placeholderDot = new char[placeholder.length + 1];
+	placeholderDot[0 .. placeholder.length] = placeholder;
+	placeholderDot[$ - 1] = '.';
+	return unwrapRowResultImpl!(T, TSelect, true)(row, (() @trusted => cast(string)placeholderDot)());
+}
+
+private TSelect unwrapRowResultImpl(T, TSelect, bool usePrefix)(ffi.DBRowHandle row, string prefixWithDot) @safe
 {
 	TSelect res;
 	static if (is(TSelect == class))
@@ -1040,18 +1216,23 @@ TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row) @safe
 	enum fields = FilterLayoutFields!(T, TSelect);
 	static foreach (field; fields)
 		mixin("res." ~ field.sourceColumn) = extractField!(field, typeof(mixin("res." ~ field.sourceColumn)),
-			text(" from model ", T.stringof, " in column ", field.sourceColumn, " in file ", field.definedAt).idup)(row, rowError);
+			text(" from model ", T.stringof, " in column ", field.sourceColumn, " in file ", field.definedAt).idup,
+			usePrefix)(row, rowError, prefixWithDot);
 	if (rowError)
 		throw rowError.makeException;
 	return res;
 }
 
-private T extractField(alias field, T, string errInfo)(ffi.DBRowHandle row, ref ffi.RormError error) @trusted
+private T extractField(alias field, T, string errInfo, bool usePrefix)(ffi.DBRowHandle row, ref ffi.RormError error, string prefixWithDot) @trusted
 {
 	import std.conv;
 	import dorm.declarative;
 
-	auto columnName = ffi.ffi(field.columnName);
+	static if (usePrefix)
+		auto columnName = ffi.ffi(prefixWithDot ~ field.columnName);
+	else
+		auto columnName = ffi.ffi(field.columnName);
+
 	enum pre = field.isNullable() ? "ffi.rorm_row_get_null_" : "ffi.rorm_row_get_";
 	enum suf = "(row, columnName, error)";
 

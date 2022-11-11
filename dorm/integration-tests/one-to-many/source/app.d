@@ -44,4 +44,9 @@ void main(string[] args)
 	comment.message = "Very cool!";
 	comment.author.foreignKey = user2.username;
 	db.insert(comment);
+
+	// auto comments = db.select!Comment
+	// 	.condition(c => c.author.email.like("alice%"))
+	// 	.array;
+	// assert(comments.length == 1);
 }
