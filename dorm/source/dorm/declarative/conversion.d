@@ -9,6 +9,7 @@ import dorm.declarative;
 import dorm.model;
 import dorm.types;
 
+import std.algorithm : remove;
 import std.conv;
 import std.datetime;
 import std.meta;
@@ -102,6 +103,13 @@ template DormLayout(TModel : Model)
 }
 
 enum DormFields(TModel : Model) = DormLayout!TModel.fields;
+enum DormForeignKeys(TModel : Model) = (() {
+	auto all = DormFields!TModel;
+	foreach (i, field; all)
+		if (!field.isForeignKey)
+			all = all.remove(i);
+	return all;
+})();
 
 enum DormFieldIndex(TModel : Model, string sourceName) = findFieldIdx(DormFields!TModel, sourceName, TModel.stringof);
 enum hasDormField(TModel : Model, string sourceName) = DormFieldIndex!(TModel, sourceName) != -1;
@@ -884,6 +892,9 @@ unittest
 			ModelRef!(User.username) author;
 		}
 	}
+
+	static assert(DormForeignKeys!(Mod.Toot).length == 1);
+	static assert(DormForeignKeys!(Mod.Toot)[0].columnName == "author");
 
 	auto mod = processModelsToDeclarations!Mod;
 	assert(mod.models.length == 2);

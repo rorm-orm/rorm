@@ -110,6 +110,21 @@ struct ModelFormat
 			return hasFlag(AnnotationFlag.primaryKey);
 		}
 
+		/// Returns true iff this field has the `ForeignKeyImpl` annotation.
+		@serdeIgnore
+		bool isForeignKey() const @property
+		{
+			foreach (annotation; annotations)
+			{
+				if (annotation.value.match!(
+					(ForeignKeyImpl f) => true,
+					_ => false
+				))
+					return true;
+			}
+			return false;
+		}
+
 		/// Returns true iff this field has the given AnnotationFlag assigned.
 		@serdeIgnore
 		bool hasFlag(AnnotationFlag q) const @property
