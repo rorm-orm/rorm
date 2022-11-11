@@ -3,15 +3,9 @@ use rorm::{value::Value, Database};
 async fn check_select_star(db: &Database, raw_query: &str) -> anyhow::Result<()> {
     let rows = db.raw_sql(raw_query, None, None).await?;
     assert_eq!(rows.len(), 5, "created six users but dropped Eve");
-    let vector_of_user_ids: Vec<i64> = rows
-        .iter()
-        .map(|r| r.get::<i64, &str>("id").unwrap())
-        .collect();
+    let vector_of_user_ids: Vec<i64> = rows.iter().map(|r| r.get("id").unwrap()).collect();
     assert_eq!(vec![1, 2, 3, 4, 6], vector_of_user_ids);
-    let vector_of_user_names: Vec<&str> = rows
-        .iter()
-        .map(|r| r.get::<&str, &str>("username").unwrap())
-        .collect();
+    let vector_of_user_names: Vec<&str> = rows.iter().map(|r| r.get("username").unwrap()).collect();
     assert_eq!(
         vec!["Alice", "Bob", "Charlie", "David", "Francis"],
         vector_of_user_names
@@ -25,7 +19,7 @@ async fn check_select_star(db: &Database, raw_query: &str) -> anyhow::Result<()>
 
 async fn check_drop_one_car(db: &Database, raw_query: &str) -> anyhow::Result<()> {
     let rows = db
-        .raw_sql(raw_query, Option::Some(&[Value::I64(666)]), None)
+        .raw_sql(raw_query, Some(&[Value::I64(666)]), None)
         .await?;
     assert_eq!(rows.len(), 0);
     Ok(())
@@ -34,7 +28,7 @@ async fn check_drop_one_car(db: &Database, raw_query: &str) -> anyhow::Result<()
 async fn check_no_of_cars(db: &Database, raw_query: &str) -> anyhow::Result<()> {
     let rows = db.raw_sql(raw_query, None, None).await?;
     assert_eq!(rows.len(), 1);
-    let count = rows[0].get::<i64, &str>("c").unwrap();
+    let count: i64 = rows[0].get("c").unwrap();
     assert_eq!(1023, count);
     Ok(())
 }

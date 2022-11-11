@@ -47,7 +47,7 @@ pub struct Counter {
 }
 
 async fn create_users(db: &Database) {
-    for (birthday, username) in vec![
+    for (birthday, username) in [
         (NaiveDate::from_ymd(1999, 2, 19), "Alice".to_string()),
         (NaiveDate::from_ymd(2022, 1, 31), "Bob".to_string()),
         (NaiveDate::from_ymd(1964, 12, 7), "Charlie".to_string()),
@@ -125,10 +125,11 @@ pub(crate) async fn operate(db: Database, driver: DatabaseVariant) -> anyhow::Re
     }
 
     // There are no cars with green color
-    if let Some(_) = query!(&db, Car)
+    if query!(&db, Car)
         .condition(Car::FIELDS.color.equals("green"))
         .optional()
         .await?
+        .is_some()
     {
         panic!("There should be no green car!")
     }
