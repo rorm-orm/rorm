@@ -177,15 +177,15 @@ private void processField(TModel, string fieldName, string directFieldName)(ref 
 		field.annotations ~= DBAnnotation(Choices([
 				__traits(allMembers, UnnullType)
 			]));
-	else static if (is(UnnullType : ModelRef!U, alias U)
-		|| is(UnnullType : ModelRef!V, V))
+	else static if (is(UnnullType : ModelRefImpl!(_id, _TModel, _TSelect),
+		alias _id, _TModel, _TSelect))
 	{
 		ForeignKeyImpl foreignKeyImpl;
 		enum foreignKeyInfo = UnnullType.primaryKeyField;
 		field.type = foreignKeyInfo.type;
 		field.annotations ~= foreignKeyInfo.foreignKeyAnnotations;
 		foreignKeyImpl.column = foreignKeyInfo.columnName;
-		foreignKeyImpl.table = DormLayout!(UnnullType.T).tableName;
+		foreignKeyImpl.table = DormLayout!_TModel.tableName;
 	}
 
 	enum bool isForeignKey = is(typeof(foreignKeyImpl));

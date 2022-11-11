@@ -28,8 +28,20 @@ void main(string[] args)
 	user.email = "bob@bobbington.bob";
 	db.insert(user);
 
+	User user2 = new User();
+	user2.username = "alicecool";
+	user2.fullName = "Alice is cool";
+	user2.email = "alice@alice.hq";
+	db.insert(user2);
+
 	Toot toot = new Toot();
 	toot.message = "Hello world!";
 	toot.author = user;
 	db.insert(toot);
+
+	Comment comment = new Comment();
+	comment.replyTo = toot;
+	comment.message = "Very cool!";
+	comment.author.foreignKey = user2.username;
+	db.insert(comment);
 }

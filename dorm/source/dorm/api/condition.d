@@ -89,7 +89,7 @@ struct TernaryCondition
 
 FFIValue conditionValue(ModelFormat.Field fieldInfo, T)(T c) @trusted
 {
-	import dorm.types.relations : ModelRef;
+	import dorm.types.relations : ModelRefImpl;
 
 	FFIValue ret;
 	static if (is(T == Nullable!U, U))
@@ -99,8 +99,7 @@ FFIValue conditionValue(ModelFormat.Field fieldInfo, T)(T c) @trusted
 		else
 			ret = conditionValue!fieldInfo(c.get);
 	}
-	else static if (is(T == ModelRef!U, alias U)
-		|| is(T == ModelRef!V, V))
+	else static if (is(T == ModelRefImpl!(id, _TModel, _TSelect), alias id, _TModel, _TSelect))
 	{
 		ret = conditionValue!fieldInfo(c.foreignKey);
 	}

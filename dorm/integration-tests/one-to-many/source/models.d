@@ -22,3 +22,20 @@ class Toot : Model
 	SysTime createdAt;
 	ModelRef!User author;
 }
+
+@DormPatch!User
+struct UserPublic
+{
+	string username;
+	string fullName;
+}
+
+class Comment : Model
+{
+	ModelRef!Toot replyTo;
+
+	@maxLength(255)
+	string message;
+
+	ModelRef!UserPublic author;
+}

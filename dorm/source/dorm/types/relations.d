@@ -82,19 +82,28 @@ version(none) static struct ManyToManyField(alias idOrModel)
 	}
 }
 
-static struct ModelRef(alias idOrModel)
+static template ModelRef(alias idOrPatch)
 {
-	alias T = ModelFromIdOrModel!idOrModel;
-	alias primaryKeyAlias = IdAliasFromIdOrModel!idOrModel;
-	enum primaryKeyField = IdFieldFromIdOrModel!idOrModel;
+	alias primaryKeyAlias = IdAliasFromIdOrPatch!idOrPatch;
+	alias TPatch = PatchFromIdOrPatch!idOrPatch;
+	alias T = ModelFromSomePatch!TPatch;
+	alias ModelRef = ModelRefImpl!(primaryKeyAlias, T, TPatch);
+}
+
+static struct ModelRefImpl(alias id, _TModel, _TSelect)
+{
+	alias TModel = _TModel;
+	alias TSelect = _TSelect;
+	alias primaryKeyAlias = id;
+	enum primaryKeyField = DormField!(_TModel, __traits(identifier, id));
 	alias PrimaryKeyType = typeof(primaryKeyAlias);
 
 	PrimaryKeyType foreignKey;
 
-	private T cached;
+	private TSelect cached;
 	private bool resolved;
 
-	T populated()
+	TSelect populated()
 	{
 		assert(resolved, "ModelRef reference is not populated! Call "
 			~ "`db.populate!(Model.referenceFieldName)(modelInstance)` or query "
@@ -102,7 +111,7 @@ static struct ModelRef(alias idOrModel)
 		return cached;
 	}
 
-	auto opAssign(T value)
+	auto opAssign(TSelect value)
 	{
 		resolved = true;
 		cached = value;

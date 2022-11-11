@@ -1132,6 +1132,12 @@ private T fieldInto(T, string errInfo, From)(scope From v, ref ffi.RormError err
 			}
 		}
 	}
+	else static if (is(T == ModelRefImpl!(id, _TModel, _TSelect), alias id, _TModel, _TSelect))
+	{
+		T ret;
+		ret.foreignKey = fieldInto!(typeof(id), errInfo, From)(v, error);
+		return ret;
+	}
 	else static if (is(From == FFIArray!U, U))
 	{
 		static if (is(T == Res[], Res))
