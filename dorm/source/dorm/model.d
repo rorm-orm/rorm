@@ -4,8 +4,10 @@ import dorm.annotations;
 import dorm.api.db;
 import dorm.declarative;
 import dorm.declarative.conversion;
+import dorm.types;
 
 public import dorm.types : DormPatch;
+
 import std.algorithm;
 import std.string;
 import std.sumtype;

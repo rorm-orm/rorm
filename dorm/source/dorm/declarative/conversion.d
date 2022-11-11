@@ -105,7 +105,7 @@ template DormLayout(TModel : Model)
 enum DormFields(TModel : Model) = DormLayout!TModel.fields;
 enum DormForeignKeys(TModel : Model) = (() {
 	auto all = DormFields!TModel;
-	foreach (i, field; all)
+	foreach_reverse (i, field; all)
 		if (!field.isForeignKey)
 			all = all.remove(i);
 	return all;

@@ -16,6 +16,7 @@ import std.traits;
 import core.attribute;
 import core.time;
 
+public import dorm.types : DormPatch;
 public import dorm.lib.ffi : DBBackend;
 
 public import dorm.api.condition;
