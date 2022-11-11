@@ -2,42 +2,9 @@ module dorm.types.relations;
 
 import dorm.declarative.conversion;
 import dorm.model;
+import dorm.types.patches;
 
-package(dorm) static template ModelFromIdOrModel(alias idOrModel)
-{
-	static if (is(idOrModel : Model))
-		alias ModelFromIdOrModel = idOrModel;
-	else static if (is(__traits(parent, idOrModel) : Model))
-		alias ModelFromIdOrModel = __traits(parent, idOrModel);
-	else
-		static assert(false, "Invalid id or model: " ~ idOrModel.stringof);
-}
-
-package(dorm) static template IdAliasFromIdOrModel(alias idOrModel)
-{
-	static if (is(idOrModel : Model))
-		alias IdAliasFromIdOrModel =
-			__traits(getMember, idOrModel, DormPrimaryKey!idOrModel.sourceColumn);
-	else static if (is(__traits(parent, idOrModel) : Model))
-		alias IdAliasFromIdOrModel = idOrModel;
-	else
-		static assert(false, "Invalid id or model: " ~ idOrModel.stringof);
-}
-
-package(dorm) static template IdFieldFromIdOrModel(alias idOrModel)
-{
-	static if (is(idOrModel : Model))
-		alias IdFieldFromIdOrModel = DormPrimaryKey!idOrModel;
-	else static if (is(__traits(parent, idOrModel) : Model))
-		alias IdFieldFromIdOrModel = DormField!(
-			__traits(parent, idOrModel), // Model type of alias
-			__traits(identifier, idOrModel) // field source name
-		);
-	else
-		static assert(false, "Invalid id or model: " ~ idOrModel.stringof);
-}
-
-static struct ManyToManyField(alias idOrModel)
+version(none) static struct ManyToManyField(alias idOrModel)
 {
 	alias T = ModelFromIdOrModel!idOrModel;
 	alias primaryKeyAlias = IdAliasFromIdOrModel!idOrModel;

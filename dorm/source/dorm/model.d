@@ -1,11 +1,11 @@
 module dorm.model;
 
 import dorm.annotations;
+import dorm.api.db;
 import dorm.declarative;
 import dorm.declarative.conversion;
-import dorm.api.db;
 
-public import dorm.api.db : DormPatch;
+public import dorm.types : DormPatch;
 import std.algorithm;
 import std.string;
 import std.sumtype;
