@@ -121,6 +121,7 @@ pub trait Model: Patch<Model = Self> {
 /// Stores a link to another model in a field.
 ///
 /// In database language, this is a many to one relation.
+#[derive(Clone)]
 pub enum ForeignModel<M: Model> {
     /// The other model's primary key which can be used to query it later.
     Key(M::Primary),
