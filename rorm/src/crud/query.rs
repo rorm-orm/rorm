@@ -105,6 +105,8 @@ impl<
                 self.selector.columns(),
                 &[],
                 self.condition.as_option(),
+                None,
+                None,
                 self.transaction.into_option(),
             )
             .await
@@ -120,6 +122,8 @@ impl<
                 self.selector.columns(),
                 &[],
                 self.condition.as_option(),
+                None,
+                None,
                 self.transaction.into_option(),
             )
             .await
@@ -132,6 +136,8 @@ impl<
             self.selector.columns(),
             &[],
             self.condition.as_option(),
+            None,
+            None,
             self.transaction.into_option(),
         )
     }
@@ -144,6 +150,8 @@ impl<
                 self.selector.columns(),
                 &[],
                 self.condition.as_option(),
+                None,
+                None,
                 self.transaction.into_option(),
             )
             .await

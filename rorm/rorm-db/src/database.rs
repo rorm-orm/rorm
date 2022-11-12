@@ -243,14 +243,19 @@ impl Database {
     - `columns`: Columns to retrieve values from.
     - `joins`: Join tables expressions.
     - `conditions`: Optional conditions to apply.
+    - `limit`: Optional limit to apply to the query.
+    - `offset`: Optional offset to apply to the query.
     - `transaction`: Optional transaction to execute the query on.
      */
+    #[allow(clippy::too_many_arguments)]
     pub fn query_stream<'db, 'post_query, 'stream>(
         &'db self,
         model: &str,
         columns: &[&str],
         joins: &[JoinTableImpl<'_, 'post_query>],
         conditions: Option<&conditional::Condition<'post_query>>,
+        limit: Option<u64>,
+        offset: Option<u64>,
         transaction: Option<&'stream mut Transaction>,
     ) -> BoxStream<'stream, Result<Row, Error>>
     where
@@ -260,6 +265,12 @@ impl Database {
         let mut q = self.db_impl.select(columns, model, joins);
         if let Some(c) = conditions {
             q = q.where_clause(c);
+        }
+        if let Some(limit) = limit {
+            q = q.limit(limit);
+        }
+        if let Some(offset) = offset {
+            q = q.offset(offset);
         }
 
         let (query_string, bind_params) = q.build();
@@ -283,19 +294,30 @@ impl Database {
     - `columns`: Columns to retrieve values from.
     - `joins`: Join tables expressions.
     - `conditions`: Optional conditions to apply.
+    - `limit`: Optional limit to apply to the query.
+    - `offset`: Optional offset to apply to the query.
     - `transaction`: Optional transaction to execute the query on.
      */
+    #[allow(clippy::too_many_arguments)]
     pub async fn query_one(
         &self,
         model: &str,
         columns: &[&str],
         joins: &[JoinTableImpl<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
+        limit: Option<u64>,
+        offset: Option<u64>,
         transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Row, Error> {
         let mut q = self.db_impl.select(columns, model, joins);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
+        }
+        if let Some(limit) = limit {
+            q = q.limit(limit);
+        }
+        if let Some(offset) = offset {
+            q = q.offset(offset);
         }
 
         let (query_string, bind_params) = q.build();
@@ -329,19 +351,30 @@ impl Database {
     - `columns`: Columns to retrieve values from.
     - `joins`: Join tables expressions.
     - `conditions`: Optional conditions to apply.
+    - `limit`: Optional limit to apply to the query.
+    - `offset`: Optional offset to apply to the query.
     - `transaction`: Optional transaction to execute the query on.
      */
+    #[allow(clippy::too_many_arguments)]
     pub async fn query_optional(
         &self,
         model: &str,
         columns: &[&str],
         joins: &[JoinTableImpl<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
+        limit: Option<u64>,
+        offset: Option<u64>,
         transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Option<Row>, Error> {
         let mut q = self.db_impl.select(columns, model, joins);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
+        }
+        if let Some(limit) = limit {
+            q = q.limit(limit);
+        }
+        if let Some(offset) = offset {
+            q = q.offset(offset);
         }
 
         let (query_string, bind_params) = q.build();
@@ -375,20 +408,31 @@ impl Database {
     - `columns`: Columns to retrieve values from.
     - `joins`: Join tables expressions.
     - `conditions`: Optional conditions to apply.
+    - `limit`: Optional limit to apply to the query.
+    - `offset`: Optional offset to apply to the query.
     - `transaction`: Optional transaction to execute the query on.
      */
+    #[allow(clippy::too_many_arguments)]
     pub async fn query_all(
         &self,
         model: &str,
         columns: &[&str],
         joins: &[JoinTableImpl<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
+        limit: Option<u64>,
+        offset: Option<u64>,
         transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Vec<Row>, Error> {
         let mut q = self.db_impl.select(columns, model, joins);
 
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
+        }
+        if let Some(limit) = limit {
+            q = q.limit(limit);
+        }
+        if let Some(offset) = offset {
+            q = q.offset(offset);
         }
 
         let (query_string, bind_params) = q.build();

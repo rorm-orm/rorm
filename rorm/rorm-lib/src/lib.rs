@@ -442,6 +442,8 @@ specify a null pointer.
 - `columns`: Array of columns to retrieve from the database.
 - `joins`: Array of joins to add to the query.
 - `condition`: Pointer to a [Condition].
+- `limit`: Optional limit to set to the query.
+- `offset`: Optional offset to apply to the query.
 - `callback`: callback function. Takes the `context`, a pointer to a row and an [Error].
 - `context`: Pass through void pointer.
 
@@ -459,6 +461,8 @@ pub extern "C" fn rorm_db_query_one(
     columns: FFISlice<'static, FFIString<'static>>,
     joins: FFISlice<'static, FFIJoin<'static>>,
     condition: Option<&'static Condition>,
+    limit: FFIOption<u64>,
+    offset: FFIOption<u64>,
     callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Row>>, Error) -> ()>,
     context: VoidPtr,
 ) {
@@ -469,6 +473,9 @@ pub extern "C" fn rorm_db_query_one(
         unsafe { cb(context, None, Error::InvalidStringError) };
         return;
     }
+
+    let limit = limit.into();
+    let offset = offset.into();
 
     let mut column_vec = vec![];
     {
@@ -550,6 +557,8 @@ pub extern "C" fn rorm_db_query_one(
                         column_vec.as_slice(),
                         join_vec.as_slice(),
                         None,
+                        limit,
+                        offset,
                         transaction,
                     )
                     .await
@@ -567,6 +576,8 @@ pub extern "C" fn rorm_db_query_one(
                     column_vec.as_slice(),
                     join_vec.as_slice(),
                     Some(&c),
+                    limit,
+                    offset,
                     transaction,
                 )
                 .await
@@ -603,6 +614,8 @@ specify a null pointer.
 - `columns`: Array of columns to retrieve from the database.
 - `joins`: Array of joins to add to the query.
 - `condition`: Pointer to a [Condition].
+- `limit`: Optional limit to set to the query.
+- `offset`: Optional offset to apply to the query.
 - `callback`: callback function. Takes the `context`, a FFISlice of rows and an [Error].
 - `context`: Pass through void pointer.
 
@@ -621,6 +634,8 @@ pub extern "C" fn rorm_db_query_all(
     columns: FFISlice<'static, FFIString<'static>>,
     joins: FFISlice<'static, FFIJoin<'static>>,
     condition: Option<&'static Condition>,
+    limit: FFIOption<u64>,
+    offset: FFIOption<u64>,
     callback: Option<unsafe extern "C" fn(VoidPtr, FFISlice<Row>, Error) -> ()>,
     context: VoidPtr,
 ) {
@@ -631,6 +646,9 @@ pub extern "C" fn rorm_db_query_all(
         unsafe { cb(context, FFISlice::empty(), Error::InvalidStringError) };
         return;
     }
+
+    let limit = limit.into();
+    let offset = offset.into();
 
     let mut column_vec = vec![];
     {
@@ -711,6 +729,8 @@ pub extern "C" fn rorm_db_query_all(
                     column_vec.as_slice(),
                     join_vec.as_slice(),
                     None,
+                    limit,
+                    offset,
                     transaction,
                 )
                 .await
@@ -721,6 +741,8 @@ pub extern "C" fn rorm_db_query_all(
                     column_vec.as_slice(),
                     join_vec.as_slice(),
                     Some(&cond),
+                    limit,
+                    offset,
                     transaction,
                 )
                 .await
@@ -772,6 +794,8 @@ Returns a pointer to the created stream.
 - `columns`: Array of columns to retrieve from the database.
 - `joins`: Array of joins to add to the query.
 - `condition`: Pointer to a [Condition].
+- `limit`: Optional limit to set to the query.
+- `offset`: Optional offset to apply to the query.
 - `callback`: callback function. Takes the `context`, a stream pointer and an [Error].
 - `context`: Pass through void pointer.
 
@@ -785,6 +809,8 @@ pub extern "C" fn rorm_db_query_stream(
     columns: FFISlice<FFIString>,
     joins: FFISlice<'static, FFIJoin<'static>>,
     condition: Option<&Condition>,
+    limit: FFIOption<u64>,
+    offset: FFIOption<u64>,
     callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Stream>>, Error) -> ()>,
     context: VoidPtr,
 ) {
@@ -795,6 +821,9 @@ pub extern "C" fn rorm_db_query_stream(
         unsafe { cb(context, None, Error::InvalidStringError) };
         return;
     }
+
+    let limit = limit.into();
+    let offset = offset.into();
 
     let column_slice: &[FFIString] = columns.into();
     let mut column_vec = vec![];
@@ -852,6 +881,8 @@ pub extern "C" fn rorm_db_query_stream(
             column_vec.as_slice(),
             join_vec.as_slice(),
             None,
+            limit,
+            offset,
             transaction,
         ),
         Some(c) => {
@@ -873,6 +904,8 @@ pub extern "C" fn rorm_db_query_stream(
                 column_vec.as_slice(),
                 join_vec.as_slice(),
                 Some(&cond_conv.unwrap()),
+                limit,
+                offset,
                 transaction,
             )
         }
