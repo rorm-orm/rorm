@@ -429,7 +429,7 @@ impl Database {
         columns: &[&str],
         values: &[value::Value<'_>],
         transaction: Option<&mut Transaction<'_>>,
-    ) -> Result<Option<i64>, Error> {
+    ) -> Result<(), Error> {
         let value_rows = &[values];
         let q = self.db_impl.insert(model, columns, value_rows);
 
@@ -444,11 +444,11 @@ impl Database {
 
         match transaction {
             None => match tmp.execute(&self.pool).await {
-                Ok(v) => Ok(v.last_insert_id()),
+                Ok(_) => Ok(()),
                 Err(err) => Err(Error::SqlxError(err)),
             },
             Some(transaction) => match tmp.execute(&mut transaction.tx).await {
-                Ok(v) => Ok(v.last_insert_id()),
+                Ok(_) => Ok(()),
                 Err(err) => Err(Error::SqlxError(err)),
             },
         }
