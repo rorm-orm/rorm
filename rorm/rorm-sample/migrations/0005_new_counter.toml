@@ -1,0 +1,40 @@
+[Migration]
+Hash = '962363415809171012'
+Initial = false
+Dependency = 4
+Replaces = []
+
+[[Migration.Operations]]
+Type = 'CreateModel'
+Name = 'counter'
+
+[[Migration.Operations.Fields]]
+Name = 'id'
+Type = 'int64'
+
+[[Migration.Operations.Fields.Annotations]]
+Type = 'auto_increment'
+
+[[Migration.Operations.Fields.Annotations]]
+Type = 'primary_key'
+
+[[Migration.Operations.Fields]]
+Name = 'object'
+Type = 'varchar'
+
+[[Migration.Operations.Fields.Annotations]]
+Type = 'max_length'
+Value = 255
+
+[[Migration.Operations.Fields.Annotations]]
+Type = 'unique'
+
+[[Migration.Operations.Fields.Annotations]]
+Type = 'not_null'
+
+[[Migration.Operations.Fields]]
+Name = 'count'
+Type = 'int64'
+
+[[Migration.Operations.Fields.Annotations]]
+Type = 'not_null'

@@ -1,0 +1,21 @@
+[Migration]
+Hash = '8690472026906934459'
+Initial = false
+Dependency = 3
+Replaces = []
+
+[[Migration.Operations]]
+Type = 'DeleteField'
+Model = 'user'
+Name = 'birthday'
+
+[[Migration.Operations]]
+Type = 'CreateField'
+Model = 'user'
+
+[Migration.Operations.Field]
+Name = 'birthday'
+Type = 'int64'
+
+[[Migration.Operations.Field.Annotations]]
+Type = 'not_null'
