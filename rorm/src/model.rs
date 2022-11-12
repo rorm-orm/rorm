@@ -1,3 +1,4 @@
+use crate::internal::as_db_type::AsDbType;
 use rorm_db::conditional::{self, Condition};
 use rorm_db::row::FromRow;
 use rorm_db::value::Value;
@@ -83,12 +84,13 @@ pub fn iter_columns<P: Patch>(patch: &P) -> impl Iterator<Item = Value> {
 
 /// Trait implementing most database interactions for a struct.
 ///
-/// It should only ever be generated using [`derive(Model)`].
-///
-/// [`derive(Model)`]: crate::Model
+/// It should only ever be generated using [`derive(Model)`](rorm_macro::Model).
 pub trait Model: Patch<Model = Self> {
     /// The primary key's name and index
     const PRIMARY: (&'static str, usize);
+
+    /// The primary key's data type
+    type Primary: AsDbType;
 
     /// A struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`](crate::internal::field::Field)).
     ///
@@ -105,8 +107,8 @@ pub trait Model: Patch<Model = Self> {
     /// [`FIELDS`]: Model::FIELDS
     const F: Self::Fields;
 
-    /// Returns the table name of the model
-    fn table_name() -> &'static str;
+    /// The model's table name
+    const TABLE: &'static str;
 
     /// Returns the model's intermediate representation
     ///

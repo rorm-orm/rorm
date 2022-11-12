@@ -54,35 +54,23 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let errors = Errors::new();
     let span = proc_macro2::Span::call_site();
 
-    let mut primary_field: Option<Ident> = None;
-    let mut fields_vis = Vec::new();
-    let mut fields_ident = Vec::new();
-    let mut fields_value_type = Vec::new();
-    let mut fields_struct_type = Vec::new();
-    let mut fields_construction = Vec::new();
-    for (index, field) in strct.fields.into_iter().enumerate() {
-        if let Some(ParsedField {
-            is_primary,
-            vis,
-            ident,
-            value_type,
-            struct_type,
-            construction,
-        }) = parse_field(index, field, &strct.ident, &errors)
-        {
-            match (is_primary, primary_field.as_ref()) {
-                (true, None) => primary_field = Some(ident.clone()),
-                (true, Some(_)) => errors.push_new(
-                    ident.span(),
-                    "Another primary key column has already been defined.",
-                ),
-                _ => {}
-            }
-            fields_vis.push(vis);
-            fields_ident.push(ident);
-            fields_value_type.push(value_type);
-            fields_struct_type.push(struct_type);
-            fields_construction.push(construction);
+    let fields = Vec::from_iter(
+        strct
+            .fields
+            .into_iter()
+            .enumerate()
+            .filter_map(|(index, field)| parse_field(index, field, &strct.ident, &errors)),
+    );
+
+    let mut primary_field: Option<&ParsedField> = None;
+    for field in fields.iter() {
+        match (field.is_primary, primary_field) {
+            (true, None) => primary_field = Some(field),
+            (true, Some(_)) => errors.push_new(
+                field.ident.span(),
+                "Another primary key column has already been defined.",
+            ),
+            _ => {}
         }
     }
     let primary_field = if let Some(primary_field) = primary_field {
@@ -106,10 +94,18 @@ pub fn model(strct: TokenStream) -> TokenStream {
     // File, line and column the struct was defined in
     let model_source = get_source(&span);
 
+    let fields_ident = Vec::from_iter(fields.iter().map(|field| field.ident.clone()));
     let vis = strct.vis;
     let model = strct.ident;
     let impl_patch = trait_impls::patch(&model, &model, &fields_ident);
     let impl_try_from_row = trait_impls::try_from_row(&model, &model, &fields_ident);
+
+    let fields_vis = fields.iter().map(|field| &field.vis);
+    // let fields_ident = fields.iter().map(|field| &field.ident);
+    let fields_struct_type = fields.iter().map(|field| &field.struct_type);
+    let fields_construction = fields.iter().map(|field| &field.construction);
+    let primary_key_ident = &primary_field.ident;
+    let primary_key_type = &primary_field.value_type;
     quote! {
         #[allow(non_camel_case_types)]
         #vis struct #fields_struct {
@@ -117,7 +113,8 @@ pub fn model(strct: TokenStream) -> TokenStream {
         }
 
         impl ::rorm::model::Model for #model {
-            const PRIMARY: (&'static str, usize) = (Self::FIELDS.#primary_field.name, Self::FIELDS.#primary_field.index);
+            const PRIMARY: (&'static str, usize) = (Self::FIELDS.#primary_key_ident.name, Self::FIELDS.#primary_key_ident.index);
+            type Primary = #primary_key_type;
 
             type Fields = #fields_struct;
             const F: Self::Fields = #fields_struct {
@@ -126,9 +123,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
                 )*
             };
 
-            fn table_name() -> &'static str {
-                #table_name
-            }
+            const TABLE: &'static str = #table_name;
 
             fn get_imr() -> ::rorm::imr::Model {
                 ::rorm::imr::Model {

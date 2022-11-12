@@ -127,7 +127,7 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
     pub async fn exec(self) -> Result<u64, Error> {
         self.db
             .update(
-                M::table_name(),
+                M::TABLE,
                 &self.columns,
                 self.condition.as_option(),
                 self.transaction.into_option(),

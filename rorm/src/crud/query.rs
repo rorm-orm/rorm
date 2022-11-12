@@ -101,7 +101,7 @@ impl<
     pub async fn all_as_rows(self) -> Result<Vec<Row>, Error> {
         self.db
             .query_all(
-                M::table_name(),
+                M::TABLE,
                 self.selector.columns(),
                 &[],
                 self.condition.as_option(),
@@ -118,7 +118,7 @@ impl<
     pub async fn one_as_row(self) -> Result<Row, Error> {
         self.db
             .query_one(
-                M::table_name(),
+                M::TABLE,
                 self.selector.columns(),
                 &[],
                 self.condition.as_option(),
@@ -132,7 +132,7 @@ impl<
     /// Retrieve the query as a stream of rows
     pub fn stream_as_row(self) -> BoxStream<'rf, Result<Row, Error>> {
         self.db.query_stream(
-            M::table_name(),
+            M::TABLE,
             self.selector.columns(),
             &[],
             self.condition.as_option(),
@@ -146,7 +146,7 @@ impl<
     pub async fn optional_as_row(self) -> Result<Option<Row>, Error> {
         self.db
             .query_optional(
-                M::table_name(),
+                M::TABLE,
                 self.selector.columns(),
                 &[],
                 self.condition.as_option(),

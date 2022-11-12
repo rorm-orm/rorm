@@ -101,7 +101,7 @@ impl<'db, 'rf, M: Model, T: TransactionMarker<'rf, 'db>> DeleteBuilder<'db, 'rf,
     /// Delete all columns
     pub async fn all(self) -> Result<u64, Error> {
         self.db
-            .delete(M::table_name(), None, self.transaction.into_option())
+            .delete(M::TABLE, None, self.transaction.into_option())
             .await
     }
 }
@@ -113,7 +113,7 @@ impl<'db, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf, 'db>
     async fn exec(self) -> Result<u64, Error> {
         self.db
             .delete(
-                M::table_name(),
+                M::TABLE,
                 self.condition.as_option(),
                 self.transaction.into_option(),
             )

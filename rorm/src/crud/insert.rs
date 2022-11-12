@@ -51,7 +51,7 @@ impl<'db: 'rf, 'rf, P: Patch, T: TransactionMarker<'rf, 'db>> InsertBuilder<'db,
         let values = Vec::from_iter(iter_columns(patch));
         self.db
             .insert(
-                P::Model::table_name(),
+                P::Model::TABLE,
                 P::COLUMNS,
                 &values,
                 self.transaction.into_option(),
@@ -68,7 +68,7 @@ impl<'db: 'rf, 'rf, P: Patch, T: TransactionMarker<'rf, 'db>> InsertBuilder<'db,
         let values_slices = Vec::from_iter(values.iter().map(Vec::as_slice));
         self.db
             .insert_bulk(
-                P::Model::table_name(),
+                P::Model::TABLE,
                 P::COLUMNS,
                 &values_slices,
                 self.transaction.into_option(),
