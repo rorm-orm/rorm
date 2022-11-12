@@ -1,5 +1,6 @@
 //! Query builder and macro
 use std::marker::PhantomData;
+use std::ops::{Range, RangeInclusive, Sub};
 
 use futures::stream::BoxStream;
 use futures::{Stream, StreamExt};
@@ -7,7 +8,7 @@ use rorm_db::transaction::Transaction;
 use rorm_db::{conditional::Condition, error::Error, row::Row, Database};
 use rorm_declaration::hmr::db_type::DbType;
 
-use crate::crud::builder::{ConditionMarker, TransactionMarker};
+use crate::crud::builder::{ConditionMarker, Sealed, TransactionMarker};
 use crate::internal::as_db_type::AsDbType;
 use crate::internal::field::Field;
 use crate::model::{Model, Patch};
@@ -25,6 +26,8 @@ pub struct QueryBuilder<
     S: Selector<M>,
     C: ConditionMarker<'rf>,
     T: TransactionMarker<'rf, 'db>,
+    L: OffLimMarker,
+    O: OffLimMarker,
 > {
     db: &'db Database,
     selector: S,
@@ -32,6 +35,9 @@ pub struct QueryBuilder<
 
     condition: C,
     transaction: T,
+
+    limit: L,
+    offset: O,
 }
 
 /// Specifies which columns to query and how to decode the rows into what.
@@ -46,9 +52,9 @@ pub trait Selector<M: Model> {
     fn columns(&self) -> &[&'static str];
 }
 
-impl<'db, 'rf, M: Model, S: Selector<M>> QueryBuilder<'db, 'rf, M, S, (), ()> {
+impl<'db, 'rf, M: Model, S: Selector<M>> QueryBuilder<'db, 'rf, M, S, (), (), (), ()> {
     /// Start building a query using a generic [Selector]
-    pub fn new(db: &'db Database, selector: S) -> QueryBuilder<'db, 'rf, M, S, (), ()> {
+    pub fn new(db: &'db Database, selector: S) -> Self {
         QueryBuilder {
             db,
             selector,
@@ -56,35 +62,109 @@ impl<'db, 'rf, M: Model, S: Selector<M>> QueryBuilder<'db, 'rf, M, S, (), ()> {
 
             condition: (),
             transaction: (),
+
+            limit: (),
+            offset: (),
         }
     }
 }
 
-impl<'db, 'a, M: Model, S: Selector<M>, T: TransactionMarker<'a, 'db>>
-    QueryBuilder<'db, 'a, M, S, (), T>
+impl<
+        'db,
+        'a,
+        M: Model,
+        S: Selector<M>,
+        T: TransactionMarker<'a, 'db>,
+        L: OffLimMarker,
+        O: OffLimMarker,
+    > QueryBuilder<'db, 'a, M, S, (), T, L, O>
 {
     /// Add a condition to the query
     pub fn condition(
         self,
         condition: Condition<'a>,
-    ) -> QueryBuilder<'db, 'a, M, S, Condition<'a>, T> {
+    ) -> QueryBuilder<'db, 'a, M, S, Condition<'a>, T, L, O> {
         #[rustfmt::skip]
-        let QueryBuilder { db, selector, _phantom, transaction, .. } = self;
+        let QueryBuilder { db, selector, _phantom, transaction, limit, offset, .. } = self;
         #[rustfmt::skip]
-        return QueryBuilder { db, selector, _phantom, condition, transaction, };
+        return QueryBuilder { db, selector, _phantom, condition, transaction, limit, offset, };
     }
 }
 
-impl<'db, 'a, M: Model, S: Selector<M>, C: ConditionMarker<'a>> QueryBuilder<'db, 'a, M, S, C, ()> {
+impl<
+        'db,
+        'a,
+        M: Model,
+        S: Selector<M>,
+        C: ConditionMarker<'a>,
+        L: OffLimMarker,
+        O: OffLimMarker,
+    > QueryBuilder<'db, 'a, M, S, C, (), L, O>
+{
     /// Add a transaction to the query
     pub fn transaction(
         self,
         transaction: &'a mut Transaction<'db>,
-    ) -> QueryBuilder<'db, 'a, M, S, C, &'a mut Transaction<'db>> {
+    ) -> QueryBuilder<'db, 'a, M, S, C, &'a mut Transaction<'db>, L, O> {
         #[rustfmt::skip]
-        let QueryBuilder { db, selector, _phantom, condition, .. } = self;
+        let QueryBuilder { db, selector, _phantom, condition, limit, offset,  .. } = self;
         #[rustfmt::skip]
-        return QueryBuilder { db, selector, _phantom, condition, transaction, };
+        return QueryBuilder { db, selector, _phantom, condition, transaction, limit, offset, };
+    }
+}
+
+impl<
+        'db,
+        'a,
+        M: Model,
+        S: Selector<M>,
+        C: ConditionMarker<'a>,
+        T: TransactionMarker<'a, 'db>,
+        O: OffLimMarker,
+    > QueryBuilder<'db, 'a, M, S, C, T, (), O>
+{
+    /// Add a limit to the query
+    pub fn limit(self, limit: u64) -> QueryBuilder<'db, 'a, M, S, C, T, u64, O> {
+        #[rustfmt::skip]
+        let QueryBuilder { db, selector, _phantom, condition, transaction, offset,  .. } = self;
+        #[rustfmt::skip]
+        return QueryBuilder { db, selector, _phantom, condition, transaction, limit, offset, };
+    }
+}
+
+impl<
+        'db,
+        'a,
+        M: Model,
+        S: Selector<M>,
+        C: ConditionMarker<'a>,
+        T: TransactionMarker<'a, 'db>,
+        L: OffLimMarker,
+    > QueryBuilder<'db, 'a, M, S, C, T, L, ()>
+{
+    /// Add a offset to the query
+    pub fn offset(self, offset: u64) -> QueryBuilder<'db, 'a, M, S, C, T, L, u64> {
+        #[rustfmt::skip]
+        let QueryBuilder { db, selector, _phantom, condition, transaction, limit,  .. } = self;
+        #[rustfmt::skip]
+        return QueryBuilder { db, selector, _phantom, condition, transaction, limit, offset, };
+    }
+}
+
+impl<'db, 'a, M: Model, S: Selector<M>, C: ConditionMarker<'a>, T: TransactionMarker<'a, 'db>>
+    QueryBuilder<'db, 'a, M, S, C, T, (), ()>
+{
+    /// Add a offset to the query
+    pub fn range(
+        self,
+        range: impl FiniteRange<u64>,
+    ) -> QueryBuilder<'db, 'a, M, S, C, T, u64, u64> {
+        #[rustfmt::skip]
+        let QueryBuilder { db, selector, _phantom, condition, transaction,  .. } = self;
+        let limit = range.len();
+        let offset = range.start();
+        #[rustfmt::skip]
+        return QueryBuilder { db, selector, _phantom, condition, transaction, limit, offset, };
     }
 }
 
@@ -95,7 +175,9 @@ impl<
         S: Selector<M>,
         C: ConditionMarker<'rf>,
         T: TransactionMarker<'rf, 'db>,
-    > QueryBuilder<'db, 'rf, M, S, C, T>
+        L: OffLimMarker,
+        O: OffLimMarker,
+    > QueryBuilder<'db, 'rf, M, S, C, T, L, O>
 {
     /// Retrieve all matching rows
     pub async fn all_as_rows(self) -> Result<Vec<Row>, Error> {
@@ -105,8 +187,8 @@ impl<
                 self.selector.columns(),
                 &[],
                 self.condition.as_option(),
-                None,
-                None,
+                self.limit.into_option(),
+                self.offset.into_option(),
                 self.transaction.into_option(),
             )
             .await
@@ -122,8 +204,8 @@ impl<
                 self.selector.columns(),
                 &[],
                 self.condition.as_option(),
-                None,
-                None,
+                self.limit.into_option(),
+                self.offset.into_option(),
                 self.transaction.into_option(),
             )
             .await
@@ -136,8 +218,8 @@ impl<
             self.selector.columns(),
             &[],
             self.condition.as_option(),
-            None,
-            None,
+            self.limit.into_option(),
+            self.offset.into_option(),
             self.transaction.into_option(),
         )
     }
@@ -150,8 +232,8 @@ impl<
                 self.selector.columns(),
                 &[],
                 self.condition.as_option(),
-                None,
-                None,
+                self.limit.into_option(),
+                self.offset.into_option(),
                 self.transaction.into_option(),
             )
             .await
@@ -210,11 +292,19 @@ impl<
 ///
 ///     `.condition(MyModelType::F.some_field.equals("some_value"))`
 ///
-/// 3. *Optionally* add this query to a transaction
+/// 3. *Optionally* add a limit or offset to restrict your query size.
+///
+///     `.limit(5)`
+///
+///     `.offset(2)`
+///
+///     `.range(2..7)`
+///
+/// 4. *Optionally* add this query to a transaction
 ///
 ///     `.transaction(&mut tr)`
 ///
-/// 4. Finally specify how to get the queries results. This will also execute the query.
+/// 5. Finally specify how to get the queries results. This will also execute the query.
 ///     - Get [`all`](QueryBuilder::all) matching rows in a vector.
 ///
 ///         `.all().await`
@@ -277,6 +367,62 @@ macro_rules! query {
             $crate::crud::query::SelectTuple::<_, { 0 $( + $crate::query!(replace {$field} with 1))+ }>::new(&($(&$field),+)),
         )
     };
+}
+
+/// Finite alternative to [RangeBounds](std::ops::RangeBounds)
+///
+/// It unifies [Range] and [RangeInclusive]
+pub trait FiniteRange<T> {
+    /// The lower bound of the range (inclusive)
+    fn start(&self) -> T;
+
+    /// The upper bound of the range (exclusive)
+    fn end(&self) -> T;
+
+    /// The number of items contained in this range
+    fn len(&self) -> T
+    where
+        T: Sub<T, Output = T> + Copy,
+    {
+        self.end() - self.start()
+    }
+}
+impl<T: Copy> FiniteRange<T> for Range<T> {
+    fn start(&self) -> T {
+        self.start
+    }
+
+    fn end(&self) -> T {
+        self.end
+    }
+}
+impl FiniteRange<u64> for RangeInclusive<u64> {
+    fn start(&self) -> u64 {
+        *self.start()
+    }
+
+    fn end(&self) -> u64 {
+        *self.end() + 1
+    }
+}
+
+/// Marker for the generic parameter storing a limit or offset.
+///
+/// Valid types are `()` and `u64`.
+pub trait OffLimMarker: Sealed {
+    /// Convert the generic transaction into [Option<u64>]
+    fn into_option(self) -> Option<u64>;
+}
+impl OffLimMarker for () {
+    fn into_option(self) -> Option<u64> {
+        None
+    }
+}
+impl Sealed for u64 {}
+impl OffLimMarker for u64 {
+    fn into_option(self) -> Option<u64> {
+        Some(self)
+    }
 }
 
 /// The [Selector] for patches.
