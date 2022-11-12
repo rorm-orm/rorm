@@ -52,6 +52,8 @@ pub struct CreateIndexData<'until_build> {
 
 /**
 Implementation of database specific implementations of the [CreateIndex] trait.
+
+Should only be constructed via [crate::DBImpl::create_index].
 */
 pub enum CreateIndexImpl<'until_build> {
     /**

@@ -83,7 +83,9 @@ pub struct JoinTableData<'until_build, 'post_query> {
 }
 
 /**
+Representation of the JOIN expression
 
+Should only be constructed via [DBImpl::join_table].
 */
 #[derive(Debug, Copy, Clone)]
 pub enum JoinTableImpl<'until_build, 'post_query> {

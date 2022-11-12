@@ -100,6 +100,8 @@ const SLOW_STATEMENTS: Duration = Duration::from_millis(300);
 impl Database {
     /**
     Access the used driver at runtime.
+
+    This can be used to generate SQL statements for the chosen dialect.
     */
     pub fn get_sql_dialect(&self) -> DBImpl {
         self.db_impl

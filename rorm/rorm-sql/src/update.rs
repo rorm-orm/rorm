@@ -56,7 +56,9 @@ pub struct UpdateData<'until_build, 'post_build> {
 }
 
 /**
-Implementation of the [Update] trait for the different implementations
+Implementation of the [Update] trait for the different implementations.
+
+Should only be constructed via [DBImpl::update].
  */
 #[derive(Debug)]
 pub enum UpdateImpl<'until_build, 'post_build> {

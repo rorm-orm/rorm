@@ -26,7 +26,7 @@ pub trait Delete<'until_build, 'post_query> {
 }
 
 /**
-SQLite representation of the DELETE operation.
+Representation of the data of a DELETE operation.
 */
 #[derive(Debug)]
 pub struct DeleteData<'until_build, 'post_query> {
@@ -37,6 +37,8 @@ pub struct DeleteData<'until_build, 'post_query> {
 
 /**
 Implementation of the [Delete] trait for the different implementations
+
+Should only be constructed via [DBImpl::delete].
 */
 #[derive(Debug)]
 pub enum DeleteImpl<'until_build, 'post_query> {

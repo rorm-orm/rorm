@@ -40,6 +40,8 @@ pub struct CreateTableData<'until_build, 'post_build> {
 
 /**
 The implementation of the [CreateTable] trait for different database dialects.
+
+This should only be constructed via [crate::DBImpl::create_table].
 */
 pub enum CreateTableImpl<'until_build, 'post_build> {
     /**

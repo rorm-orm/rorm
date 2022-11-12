@@ -80,6 +80,8 @@ pub struct CreateColumnPostgresData<'until_build, 'post_build> {
 
 /**
 Representation of the different implementations of the [CreateColumn] trait.
+
+Should only be constructed via [crate::DBImpl::create_column].
 */
 #[derive(Debug)]
 pub enum CreateColumnImpl<'until_build, 'post_build> {

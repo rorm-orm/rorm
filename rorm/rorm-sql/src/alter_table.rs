@@ -57,7 +57,9 @@ pub struct AlterTableData<'until_build, 'post_build> {
 }
 
 /**
-Implementation of the [AlterTable] trait for the different database dialects
+Implementation of the [AlterTable] trait for the different database dialects.
+
+Should only be constructed via [crate::DBImpl::alter_table].
  */
 #[derive(Debug)]
 pub enum AlterTableImpl<'until_build, 'post_build> {

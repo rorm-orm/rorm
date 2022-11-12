@@ -50,7 +50,9 @@ pub struct SelectData<'until_build, 'post_query> {
 }
 
 /**
-Implementation of the [Select] trait for the different implementations
+Implementation of the [Select] trait for the different implementations.
+
+Should only be constructed via [DBImpl::select]
  */
 #[derive(Debug)]
 pub enum SelectImpl<'until_build, 'post_query> {

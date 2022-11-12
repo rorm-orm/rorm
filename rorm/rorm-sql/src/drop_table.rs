@@ -23,7 +23,9 @@ pub struct DropTableData<'until_build> {
 }
 
 /**
-Implementation of the [DropTable] trait for the different implementations
+Implementation of the [DropTable] trait for the different implementations.
+
+Should only be constructed via [crate::DBImpl::drop_table].
 */
 #[derive(Debug)]
 pub enum DropTableImpl<'until_build> {
