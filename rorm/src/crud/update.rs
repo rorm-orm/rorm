@@ -13,7 +13,7 @@ use rorm_declaration::hmr::db_type::DbType;
 
 use crate::conditions::IntoCondValue;
 use crate::crud::builder::{ConditionMarker, Sealed, TransactionMarker};
-use crate::model::Field;
+use crate::internal::field::Field;
 use crate::Model;
 
 /// Marker for the generic parameter storing a list of columns.

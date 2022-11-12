@@ -69,12 +69,11 @@ pub use rorm_declaration::config;
 
 /// This module implements a struct to build and store annotations
 pub mod annotation_builder;
-/// Module implementing methods to [`Condition`] based on [`Field<T>`]
-///
-/// [`Condition`]: rorm_db::conditional::Condition
-/// [`Field<T>`]: model::Field
+/// Module implementing methods to [`Condition`](rorm_db::conditional::Condition)
+/// based on [`Field<T>`](crate::internal::field::Field)
 mod conditions;
 pub mod crud;
+pub mod internal;
 /// This module holds traits and structs for working with models
 pub mod model;
 

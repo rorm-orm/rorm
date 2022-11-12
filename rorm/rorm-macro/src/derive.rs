@@ -314,7 +314,7 @@ fn parse_field(
     let db_type = if has_choices {
         quote! { ::rorm::hmr::Choices }
     } else {
-        quote! { <#value_type as ::rorm::model::AsDbType>::DbType }
+        quote! { <#value_type as ::rorm::internal::as_db_type::AsDbType>::DbType }
     };
 
     let source = get_source(&ident);
@@ -325,7 +325,7 @@ fn parse_field(
     Some(ParsedField {
         is_primary,
         struct_type: quote! {
-            ::rorm::model::Field<
+            ::rorm::internal::field::Field<
                 #value_type,
                 #db_type,
                 #model_type,
@@ -333,10 +333,10 @@ fn parse_field(
             >
         },
         construction: quote! {
-            ::rorm::model::Field {
+            ::rorm::internal::field::Field {
                 index: #index,
                 name: #db_name,
-                annotations: <#value_type as ::rorm::model::AsDbType>::ANNOTATIONS #(#builder_steps)* ,
+                annotations: <#value_type as ::rorm::internal::as_db_type::AsDbType>::ANNOTATIONS #(#builder_steps)* ,
                 source: #source,
                 _phantom: ::std::marker::PhantomData,
             }

@@ -3,7 +3,7 @@ use rorm_declaration::hmr::db_type::{
 };
 
 use crate::conditional::*;
-use crate::model::Field;
+use crate::internal::field::Field;
 use crate::value::Value;
 
 /// Trait for converting rust values into [`Condition::Value`]'s

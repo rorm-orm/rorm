@@ -9,6 +9,8 @@
 //! [`imr::DbType`]: crate::imr::DbType
 //! [`imr::Annotation`]: crate::imr::Annotation
 
+use crate::imr;
+
 /// A type level version of [`imr::DbType`] to be used in generic type bound checks
 ///
 /// [`imr::DbType`]: crate::imr::DbType
@@ -271,6 +273,28 @@ pub mod annotations {
         type Imr = Vec<String>;
         fn as_imr(&self) -> Self::Imr {
             self.iter().map(ToString::to_string).collect()
+        }
+    }
+}
+
+/// Location in the source code a model or field originates from
+/// Used for better error messages in the migration tool
+#[derive(Copy, Clone)]
+pub struct Source {
+    /// Filename of the source code of the model or field
+    pub file: &'static str,
+    /// Line of the model or field
+    pub line: usize,
+    /// Column of the model or field
+    pub column: usize,
+}
+
+impl From<Source> for imr::Source {
+    fn from(source: Source) -> Self {
+        imr::Source {
+            file: source.file.to_string(),
+            line: source.line,
+            column: source.column,
         }
     }
 }

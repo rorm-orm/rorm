@@ -111,8 +111,8 @@ pub fn impl_anno_builder(args: TokenStream) -> TokenStream {
             /// These defaults are defined in [`AsDbType`]
             /// and should contain [`Implicit`] or [`Forbidden`] annotations (if any).
             ///
-            /// [`AsDbType`]: crate::model::AsDbType
-            /// [`Field`]: crate::model::Field
+            /// [`AsDbType`]: crate::internal::as_db_type::AsDbType
+            /// [`Field`]: crate::internal::field::Field
             /// [`Model`]: rorm_macro::Model
             pub struct Annotations<#(#alphabet: Annotation<#types>),*> {
                 #(

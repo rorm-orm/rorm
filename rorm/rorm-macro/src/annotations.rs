@@ -43,7 +43,7 @@ impl Annotations {
 
     pub fn get_type(&self, value_type: &syn::Type) -> TokenStream {
         let mut anno_type = quote! {
-            <#value_type as ::rorm::model::AsDbType>::Annotations
+            <#value_type as ::rorm::internal::as_db_type::AsDbType>::Annotations
         };
         for ParsedAnnotation {
             annotation, span, ..

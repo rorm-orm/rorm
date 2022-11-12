@@ -8,7 +8,9 @@ use rorm_db::{conditional::Condition, error::Error, row::Row, Database};
 use rorm_declaration::hmr::db_type::DbType;
 
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
-use crate::model::{AsDbType, Field, Model, Patch};
+use crate::internal::as_db_type::AsDbType;
+use crate::internal::field::Field;
+use crate::model::{Model, Patch};
 
 /// Builder for select queries
 ///
