@@ -47,7 +47,7 @@ impl<'db: 'rf, 'rf, P: Patch> InsertBuilder<'db, 'rf, P, ()> {
 
 impl<'db: 'rf, 'rf, P: Patch, T: TransactionMarker<'rf, 'db>> InsertBuilder<'db, 'rf, P, T> {
     /// Insert a single patch into the db
-    pub async fn single(self, patch: &'rf P) -> Result<(), Error> {
+    pub async fn single(self, patch: &'rf P) -> Result<Option<i64>, Error> {
         let values = Vec::from_iter(iter_columns(patch));
         self.db
             .insert(

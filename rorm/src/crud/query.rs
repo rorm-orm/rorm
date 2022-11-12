@@ -101,6 +101,7 @@ impl<
             .query_all(
                 M::table_name(),
                 self.selector.columns(),
+                &[],
                 self.condition.as_option(),
                 self.transaction.into_option(),
             )
@@ -115,6 +116,7 @@ impl<
             .query_one(
                 M::table_name(),
                 self.selector.columns(),
+                &[],
                 self.condition.as_option(),
                 self.transaction.into_option(),
             )
@@ -126,6 +128,7 @@ impl<
         self.db.query_stream(
             M::table_name(),
             self.selector.columns(),
+            &[],
             self.condition.as_option(),
             self.transaction.into_option(),
         )
@@ -137,6 +140,7 @@ impl<
             .query_optional(
                 M::table_name(),
                 self.selector.columns(),
+                &[],
                 self.condition.as_option(),
                 self.transaction.into_option(),
             )

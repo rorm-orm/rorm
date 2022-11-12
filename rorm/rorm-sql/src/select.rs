@@ -187,7 +187,7 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
                 match d.where_clause {
                     None => write!(s, ";").unwrap(),
                     Some(c) => {
-                        write!(s, " WHERE {};", c.build(DBImpl::SQLite, &mut d.lookup)).unwrap()
+                        write!(s, " WHERE {};", c.build(DBImpl::Postgres, &mut d.lookup)).unwrap()
                     }
                 }
 

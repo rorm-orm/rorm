@@ -1,3 +1,4 @@
+use rorm_db::join_table::JoinType;
 use rorm_db::{DatabaseConfiguration, DatabaseDriver};
 
 use crate::{Error, FFIDate, FFIDateTime, FFISlice, FFIString, FFITime};
@@ -405,4 +406,68 @@ Consists of a column and the value to set to this column.
 pub struct FFIUpdate<'a> {
     pub(crate) column: FFIString<'a>,
     pub(crate) value: FFIValue<'a>,
+}
+
+/**
+Representation of a join type.
+*/
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub enum FFIJoinType {
+    /// Normal join operation.
+    ///
+    /// Equivalent to INNER JOIN
+    Join,
+    /// Cartesian product of the tables
+    CrossJoin,
+    /// Given:
+    /// T1 LEFT JOIN T2 ON ..
+    ///
+    /// First, an inner join is performed.
+    /// Then, for each row in T1 that does not satisfy the join condition with any row in T2,
+    /// a joined row is added with null values in columns of T2.
+    LeftJoin,
+    /// Given:
+    /// T1 RIGHT JOIN T2 ON ..
+    ///
+    /// First, an inner join is performed.
+    /// Then, for each row in T2 that does not satisfy the join condition with any row in T1,
+    /// a joined row is added with null values in columns of T1.
+    RightJoin,
+    /// Given:
+    /// T1 FULL JOIN T2 ON ..
+    ///
+    /// First, an inner join is performed.
+    /// Then, for each row in T2 that does not satisfy the join condition with any row in T1,
+    /// a joined row is added with null values in columns of T1.
+    /// Also, for each row in T1 that does not satisfy the join condition with any row in T2,
+    /// a joined row is added with null values in columns of T2.
+    FullJoin,
+}
+
+impl From<FFIJoinType> for JoinType {
+    fn from(v: FFIJoinType) -> Self {
+        match v {
+            FFIJoinType::Join => JoinType::Join,
+            FFIJoinType::CrossJoin => JoinType::CrossJoin,
+            FFIJoinType::LeftJoin => JoinType::LeftJoin,
+            FFIJoinType::RightJoin => JoinType::RightJoin,
+            FFIJoinType::FullJoin => JoinType::FullJoin,
+        }
+    }
+}
+
+/**
+FFI representation of a Join expression.
+*/
+#[repr(C)]
+pub struct FFIJoin<'a> {
+    /// Type of the join operation
+    pub(crate) join_type: FFIJoinType,
+    /// Name of the join table
+    pub(crate) table_name: FFIString<'a>,
+    /// Alias for the join table
+    pub(crate) join_alias: FFIString<'a>,
+    /// Condition to apply the join on
+    pub(crate) join_condition: &'a Condition<'a>,
 }

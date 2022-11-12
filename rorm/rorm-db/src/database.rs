@@ -10,6 +10,7 @@ use log::{debug, LevelFilter};
 use rorm_declaration::config::DatabaseDriver;
 use rorm_sql::delete::Delete;
 use rorm_sql::insert::Insert;
+use rorm_sql::join_table::JoinTableImpl;
 use rorm_sql::select::Select;
 use rorm_sql::update::Update;
 use rorm_sql::{conditional, value, DBImpl};
@@ -97,6 +98,13 @@ as slow statements.
 const SLOW_STATEMENTS: Duration = Duration::from_millis(300);
 
 impl Database {
+    /**
+    Access the used driver at runtime.
+    */
+    pub fn get_sql_dialect(&self) -> DBImpl {
+        self.db_impl
+    }
+
     /**
     Connect to the database using `configuration`.
      */
@@ -231,6 +239,7 @@ impl Database {
     **Parameter**:
     - `model`: Name of the table.
     - `columns`: Columns to retrieve values from.
+    - `joins`: Join tables expressions.
     - `conditions`: Optional conditions to apply.
     - `transaction`: Optional transaction to execute the query on.
      */
@@ -238,6 +247,7 @@ impl Database {
         &'db self,
         model: &str,
         columns: &[&str],
+        joins: &[JoinTableImpl<'_, 'post_query>],
         conditions: Option<&conditional::Condition<'post_query>>,
         transaction: Option<&'stream mut Transaction>,
     ) -> BoxStream<'stream, Result<Row, Error>>
@@ -245,7 +255,7 @@ impl Database {
         'post_query: 'stream,
         'db: 'stream,
     {
-        let mut q = self.db_impl.select(columns, model);
+        let mut q = self.db_impl.select(columns, model, joins);
         if let Some(c) = conditions {
             q = q.where_clause(c);
         }
@@ -269,6 +279,7 @@ impl Database {
     **Parameter**:
     - `model`: Model to query.
     - `columns`: Columns to retrieve values from.
+    - `joins`: Join tables expressions.
     - `conditions`: Optional conditions to apply.
     - `transaction`: Optional transaction to execute the query on.
      */
@@ -276,10 +287,11 @@ impl Database {
         &self,
         model: &str,
         columns: &[&str],
+        joins: &[JoinTableImpl<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
         transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Row, Error> {
-        let mut q = self.db_impl.select(columns, model);
+        let mut q = self.db_impl.select(columns, model, joins);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
         }
@@ -313,6 +325,7 @@ impl Database {
     **Parameter**:
     - `model`: Model to query.
     - `columns`: Columns to retrieve values from.
+    - `joins`: Join tables expressions.
     - `conditions`: Optional conditions to apply.
     - `transaction`: Optional transaction to execute the query on.
      */
@@ -320,10 +333,11 @@ impl Database {
         &self,
         model: &str,
         columns: &[&str],
+        joins: &[JoinTableImpl<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
         transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Option<Row>, Error> {
-        let mut q = self.db_impl.select(columns, model);
+        let mut q = self.db_impl.select(columns, model, joins);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
         }
@@ -357,6 +371,7 @@ impl Database {
     **Parameter**:
     - `model`: Model to query.
     - `columns`: Columns to retrieve values from.
+    - `joins`: Join tables expressions.
     - `conditions`: Optional conditions to apply.
     - `transaction`: Optional transaction to execute the query on.
      */
@@ -364,10 +379,12 @@ impl Database {
         &self,
         model: &str,
         columns: &[&str],
+        joins: &[JoinTableImpl<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
         transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Vec<Row>, Error> {
-        let mut q = self.db_impl.select(columns, model);
+        let mut q = self.db_impl.select(columns, model, joins);
+
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
         }
@@ -410,7 +427,7 @@ impl Database {
         columns: &[&str],
         values: &[value::Value<'_>],
         transaction: Option<&mut Transaction<'_>>,
-    ) -> Result<(), Error> {
+    ) -> Result<Option<i64>, Error> {
         let value_rows = &[values];
         let q = self.db_impl.insert(model, columns, value_rows);
 
@@ -425,11 +442,11 @@ impl Database {
 
         match transaction {
             None => match tmp.execute(&self.pool).await {
-                Ok(_) => Ok(()),
+                Ok(v) => Ok(v.last_insert_id()),
                 Err(err) => Err(Error::SqlxError(err)),
             },
             Some(transaction) => match tmp.execute(&mut transaction.tx).await {
-                Ok(_) => Ok(()),
+                Ok(v) => Ok(v.last_insert_id()),
                 Err(err) => Err(Error::SqlxError(err)),
             },
         }

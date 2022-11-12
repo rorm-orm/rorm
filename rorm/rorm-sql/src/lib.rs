@@ -50,7 +50,7 @@ use crate::create_trigger::{
 use crate::delete::{Delete, DeleteData, DeleteImpl};
 use crate::drop_table::{DropTable, DropTableData, DropTableImpl};
 use crate::insert::{Insert, InsertData, InsertImpl};
-use crate::join_table::{JoinTable, JoinTableData, JoinTableImpl, JoinType};
+use crate::join_table::{JoinTableData, JoinTableImpl, JoinType};
 use crate::on_conflict::OnConflict;
 use crate::select::{Select, SelectData, SelectImpl};
 use crate::update::{Update, UpdateData, UpdateImpl};
@@ -294,14 +294,16 @@ impl DBImpl {
     **Parameter**:
     - `columns`: The columns to select.
     - `from_clause`: Specifies from what to select. This can be a table name or another query itself.
+    - `joins`: List of join tables.
     */
     pub fn select<'until_build, 'post_build>(
         &self,
         columns: &'until_build [&'until_build str],
         from_clause: &'until_build str,
+        joins: &'until_build [JoinTableImpl<'until_build, 'post_build>],
     ) -> impl Select<'until_build, 'post_build> {
         let d = SelectData {
-            join_tables: vec![],
+            join_tables: joins.to_vec(),
             resulting_columns: columns,
             limit: None,
             offset: None,
@@ -421,7 +423,7 @@ impl DBImpl {
         table_name: &'until_build str,
         join_alias: &'until_build str,
         join_condition: &'until_build Condition<'post_query>,
-    ) -> impl JoinTable<'post_query> + 'until_build {
+    ) -> JoinTableImpl<'until_build, 'post_query> {
         let d = JoinTableData {
             join_type,
             table_name,
