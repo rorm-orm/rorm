@@ -5,9 +5,9 @@ use rorm_db::value::Value;
 use rorm_declaration::hmr;
 use rorm_declaration::hmr::annotations;
 
-use crate::annotation_builder;
 use crate::annotation_builder::NotSetAnnotations;
-use crate::model::DbEnum;
+use crate::model::{DbEnum, ForeignModel};
+use crate::{annotation_builder, Model};
 
 /// This trait maps rust types to database types
 ///
@@ -37,7 +37,16 @@ pub trait AsDbType {
     fn as_primitive(&self) -> Value;
 
     /// Whether this type supports null.
+    ///
+    /// This will be mapped to NotNull in the imr.
     const IS_NULLABLE: bool = false;
+
+    /// Whether this type is a foreign key.
+    ///
+    /// This will be mapped to ForeignKey in the imr.
+    ///
+    /// The two strings are table name and column name
+    const IS_FOREIGN: Option<(&'static str, &'static str)> = None;
 }
 
 macro_rules! impl_as_db_type {
@@ -119,4 +128,33 @@ impl<E: DbEnum> AsDbType for E {
     fn as_primitive(&self) -> Value {
         Value::String(self.to_str())
     }
+}
+
+impl<M: Model> AsDbType for ForeignModel<M> {
+    type Primitive = <M::Primary as AsDbType>::Primitive;
+    type DbType = <M::Primary as AsDbType>::DbType;
+
+    type Annotations = <M::Primary as AsDbType>::Annotations;
+    const ANNOTATIONS: Self::Annotations = <M::Primary as AsDbType>::ANNOTATIONS;
+
+    fn from_primitive(primitive: Self::Primitive) -> Self {
+        Self::Key(M::Primary::from_primitive(primitive))
+    }
+
+    fn as_primitive(&self) -> Value {
+        match self {
+            ForeignModel::Key(value) => value.as_primitive(),
+            ForeignModel::Instance(model) => {
+                if let Some(value) = model.get(M::PRIMARY.1) {
+                    value
+                } else {
+                    unreachable!("A model should contain its primary key");
+                }
+            }
+        }
+    }
+
+    const IS_NULLABLE: bool = <M::Primary as AsDbType>::IS_NULLABLE;
+
+    const IS_FOREIGN: Option<(&'static str, &'static str)> = Some((M::TABLE, M::PRIMARY.0));
 }

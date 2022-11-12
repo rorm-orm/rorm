@@ -61,7 +61,7 @@ impl<
     pub const fn check_annotations(&self) {
         let mut annotations: rorm_declaration::lints::Annotations = A::FOOTPRINT;
         annotations.not_null = !T::IS_NULLABLE && !A::IMPLICIT_NOT_NULL;
-        // TODO FOREIGN KEY
+        annotations.foreign_key = T::IS_FOREIGN.is_some();
         if let Err(err) = annotations.check() {
             panic!("{}", err);
         }
@@ -79,6 +79,12 @@ impl<
         let mut annotations = field.annotations.as_imr();
         if !T::IS_NULLABLE && !A::IMPLICIT_NOT_NULL {
             annotations.push(imr::Annotation::NotNull);
+        }
+        if let Some((table, column)) = T::IS_FOREIGN {
+            annotations.push(imr::Annotation::ForeignKey(imr::ForeignKey {
+                table_name: table.to_string(),
+                column_name: column.to_string(),
+            }))
         }
         imr::Field {
             name: field.name.to_string(),

@@ -117,3 +117,13 @@ pub trait Model: Patch<Model = Self> {
     /// [`write_models`]: crate::write_models
     fn get_imr() -> imr::Model;
 }
+
+/// Stores a link to another model in a field.
+///
+/// In database language, this is a many to one relation.
+pub enum ForeignModel<M: Model> {
+    /// The other model's primary key which can be used to query it later.
+    Key(M::Primary),
+    /// The other model's queried instance.
+    Instance(Box<M>),
+}
