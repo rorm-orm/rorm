@@ -4,8 +4,10 @@ use std::str::{from_utf8, Utf8Error};
 
 use chrono::{Datelike, Timelike};
 use futures::stream::BoxStream;
+use rorm_db::select::LimitClause;
 use rorm_db::Row;
 
+use crate::representations::FFILimitClause;
 use crate::Error;
 
 /**
@@ -199,7 +201,7 @@ pub(crate) type VoidPtr = usize;
 
 /// This type alias purely exists only for cbindgen.
 /// cbindgen:ignore
-pub(crate) type Stream<'a> = BoxStream<'a, Result<rorm_db::row::Row, rorm_db::error::Error>>;
+pub(crate) type Stream<'a> = BoxStream<'a, Result<Row, rorm_db::error::Error>>;
 
 /**
 Helper type to wrap [Option] ffi safe.
@@ -228,6 +230,12 @@ macro_rules! ffi_opt_impl {
 ffi_opt_impl!(chrono::NaiveTime, FFITime);
 ffi_opt_impl!(chrono::NaiveDate, FFIDate);
 ffi_opt_impl!(chrono::NaiveDateTime, FFIDateTime);
+
+impl From<FFIOption<FFILimitClause>> for Option<LimitClause> {
+    fn from(v: FFIOption<FFILimitClause>) -> Self {
+        v.into()
+    }
+}
 
 impl<T> From<Option<T>> for FFIOption<T> {
     fn from(option: Option<T>) -> Self {

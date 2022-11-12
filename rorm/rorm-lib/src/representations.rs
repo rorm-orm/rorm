@@ -1,6 +1,7 @@
 use rorm_db::join_table::JoinType;
 use rorm_db::{DatabaseConfiguration, DatabaseDriver};
 
+use crate::utils::FFIOption;
 use crate::{Error, FFIDate, FFIDateTime, FFISlice, FFIString, FFITime};
 
 /**
@@ -470,4 +471,13 @@ pub struct FFIJoin<'a> {
     pub(crate) join_alias: FFIString<'a>,
     /// Condition to apply the join on
     pub(crate) join_condition: &'a Condition<'a>,
+}
+
+/**
+FFI representation of a Limit clause.
+*/
+#[repr(C)]
+pub struct FFILimitClause {
+    pub(crate) limit: u64,
+    pub(crate) offset: FFIOption<u64>,
 }

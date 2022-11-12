@@ -5,18 +5,24 @@ use crate::join_table::{JoinTable, JoinTableImpl};
 use crate::{DBImpl, Value};
 
 /**
+Representation of a limit / offset clause in SQL.
+*/
+#[derive(Debug, Clone, Copy)]
+pub struct LimitClause {
+    /// Limit to set to
+    pub limit: u64,
+    /// Optional offset to append.
+    pub offset: Option<u64>,
+}
+
+/**
 Trait representing a select builder.
  */
 pub trait Select<'until_build, 'post_query> {
     /**
     Set a limit to the resulting rows.
      */
-    fn limit(self, limit: u64) -> Self;
-
-    /**
-    Set the offset to apply to the resulting rows.
-     */
-    fn offset(self, offset: u64) -> Self;
+    fn limit_clause(self, limit: LimitClause) -> Self;
 
     /**
     Only retrieve distinct rows.
@@ -76,26 +82,23 @@ pub enum SelectImpl<'until_build, 'post_query> {
 impl<'until_build, 'post_build> Select<'until_build, 'post_build>
     for SelectImpl<'until_build, 'post_build>
 {
-    fn limit(mut self, limit: u64) -> Self {
+    fn limit_clause(mut self, limit: LimitClause) -> Self {
         match self {
             #[cfg(feature = "sqlite")]
-            SelectImpl::SQLite(ref mut d) => d.limit = Some(limit),
+            SelectImpl::SQLite(ref mut d) => {
+                d.limit = Some(limit.limit);
+                d.offset = limit.offset;
+            }
             #[cfg(feature = "mysql")]
-            SelectImpl::MySQL(ref mut d) => d.limit = Some(limit),
+            SelectImpl::MySQL(ref mut d) => {
+                d.limit = Some(limit.limit);
+                d.offset = limit.offset;
+            }
             #[cfg(feature = "postgres")]
-            SelectImpl::Postgres(ref mut d) => d.limit = Some(limit),
-        };
-        self
-    }
-
-    fn offset(mut self, offset: u64) -> Self {
-        match self {
-            #[cfg(feature = "sqlite")]
-            SelectImpl::SQLite(ref mut d) => d.offset = Some(offset),
-            #[cfg(feature = "mysql")]
-            SelectImpl::MySQL(ref mut d) => d.offset = Some(offset),
-            #[cfg(feature = "postgres")]
-            SelectImpl::Postgres(ref mut d) => d.offset = Some(offset),
+            SelectImpl::Postgres(ref mut d) => {
+                d.limit = Some(limit.limit);
+                d.offset = limit.offset;
+            }
         };
         self
     }
@@ -140,12 +143,18 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
                     x.build(&mut s, &mut d.lookup);
                 }
 
-                match d.where_clause {
-                    None => write!(s, ";").unwrap(),
-                    Some(c) => {
-                        write!(s, " WHERE {};", c.build(DBImpl::SQLite, &mut d.lookup)).unwrap()
+                if let Some(c) = d.where_clause {
+                    write!(s, " WHERE {}", c.build(DBImpl::SQLite, &mut d.lookup)).unwrap()
+                };
+
+                if let Some(limit) = d.limit {
+                    write!(s, " LIMIT {}", limit).unwrap();
+                    if let Some(offset) = d.offset {
+                        write!(s, " OFFSET {}", offset).unwrap();
                     }
-                }
+                };
+
+                write!(s, ";").unwrap();
 
                 (s, d.lookup)
             }
@@ -163,12 +172,18 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
                     x.build(&mut s, &mut d.lookup);
                 }
 
-                match d.where_clause {
-                    None => write!(s, ";").unwrap(),
-                    Some(c) => {
-                        write!(s, " WHERE {};", c.build(DBImpl::MySQL, &mut d.lookup)).unwrap()
+                if let Some(c) = d.where_clause {
+                    write!(s, " WHERE {}", c.build(DBImpl::MySQL, &mut d.lookup)).unwrap()
+                };
+
+                if let Some(limit) = d.limit {
+                    write!(s, " LIMIT {}", limit).unwrap();
+                    if let Some(offset) = d.offset {
+                        write!(s, " OFFSET {}", offset).unwrap();
                     }
-                }
+                };
+
+                write!(s, ";").unwrap();
 
                 (s, d.lookup)
             }
@@ -186,12 +201,18 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
                     x.build(&mut s, &mut d.lookup);
                 }
 
-                match d.where_clause {
-                    None => write!(s, ";").unwrap(),
-                    Some(c) => {
-                        write!(s, " WHERE {};", c.build(DBImpl::Postgres, &mut d.lookup)).unwrap()
+                if let Some(c) = d.where_clause {
+                    write!(s, " WHERE {}", c.build(DBImpl::Postgres, &mut d.lookup)).unwrap()
+                };
+
+                if let Some(limit) = d.limit {
+                    write!(s, " LIMIT {}", limit).unwrap();
+                    if let Some(offset) = d.offset {
+                        write!(s, " OFFSET {}", offset).unwrap();
                     }
-                }
+                };
+
+                write!(s, ";").unwrap();
 
                 (s, d.lookup)
             }
