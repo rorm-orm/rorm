@@ -264,6 +264,18 @@ impl<T> From<FFIOption<T>> for Option<T> {
     }
 }
 
+impl<T> From<&FFIOption<T>> for Option<T>
+where
+    T: Clone,
+{
+    fn from(v: &FFIOption<T>) -> Self {
+        match v {
+            FFIOption::None => None,
+            FFIOption::Some(v) => Some(v.clone()),
+        }
+    }
+}
+
 /**
 This macro is used to simplify pushing futures to the runtime.
 

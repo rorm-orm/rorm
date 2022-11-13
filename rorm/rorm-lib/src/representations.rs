@@ -502,3 +502,13 @@ impl From<FFILimitClause> for LimitClause {
         }
     }
 }
+
+/**
+FFI representation of a [SelectColumnImpl]
+*/
+#[repr(C)]
+pub struct FFIColumnSelector<'a> {
+    pub(crate) table_name: FFIOption<FFIString<'a>>,
+    pub(crate) column_name: FFIString<'a>,
+    pub(crate) select_alias: FFIOption<FFIString<'a>>,
+}

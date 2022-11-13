@@ -12,6 +12,7 @@ use rorm_sql::delete::Delete;
 use rorm_sql::insert::Insert;
 use rorm_sql::join_table::JoinTableImpl;
 use rorm_sql::select::{LimitClause, Select};
+use rorm_sql::select_column::SelectColumnImpl;
 use rorm_sql::update::Update;
 use rorm_sql::{conditional, value, DBImpl};
 use sqlx::any::AnyPoolOptions;
@@ -250,7 +251,7 @@ impl Database {
     pub fn query_stream<'db, 'post_query, 'stream>(
         &'db self,
         model: &str,
-        columns: &[&str],
+        columns: &[SelectColumnImpl<'_>],
         joins: &[JoinTableImpl<'_, 'post_query>],
         conditions: Option<&conditional::Condition<'post_query>>,
         limit: Option<LimitClause>,
@@ -296,7 +297,7 @@ impl Database {
     pub async fn query_one(
         &self,
         model: &str,
-        columns: &[&str],
+        columns: &[SelectColumnImpl<'_>],
         joins: &[JoinTableImpl<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
         limit: Option<LimitClause>,
@@ -348,7 +349,7 @@ impl Database {
     pub async fn query_optional(
         &self,
         model: &str,
-        columns: &[&str],
+        columns: &[SelectColumnImpl<'_>],
         joins: &[JoinTableImpl<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
         limit: Option<LimitClause>,
@@ -400,7 +401,7 @@ impl Database {
     pub async fn query_all(
         &self,
         model: &str,
-        columns: &[&str],
+        columns: &[SelectColumnImpl<'_>],
         joins: &[JoinTableImpl<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
         limit: Option<LimitClause>,

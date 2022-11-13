@@ -21,7 +21,7 @@ use tokio::runtime::Runtime;
 
 use crate::errors::Error;
 use crate::representations::{
-    Condition, DBConnectOptions, FFIJoin, FFILimitClause, FFIUpdate, FFIValue,
+    Condition, DBConnectOptions, FFIColumnSelector, FFIJoin, FFILimitClause, FFIUpdate, FFIValue,
 };
 use crate::utils::{
     get_data_from_row, FFIDate, FFIDateTime, FFIOption, FFISlice, FFIString, FFITime, Stream,
@@ -459,7 +459,7 @@ pub extern "C" fn rorm_db_query_one(
     db: &'static Database,
     transaction: Option<&'static mut Transaction>,
     model: FFIString<'static>,
-    columns: FFISlice<'static, FFIString<'static>>,
+    columns: FFISlice<'static, FFIColumnSelector<'static>>,
     joins: FFISlice<'static, FFIJoin<'static>>,
     condition: Option<&'static Condition>,
     limit: FFIOption<FFILimitClause>,
@@ -478,14 +478,42 @@ pub extern "C" fn rorm_db_query_one(
 
     let mut column_vec = vec![];
     {
-        let column_slice: &[FFIString] = columns.into();
-        for &x in column_slice {
-            let x_conv = x.try_into();
-            if x_conv.is_err() {
+        let column_slice: &[FFIColumnSelector] = columns.into();
+        for x in column_slice {
+            let table_name_conv: Option<FFIString> = (&x.table_name).into();
+            let table_name = match table_name_conv {
+                None => None,
+                Some(v) => {
+                    let Ok(s) = v.try_into() else {
+                        unsafe { cb(context, None, Error::InvalidStringError) };
+                        return;
+                    };
+                    Some(s)
+                }
+            };
+
+            let Ok(column_name) = x.column_name.try_into() else {
                 unsafe { cb(context, None, Error::InvalidStringError) };
                 return;
-            }
-            column_vec.push(x_conv.unwrap());
+            };
+
+            let select_alias_conv: Option<FFIString> = (&x.select_alias).into();
+            let select_alias = match select_alias_conv {
+                None => None,
+                Some(v) => {
+                    let Ok(s) = v.try_into() else {
+                        unsafe { cb(context, None, Error::InvalidStringError) };
+                        return;
+                    };
+                    Some(s)
+                }
+            };
+
+            column_vec.push(db.get_sql_dialect().select_column(
+                table_name,
+                column_name,
+                select_alias,
+            ));
         }
     }
 
@@ -627,7 +655,7 @@ pub extern "C" fn rorm_db_query_all(
     db: &'static Database,
     transaction: Option<&'static mut Transaction>,
     model: FFIString<'static>,
-    columns: FFISlice<'static, FFIString<'static>>,
+    columns: FFISlice<'static, FFIColumnSelector<'static>>,
     joins: FFISlice<'static, FFIJoin<'static>>,
     condition: Option<&'static Condition>,
     limit: FFIOption<FFILimitClause>,
@@ -646,14 +674,42 @@ pub extern "C" fn rorm_db_query_all(
 
     let mut column_vec = vec![];
     {
-        let column_slice: &[FFIString] = columns.into();
-        for &x in column_slice {
-            let x_conv = x.try_into();
-            if x_conv.is_err() {
+        let column_slice: &[FFIColumnSelector] = columns.into();
+        for x in column_slice {
+            let table_name_conv: Option<FFIString> = (&x.table_name).into();
+            let table_name = match table_name_conv {
+                None => None,
+                Some(v) => {
+                    let Ok(s) = v.try_into() else {
+                        unsafe { cb(context, FFISlice::empty(), Error::InvalidStringError) };
+                        return;
+                    };
+                    Some(s)
+                }
+            };
+
+            let Ok(column_name) = x.column_name.try_into() else {
                 unsafe { cb(context, FFISlice::empty(), Error::InvalidStringError) };
                 return;
-            }
-            column_vec.push(x_conv.unwrap());
+            };
+
+            let select_alias_conv: Option<FFIString> = (&x.select_alias).into();
+            let select_alias = match select_alias_conv {
+                None => None,
+                Some(v) => {
+                    let Ok(s) = v.try_into() else {
+                        unsafe { cb(context, FFISlice::empty(), Error::InvalidStringError) };
+                        return;
+                    };
+                    Some(s)
+                }
+            };
+
+            column_vec.push(db.get_sql_dialect().select_column(
+                table_name,
+                column_name,
+                select_alias,
+            ));
         }
     }
 
@@ -798,7 +854,7 @@ pub extern "C" fn rorm_db_query_stream(
     db: &Database,
     transaction: Option<&'static mut Transaction>,
     model: FFIString,
-    columns: FFISlice<FFIString>,
+    columns: FFISlice<FFIColumnSelector>,
     joins: FFISlice<'static, FFIJoin<'static>>,
     condition: Option<&Condition>,
     limit: FFIOption<FFILimitClause>,
@@ -815,15 +871,45 @@ pub extern "C" fn rorm_db_query_stream(
 
     let limit = limit.into();
 
-    let column_slice: &[FFIString] = columns.into();
     let mut column_vec = vec![];
-    for &x in column_slice {
-        let x_conv = x.try_into();
-        if x_conv.is_err() {
-            unsafe { cb(context, None, Error::InvalidStringError) };
-            return;
+    {
+        let column_slice: &[FFIColumnSelector] = columns.into();
+        for x in column_slice {
+            let table_name_conv: Option<FFIString> = (&x.table_name).into();
+            let table_name = match table_name_conv {
+                None => None,
+                Some(v) => {
+                    let Ok(s) = v.try_into() else {
+                        unsafe { cb(context, None, Error::InvalidStringError) };
+                        return;
+                    };
+                    Some(s)
+                }
+            };
+
+            let Ok(column_name) = x.column_name.try_into() else {
+                unsafe { cb(context, None, Error::InvalidStringError) };
+                return;
+            };
+
+            let select_alias_conv: Option<FFIString> = (&x.select_alias).into();
+            let select_alias = match select_alias_conv {
+                None => None,
+                Some(v) => {
+                    let Ok(s) = v.try_into() else {
+                        unsafe { cb(context, None, Error::InvalidStringError) };
+                        return;
+                    };
+                    Some(s)
+                }
+            };
+
+            column_vec.push(db.get_sql_dialect().select_column(
+                table_name,
+                column_name,
+                select_alias,
+            ));
         }
-        column_vec.push(x_conv.unwrap());
     }
 
     let mut join_tuple = vec![];
