@@ -48,6 +48,7 @@ struct ModelFormat
 	 */
 	struct Field
 	{
+	@safe:
 		/// List of different (generic) database column types.
 		@serdeProxy!string
 		enum DBType
@@ -332,7 +333,7 @@ enum AnnotationFlag
 	notNull
 }
 
-private bool isCompatibleFlags(AnnotationFlag a, AnnotationFlag b)
+private bool isCompatibleFlags(AnnotationFlag a, AnnotationFlag b) @safe
 {
 	final switch (a) with (AnnotationFlag)
 	{
@@ -374,6 +375,7 @@ private bool isCompatibleFlags(AnnotationFlag a, AnnotationFlag b)
 @serdeProxy!IonDBAnnotation
 struct DBAnnotation
 {
+@safe:
 	SumType!(
 		AnnotationFlag,
 		maxLength,
