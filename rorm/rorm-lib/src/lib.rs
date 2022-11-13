@@ -1,8 +1,6 @@
 //! This crate is used to provide C bindings for the `rorm-db` crate.
 #![deny(missing_docs)]
 
-extern crate core;
-
 /// Utility module to provide errors
 pub mod errors;
 /// Module that holds the definitions for conditions.
@@ -631,7 +629,7 @@ pub extern "C" fn rorm_db_query_all(
     joins: FFISlice<'static, FFIJoin<'static>>,
     condition: Option<&'static Condition>,
     limit: FFIOption<FFILimitClause>,
-    callback: Option<unsafe extern "C" fn(VoidPtr, FFISlice<Row>, Error) -> ()>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, FFISlice<&Row>, Error) -> ()>,
     context: VoidPtr,
 ) {
     let cb = callback.expect("Callback must not be null");
@@ -742,7 +740,8 @@ pub extern "C" fn rorm_db_query_all(
         };
         match query_res {
             Ok(res) => {
-                let slice = res.as_slice().into();
+                let rows: Vec<&Row> = res.iter().collect();
+                let slice = rows.as_slice().into();
                 unsafe { cb(context, slice, Error::NoError) };
             }
             Err(err) => {
