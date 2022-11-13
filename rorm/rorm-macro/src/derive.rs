@@ -113,19 +113,21 @@ pub fn model(strct: TokenStream) -> TokenStream {
         )*
 
         #[allow(non_camel_case_types)]
-        #vis struct #fields_struct {
-            #(#fields_vis #fields_ident: ::rorm::internal::field::FieldProxy<#fields_type>),*
+        #vis struct #fields_struct<Path> {
+            #(#fields_vis #fields_ident: ::rorm::internal::field::FieldProxy<#fields_type, Path>),*
+        }
+        impl<Path> ::rorm::model::ConstNew for #fields_struct<Path> {
+            const NEW: Self = Self {
+                #(
+                    #fields_ident: ::rorm::internal::field::FieldProxy::new(#fields_type),
+                )*
+            };
         }
 
         impl ::rorm::model::Model for #model {
             type Primary = #primary_key;
 
-            type Fields = #fields_struct;
-            const F: Self::Fields = #fields_struct {
-                #(
-                    #fields_ident: ::rorm::internal::field::FieldProxy(#fields_type),
-                )*
-            };
+            type Fields<Path> = #fields_struct<Path>;
 
             const TABLE: &'static str = #table_name;
 

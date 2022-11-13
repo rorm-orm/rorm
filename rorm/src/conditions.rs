@@ -23,7 +23,7 @@ impl<'a, S: AsRef<[u8]> + ?Sized> IntoCondValue<'a, VarBinary> for &'a S {
     }
 }
 
-impl<'a, F: Field> IntoCondValue<'a, F::DbType> for &'static FieldProxy<F> {
+impl<'a, F: Field> IntoCondValue<'a, F::DbType> for &'static FieldProxy<F, ()> {
     fn into_value(self) -> Value<'a> {
         Value::Ident(F::NAME)
     }
@@ -48,7 +48,7 @@ impl_numeric!(chrono::NaiveDateTime, NaiveDateTime, DateTime);
 impl_numeric!(chrono::NaiveTime, NaiveTime, Time);
 
 // Helper methods hiding most of the verbosity in creating Conditions
-impl<F: Field> FieldProxy<F> {
+impl<F: Field> FieldProxy<F, ()> {
     fn __column(&self) -> Condition<'static> {
         Condition::Value(Value::Ident(F::NAME))
     }
@@ -85,7 +85,7 @@ impl<F: Field> FieldProxy<F> {
     }
 }
 
-impl<F: Field> FieldProxy<F> {
+impl<F: Field> FieldProxy<F, ()> {
     /// Check if this field's value lies between two other values
     pub fn between<'a>(
         &self,

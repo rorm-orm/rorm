@@ -470,9 +470,9 @@ pub struct SelectTuple<T, const C: usize> {
 }
 macro_rules! impl_select_tuple {
     ($C:literal, ($($index:tt: <$F:ident>,)+)) => {
-        impl<M: Model, $($F: Field<Model = M>),+> SelectTuple<($(FieldProxy<$F>,)+), $C> {
+        impl<M: Model, $($F: Field<Model = M>),+> SelectTuple<($(FieldProxy<$F, ()>,)+), $C> {
             /// Create a SelectTuple
-            pub const fn new(tuple: ($(FieldProxy<$F>,)+)) -> Self {
+            pub const fn new(tuple: ($(FieldProxy<$F, ()>,)+)) -> Self {
                 Self {
                     tuple,
                     columns: [$($F::NAME),+],
@@ -480,7 +480,7 @@ macro_rules! impl_select_tuple {
             }
         }
         impl<M: Model, $($F: Field<Model = M>),+> Selector<M>
-            for SelectTuple<($(FieldProxy<$F>,)+), $C>
+            for SelectTuple<($(FieldProxy<$F, ()>,)+), $C>
         {
             type Result = ($($F::Type,)+);
 

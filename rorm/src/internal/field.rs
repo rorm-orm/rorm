@@ -4,6 +4,7 @@ use rorm_declaration::hmr::annotations::AsImr;
 use rorm_declaration::hmr::db_type::DbType;
 use rorm_declaration::hmr::Source;
 use rorm_declaration::imr;
+use std::marker::PhantomData;
 
 use crate::annotation_builder::{AnnotationsDescriptor, ImplicitNotNull};
 use crate::internal::as_db_type::AsDbType;
@@ -78,7 +79,10 @@ pub fn as_imr<F: Field>() -> imr::Field {
 
 /// This struct acts as a proxy exposing type level information from the [Field] trait on the value level.
 ///
-/// I.e. it allows access to things like [Field::NAME] without access to the concrete field type.
+/// On top of that it can be used to keep track of the "path" this field is accessed through, when dealing with relations.
+///
+/// ## Type as Value
+/// In other words [FieldProxy] allows access to things like [Field::NAME] without access to the concrete field type.
 ///
 /// Pseudo code for illustration:
 /// ```skip
@@ -115,8 +119,13 @@ pub fn as_imr<F: Field>() -> imr::Field {
 /// Id::Index ~ User::F.id.index()
 /// Id::Type::from_primitive ~ User::F.id.convert_primitive
 /// ```
-pub struct FieldProxy<F>(pub F);
-impl<F: Field> FieldProxy<F> {
+pub struct FieldProxy<Field, Path>(Field, PhantomData<Path>);
+impl<F: Field, P> FieldProxy<F, P> {
+    /// Create a new instance
+    pub const fn new(field: F) -> Self {
+        Self(field, PhantomData)
+    }
+
     /// Convert this field's db primitive value into the actual rust value
     ///
     /// See [AsDbType::from_primitive] for more details.

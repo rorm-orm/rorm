@@ -96,7 +96,7 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
     /// Can be called multiple times.
     pub fn set<F: Field>(
         self,
-        _field: FieldProxy<F>,
+        _field: FieldProxy<F, ()>,
         value: impl IntoCondValue<'rf, F::DbType>,
     ) -> UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T> {
         #[rustfmt::skip]
@@ -114,7 +114,7 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
     /// Can be called multiple times.
     pub fn set<F: Field>(
         self,
-        _field: FieldProxy<F>,
+        _field: FieldProxy<F, ()>,
         value: impl IntoCondValue<'rf, F::DbType>,
     ) -> Self {
         let mut builder = self;

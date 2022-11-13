@@ -95,17 +95,17 @@ pub trait Model: Patch<Model = Self> {
     /// A struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`](crate::internal::field::Field)).
     ///
     /// The struct is constructed once in the [`Model::FIELDS`] constant.
-    type Fields;
+    type Fields<Path>: ConstNew;
 
     /// A constant struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`](crate::internal::field::Field)).
     // Actually FIELDS is an alias for F instead of the other way around.
     // This changes was made in the hope it would improve IDE support.
-    const FIELDS: Self::Fields = Self::F;
+    const FIELDS: Self::Fields<()> = Self::Fields::NEW;
 
     /// Shorthand version of [`FIELDS`]
     ///
     /// [`FIELDS`]: Model::FIELDS
-    const F: Self::Fields;
+    const F: Self::Fields<()> = Self::Fields::NEW;
 
     /// The model's table name
     const TABLE: &'static str;
@@ -116,6 +116,14 @@ pub trait Model: Patch<Model = Self> {
     ///
     /// [`write_models`]: crate::write_models
     fn get_imr() -> imr::Model;
+}
+
+/// exposes a `NEW` constant, which act like [Default::default] but constant.
+///
+/// It's workaround for not having const methods in traits
+pub trait ConstNew {
+    /// A new or default instance
+    const NEW: Self;
 }
 
 /// Stores a link to another model in a field.
