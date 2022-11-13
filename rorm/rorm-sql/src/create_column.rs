@@ -175,9 +175,12 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                         Annotation::NotNull => write!(s, "NOT NULL").unwrap(),
                         Annotation::PrimaryKey => write!(s, "PRIMARY KEY").unwrap(),
                         Annotation::Unique => write!(s, "UNIQUE").unwrap(),
-                        Annotation::ForeignKey(fk) => {
-                            write!(s, "REFERENCES {} ({})", fk.table_name, fk.column_name).unwrap()
-                        }
+                        Annotation::ForeignKey(fk) => write!(
+                            s,
+                            "REFERENCES {} ({}) ON DELETE {} ON UPDATE {}",
+                            fk.table_name, fk.column_name, fk.on_delete, fk.on_update
+                        )
+                        .unwrap(),
                         _ => {}
                     }
 
@@ -329,9 +332,12 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                         Annotation::NotNull => write!(s, "NOT NULL").unwrap(),
                         Annotation::PrimaryKey => write!(s, "PRIMARY KEY").unwrap(),
                         Annotation::Unique => write!(s, "UNIQUE").unwrap(),
-                        Annotation::ForeignKey(fk) => {
-                            write!(s, "REFERENCES {}({})", fk.table_name, fk.column_name).unwrap()
-                        }
+                        Annotation::ForeignKey(fk) => write!(
+                            s,
+                            "REFERENCES {}({}) ON DELETE {} ON UPDATE {}",
+                            fk.table_name, fk.column_name, fk.on_delete, fk.on_update
+                        )
+                        .unwrap(),
                         _ => {}
                     }
 
@@ -450,10 +456,12 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                         Annotation::NotNull => write!(s, "NOT NULL").unwrap(),
                         Annotation::PrimaryKey => write!(s, "PRIMARY KEY").unwrap(),
                         Annotation::Unique => write!(s, "UNIQUE").unwrap(),
-                        Annotation::ForeignKey(fk) => {
-                            write!(s, "REFERENCES \"{}\"({})", fk.table_name, fk.column_name)
-                                .unwrap()
-                        }
+                        Annotation::ForeignKey(fk) => write!(
+                            s,
+                            "REFERENCES \"{}\"({}) ON DELETE {} ON UPDATE {}",
+                            fk.table_name, fk.column_name, fk.on_delete, fk.on_update
+                        )
+                        .unwrap(),
                         _ => {}
                     };
 

@@ -84,6 +84,8 @@ impl<
             annotations.push(imr::Annotation::ForeignKey(imr::ForeignKey {
                 table_name: table.to_string(),
                 column_name: column.to_string(),
+                on_delete: Default::default(),
+                on_update: Default::default(),
             }))
         }
         imr::Field {
