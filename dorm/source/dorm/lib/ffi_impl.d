@@ -749,16 +749,6 @@ alias DBStreamGetRowCallback = extern(C) void function(void* context, DBRowHandl
 void rorm_row_free(DBRowHandle row);
 
 /**
- * Frees the row list handle given as parameter.
- *
- * **Important**: Do not call this function more than once or with an invalid
- * row handle!
- *
- * This function is called completely synchronously.
- */
-void rorm_row_list_free(DBRowListHandle row);
-
-/**
 Params:
 	handle = row handle to read from
 	columnIndex = the column index (array index from the `columns` parameter in
