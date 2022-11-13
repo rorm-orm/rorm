@@ -101,7 +101,8 @@ struct ModelFormat
 		@serdeIgnore
 		bool isNullable() const @property
 		{
-			return !hasFlag(AnnotationFlag.notNull);
+			return !hasFlag(AnnotationFlag.notNull)
+				&& !hasFlag(AnnotationFlag.primaryKey);
 		}
 
 		/// Returns true iff this field has the `primaryKey` AnnotationFlag.
