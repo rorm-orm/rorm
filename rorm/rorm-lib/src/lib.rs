@@ -12,7 +12,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use futures::StreamExt;
-use rorm_db::join_table::JoinTableImpl;
+use rorm_db::join_table::{JoinTableImpl, JoinType};
 use rorm_db::row::Row;
 use rorm_db::transaction::Transaction;
 use rorm_db::value::Value;
@@ -517,7 +517,7 @@ pub extern "C" fn rorm_db_query_one(
         }
     }
 
-    let mut join_tuple = vec![];
+    let mut join_tuple: Vec<(JoinType, &str, &str, rorm_db::conditional::Condition)> = vec![];
     {
         let join_slice: &[FFIJoin] = joins.into();
         for x in join_slice {
@@ -574,7 +574,7 @@ pub extern "C" fn rorm_db_query_one(
     let fut = async move {
         let join_vec: Vec<JoinTableImpl> = join_tuple
             .iter()
-            .map(|(a, b, c, d)| db.get_sql_dialect().join_table(*a, *b, *c, &d))
+            .map(|(a, b, c, d)| db.get_sql_dialect().join_table(*a, b, c, d))
             .collect();
         match cond {
             None => {
@@ -713,7 +713,7 @@ pub extern "C" fn rorm_db_query_optional(
         }
     }
 
-    let mut join_tuple = vec![];
+    let mut join_tuple: Vec<(JoinType, &str, &str, rorm_db::conditional::Condition)> = vec![];
     {
         let join_slice: &[FFIJoin] = joins.into();
         for x in join_slice {
@@ -770,7 +770,7 @@ pub extern "C" fn rorm_db_query_optional(
     let fut = async move {
         let join_vec: Vec<JoinTableImpl> = join_tuple
             .iter()
-            .map(|(a, b, c, d)| db.get_sql_dialect().join_table(*a, *b, *c, &d))
+            .map(|(a, b, c, d)| db.get_sql_dialect().join_table(*a, b, c, d))
             .collect();
         match cond {
             None => {
@@ -923,7 +923,7 @@ pub extern "C" fn rorm_db_query_all(
         }
     }
 
-    let mut join_tuple = vec![];
+    let mut join_tuple: Vec<(JoinType, &str, &str, rorm_db::conditional::Condition)> = vec![];
     {
         let join_slice: &[FFIJoin] = joins.into();
         for x in join_slice {
@@ -980,7 +980,7 @@ pub extern "C" fn rorm_db_query_all(
     let fut = async move {
         let join_vec: Vec<JoinTableImpl> = join_tuple
             .iter()
-            .map(|(a, b, c, d)| db.get_sql_dialect().join_table(*a, *b, *c, &d))
+            .map(|(a, b, c, d)| db.get_sql_dialect().join_table(*a, b, c, d))
             .collect();
         let query_res = match cond {
             None => {
@@ -1122,7 +1122,7 @@ pub extern "C" fn rorm_db_query_stream(
         }
     }
 
-    let mut join_tuple = vec![];
+    let mut join_tuple: Vec<(JoinType, &str, &str, rorm_db::conditional::Condition)> = vec![];
     {
         let join_slice: &[FFIJoin] = joins.into();
         for x in join_slice {
@@ -1159,7 +1159,7 @@ pub extern "C" fn rorm_db_query_stream(
 
     let join_vec: Vec<JoinTableImpl> = join_tuple
         .iter()
-        .map(|(a, b, c, d)| db.get_sql_dialect().join_table(*a, *b, *c, &d))
+        .map(|(a, b, c, d)| db.get_sql_dialect().join_table(*a, b, c, d))
         .collect();
     let query_stream = match condition {
         None => db.query_stream(
