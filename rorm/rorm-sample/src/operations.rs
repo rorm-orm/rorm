@@ -95,9 +95,9 @@ pub(crate) async fn operate(db: Database, driver: DatabaseVariant) -> anyhow::Re
 
     // Get the sum of all users' IDs
     let mut sum = 0;
-    let mut s = query!(&db, User).stream();
-    while let Some(user) = s.try_next().await? {
-        sum += user.id;
+    let mut s = query!(&db, (User::F.id,)).stream();
+    while let Some((id,)) = s.try_next().await? {
+        sum += id;
     }
     assert_eq!(
         42,
@@ -125,7 +125,7 @@ pub(crate) async fn operate(db: Database, driver: DatabaseVariant) -> anyhow::Re
     }
 
     // There are no cars with green color
-    if query!(&db, Car)
+    if query!(&db, (Car::F.serial_no,))
         .condition(Car::FIELDS.color.equals("green"))
         .optional()
         .await?

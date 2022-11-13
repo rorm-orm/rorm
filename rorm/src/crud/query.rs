@@ -330,7 +330,7 @@ macro_rules! query {
     ($db:expr, ($($field:expr),+$(,)?)) => {
         $crate::crud::query::QueryBuilder::new(
             $db,
-            $crate::crud::query::SelectTuple::<_, { 0 $( + $crate::query!(replace {$field} with 1))+ }>::new(&($(&$field),+)),
+            $crate::crud::query::SelectTuple::<_, { 0 $( + $crate::query!(replace {$field} with 1))+ }>::new(($($field,)+)),
         )
     };
 }
@@ -464,27 +464,28 @@ impl<M: Model, P: Patch<Model = M>> Selector<M> for SelectPatch<P> {
 ///
 /// => So wrap the tuple and add an array of the correct size to copy the columns into.
 pub struct SelectTuple<T, const C: usize> {
-    tuple: PhantomData<T>,
+    #[allow(dead_code)]
+    tuple: T,
     columns: [&'static str; C],
 }
 macro_rules! impl_select_tuple {
-    ($C:literal, ($($index:tt: <$T:ident, $D:ident, $A:ident>,)+)) => {
-        impl<M: Model, $($T: Field<Model = M>),+> SelectTuple<($(&'static FieldProxy<$T>,)+), $C> {
+    ($C:literal, ($($index:tt: <$F:ident>,)+)) => {
+        impl<M: Model, $($F: Field<Model = M>),+> SelectTuple<($(FieldProxy<$F>,)+), $C> {
             /// Create a SelectTuple
-            pub const fn new(_tuple: &($(&'static FieldProxy<$T>,)+)) -> Self {
+            pub const fn new(tuple: ($(FieldProxy<$F>,)+)) -> Self {
                 Self {
-                    tuple: PhantomData,
-                    columns: [$($T::NAME),+],
+                    tuple,
+                    columns: [$($F::NAME),+],
                 }
             }
         }
-        impl<M: Model, $($T: Field<Model = M>),+> Selector<M>
-            for SelectTuple<($(&'static FieldProxy<$T>,)+), $C>
+        impl<M: Model, $($F: Field<Model = M>),+> Selector<M>
+            for SelectTuple<($(FieldProxy<$F>,)+), $C>
         {
-            type Result = ($($T::Type,)+);
+            type Result = ($($F::Type,)+);
 
             fn decode(row: Row) -> Result<Self::Result, Error> {
-                Ok(($($T::Type::from_primitive(row.get::<<<$T as Field>::Type as AsDbType>::Primitive, usize>($index)?),)+))
+                Ok(($($F::Type::from_primitive(row.get::<<<$F as Field>::Type as AsDbType>::Primitive, usize>($index)?),)+))
             }
 
             fn columns(&self) -> &[&'static str] {
@@ -493,11 +494,11 @@ macro_rules! impl_select_tuple {
         }
     };
 }
-impl_select_tuple!(1, (0: <T0, D0, A0>,));
-impl_select_tuple!(2, (0: <T0, D0, A0>, 1: <T1, D1, A1>,));
-impl_select_tuple!(3, (0: <T0, D0, A0>, 1: <T1, D1, A1>, 2: <T2, D2, A2>,));
-impl_select_tuple!(4, (0: <T0, D0, A0>, 1: <T1, D1, A1>, 2: <T2, D2, A2>, 3: <T3, D3, A3>,));
-impl_select_tuple!(5, (0: <T0, D0, A0>, 1: <T1, D1, A1>, 2: <T2, D2, A2>, 3: <T3, D3, A3>, 4: <T4, D4, A4>,));
-impl_select_tuple!(6, (0: <T0, D0, A0>, 1: <T1, D1, A1>, 2: <T2, D2, A2>, 3: <T3, D3, A3>, 4: <T4, D4, A4>, 5: <T5, D5, A5>,));
-impl_select_tuple!(7, (0: <T0, D0, A0>, 1: <T1, D1, A1>, 2: <T2, D2, A2>, 3: <T3, D3, A3>, 4: <T4, D4, A4>, 5: <T5, D5, A5>, 6: <T6, D6, A6>,));
-impl_select_tuple!(8, (0: <T0, D0, A0>, 1: <T1, D1, A1>, 2: <T2, D2, A2>, 3: <T3, D3, A3>, 4: <T4, D4, A4>, 5: <T5, D5, A5>, 6: <T6, D6, A6>, 7: <T7, D7, A7>,));
+impl_select_tuple!(1, (0: <F0>,));
+impl_select_tuple!(2, (0: <F0>, 1: <F1>,));
+impl_select_tuple!(3, (0: <F0>, 1: <F1>, 2: <F2>,));
+impl_select_tuple!(4, (0: <F0>, 1: <F1>, 2: <F2>, 3: <F3>,));
+impl_select_tuple!(5, (0: <F0>, 1: <F1>, 2: <F2>, 3: <F3>, 4: <F4>,));
+impl_select_tuple!(6, (0: <F0>, 1: <F1>, 2: <F2>, 3: <F3>, 4: <F4>, 5: <F5>,));
+impl_select_tuple!(7, (0: <F0>, 1: <F1>, 2: <F2>, 3: <F3>, 4: <F4>, 5: <F5>, 6: <F6>,));
+impl_select_tuple!(8, (0: <F0>, 1: <F1>, 2: <F2>, 3: <F3>, 4: <F4>, 5: <F5>, 6: <F6>, 7: <F7>,));
