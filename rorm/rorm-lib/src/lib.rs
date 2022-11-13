@@ -1866,7 +1866,7 @@ pub extern "C" fn rorm_row_get_time(
     error_ptr: &mut Error,
 ) -> FFITime {
     get_data_from_row(
-        chrono::NaiveTime::from_hms(0, 0, 0),
+        chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap(),
         row_ptr,
         index,
         error_ptr,
@@ -1890,7 +1890,10 @@ pub extern "C" fn rorm_row_get_datetime(
     error_ptr: &mut Error,
 ) -> FFIDateTime {
     get_data_from_row(
-        chrono::NaiveDateTime::new(chrono::NaiveDate::MAX, chrono::NaiveTime::from_hms(0, 0, 0)),
+        chrono::NaiveDateTime::new(
+            chrono::NaiveDate::MAX,
+            chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap(),
+        ),
         row_ptr,
         index,
         error_ptr,
