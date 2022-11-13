@@ -217,7 +217,7 @@ struct FFICondition
 		/// Representation of a ternary condition.
 		TernaryCondition,
 		/// Representation of a value.
-		Value
+		Value,
 	}
 	/// ditto
 	Type type;
@@ -236,6 +236,29 @@ struct FFICondition
 		FFITernaryCondition ternaryCondition;
 		/// Correpsonding value for Type.Value
 		FFIValue value;
+	}
+
+	string toString() const @trusted pure
+	{
+		import std.algorithm;
+		import std.array;
+		import std.conv;
+
+		final switch (type)
+		{
+			case Type.Conjunction:
+				return conjunction.data.map!(c => c.to!string).join(" AND ");
+			case Type.Disjunction:
+				return conjunction.data.map!(c => c.to!string).join(" OR ");
+			case Type.UnaryCondition:
+				return unaryCondition.toString;
+			case Type.BinaryCondition:
+				return binaryCondition.toString;
+			case Type.TernaryCondition:
+				return ternaryCondition.toString;
+			case Type.Value:
+				return value.toString;
+		}
 	}
 }
 
@@ -262,6 +285,23 @@ struct FFIUnaryCondition
 
 	/// The operand for any unary condition on which to operate using the type.
 	FFICondition* condition;
+
+	string toString() const @trusted pure
+	{
+		final switch (type)
+		{
+			case Type.IsNull:
+				return condition.toString ~ " IS NULL";
+			case Type.IsNotNull:
+				return condition.toString ~ " IS NOT NULL";
+			case Type.Exists:
+				return condition.toString ~ " EXISTS";
+			case Type.NotExists:
+				return condition.toString ~ " NOT EXISTS";
+			case Type.Not:
+				return "NOT " ~ condition.toString;
+		}
+	}
 }
 
 /// This condition subtype represents all available binary conditions.
@@ -294,7 +334,7 @@ struct FFIBinaryCondition
 		/// Representation of "{} IN {}" in SQL
 		In,
 		/// Representation of "{} NOT IN {}" in SQL
-		NotIn
+		NotIn,
 	}
 	/// ditto
 	Type type;
@@ -303,6 +343,37 @@ struct FFIBinaryCondition
 	FFICondition* lhs;
 	/// The right-hand-side operand on which to operate based on the type.
 	FFICondition* rhs;
+
+	string toString() const @trusted pure
+	{
+		final switch (type)
+		{
+			case Type.Equals:
+				return lhs.toString ~ " = " ~ rhs.toString;
+			case Type.NotEquals:
+				return lhs.toString ~ " != " ~ rhs.toString;
+			case Type.Greater:
+				return lhs.toString ~ " > " ~ rhs.toString;
+			case Type.GreaterOrEquals:
+				return lhs.toString ~ " >= " ~ rhs.toString;
+			case Type.Less:
+				return lhs.toString ~ " < " ~ rhs.toString;
+			case Type.LessOrEquals:
+				return lhs.toString ~ " <= " ~ rhs.toString;
+			case Type.Like:
+				return lhs.toString ~ " LIKE " ~ rhs.toString;
+			case Type.NotLike:
+				return lhs.toString ~ " NOT LIKE " ~ rhs.toString;
+			case Type.Regexp:
+				return lhs.toString ~ " REGEXP " ~ rhs.toString;
+			case Type.NotRegexp:
+				return lhs.toString ~ " NOT REGEXP " ~ rhs.toString;
+			case Type.In:
+				return lhs.toString ~ " IN " ~ rhs.toString;
+			case Type.NotIn:
+				return lhs.toString ~ " NOT IN " ~ rhs.toString;
+		}
+	}
 }
 
 /// This condition subtype represents all available ternary conditions.
@@ -326,6 +397,17 @@ struct FFITernaryCondition
 	FFICondition* second;
 	/// The third operand on which to operate based on the type.
 	FFICondition* third;
+
+	string toString() const @trusted pure
+	{
+		final switch (type)
+		{
+			case Type.Between:
+				return first.toString ~ " BETWEEN " ~ second.toString ~ " AND " ~ third.toString;
+			case Type.NotBetween:
+				return first.toString ~ " NOT BETWEEN " ~ second.toString ~ " AND " ~ third.toString;
+		}
+	}
 }
 
 /// Represents a leaf node in a condition tree, effectively inserting a static
@@ -371,7 +453,7 @@ struct FFIValue
 		/// Corresponds to Type.Identifier
 		FFIString identifier;
 		/// Corresponds to Type.String
-		FFIString string;
+		FFIString str;
 		/// Corresponds to Type.I64
 		long i64;
 		/// Corresponds to Type.I32
@@ -392,6 +474,41 @@ struct FFIValue
 		FFIDate naiveDate;
 		/// Corresponds to Type.NaiveDateTime
 		FFIDateTime naiveDateTime;
+	}
+
+	string toString() const @trusted pure
+	{
+		import std.conv : to;
+
+		final switch (type)
+		{
+			case Type.Null:
+				return `FFIValue(null)`;
+			case Type.Identifier:
+				return `FFIValue(` ~ identifier.data.idup ~ ")";
+			case Type.String:
+				return `FFIValue("` ~ str.data.idup ~ `")`;
+			case Type.I64:
+				return `FFIValue(` ~ i64.to!string ~ ")";
+			case Type.I32:
+				return `FFIValue(` ~ i32.to!string ~ ")";
+			case Type.I16:
+				return `FFIValue(` ~ i16.to!string ~ ")";
+			case Type.Bool:
+				return `FFIValue(` ~ (boolean ? "true" : "false") ~ ")";
+			case Type.F64:
+				return `FFIValue(` ~ f64.to!string ~ ")";
+			case Type.F32:
+				return `FFIValue(` ~ f32.to!string ~ ")";
+			case Type.Binary:
+				return `FFIValue(` ~ binary.data.to!string ~ ")";
+			case Type.NaiveTime:
+				return `FFIValue(` ~ naiveTime.to!string ~ ")";
+			case Type.NaiveDate:
+				return `FFIValue(` ~ naiveDate.to!string ~ ")";
+			case Type.NaiveDateTime:
+				return `FFIValue(` ~ naiveDateTime.to!string ~ ")";
+		}
 	}
 }
 
@@ -525,7 +642,7 @@ struct RormError
 
 	/// Makes a human readable exception that can be thrown or returns `null` if
 	/// there is no error.
-	Exception makeException() const nothrow @safe
+	Exception makeException(string suffix = null) const nothrow @safe
 	{
 		import std.conv : text;
 		import std.utf : UTFException;
@@ -535,33 +652,42 @@ struct RormError
 			case Tag.NoError: return null;
 			case Tag.MissingRuntimeError:
 				return new Exception(
-					"Runtime has not been created or has been destroyed, use `mixin SetupDormRuntime;` in your application code");
+					"Runtime has not been created or has been destroyed, use `mixin SetupDormRuntime;` in your application code"
+					~ suffix);
 			case Tag.RuntimeError:
 				return new Exception(
-					text("A runtime error has occurred: ", (() @trusted => this.runtime_error.data)()));
+					text("A runtime error has occurred: ", (() @trusted => this.runtime_error.data)(), suffix));
 			case Tag.InvalidStringError:
 				return new UTFException(
-					"an invalid string has been passed into a dorm function, perhaps corrupted memory? (submit a bug in this case)");
+					"an invalid string has been passed into a dorm function, perhaps corrupted memory? (submit a bug in this case)"
+					~ suffix);
 			case Tag.ConfigurationError:
 				return new Exception(
-					text("passed invalid configuration: ", (() @trusted => this.configuration_error.data)()));
+					text("passed invalid configuration: ", (() @trusted => this.configuration_error.data)(), suffix));
 			case Tag.DatabaseError:
 				return new Exception(
-					text("database error: ", (() @trusted => this.database_error.data)()));
+					text("database error: ", (() @trusted => this.database_error.data)(), suffix));
 			case Tag.NoRowsLeftInStream:
-				return new Exception("There are no rows left in the stream");
+				return new Exception("There are no rows left in the stream"
+					~ suffix);
 			case Tag.ColumnDecodeError:
-				return new Exception("Column could not be converted in the given type");
+				return new Exception("Column could not be converted in the given type"
+					~ suffix);
 			case Tag.ColumnNotFoundError:
-				return new Exception("Column was not found in row");
+				return new Exception("Column was not found in row"
+					~ suffix);
 			case Tag.ColumnIndexOutOfBoundsError:
-				return new Exception("The index in the row was out of bounds");
+				return new Exception("The index in the row was out of bounds"
+					~ suffix);
 			case Tag.InvalidDateError:
-				return new Exception("The provided date could not be parsed");
+				return new Exception("The provided date could not be parsed"
+					~ suffix);
 			case Tag.InvalidTimeError:
-				return new Exception("The provided time could not be parsed");
+				return new Exception("The provided time could not be parsed"
+					~ suffix);
 			case Tag.InvalidDateTimeError:
-				return new Exception("The provided datetime could not be parsed");
+				return new Exception("The provided datetime could not be parsed"
+					~ suffix);
 		}
 	}
 }

@@ -268,7 +268,7 @@ struct RawRow
 		}
 
 		if (error)
-			throw error.makeException;
+			throw error.makeException(" (in column '" ~ column.idup ~ "')");
 		return result;
 	}
 
@@ -311,7 +311,7 @@ struct RawRow
 					return slice.raw_value[].to!T;
 			}
 			else
-				throw error.makeException;
+				throw error.makeException(" (in column '" ~ column.idup ~ "')");
 		}
 		else static if (is(T : ubyte[]))
 		{
@@ -321,7 +321,7 @@ struct RawRow
 			if (!error)
 				return cast(T)slice.raw_value[].dup;
 			else
-				throw error.makeException;
+				throw error.makeException(" (in column '" ~ column.idup ~ "')");
 		}
 		else
 		{
@@ -329,7 +329,7 @@ struct RawRow
 			alias fn = ffiConvOptionalPrimitive!T;
 			auto opt = fn(row, ffiColumn, error);
 			if (error)
-				throw error.makeException;
+				throw error.makeException(" (in column '" ~ column.idup ~ "')");
 			if (!opt.isNull)
 				result = opt.raw_value;
 			return result;
@@ -1220,7 +1220,7 @@ private TSelect unwrapRowResultImpl(T, TSelect, bool usePrefix)(ffi.DBRowHandle 
 			text(" from model ", T.stringof, " in column ", field.sourceColumn, " in file ", field.definedAt).idup,
 			usePrefix)(row, rowError, prefixWithDot);
 	if (rowError)
-		throw rowError.makeException;
+			throw rowError.makeException(" (in column '" ~ columnPrefix ~ field.columnName ~ "')");
 	return res;
 }
 

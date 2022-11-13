@@ -112,9 +112,9 @@ FFIValue conditionValue(ModelFormat.Field fieldInfo, T)(T c) @trusted
 	{
 		ret.type = FFIValue.Type.String;
 		static if (is(OriginalType!T == string))
-			ret.string = ffi.ffi(cast(string)c);
+			ret.str = ffi.ffi(cast(string)c);
 		else
-			ret.string = ffi.ffi(c.to!string); // std.conv : to gives us the enum field name
+			ret.str = ffi.ffi(c.to!string); // std.conv : to gives us the enum field name
 	}
 	else static if (is(T == typeof(null)))
 	{
@@ -153,7 +153,7 @@ FFIValue conditionValue(ModelFormat.Field fieldInfo, T)(T c) @trusted
 	else static if (is(T : const(char)[]))
 	{
 		ret.type = FFIValue.Type.String;
-		ret.string = ffi.ffi(c);
+		ret.str = ffi.ffi(c);
 	}
 	else static if (is(T : Date))
 	{
@@ -179,7 +179,7 @@ FFIValue conditionValue(ModelFormat.Field fieldInfo, T)(T c) @trusted
 	else static if (is(T == ffi.FFIString))
 	{
 		ret.type = FFIValue.Type.String;
-		ret.string = c;
+		ret.str = c;
 	}
 	else
 		static assert(false, "Unsupported condition value type: " ~ T.stringof
@@ -328,7 +328,7 @@ string dumpTree(ffi.FFICondition[] c)
 			query ~= " Value(";
 			final switch (c.value.type)
 			{
-				case FFIValue.Type.String: query ~= '`' ~ c.value.string[] ~ '`'; break;
+				case FFIValue.Type.String: query ~= '`' ~ c.value.str[] ~ '`'; break;
 				case FFIValue.Type.Identifier: query ~= "ident:" ~ c.value.identifier[]; break;
 				case FFIValue.Type.Bool: query ~= c.value.boolean.to!string; break;
 				case FFIValue.Type.I16: query ~= "i16:" ~ c.value.i16.to!string; break;
