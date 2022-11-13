@@ -2,7 +2,7 @@
 set -euo pipefail
 
 pushd ../../rorm/
-cargo build -p rorm-lib -r
+cargo build -p rorm-lib -r -F logging
 cargo build -p rorm-cli -r
 export RORM_CLI="$(pwd)/target/release/rorm-cli"
 popd
