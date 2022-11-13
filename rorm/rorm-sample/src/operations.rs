@@ -48,12 +48,30 @@ pub struct Counter {
 
 async fn create_users(db: &Database) {
     for (birthday, username) in [
-        (NaiveDate::from_ymd(1999, 2, 19), "Alice".to_string()),
-        (NaiveDate::from_ymd(2022, 1, 31), "Bob".to_string()),
-        (NaiveDate::from_ymd(1964, 12, 7), "Charlie".to_string()),
-        (NaiveDate::from_ymd(1987, 6, 22), "David".to_string()),
-        (NaiveDate::from_ymd(2000, 1, 11), "Eve".to_string()),
-        (NaiveDate::from_ymd(1973, 10, 3), "Francis".to_string()),
+        (
+            NaiveDate::from_ymd_opt(1999, 2, 19).unwrap(),
+            "Alice".to_string(),
+        ),
+        (
+            NaiveDate::from_ymd_opt(2022, 1, 31).unwrap(),
+            "Bob".to_string(),
+        ),
+        (
+            NaiveDate::from_ymd_opt(1964, 12, 7).unwrap(),
+            "Charlie".to_string(),
+        ),
+        (
+            NaiveDate::from_ymd_opt(1987, 6, 22).unwrap(),
+            "David".to_string(),
+        ),
+        (
+            NaiveDate::from_ymd_opt(2000, 1, 11).unwrap(),
+            "Eve".to_string(),
+        ),
+        (
+            NaiveDate::from_ymd_opt(1973, 10, 3).unwrap(),
+            "Francis".to_string(),
+        ),
     ] {
         insert!(db, UserNew)
             .single(&UserNew { username, birthday })
