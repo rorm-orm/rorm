@@ -766,6 +766,17 @@ void rorm_db_free(DBHandle handle);
 // ------ Querying -------
 
 /**
+ * Allows limiting query response count and offsetting which row is the first row.
+ */
+struct FFILimitClause
+{
+	/// Limit how many rows may be returned at most.
+	ulong limit;
+	/// Optionally specify after how many rows to start the selection.
+	FFIOption!ulong offset;
+}
+
+/**
  * This function queries the database given the provided parameters.
  *
  * Parameters:
@@ -773,13 +784,12 @@ void rorm_db_free(DBHandle handle);
  *     transaction = Mutable pointer to a transaction, can be null.
  *     model = Name of the table to query.
  *     columns = Array of columns to retrieve from the database.
+ *     joins = Array of joins to add to the query.
  *     condition = Pointer to an $(LREF FFICondition).
+ *     limit = Optionally limit and offset which rows are returned.
  *     callback = callback function. Takes the `context`, a row handle and an
  *         error that must be checked first.
  *     context = context pointer to pass through as-is into the callback.
- *
- * The callback-provided row or row list handle must be freed using their
- * corresponding free methods. ($(LREF rorm_row_free) or $(LREF rorm_row_list_free))
  *
  * Important: - Make sure that `db`, `model`, `columns` and `condition` are allocated until the callback is executed.
  *
@@ -790,7 +800,9 @@ void rorm_db_query_all(
 	DBTransactionHandle transaction,
 	FFIString model,
 	FFIArray!FFIString columns,
-	scope const(FFICondition)* conditionTree,
+	FFIArray!FFIJoin joins,
+	scope const(FFICondition)* condition,
+	FFIOption!FFILimitClause limit,
 	DBQueryAllCallback callback,
 	void* context);
 /// ditto
@@ -799,7 +811,9 @@ void rorm_db_query_one(
 	DBTransactionHandle transaction,
 	FFIString model,
 	FFIArray!FFIString columns,
-	scope const(FFICondition)* conditionTree,
+	FFIArray!FFIJoin joins,
+	scope const(FFICondition)* condition,
+	FFIOption!FFILimitClause limit,
 	DBQueryOneCallback callback,
 	void* context);
 /// ditto
@@ -817,7 +831,9 @@ alias DBQueryAllCallback = extern(C) void function(void* context, scope FFIArray
  *     transaction = Mutable pointer to a transaction, can be null.
  *     model = Name of the table to query.
  *     columns = Array of columns to retrieve from the database.
+ *     joins = Array of joins to add to the query.
  *     condition = Pointer to an $(LREF FFICondition).
+ *     limit = Optionally limit and offset which rows are returned.
  *     callback = callback function. Takes the `context`, a stream handle and an
  *         error that must be checked first.
  *     context = context pointer to pass through as-is into the callback.
@@ -831,7 +847,9 @@ void rorm_db_query_stream(
 	DBTransactionHandle transaction,
 	FFIString model,
 	FFIArray!FFIString columns,
-	scope const(FFICondition)* conditionTree,
+	FFIArray!FFIJoin joins,
+	scope const(FFICondition)* condition,
+	FFIOption!FFILimitClause limit,
 	DBQueryStreamCallback callback,
 	void* context);
 /// ditto
@@ -971,7 +989,7 @@ void rorm_db_delete(
 	DBHandle db,
 	DBTransactionHandle transaction,
 	FFIString model,
-	scope const(FFICondition)* conditionTree,
+	scope const(FFICondition)* condition,
 	DBDeleteCallback callback,
 	void* context
 );
@@ -1136,7 +1154,7 @@ unittest
 	scope (exit)
 		rorm_db_free(dbHandle);
 
-	scope stream = sync_call!rorm_db_query_stream(dbHandle, null, "foo".ffi, ["name".ffi, "notes".ffi].ffi, null);
+	scope stream = sync_call!rorm_db_query_stream(dbHandle, null, "foo".ffi, ["name".ffi, "notes".ffi].ffi, FFIArray!FFIJoin.init, null, FFIOption!FFILimitClause.init);
 	scope (exit)
 		rorm_stream_free(stream);
 
@@ -1197,15 +1215,83 @@ version (unittest)
 	}
 }
 
+/**
+ * Representation of a join type.
+ */
 enum FFIJoinType
 {
+	/**
+	* Normal join operation.
+	*
+	* Equivalent to INNER JOIN
+	*/
 	join,
+	/**
+	* Cartesian product of the tables
+	*/
+	crossJoin,
+	/**
+	* Given:
+	* T1 LEFT JOIN T2 ON ..
+	*
+	* First, an inner join is performed.
+	* Then, for each row in T1 that does not satisfy the join condition with any row in T2,
+	* a joined row is added with null values in columns of T2.
+	*/
+	leftJoin,
+	/**
+	* Given:
+	* T1 RIGHT JOIN T2 ON ..
+	*
+	* First, an inner join is performed.
+	* Then, for each row in T2 that does not satisfy the join condition with any row in T1,
+	* a joined row is added with null values in columns of T1.
+	*/
+	rightJoin,
+	/**
+	* Given:
+	* T1 FULL JOIN T2 ON ..
+	*
+	* First, an inner join is performed.
+	* Then, for each row in T2 that does not satisfy the join condition with any row in T1,
+	* a joined row is added with null values in columns of T1.
+	* Also, for each row in T1 that does not satisfy the join condition with any row in T2,
+	* a joined row is added with null values in columns of T2.
+	*/
+	fullJoin,
 }
 
+
+/**
+ * FFI representation of a Join expression.
+ */
 struct FFIJoin
 {
-	FFIJoinType type;
-	FFIString modelName;
-	FFIString placeholder;
-	FFIOption!FFICondition condition;
+	/**
+	 * Type of the join operation
+	 */
+	FFIJoinType joinType;
+	/**
+	 * Name of the join table
+	 */
+	FFIString tableName;
+	/**
+	 * Alias for the join table
+	 */
+	FFIString joinAlias;
+	/**
+	 * Condition to apply the join on
+	 */
+	const(FFICondition)* joinCondition;
+
+	string toString() const @trusted pure
+	{
+		import std.conv;
+
+		return "FFIJoin("
+			~ joinType.to!string ~ ", "
+			~ tableName.data.idup ~ ", "
+			~ joinAlias.data.idup ~ ", "
+			~ (joinCondition ? joinCondition.toString : "(no condition)") ~ ")";
+	}
 }

@@ -96,6 +96,12 @@ struct ModelFormat
 		@serdeKeys("SourceDefinedAt")
 		SourceLocation definedAt;
 
+		@serdeIgnore
+		string selectorColumnName(string tableName) const @property
+		{
+			return tableName ~ "." ~ columnName ~ " AS __" ~ columnName;
+		}
+
 		/// Returns true if this field does not have the `notNull` AnnotationFlag
 		/// assigned, otherwise false.
 		@serdeIgnore
