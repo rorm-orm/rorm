@@ -918,7 +918,7 @@ unittest
 		DBAnnotation(maxLength(255)),
 		DBAnnotation(ForeignKeyImpl(
 			"user", "username",
-			doNothing, doNothing
+			noAction, noAction
 		))
 	]);
 }

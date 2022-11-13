@@ -589,7 +589,7 @@ private string toPascalCase(OnUpdateDeleteType type) @safe nothrow @nogc pure
 {
 	final switch (type)
 	{
-		case doNothing: return "DoNothing";
+		case noAction: return "NoAction";
 		case cascade: return "Cascade";
 		case setNull: return "SetNull";
 		case setDefault: return "SetDefault";
