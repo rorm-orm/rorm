@@ -74,6 +74,17 @@ impl From<DBConnectOptions<'_>> for Result<DatabaseConfiguration, Error<'_>> {
             },
         };
 
+        #[cfg(feature = "logging")]
+        return Ok(DatabaseConfiguration {
+            driver: d,
+            min_connections: config.min_connections,
+            max_connections: config.max_connections,
+            disable_logging: None,
+            statement_log_level: None,
+            slow_statement_log_level: None,
+        });
+
+        #[cfg(not(feature = "logging"))]
         Ok(DatabaseConfiguration {
             driver: d,
             min_connections: config.min_connections,
