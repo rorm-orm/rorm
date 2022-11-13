@@ -213,7 +213,7 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
                     }
                 }
 
-                write!(s, " FROM {}", d.from_clause).unwrap();
+                write!(s, " FROM \"{}\"", d.from_clause).unwrap();
 
                 for x in d.join_tables {
                     write!(s, " ").unwrap();
