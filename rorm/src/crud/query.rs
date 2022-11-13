@@ -187,7 +187,7 @@ impl<
                 &columns,
                 &[],
                 self.condition.as_option(),
-                self.limit.into_option(),
+                None,
                 self.transaction.into_option(),
             )
             .await
@@ -225,7 +225,7 @@ impl<
                 &columns,
                 &[],
                 self.condition.as_option(),
-                self.limit.into_option(),
+                None,
                 self.transaction.into_option(),
             )
             .await

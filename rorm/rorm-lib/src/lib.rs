@@ -462,7 +462,7 @@ pub extern "C" fn rorm_db_query_one(
     columns: FFISlice<'static, FFIColumnSelector<'static>>,
     joins: FFISlice<'static, FFIJoin<'static>>,
     condition: Option<&'static Condition>,
-    limit: FFIOption<FFILimitClause>,
+    offset: FFIOption<u64>,
     callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Row>>, Error) -> ()>,
     context: VoidPtr,
 ) {
@@ -474,7 +474,7 @@ pub extern "C" fn rorm_db_query_one(
         return;
     }
 
-    let limit = limit.into();
+    let offset = offset.into();
 
     let mut column_vec = vec![];
     {
@@ -584,7 +584,7 @@ pub extern "C" fn rorm_db_query_one(
                         column_vec.as_slice(),
                         join_vec.as_slice(),
                         None,
-                        limit,
+                        offset,
                         transaction,
                     )
                     .await
@@ -602,7 +602,7 @@ pub extern "C" fn rorm_db_query_one(
                     column_vec.as_slice(),
                     join_vec.as_slice(),
                     Some(&c),
-                    limit,
+                    offset,
                     transaction,
                 )
                 .await
