@@ -3,7 +3,7 @@ use rorm_declaration::hmr::db_type::{
 };
 
 use crate::conditional::*;
-use crate::internal::field::Field;
+use crate::internal::field::{Field, FieldProxy};
 use crate::value::Value;
 
 /// Trait for converting rust values into [`Condition::Value`]'s
@@ -23,9 +23,9 @@ impl<'a, S: AsRef<[u8]> + ?Sized> IntoCondValue<'a, VarBinary> for &'a S {
     }
 }
 
-impl<'a, T, D: DbType, M, A> IntoCondValue<'a, D> for &'static Field<T, D, M, A> {
+impl<'a, F: Field> IntoCondValue<'a, F::DbType> for &'static FieldProxy<F> {
     fn into_value(self) -> Value<'a> {
-        Value::Ident(self.name)
+        Value::Ident(F::NAME)
     }
 }
 
@@ -48,9 +48,9 @@ impl_numeric!(chrono::NaiveDateTime, NaiveDateTime, DateTime);
 impl_numeric!(chrono::NaiveTime, NaiveTime, Time);
 
 // Helper methods hiding most of the verbosity in creating Conditions
-impl<T, D, M, A> Field<T, D, M, A> {
+impl<F: Field> FieldProxy<F> {
     fn __column(&self) -> Condition<'static> {
-        Condition::Value(Value::Ident(self.name))
+        Condition::Value(Value::Ident(F::NAME))
     }
 
     fn __unary<'a>(
@@ -85,12 +85,12 @@ impl<T, D, M, A> Field<T, D, M, A> {
     }
 }
 
-impl<T, D: DbType, M, A> Field<T, D, M, A> {
+impl<F: Field> FieldProxy<F> {
     /// Check if this field's value lies between two other values
     pub fn between<'a>(
         &self,
-        lower: impl IntoCondValue<'a, D>,
-        upper: impl IntoCondValue<'a, D>,
+        lower: impl IntoCondValue<'a, F::DbType>,
+        upper: impl IntoCondValue<'a, F::DbType>,
     ) -> Condition<'a> {
         self.__ternary(
             TernaryCondition::Between,
@@ -102,8 +102,8 @@ impl<T, D: DbType, M, A> Field<T, D, M, A> {
     /// Check if this field's value does not lie between two other values
     pub fn not_between<'a>(
         &self,
-        lower: impl IntoCondValue<'a, D>,
-        upper: impl IntoCondValue<'a, D>,
+        lower: impl IntoCondValue<'a, F::DbType>,
+        upper: impl IntoCondValue<'a, F::DbType>,
     ) -> Condition<'a> {
         self.__ternary(
             TernaryCondition::NotBetween,
@@ -113,52 +113,52 @@ impl<T, D: DbType, M, A> Field<T, D, M, A> {
     }
 
     /// Check if this field's value is equal to another value
-    pub fn equals<'a>(&self, value: impl IntoCondValue<'a, D>) -> Condition<'a> {
+    pub fn equals<'a>(&self, value: impl IntoCondValue<'a, F::DbType>) -> Condition<'a> {
         self.__binary(BinaryCondition::Equals, value.into_value())
     }
 
     /// Check if this field's value is not equal to another value
-    pub fn not_equals<'a>(&self, value: impl IntoCondValue<'a, D>) -> Condition<'a> {
+    pub fn not_equals<'a>(&self, value: impl IntoCondValue<'a, F::DbType>) -> Condition<'a> {
         self.__binary(BinaryCondition::NotEquals, value.into_value())
     }
 
     /// Check if this field's value is greater than another value
-    pub fn greater<'a>(&self, value: impl IntoCondValue<'a, D>) -> Condition<'a> {
+    pub fn greater<'a>(&self, value: impl IntoCondValue<'a, F::DbType>) -> Condition<'a> {
         self.__binary(BinaryCondition::Greater, value.into_value())
     }
 
     /// Check if this field's value is greater than or equal to another value
-    pub fn greater_or_equals<'a>(&self, value: impl IntoCondValue<'a, D>) -> Condition<'a> {
+    pub fn greater_or_equals<'a>(&self, value: impl IntoCondValue<'a, F::DbType>) -> Condition<'a> {
         self.__binary(BinaryCondition::GreaterOrEquals, value.into_value())
     }
 
     /// Check if this field's value is less than another value
-    pub fn less<'a>(&self, value: impl IntoCondValue<'a, D>) -> Condition<'a> {
+    pub fn less<'a>(&self, value: impl IntoCondValue<'a, F::DbType>) -> Condition<'a> {
         self.__binary(BinaryCondition::Less, value.into_value())
     }
 
     /// Check if this field's value is less than or equal to another value
-    pub fn less_or_equals<'a>(&self, value: impl IntoCondValue<'a, D>) -> Condition<'a> {
+    pub fn less_or_equals<'a>(&self, value: impl IntoCondValue<'a, F::DbType>) -> Condition<'a> {
         self.__binary(BinaryCondition::LessOrEquals, value.into_value())
     }
 
     /// Check if this field's value is similar to another value
-    pub fn like<'a>(&self, value: impl IntoCondValue<'a, D>) -> Condition<'a> {
+    pub fn like<'a>(&self, value: impl IntoCondValue<'a, F::DbType>) -> Condition<'a> {
         self.__binary(BinaryCondition::Like, value.into_value())
     }
 
     /// Check if this field's value is not similar to another value
-    pub fn not_like<'a>(&self, value: impl IntoCondValue<'a, D>) -> Condition<'a> {
+    pub fn not_like<'a>(&self, value: impl IntoCondValue<'a, F::DbType>) -> Condition<'a> {
         self.__binary(BinaryCondition::NotLike, value.into_value())
     }
 
     /// Check if this field's value is matched by a regex
-    pub fn regexp<'a>(&self, value: impl IntoCondValue<'a, D>) -> Condition<'a> {
+    pub fn regexp<'a>(&self, value: impl IntoCondValue<'a, F::DbType>) -> Condition<'a> {
         self.__binary(BinaryCondition::Regexp, value.into_value())
     }
 
     /// Check if this field's value is not matched by a regex
-    pub fn not_regexp<'a>(&self, value: impl IntoCondValue<'a, D>) -> Condition<'a> {
+    pub fn not_regexp<'a>(&self, value: impl IntoCondValue<'a, F::DbType>) -> Condition<'a> {
         self.__binary(BinaryCondition::NotRegexp, value.into_value())
     }
 

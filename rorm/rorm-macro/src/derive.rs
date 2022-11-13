@@ -59,7 +59,9 @@ pub fn model(strct: TokenStream) -> TokenStream {
             .fields
             .into_iter()
             .enumerate()
-            .filter_map(|(index, field)| parse_field(index, field, &strct.ident, &errors)),
+            .filter_map(|(index, field)| {
+                parse_field(index, field, &strct.ident, &strct.vis, &errors)
+            }),
     );
 
     let mut primary_field: Option<&ParsedField> = None;
@@ -101,25 +103,27 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let impl_try_from_row = trait_impls::try_from_row(&model, &model, &fields_ident);
 
     let fields_vis = fields.iter().map(|field| &field.vis);
-    // let fields_ident = fields.iter().map(|field| &field.ident);
-    let fields_struct_type = fields.iter().map(|field| &field.struct_type);
-    let fields_construction = fields.iter().map(|field| &field.construction);
-    let primary_key_ident = &primary_field.ident;
-    let primary_key_type = &primary_field.value_type;
+    let fields_type: Vec<_> = fields.iter().map(|field| &field.type_ident).collect();
+    let fields_definition = fields.iter().map(|field| &field.definition);
+    let primary_key = &primary_field.type_ident;
     quote! {
+        #(
+            #[allow(non_camel_case_types)]
+            #fields_definition
+        )*
+
         #[allow(non_camel_case_types)]
         #vis struct #fields_struct {
-            #(#fields_vis #fields_ident: #fields_struct_type),*
+            #(#fields_vis #fields_ident: ::rorm::internal::field::FieldProxy<#fields_type>),*
         }
 
         impl ::rorm::model::Model for #model {
-            const PRIMARY: (&'static str, usize) = (Self::FIELDS.#primary_key_ident.name, Self::FIELDS.#primary_key_ident.index);
-            type Primary = #primary_key_type;
+            type Primary = #primary_key;
 
             type Fields = #fields_struct;
             const F: Self::Fields = #fields_struct {
                 #(
-                    #fields_ident: #fields_construction,
+                    #fields_ident: ::rorm::internal::field::FieldProxy(#fields_type),
                 )*
             };
 
@@ -129,7 +133,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
                 ::rorm::imr::Model {
                     name: #table_name.to_string(),
                     fields: vec![#(
-                        (&<#model as ::rorm::model::Model>::FIELDS.#fields_ident).into(),
+                        ::rorm::internal::field::as_imr::<#fields_type>(),
                     )*],
                     source_defined_at: #model_source,
                 }
@@ -138,15 +142,11 @@ pub fn model(strct: TokenStream) -> TokenStream {
 
         #[allow(non_upper_case_globals)]
         const #compile_check: () = {
-            #(
-                {const _CHECK: () = <#model as ::rorm::model::Model>::FIELDS.#fields_ident.check_annotations();}
-            )*
-
             // Cross field checks
             let mut count_auto_increment = 0;
             #(
                 let field = <#model as ::rorm::model::Model>::FIELDS.#fields_ident;
-                let annos = &field.annotations;
+                let annos = &field.annotations();
                 if annos.is_auto_increment_set() {
                     count_auto_increment += 1;
                 }
@@ -255,14 +255,14 @@ struct ParsedField {
     is_primary: bool,
     vis: syn::Visibility,
     ident: Ident,
-    value_type: syn::Type,
-    struct_type: TokenStream,
-    construction: TokenStream,
+    type_ident: Ident,
+    definition: TokenStream,
 }
 fn parse_field(
     index: usize,
     field: syn::Field,
     model_type: &Ident,
+    model_vis: &syn::Visibility,
     errors: &Errors,
 ) -> Option<ParsedField> {
     let ident = if let Some(ident) = field.ident {
@@ -311,33 +311,36 @@ fn parse_field(
     } else {
         quote! { <#value_type as ::rorm::internal::as_db_type::AsDbType>::DbType }
     };
+    let vis = if is_primary {
+        model_vis.clone()
+    } else {
+        field.vis
+    };
 
     let source = get_source(&ident);
 
     let builder_steps = annotations.iter_steps();
     let anno_type = annotations.get_type(&value_type);
 
+    let type_ident = format_ident!("__{}_{}", model_type, ident);
+    let definition = quote! {
+        #vis struct #type_ident;
+        impl ::rorm::internal::field::Field for #type_ident {
+            type Type = #value_type;
+            type DbType = #db_type;
+            type Model = #model_type;
+            const INDEX: usize = #index;
+            const NAME: &'static str = #db_name;
+            type Annotations = #anno_type;
+            const ANNOTATIONS: Self::Annotations = <#value_type as ::rorm::internal::as_db_type::AsDbType>::ANNOTATIONS #(#builder_steps)*;
+            const SOURCE: Option<::rorm::hmr::Source> = #source;
+        }
+    };
     Some(ParsedField {
         is_primary,
-        struct_type: quote! {
-            ::rorm::internal::field::Field<
-                #value_type,
-                #db_type,
-                #model_type,
-                #anno_type,
-            >
-        },
-        construction: quote! {
-            ::rorm::internal::field::Field {
-                index: #index,
-                name: #db_name,
-                annotations: <#value_type as ::rorm::internal::as_db_type::AsDbType>::ANNOTATIONS #(#builder_steps)* ,
-                source: #source,
-                _phantom: ::std::marker::PhantomData,
-            }
-        },
+        vis,
         ident,
-        value_type,
-        vis: field.vis,
+        type_ident,
+        definition,
     })
 }

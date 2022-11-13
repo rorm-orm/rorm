@@ -11,13 +11,13 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
             )*];
 
             const INDEXES: &'static [usize] = &[#(
-                <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.index,
+                <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.index(),
             )*];
 
             fn get(&self, index: usize) -> Option<::rorm::value::Value> {
                 use ::rorm::internal::as_db_type::AsDbType;
                 #(
-                    if index == <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.index {
+                    if index == <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.index() {
                         Some(self.#fields.as_primitive())
                     } else
                 )* {
@@ -35,7 +35,7 @@ pub fn try_from_row(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> T
                 Ok(#strct {
                     #(
                         #fields: <#model as ::rorm::model::Model>::FIELDS.#fields.convert_primitive(
-                            row.get(<#model as ::rorm::model::Model>::FIELDS.#fields.name)?
+                            row.get(<#model as ::rorm::model::Model>::FIELDS.#fields.name())?
                         ),
                     )*
                 })

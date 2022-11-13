@@ -7,11 +7,10 @@ use futures::{Stream, StreamExt};
 use rorm_db::select::LimitClause;
 use rorm_db::transaction::Transaction;
 use rorm_db::{conditional::Condition, error::Error, row::Row, Database};
-use rorm_declaration::hmr::db_type::DbType;
 
 use crate::crud::builder::{ConditionMarker, Sealed, TransactionMarker};
 use crate::internal::as_db_type::AsDbType;
-use crate::internal::field::Field;
+use crate::internal::field::{Field, FieldProxy};
 use crate::model::{Model, Patch};
 
 /// Builder for select queries
@@ -470,22 +469,22 @@ pub struct SelectTuple<T, const C: usize> {
 }
 macro_rules! impl_select_tuple {
     ($C:literal, ($($index:tt: <$T:ident, $D:ident, $A:ident>,)+)) => {
-        impl<M: Model, $($T, $D, $A,)+> SelectTuple<($(&'static Field<$T, $D, M, $A>,)+), $C> {
+        impl<M: Model, $($T: Field<Model = M>),+> SelectTuple<($(&'static FieldProxy<$T>,)+), $C> {
             /// Create a SelectTuple
-            pub const fn new(tuple: &($(&'static Field<$T, $D, M, $A>,)+)) -> Self {
+            pub const fn new(_tuple: &($(&'static FieldProxy<$T>,)+)) -> Self {
                 Self {
                     tuple: PhantomData,
-                    columns: [$(tuple.$index.name),+],
+                    columns: [$($T::NAME),+],
                 }
             }
         }
-        impl<M: Model, $($T: AsDbType, $D: DbType, $A,)+> Selector<M>
-            for SelectTuple<($(&'static Field<$T, $D, M, $A>,)+), $C>
+        impl<M: Model, $($T: Field<Model = M>),+> Selector<M>
+            for SelectTuple<($(&'static FieldProxy<$T>,)+), $C>
         {
-            type Result = ($($T,)+);
+            type Result = ($($T::Type,)+);
 
             fn decode(row: Row) -> Result<Self::Result, Error> {
-                Ok(($($T::from_primitive(row.get::<$T::Primitive, usize>($index)?),)+))
+                Ok(($($T::Type::from_primitive(row.get::<<<$T as Field>::Type as AsDbType>::Primitive, usize>($index)?),)+))
             }
 
             fn columns(&self) -> &[&'static str] {

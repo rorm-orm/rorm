@@ -6,6 +6,7 @@ use rorm_declaration::hmr;
 use rorm_declaration::hmr::annotations;
 
 use crate::annotation_builder::NotSetAnnotations;
+use crate::internal::field::Field;
 use crate::model::{DbEnum, ForeignModel};
 use crate::{annotation_builder, Model};
 
@@ -131,21 +132,21 @@ impl<E: DbEnum> AsDbType for E {
 }
 
 impl<M: Model> AsDbType for ForeignModel<M> {
-    type Primitive = <M::Primary as AsDbType>::Primitive;
-    type DbType = <M::Primary as AsDbType>::DbType;
+    type Primitive = <<M::Primary as Field>::Type as AsDbType>::Primitive;
+    type DbType = <<M::Primary as Field>::Type as AsDbType>::DbType;
 
-    type Annotations = <M::Primary as AsDbType>::Annotations;
-    const ANNOTATIONS: Self::Annotations = <M::Primary as AsDbType>::ANNOTATIONS;
+    type Annotations = <<M::Primary as Field>::Type as AsDbType>::Annotations;
+    const ANNOTATIONS: Self::Annotations = <<M::Primary as Field>::Type as AsDbType>::ANNOTATIONS;
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
-        Self::Key(M::Primary::from_primitive(primitive))
+        Self::Key(<M::Primary as Field>::Type::from_primitive(primitive))
     }
 
     fn as_primitive(&self) -> Value {
         match self {
             ForeignModel::Key(value) => value.as_primitive(),
             ForeignModel::Instance(model) => {
-                if let Some(value) = model.get(M::PRIMARY.1) {
+                if let Some(value) = model.get(<M::Primary as Field>::INDEX) {
                     value
                 } else {
                     unreachable!("A model should contain its primary key");
@@ -154,7 +155,8 @@ impl<M: Model> AsDbType for ForeignModel<M> {
         }
     }
 
-    const IS_NULLABLE: bool = <M::Primary as AsDbType>::IS_NULLABLE;
+    const IS_NULLABLE: bool = <<M::Primary as Field>::Type as AsDbType>::IS_NULLABLE;
 
-    const IS_FOREIGN: Option<(&'static str, &'static str)> = Some((M::TABLE, M::PRIMARY.0));
+    const IS_FOREIGN: Option<(&'static str, &'static str)> =
+        Some((M::TABLE, <M::Primary as Field>::NAME));
 }

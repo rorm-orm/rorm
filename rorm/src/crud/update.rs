@@ -9,11 +9,10 @@ use rorm_db::error::Error;
 use rorm_db::transaction::Transaction;
 use rorm_db::value::Value;
 use rorm_db::Database;
-use rorm_declaration::hmr::db_type::DbType;
 
 use crate::conditions::IntoCondValue;
 use crate::crud::builder::{ConditionMarker, Sealed, TransactionMarker};
-use crate::internal::field::Field;
+use crate::internal::field::{Field, FieldProxy};
 use crate::Model;
 
 /// Marker for the generic parameter storing a list of columns.
@@ -95,15 +94,15 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
     /// Add a column to update.
     ///
     /// Can be called multiple times.
-    pub fn set<FT, FD: DbType, FA>(
+    pub fn set<F: Field>(
         self,
-        field: Field<FT, FD, M, FA>,
-        value: impl IntoCondValue<'rf, FD>,
+        _field: FieldProxy<F>,
+        value: impl IntoCondValue<'rf, F::DbType>,
     ) -> UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T> {
         #[rustfmt::skip]
         let UpdateBuilder { db, _phantom, condition, transaction, .. } = self;
         #[rustfmt::skip]
-        return UpdateBuilder { db, columns: vec![(field.name, value.into_value())], _phantom, condition, transaction, };
+        return UpdateBuilder { db, columns: vec![(F::NAME, value.into_value())], _phantom, condition, transaction, };
     }
 }
 
@@ -113,13 +112,13 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
     /// Add a column to update.
     ///
     /// Can be called multiple times.
-    pub fn set<FT, FD: DbType, FA>(
+    pub fn set<F: Field>(
         self,
-        field: Field<FT, FD, M, FA>,
-        value: impl IntoCondValue<'rf, FD>,
+        _field: FieldProxy<F>,
+        value: impl IntoCondValue<'rf, F::DbType>,
     ) -> Self {
         let mut builder = self;
-        builder.columns.push((field.name, value.into_value()));
+        builder.columns.push((F::NAME, value.into_value()));
         builder
     }
 

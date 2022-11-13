@@ -1,4 +1,4 @@
-use crate::internal::as_db_type::AsDbType;
+use crate::internal::field::Field;
 use rorm_db::conditional::{self, Condition};
 use rorm_db::row::FromRow;
 use rorm_db::value::Value;
@@ -52,12 +52,15 @@ pub trait Patch: FromRow {
     /// This method defaults to using the primary key.
     /// If the patch does not store the models primary key, this method will return `None`.
     fn as_condition(&self) -> Option<Condition> {
-        self.get(Self::Model::PRIMARY.1).map(|value| {
-            Condition::BinaryCondition(conditional::BinaryCondition::Equals(Box::new([
-                Condition::Value(Value::Ident(Self::Model::PRIMARY.0)),
-                Condition::Value(value),
-            ])))
-        })
+        self.get(<<Self::Model as Model>::Primary as Field>::INDEX)
+            .map(|value| {
+                Condition::BinaryCondition(conditional::BinaryCondition::Equals(Box::new([
+                    Condition::Value(Value::Ident(
+                        <<Self::Model as Model>::Primary as Field>::NAME,
+                    )),
+                    Condition::Value(value),
+                ])))
+            })
     }
 }
 
@@ -86,11 +89,8 @@ pub fn iter_columns<P: Patch>(patch: &P) -> impl Iterator<Item = Value> {
 ///
 /// It should only ever be generated using [`derive(Model)`](rorm_macro::Model).
 pub trait Model: Patch<Model = Self> {
-    /// The primary key's name and index
-    const PRIMARY: (&'static str, usize);
-
-    /// The primary key's data type
-    type Primary: AsDbType;
+    /// The primary key
+    type Primary: Field;
 
     /// A struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`](crate::internal::field::Field)).
     ///
@@ -121,10 +121,21 @@ pub trait Model: Patch<Model = Self> {
 /// Stores a link to another model in a field.
 ///
 /// In database language, this is a many to one relation.
-#[derive(Clone)]
 pub enum ForeignModel<M: Model> {
     /// The other model's primary key which can be used to query it later.
-    Key(M::Primary),
+    Key(<M::Primary as Field>::Type),
     /// The other model's queried instance.
     Instance(Box<M>),
+}
+impl<M: Model> Clone for ForeignModel<M>
+where
+    M: Clone,
+    <M::Primary as Field>::Type: Clone,
+{
+    fn clone(&self) -> Self {
+        match self {
+            ForeignModel::Key(primary) => ForeignModel::Key(primary.clone()),
+            ForeignModel::Instance(model) => ForeignModel::Instance(model.clone()),
+        }
+    }
 }
