@@ -1,4 +1,5 @@
 use rorm_db::join_table::JoinType;
+use rorm_db::select::LimitClause;
 use rorm_db::{DatabaseConfiguration, DatabaseDriver};
 
 use crate::utils::FFIOption;
@@ -491,4 +492,13 @@ FFI representation of a Limit clause.
 pub struct FFILimitClause {
     pub(crate) limit: u64,
     pub(crate) offset: FFIOption<u64>,
+}
+
+impl From<FFILimitClause> for LimitClause {
+    fn from(v: FFILimitClause) -> Self {
+        Self {
+            limit: v.limit,
+            offset: v.offset.into(),
+        }
+    }
 }
