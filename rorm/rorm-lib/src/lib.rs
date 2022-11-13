@@ -60,6 +60,8 @@ pub extern "C" fn rorm_runtime_start(
             match Runtime::new() {
                 Ok(rt) => {
                     *rt_opt = Some(rt);
+                    #[cfg(feature = "logging")]
+                    env_logger::init();
 
                     unsafe { cb(context, Error::NoError) }
                 }
