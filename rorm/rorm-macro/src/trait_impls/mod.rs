@@ -7,7 +7,7 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
             type Model = #model;
 
             const COLUMNS: &'static [&'static str] = &[#(
-                stringify!(#fields),
+                <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.name(),
             )*];
 
             const INDEXES: &'static [usize] = &[#(
