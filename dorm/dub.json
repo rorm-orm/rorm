@@ -19,7 +19,12 @@
 	],
 	"libs": ["rorm"],
 	"lflags-linux": ["-L$PACKAGE_DIR", "-R$PACKAGE_DIR"],
-	"lflags-osx": ["-L$PACKAGE_DIR"],
+	"lflags-osx": [
+		"-L$PACKAGE_DIR",
+		"-framework", "CoreFoundation",
+		"-framework", "SystemConfiguration",
+		"-framework", "SecurityFoundation"
+	],
 	"description": "A D ORM.",
 	"dflags": [
 		"-lowmem"
