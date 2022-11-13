@@ -444,7 +444,7 @@ specify a null pointer.
 - `columns`: Array of columns to retrieve from the database.
 - `joins`: Array of joins to add to the query.
 - `condition`: Pointer to a [Condition].
-- `limit`: Optional limit / offset to set to the query.
+- `offset`: Optional offset to set to the query.
 - `callback`: callback function. Takes the `context`, a pointer to a row and an [Error].
 - `context`: Pass through void pointer.
 
@@ -608,6 +608,216 @@ pub extern "C" fn rorm_db_query_one(
                 .await
             {
                 Ok(v) => unsafe { cb(context, Some(Box::new(v)), Error::NoError) },
+                Err(err) => {
+                    let ffi_str = err.to_string();
+                    unsafe { cb(context, None, Error::DatabaseError(ffi_str.as_str().into())) }
+                }
+            },
+        }
+    };
+
+    let f = |err: String| {
+        unsafe { cb(context, None, Error::RuntimeError(err.as_str().into())) };
+    };
+    spawn_fut!(fut, cb(context, None, Error::MissingRuntimeError), f);
+}
+
+/**
+This function queries the database given the provided parameter and returns one optional matched row.
+If no results could be retrieved, None is returned.
+
+To include the statement in a transaction specify `transaction` as a valid
+Transaction. As the Transaction needs to be mutable, it is important to not
+use the Transaction anywhere else until the callback is finished.
+
+If the statement should be executed **not** in a Transaction,
+specify a null pointer.
+
+**Parameter**:
+- `db`: Reference to the Database, provided by [rorm_db_connect].
+- `transaction`: Mutable pointer to a Transaction. Can be a null pointer to ignore this parameter.
+- `model`: Name of the table to query.
+- `columns`: Array of columns to retrieve from the database.
+- `joins`: Array of joins to add to the query.
+- `condition`: Pointer to a [Condition].
+- `offset`: Optional offset to set to the query.
+- `callback`: callback function. Takes the `context`, a pointer to a row and an [Error].
+- `context`: Pass through void pointer.
+
+**Important**:
+- Make sure that `db`, `model`, `columns`, `joins` and `condition` are
+allocated until the callback is executed.
+
+This function is called from an asynchronous context.
+ */
+#[no_mangle]
+pub extern "C" fn rorm_db_query_optional(
+    db: &'static Database,
+    transaction: Option<&'static mut Transaction>,
+    model: FFIString<'static>,
+    columns: FFISlice<'static, FFIColumnSelector<'static>>,
+    joins: FFISlice<'static, FFIJoin<'static>>,
+    condition: Option<&'static Condition>,
+    offset: FFIOption<u64>,
+    callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Row>>, Error) -> ()>,
+    context: VoidPtr,
+) {
+    let cb = callback.expect("Callback must not be empty");
+
+    let model_conv = model.try_into();
+    if model_conv.is_err() {
+        unsafe { cb(context, None, Error::InvalidStringError) };
+        return;
+    }
+
+    let offset = offset.into();
+
+    let mut column_vec = vec![];
+    {
+        let column_slice: &[FFIColumnSelector] = columns.into();
+        for x in column_slice {
+            let table_name_conv: Option<FFIString> = (&x.table_name).into();
+            let table_name = match table_name_conv {
+                None => None,
+                Some(v) => {
+                    let Ok(s) = v.try_into() else {
+                        unsafe { cb(context, None, Error::InvalidStringError) };
+                        return;
+                    };
+                    Some(s)
+                }
+            };
+
+            let Ok(column_name) = x.column_name.try_into() else {
+                unsafe { cb(context, None, Error::InvalidStringError) };
+                return;
+            };
+
+            let select_alias_conv: Option<FFIString> = (&x.select_alias).into();
+            let select_alias = match select_alias_conv {
+                None => None,
+                Some(v) => {
+                    let Ok(s) = v.try_into() else {
+                        unsafe { cb(context, None, Error::InvalidStringError) };
+                        return;
+                    };
+                    Some(s)
+                }
+            };
+
+            column_vec.push(db.get_sql_dialect().select_column(
+                table_name,
+                column_name,
+                select_alias,
+            ));
+        }
+    }
+
+    let mut join_tuple = vec![];
+    {
+        let join_slice: &[FFIJoin] = joins.into();
+        for x in join_slice {
+            let join_type = x.join_type.into();
+
+            let Ok(table_name) = x.table_name.try_into() else {
+                unsafe { cb(context, None, Error::InvalidStringError) };
+                return;
+            };
+
+            let Ok(join_alias) = x.join_alias.try_into() else {
+                unsafe { cb(context, None, Error::InvalidStringError) };
+                return;
+            };
+
+            let join_condition: rorm_db::conditional::Condition = match x.join_condition.try_into()
+            {
+                Err(err) => match err {
+                    Error::InvalidStringError
+                    | Error::InvalidDateError
+                    | Error::InvalidTimeError
+                    | Error::InvalidDateTimeError => {
+                        unsafe { cb(context, None, err) };
+                        return;
+                    }
+                    _ => unreachable!("This error should never occur"),
+                },
+                Ok(v) => v,
+            };
+
+            join_tuple.push((join_type, table_name, join_alias, join_condition));
+        }
+    }
+
+    let cond = if let Some(cond) = condition {
+        let cond_conv = cond.try_into();
+        if cond_conv.is_err() {
+            match cond_conv.as_ref().err().unwrap() {
+                Error::InvalidStringError
+                | Error::InvalidDateError
+                | Error::InvalidTimeError
+                | Error::InvalidDateTimeError => unsafe {
+                    cb(context, None, cond_conv.err().unwrap())
+                },
+                _ => {}
+            }
+            return;
+        }
+        Some(cond_conv.unwrap())
+    } else {
+        None
+    };
+
+    let fut = async move {
+        let join_vec: Vec<JoinTableImpl> = join_tuple
+            .iter()
+            .map(|(a, b, c, d)| db.get_sql_dialect().join_table(*a, *b, *c, &d))
+            .collect();
+        match cond {
+            None => {
+                match db
+                    .query_optional(
+                        model_conv.unwrap(),
+                        column_vec.as_slice(),
+                        join_vec.as_slice(),
+                        None,
+                        offset,
+                        transaction,
+                    )
+                    .await
+                {
+                    Ok(v) => match v {
+                        None => {
+                            unsafe { cb(context, None, Error::NoError) };
+                        }
+                        Some(row) => {
+                            unsafe { cb(context, Some(Box::new(row)), Error::NoError) };
+                        }
+                    },
+                    Err(err) => {
+                        let ffi_str = err.to_string();
+                        unsafe { cb(context, None, Error::DatabaseError(ffi_str.as_str().into())) };
+                    }
+                };
+            }
+            Some(c) => match db
+                .query_optional(
+                    model_conv.unwrap(),
+                    column_vec.as_slice(),
+                    join_vec.as_slice(),
+                    Some(&c),
+                    offset,
+                    transaction,
+                )
+                .await
+            {
+                Ok(v) => match v {
+                    None => {
+                        unsafe { cb(context, None, Error::NoError) };
+                    }
+                    Some(row) => {
+                        unsafe { cb(context, Some(Box::new(row)), Error::NoError) };
+                    }
+                },
                 Err(err) => {
                     let ffi_str = err.to_string();
                     unsafe { cb(context, None, Error::DatabaseError(ffi_str.as_str().into())) }
