@@ -30,6 +30,8 @@ pub mod join_table;
 pub mod on_conflict;
 /// Implementation of SQL SELECT statements
 pub mod select;
+/// Implementation of identifiers in select queries
+pub mod select_column;
 /// Implementation of SQL UPDATE statements
 pub mod update;
 /// Implementation of supported datatypes
@@ -62,6 +64,7 @@ use crate::create_column::CreateColumnMySQLData;
 use crate::create_column::CreateColumnPostgresData;
 #[cfg(feature = "sqlite")]
 use crate::create_column::CreateColumnSQLiteData;
+use crate::select_column::{SelectColumnData, SelectColumnImpl};
 
 /**
 The main interface for creating sql strings
@@ -298,7 +301,7 @@ impl DBImpl {
     */
     pub fn select<'until_build, 'post_build>(
         &self,
-        columns: &'until_build [&'until_build str],
+        columns: &'until_build [SelectColumnImpl],
         from_clause: &'until_build str,
         joins: &'until_build [JoinTableImpl<'until_build, 'post_build>],
     ) -> impl Select<'until_build, 'post_build> {
@@ -438,6 +441,36 @@ impl DBImpl {
             DBImpl::MySQL => JoinTableImpl::MySQL(d),
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => JoinTableImpl::Postgres(d),
+        }
+    }
+
+    /**
+    The entry point for a column selector builder.
+
+    **Parameter**:
+    - `table_name`: Optional table name
+    - `column_name`: Name of the column
+    - `select_alias`: Alias for the selector
+     */
+    pub fn select_column<'until_build>(
+        &self,
+        table_name: Option<&'until_build str>,
+        column_name: &'until_build str,
+        select_alias: Option<&'until_build str>,
+    ) -> SelectColumnImpl<'until_build> {
+        let d = SelectColumnData {
+            table_name,
+            column_name,
+            select_alias,
+        };
+
+        match self {
+            #[cfg(feature = "sqlite")]
+            DBImpl::SQLite => SelectColumnImpl::SQLite(d),
+            #[cfg(feature = "mysql")]
+            DBImpl::MySQL => SelectColumnImpl::MySQL(d),
+            #[cfg(feature = "postgres")]
+            DBImpl::Postgres => SelectColumnImpl::Postgres(d),
         }
     }
 }

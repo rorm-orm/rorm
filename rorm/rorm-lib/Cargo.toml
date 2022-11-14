@@ -30,8 +30,13 @@ sqlx = { version = "^0.6" }
 # Date and time library
 chrono = { version = "^0.4" }
 
+# Optional logging framework
+env_logger = { version = "0.9", optional = true }
+
 [features]
 default = [
     "rorm-db/tokio-rustls",
     "tokio/rt-multi-thread",
 ]
+
+logging = ["dep:env_logger"]

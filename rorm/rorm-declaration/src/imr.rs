@@ -1,5 +1,6 @@
 //! The Internal Model Representation used by our migration cli tool
 use std::collections::hash_map::DefaultHasher;
+use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 
 use ordered_float::OrderedFloat;
@@ -268,9 +269,12 @@ mod test {
 pub struct ForeignKey {
     /// Name of the table that should be referenced
     pub table_name: String,
-
     /// Name of the column that should be referenced
     pub column_name: String,
+    /// Action to be used in case of on delete
+    pub on_delete: ReferentialAction,
+    /// Action to be used in case of an update
+    pub on_update: ReferentialAction,
 }
 
 impl Default for ForeignKey {
@@ -278,6 +282,41 @@ impl Default for ForeignKey {
         ForeignKey {
             table_name: String::from(""),
             column_name: String::from(""),
+            on_delete: Default::default(),
+            on_update: Default::default(),
+        }
+    }
+}
+
+/**
+Action that gets trigger on update and on delete.
+*/
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub enum ReferentialAction {
+    /// Stop operation if any keys still depend on the parent table
+    Restrict,
+    /// The action is cascaded
+    Cascade,
+    /// The field is set to null
+    SetNull,
+    /// The field is set to its default
+    SetDefault,
+}
+
+impl Default for ReferentialAction {
+    fn default() -> Self {
+        Self::Restrict
+    }
+}
+
+impl Display for ReferentialAction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReferentialAction::Restrict => write!(f, "RESTRICT"),
+            ReferentialAction::Cascade => write!(f, "CASCADE"),
+            ReferentialAction::SetNull => write!(f, "SET NULL"),
+            ReferentialAction::SetDefault => write!(f, "SET DEFAULT"),
         }
     }
 }

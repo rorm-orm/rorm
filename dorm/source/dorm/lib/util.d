@@ -11,7 +11,7 @@ import dorm.lib.ffi;
 struct FreeableAsyncResult(T)
 {
 	Event event;
-	static if (is(T == void delegate(scope U value), U))
+	static if (is(T : void delegate(scope U value), U))
 		T forward_callback;
 	else static if (!is(T == void))
 		T raw_result;
@@ -31,7 +31,7 @@ struct FreeableAsyncResult(T)
 
 	static if (is(T == void))
 		alias Callback = extern(C) void function(void* data, scope RormError error) nothrow;
-	else static if (is(T == void delegate(scope V value), V))
+	else static if (is(T : void delegate(scope V value), V))
 		alias Callback = extern(C) void function(void* data, scope V result, scope RormError error) nothrow;
 	else static if (__traits(isPOD, T) || is(T == P*, P))
 		alias Callback = extern(C) void function(void* data, T result, scope RormError error) nothrow;
@@ -43,16 +43,22 @@ struct FreeableAsyncResult(T)
 		{
 			extern(C) static void ret(void* data, scope RormError error) nothrow
 			{
+				static if (DormFFITrace)
+					debug dormTraceCallback(error);
+
 				auto res = cast(FreeableAsyncResult*)data;
 				if (error)
 					res.error = error.makeException;
 				res.event.set();
 			}
 		}
-		else static if (is(T == void delegate(scope U value), U))
+		else static if (is(T : void delegate(scope U value), U))
 		{
 			extern(C) static void ret(void* data, scope U result, scope RormError error) nothrow
 			{
+				static if (DormFFITrace)
+					debug dormTraceCallback(result, error);
+
 				auto res = cast(FreeableAsyncResult*)data;
 				if (error)
 					res.error = error.makeException;
@@ -74,6 +80,9 @@ struct FreeableAsyncResult(T)
 		{
 			extern(C) static void ret(void* data, T result, scope RormError error) nothrow
 			{
+				static if (DormFFITrace)
+					debug dormTraceCallback(result, error);
+
 				auto res = cast(FreeableAsyncResult*)data;
 				if (error)
 					res.error = error.makeException;
@@ -92,7 +101,7 @@ struct FreeableAsyncResult(T)
 		if (error)
 			throw error;
 		static if (!is(T == void)
-			&& !is(T == void delegate(scope U value), U))
+			&& !is(T : void delegate(scope U value), U))
 			return raw_result;
 	}
 
@@ -100,7 +109,7 @@ struct FreeableAsyncResult(T)
 	{
 		(() @trusted => event.reset())();
 		static if (!is(T == void)
-			&& !is(T == void delegate(scope U value), U))
+			&& !is(T : void delegate(scope U value), U))
 			raw_result = T.init;
 		error = null;
 	}
@@ -127,6 +136,9 @@ auto sync_call(alias fn)(Parameters!fn[0 .. $ - 2] args) @trusted
 
 	extern(C) static void callback(Parameters!(Parameters!fn[$ - 2]) args) nothrow
 	{
+		static if (DormFFITrace)
+			debug dormTraceSyncCallback(args[1 .. $]);
+
 		auto result = cast(Result*)(args[0]);
 		static if (!isVoid)
 			auto data = args[1];

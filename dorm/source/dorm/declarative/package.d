@@ -48,6 +48,7 @@ struct ModelFormat
 	 */
 	struct Field
 	{
+	@safe:
 		/// List of different (generic) database column types.
 		@serdeProxy!string
 		enum DBType
@@ -95,12 +96,19 @@ struct ModelFormat
 		@serdeKeys("SourceDefinedAt")
 		SourceLocation definedAt;
 
+		@serdeIgnore
+		string selectorColumnName(string tableName) const @property
+		{
+			return tableName ~ "." ~ columnName ~ " AS __" ~ columnName;
+		}
+
 		/// Returns true if this field does not have the `notNull` AnnotationFlag
 		/// assigned, otherwise false.
 		@serdeIgnore
 		bool isNullable() const @property
 		{
-			return !hasFlag(AnnotationFlag.notNull);
+			return !hasFlag(AnnotationFlag.notNull)
+				&& !hasFlag(AnnotationFlag.primaryKey);
 		}
 
 		/// Returns true iff this field has the `primaryKey` AnnotationFlag.
@@ -332,7 +340,7 @@ enum AnnotationFlag
 	notNull
 }
 
-private bool isCompatibleFlags(AnnotationFlag a, AnnotationFlag b)
+private bool isCompatibleFlags(AnnotationFlag a, AnnotationFlag b) @safe
 {
 	final switch (a) with (AnnotationFlag)
 	{
@@ -374,6 +382,7 @@ private bool isCompatibleFlags(AnnotationFlag a, AnnotationFlag b)
 @serdeProxy!IonDBAnnotation
 struct DBAnnotation
 {
+@safe:
 	SumType!(
 		AnnotationFlag,
 		maxLength,
@@ -580,7 +589,7 @@ private string toPascalCase(OnUpdateDeleteType type) @safe nothrow @nogc pure
 {
 	final switch (type)
 	{
-		case doNothing: return "DoNothing";
+		case restrict: return "Restrict";
 		case cascade: return "Cascade";
 		case setNull: return "SetNull";
 		case setDefault: return "SetDefault";

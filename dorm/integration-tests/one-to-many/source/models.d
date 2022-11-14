@@ -7,7 +7,7 @@ mixin RegisterModels;
 class User : Model
 {
 	@maxLength(255) @primaryKey
-	string username;
+	string id;
 	@maxLength(255)
 	string fullName;
 	@maxLength(255)
@@ -26,16 +26,23 @@ class Toot : Model
 @DormPatch!User
 struct UserPublic
 {
-	string username;
+	string id;
 	string fullName;
 }
 
 class Comment : Model
 {
-	ModelRef!Toot replyTo;
+	struct Fields
+	{
+		ModelRef!Toot replyTo;
 
-	@maxLength(255)
-	string message;
+		@maxLength(255)
+		string message;
 
-	ModelRef!UserPublic author;
+		ModelRef!UserPublic author;
+	}
+
+	@embedded
+	Fields fields;
+	alias fields this;
 }

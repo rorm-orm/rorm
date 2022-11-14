@@ -1,4 +1,5 @@
 use rorm_db::join_table::JoinType;
+use rorm_db::select::LimitClause;
 use rorm_db::{DatabaseConfiguration, DatabaseDriver};
 
 use crate::utils::FFIOption;
@@ -74,6 +75,17 @@ impl From<DBConnectOptions<'_>> for Result<DatabaseConfiguration, Error<'_>> {
             },
         };
 
+        #[cfg(feature = "logging")]
+        return Ok(DatabaseConfiguration {
+            driver: d,
+            min_connections: config.min_connections,
+            max_connections: config.max_connections,
+            disable_logging: None,
+            statement_log_level: None,
+            slow_statement_log_level: None,
+        });
+
+        #[cfg(not(feature = "logging"))]
         Ok(DatabaseConfiguration {
             driver: d,
             min_connections: config.min_connections,
@@ -480,4 +492,23 @@ FFI representation of a Limit clause.
 pub struct FFILimitClause {
     pub(crate) limit: u64,
     pub(crate) offset: FFIOption<u64>,
+}
+
+impl From<FFILimitClause> for LimitClause {
+    fn from(v: FFILimitClause) -> Self {
+        Self {
+            limit: v.limit,
+            offset: v.offset.into(),
+        }
+    }
+}
+
+/**
+FFI representation of a [SelectColumnImpl]
+*/
+#[repr(C)]
+pub struct FFIColumnSelector<'a> {
+    pub(crate) table_name: FFIOption<FFIString<'a>>,
+    pub(crate) column_name: FFIString<'a>,
+    pub(crate) select_alias: FFIOption<FFIString<'a>>,
 }

@@ -227,15 +227,24 @@ macro_rules! ffi_opt_impl {
     };
 }
 
+macro_rules! opt_ffi_impl {
+    ($from:ty, $to:ty) => {
+        impl From<FFIOption<$from>> for Option<$to> {
+            fn from(value: FFIOption<$from>) -> Self {
+                match value {
+                    FFIOption::None => None,
+                    FFIOption::Some(v) => Some(v.into()),
+                }
+            }
+        }
+    };
+}
+
 ffi_opt_impl!(chrono::NaiveTime, FFITime);
 ffi_opt_impl!(chrono::NaiveDate, FFIDate);
 ffi_opt_impl!(chrono::NaiveDateTime, FFIDateTime);
 
-impl From<FFIOption<FFILimitClause>> for Option<LimitClause> {
-    fn from(v: FFIOption<FFILimitClause>) -> Self {
-        v.into()
-    }
-}
+opt_ffi_impl!(FFILimitClause, LimitClause);
 
 impl<T> From<Option<T>> for FFIOption<T> {
     fn from(option: Option<T>) -> Self {
@@ -251,6 +260,18 @@ impl<T> From<FFIOption<T>> for Option<T> {
         match option {
             FFIOption::None => None,
             FFIOption::Some(v) => Some(v),
+        }
+    }
+}
+
+impl<T> From<&FFIOption<T>> for Option<T>
+where
+    T: Clone,
+{
+    fn from(v: &FFIOption<T>) -> Self {
+        match v {
+            FFIOption::None => None,
+            FFIOption::Some(v) => Some(v.clone()),
         }
     }
 }

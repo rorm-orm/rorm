@@ -12,6 +12,7 @@ use rorm_sql::delete::Delete;
 use rorm_sql::insert::Insert;
 use rorm_sql::join_table::JoinTableImpl;
 use rorm_sql::select::{LimitClause, Select};
+use rorm_sql::select_column::SelectColumnImpl;
 use rorm_sql::update::Update;
 use rorm_sql::{conditional, value, DBImpl};
 use sqlx::any::AnyPoolOptions;
@@ -250,7 +251,7 @@ impl Database {
     pub fn query_stream<'db, 'post_query, 'stream>(
         &'db self,
         model: &str,
-        columns: &[&str],
+        columns: &[SelectColumnImpl<'_>],
         joins: &[JoinTableImpl<'_, 'post_query>],
         conditions: Option<&conditional::Condition<'post_query>>,
         limit: Option<LimitClause>,
@@ -289,26 +290,24 @@ impl Database {
     - `columns`: Columns to retrieve values from.
     - `joins`: Join tables expressions.
     - `conditions`: Optional conditions to apply.
-    - `limit`: Optional limit / offset to apply to the query.
+    - `offset`: Optional offset to apply to the query.
     - `transaction`: Optional transaction to execute the query on.
      */
     #[allow(clippy::too_many_arguments)]
     pub async fn query_one(
         &self,
         model: &str,
-        columns: &[&str],
+        columns: &[SelectColumnImpl<'_>],
         joins: &[JoinTableImpl<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
-        limit: Option<LimitClause>,
+        offset: Option<u64>,
         transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Row, Error> {
         let mut q = self.db_impl.select(columns, model, joins);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
         }
-        if let Some(limit) = limit {
-            q = q.limit_clause(limit);
-        }
+        q = q.limit_clause(LimitClause { limit: 1, offset });
 
         let (query_string, bind_params) = q.build();
 
@@ -341,26 +340,24 @@ impl Database {
     - `columns`: Columns to retrieve values from.
     - `joins`: Join tables expressions.
     - `conditions`: Optional conditions to apply.
-    - `limit`: Optional limit / offset to apply to the query.
+    - `offset`: Optional offset to apply to the query.
     - `transaction`: Optional transaction to execute the query on.
      */
     #[allow(clippy::too_many_arguments)]
     pub async fn query_optional(
         &self,
         model: &str,
-        columns: &[&str],
+        columns: &[SelectColumnImpl<'_>],
         joins: &[JoinTableImpl<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
-        limit: Option<LimitClause>,
+        offset: Option<u64>,
         transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Option<Row>, Error> {
         let mut q = self.db_impl.select(columns, model, joins);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
         }
-        if let Some(limit) = limit {
-            q = q.limit_clause(limit);
-        }
+        q = q.limit_clause(LimitClause { limit: 1, offset });
 
         let (query_string, bind_params) = q.build();
 
@@ -400,7 +397,7 @@ impl Database {
     pub async fn query_all(
         &self,
         model: &str,
-        columns: &[&str],
+        columns: &[SelectColumnImpl<'_>],
         joins: &[JoinTableImpl<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
         limit: Option<LimitClause>,

@@ -87,24 +87,24 @@ abstract class Model
 
     /// Runs the defined `@validator` functions on fields, returns a list of
     /// failed fields.
-    ModelFormat.Field[] runValidators(this This)()
+    ModelFormat.Field[] runValidators(this This)() pure @safe nothrow
     {
+        static struct ValidatorInfo {
+            int type;
+            ValidatorRef validator;
+            Choices choices;
+            ModelFormat.Field field;
+        }
         ModelFormat.Field[] failedFields;
         enum validatorFuncs = {
-            struct Ret {
-                int type;
-                ValidatorRef validator;
-                Choices choices;
-                ModelFormat.Field field;
-            }
-            Ret[] ret;
+            ValidatorInfo[] ret;
             foreach (ref field; DormFields!This)
             {
                 foreach (ref annotation; field.internalAnnotations)
                 {
                     annotation.match!(
                         (ValidatorRef validator) {
-                            ret ~= Ret(0, validator, Choices.init, field);
+                            ret ~= ValidatorInfo(0, validator, Choices.init, field);
                         },
                         (_) {}
                     );
@@ -113,7 +113,7 @@ abstract class Model
                 {
                     annotation.value.match!(
                         (Choices choices) {
-                            ret ~= Ret(1, ValidatorRef.init, choices, field);
+                            ret ~= ValidatorInfo(1, ValidatorRef.init, choices, field);
                         },
                         (_) {}
                     );

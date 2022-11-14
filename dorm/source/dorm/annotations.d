@@ -89,13 +89,13 @@ struct ForeignKeyImpl
 
 enum OnUpdateDeleteType
 {
-	doNothing,
+	restrict,
 	cascade,
 	setNull,
 	setDefault
 }
 
-enum doNothing = OnUpdateDeleteType.doNothing;
+enum restrict = OnUpdateDeleteType.restrict;
 enum cascade = OnUpdateDeleteType.cascade;
 enum setNull = OnUpdateDeleteType.setNull;
 enum setDefault = OnUpdateDeleteType.setDefault;

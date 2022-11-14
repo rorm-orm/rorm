@@ -12,6 +12,7 @@ use crate::crud::builder::{ConditionMarker, Sealed, TransactionMarker};
 use crate::internal::as_db_type::AsDbType;
 use crate::internal::field::{Field, FieldProxy};
 use crate::model::{Model, Patch};
+use crate::select_column::SelectColumnImpl;
 
 /// Builder for select queries
 ///
@@ -151,10 +152,16 @@ impl<
 {
     /// Retrieve all matching rows
     pub async fn all_as_rows(self) -> Result<Vec<Row>, Error> {
+        let columns: Vec<SelectColumnImpl> = self
+            .selector
+            .columns()
+            .iter()
+            .map(|x| self.db.get_sql_dialect().select_column(None, x, None))
+            .collect();
         self.db
             .query_all(
                 M::TABLE,
-                self.selector.columns(),
+                &columns,
                 &[],
                 self.condition.as_option(),
                 self.limit.into_option(),
@@ -167,13 +174,19 @@ impl<
     ///
     /// An error is returned if no value could be retrieved.
     pub async fn one_as_row(self) -> Result<Row, Error> {
+        let columns: Vec<SelectColumnImpl> = self
+            .selector
+            .columns()
+            .iter()
+            .map(|x| self.db.get_sql_dialect().select_column(None, x, None))
+            .collect();
         self.db
             .query_one(
                 M::TABLE,
-                self.selector.columns(),
+                &columns,
                 &[],
                 self.condition.as_option(),
-                self.limit.into_option(),
+                None,
                 self.transaction.into_option(),
             )
             .await
@@ -181,9 +194,15 @@ impl<
 
     /// Retrieve the query as a stream of rows
     pub fn stream_as_row(self) -> BoxStream<'rf, Result<Row, Error>> {
+        let columns: Vec<SelectColumnImpl> = self
+            .selector
+            .columns()
+            .iter()
+            .map(|x| self.db.get_sql_dialect().select_column(None, x, None))
+            .collect();
         self.db.query_stream(
             M::TABLE,
-            self.selector.columns(),
+            &columns,
             &[],
             self.condition.as_option(),
             self.limit.into_option(),
@@ -193,13 +212,19 @@ impl<
 
     /// Try to retrieve the a matching row
     pub async fn optional_as_row(self) -> Result<Option<Row>, Error> {
+        let columns: Vec<SelectColumnImpl> = self
+            .selector
+            .columns()
+            .iter()
+            .map(|x| self.db.get_sql_dialect().select_column(None, x, None))
+            .collect();
         self.db
             .query_optional(
                 M::TABLE,
-                self.selector.columns(),
+                &columns,
                 &[],
                 self.condition.as_option(),
-                self.limit.into_option(),
+                None,
                 self.transaction.into_option(),
             )
             .await

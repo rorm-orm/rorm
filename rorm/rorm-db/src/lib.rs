@@ -125,7 +125,7 @@ pub use rorm_declaration::config::DatabaseDriver;
     feature = "actix-native-tls",
     feature = "actix-rustls"
 ))]
-pub use rorm_sql::{and, conditional, join_table, or, select, value};
+pub use rorm_sql::{and, conditional, join_table, or, select, select_column, value};
 
 #[cfg(any(
     feature = "async-std-native-tls",

@@ -2,6 +2,7 @@ use std::fmt::Write;
 
 use crate::conditional::{BuildCondition, Condition};
 use crate::join_table::{JoinTable, JoinTableImpl};
+use crate::select_column::{SelectColumn, SelectColumnImpl};
 use crate::{DBImpl, Value};
 
 /**
@@ -45,7 +46,7 @@ Representation of the data of a SELECT operation in SQL.
  */
 #[derive(Debug)]
 pub struct SelectData<'until_build, 'post_query> {
-    pub(crate) resulting_columns: &'until_build [&'until_build str],
+    pub(crate) resulting_columns: &'until_build [SelectColumnImpl<'until_build>],
     pub(crate) limit: Option<u64>,
     pub(crate) offset: Option<u64>,
     pub(crate) from_clause: &'until_build str,
@@ -131,12 +132,18 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
         match self {
             #[cfg(feature = "sqlite")]
             SelectImpl::SQLite(mut d) => {
-                let mut s = format!(
-                    "SELECT {} {} FROM {}",
-                    if d.distinct { "DISTINCT" } else { "" },
-                    d.resulting_columns.join(", "),
-                    d.from_clause,
-                );
+                let mut s = format!("SELECT{} ", if d.distinct { " DISTINCT" } else { "" });
+
+                let column_len = d.resulting_columns.len();
+                for (idx, column) in d.resulting_columns.iter().enumerate() {
+                    column.build(&mut s);
+
+                    if idx != column_len - 1 {
+                        write!(s, ", ").unwrap();
+                    }
+                }
+
+                write!(s, " FROM {}", d.from_clause).unwrap();
 
                 for x in &d.join_tables {
                     write!(s, " ").unwrap();
@@ -160,12 +167,18 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
             }
             #[cfg(feature = "mysql")]
             SelectImpl::MySQL(mut d) => {
-                let mut s = format!(
-                    "SELECT {} {} FROM {}",
-                    if d.distinct { "DISTINCT" } else { "" },
-                    d.resulting_columns.join(", "),
-                    d.from_clause,
-                );
+                let mut s = format!("SELECT{} ", if d.distinct { " DISTINCT" } else { "" });
+
+                let column_len = d.resulting_columns.len();
+                for (idx, column) in d.resulting_columns.iter().enumerate() {
+                    column.build(&mut s);
+
+                    if idx != column_len - 1 {
+                        write!(s, ", ").unwrap();
+                    }
+                }
+
+                write!(s, " FROM {}", d.from_clause).unwrap();
 
                 for x in d.join_tables {
                     write!(s, " ").unwrap();
@@ -189,12 +202,18 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
             }
             #[cfg(feature = "postgres")]
             SelectImpl::Postgres(mut d) => {
-                let mut s = format!(
-                    "SELECT {} {} FROM \"{}\"",
-                    if d.distinct { "DISTINCT" } else { "" },
-                    d.resulting_columns.join(", "),
-                    d.from_clause,
-                );
+                let mut s = format!("SELECT{} ", if d.distinct { " DISTINCT" } else { "" });
+
+                let column_len = d.resulting_columns.len();
+                for (idx, column) in d.resulting_columns.iter().enumerate() {
+                    column.build(&mut s);
+
+                    if idx != column_len - 1 {
+                        write!(s, ", ").unwrap();
+                    }
+                }
+
+                write!(s, " FROM \"{}\"", d.from_clause).unwrap();
 
                 for x in d.join_tables {
                     write!(s, " ").unwrap();
