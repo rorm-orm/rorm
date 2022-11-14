@@ -1,8 +1,9 @@
+use darling::FromAttributes;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::spanned::Spanned;
 
-use crate::annotations::{Annotation, Annotations};
+use crate::annotations::Annotation;
 use crate::errors::Errors;
 use crate::utils::{get_source, iter_rorm_attributes, to_db_name};
 use crate::{annotations, trait_impls};
@@ -54,15 +55,19 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let errors = Errors::new();
     let span = proc_macro2::Span::call_site();
 
-    let fields = Vec::from_iter(
-        strct
-            .fields
-            .into_iter()
-            .enumerate()
-            .filter_map(|(index, field)| {
-                parse_field(index, field, &strct.ident, &strct.vis, &errors)
-            }),
-    );
+    let mut darling_acc = darling::error::Accumulator::default();
+    let mut fields = Vec::with_capacity(strct.fields.len());
+    for (index, field) in strct.fields.into_iter().enumerate() {
+        if let Some(Some(field)) =
+            darling_acc.handle(parse_field(index, field, &strct.ident, &strct.vis, &errors))
+        {
+            fields.push(field);
+        }
+    }
+    let darling_err = darling_acc
+        .finish()
+        .err()
+        .map(darling::error::Error::write_errors);
 
     let mut primary_field: Option<&ParsedField> = None;
     for field in fields.iter() {
@@ -169,6 +174,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
         static #static_get_imr: fn() -> ::rorm::imr::Model = <#model as ::rorm::model::Model>::get_imr;
 
         #errors
+        #darling_err
     }
 }
 
@@ -266,32 +272,18 @@ fn parse_field(
     model_type: &Ident,
     model_vis: &syn::Visibility,
     errors: &Errors,
-) -> Option<ParsedField> {
+) -> darling::Result<Option<ParsedField>> {
+    let span = field.span();
     let ident = if let Some(ident) = field.ident {
         ident
     } else {
         errors.push_new(field.ident.span(), "field has no name");
-        return None;
+        return Ok(None);
     };
 
-    let mut annotations = Annotations::new();
-    for meta in iter_rorm_attributes(&field.attrs, errors) {
-        // Get the annotation's identifier.
-        // Since one is required for every annotation, error if it is missing.
-        let ident = if let Some(ident) = meta.path().get_ident() {
-            ident
-        } else {
-            errors.push_new(meta.path().span(), "expected identifier");
-            continue;
-        };
-
-        for &annotation in annotations::ANNOTATIONS {
-            if annotation.applies(ident) {
-                annotation.parse(ident, &meta, &mut annotations, errors);
-                break;
-            }
-        }
-    }
+    let annotations = annotations::FieldAnnotations::from_attributes(&field.attrs)?;
+    eprintln!("{}: {:?}", ident, annotations);
+    let annotations = annotations.into_with_error(&span, errors);
 
     let mut has_choices = false;
     let mut is_primary = false;
@@ -338,11 +330,11 @@ fn parse_field(
             const SOURCE: Option<::rorm::hmr::Source> = #source;
         }
     };
-    Some(ParsedField {
+    Ok(Some(ParsedField {
         is_primary,
         vis,
         ident,
         type_ident,
         definition,
-    })
+    }))
 }

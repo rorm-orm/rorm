@@ -1,11 +1,191 @@
+use darling::{FromAttributes, FromMeta};
 use std::ops::{Deref, DerefMut};
 
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
-use syn::spanned::Spanned;
-use syn::Meta;
+use quote::{quote, ToTokens};
+use syn::{Lit, LitInt, LitStr, NestedMeta};
 
 use crate::errors::Errors;
+
+#[derive(FromAttributes, Debug, Default)]
+#[darling(attributes(rorm), default)]
+pub struct FieldAnnotations {
+    auto_create_time: bool,
+    auto_update_time: bool,
+    auto_increment: bool,
+    primary_key: bool,
+    unique: bool,
+    id: bool,
+
+    /// Parse the `#[rorm(default = ..)]` annotation.
+    ///
+    /// It accepts a single literal as argument.
+    /// Currently the only supported literal types are:
+    /// - String
+    /// - Integer
+    /// - Floating Point Number
+    /// - Boolean
+    ///
+    /// TODO: Figure out how to check the literal's type is compatible with the annotated field's type
+    default: Option<Lit>,
+
+    /// Parse the `#[rorm(max_length = ..)]` annotation.
+    ///
+    /// It accepts a single integer literal as argument.
+    max_length: Option<LitInt>,
+
+    /// Parse the `#[rorm(choices(..))]` annotation.
+    ///
+    /// It accepts any number of string literals as arguments.
+    choices: Option<Choices>,
+
+    /// Parse the `#[rorm(index)]` annotation.
+    ///
+    /// It accepts four different syntax's:
+    /// - `#[rorm(index)]`
+    /// - `#[rorm(index())]`
+    ///    *(semantically identical to first one)*
+    /// - `#[rorm(index(name = <string literal>))]`
+    /// - `#[rorm(index(name = <string literal>, priority = <integer literal>))]`
+    ///    *(insensitive to argument order)*
+    index: Option<Index>,
+}
+
+#[derive(Debug)]
+pub struct Choices(Vec<LitStr>);
+impl FromMeta for Choices {
+    fn from_list(items: &[NestedMeta]) -> darling::Result<Self> {
+        let result: darling::Result<Vec<LitStr>> = items
+            .iter()
+            .map(<LitStr as FromMeta>::from_nested_meta)
+            .collect();
+        result.map(Choices)
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct Index(Option<NamedIndex>);
+impl FromMeta for Index {
+    fn from_word() -> darling::Result<Self> {
+        Ok(Index(None))
+    }
+
+    fn from_list(items: &[NestedMeta]) -> darling::Result<Self> {
+        if items.is_empty() {
+            Ok(Index(None))
+        } else {
+            Ok(Index(Some(NamedIndex::from_list(items)?)))
+        }
+    }
+}
+
+#[derive(FromMeta, Debug)]
+pub struct NamedIndex {
+    name: LitStr,
+    priority: Option<LitInt>,
+}
+
+impl FieldAnnotations {
+    pub fn into_with_error(self, field: &Span, errors: &Errors) -> Annotations {
+        let FieldAnnotations {
+            auto_create_time,
+            auto_update_time,
+            auto_increment,
+            primary_key,
+            unique,
+            id,
+            default,
+            max_length,
+            choices,
+            index,
+        } = self;
+
+        let mut annotations: Vec<(Annotation, Option<TokenStream>)> = Vec::new();
+        if auto_create_time {
+            annotations.push((Annotation::AutoCreateTime, None));
+        }
+        if auto_update_time {
+            annotations.push((Annotation::AutoUpdateTime, None));
+        }
+        if auto_increment {
+            annotations.push((Annotation::AutoIncrement, None));
+        }
+        if primary_key {
+            annotations.push((Annotation::PrimaryKey, None));
+        }
+        if unique {
+            annotations.push((Annotation::Unique, None));
+        }
+        if id {
+            annotations.push((Annotation::AutoIncrement, None));
+            annotations.push((Annotation::PrimaryKey, None));
+        }
+        if let Some(default) = default {
+            let variant = match &default {
+                Lit::Str(_) => "String",
+                Lit::Int(_) => "Integer",
+                Lit::Float(_) => "Float",
+                Lit::Bool(_) => "Boolean",
+                _ => {
+                    errors.push_new(default.span(), "unsupported literal");
+                    ""
+                }
+            };
+
+            if !variant.is_empty() {
+                let variant = Ident::new(variant, field.clone());
+                annotations.push((
+                    Annotation::Default,
+                    Some(quote! {::rorm::hmr::annotations::DefaultValueData::#variant(#default)}),
+                ));
+            }
+        }
+        if let Some(max_length) = max_length {
+            annotations.push((Annotation::MaxLength, Some(max_length.to_token_stream())));
+        }
+        if let Some(Index(index)) = index {
+            let expr = match index {
+                None => {
+                    quote! {(None)}
+                }
+
+                Some(NamedIndex {
+                    name,
+                    priority: None,
+                }) => {
+                    quote! { Some(::rorm::hmr::annotations::IndexData { name: #name, priority: None }) }
+                }
+
+                Some(NamedIndex {
+                    name,
+                    priority: Some(priority),
+                }) => {
+                    quote! { Some(::rorm::hmr::annotations::IndexData { name: #name, priority: Some(#priority) }) }
+                }
+            };
+            annotations.push((Annotation::Index, Some(expr)));
+        }
+        if let Some(Choices(choices)) = choices {
+            annotations.push((
+                Annotation::Choices,
+                Some(quote! {
+                    (&[#(#choices),*])
+                }),
+            ));
+        }
+
+        Annotations(
+            annotations
+                .into_iter()
+                .map(|(annotation, expr)| ParsedAnnotation {
+                    span: field.clone(),
+                    annotation,
+                    expr,
+                })
+                .collect(),
+        )
+    }
+}
 
 pub struct ParsedAnnotation {
     pub span: Span,
@@ -15,10 +195,6 @@ pub struct ParsedAnnotation {
 
 pub struct Annotations(Vec<ParsedAnnotation>);
 impl Annotations {
-    pub const fn new() -> Self {
-        Annotations(Vec::new())
-    }
-
     pub fn iter_steps(&self) -> impl Iterator<Item = TokenStream> + '_ {
         self.iter().map(
             |ParsedAnnotation {
@@ -111,341 +287,3 @@ impl Annotation {
         }
     }
 }
-
-pub trait ParseAnnotation: Sync {
-    fn applies(&self, ident: &Ident) -> bool;
-    fn parse(&self, ident: &Ident, meta: &Meta, annotations: &mut Annotations, errors: &Errors);
-}
-
-impl ParseAnnotation for Annotation {
-    fn applies(&self, ident: &Ident) -> bool {
-        ident == self.field()
-    }
-
-    fn parse(&self, ident: &Ident, meta: &Meta, annotations: &mut Annotations, errors: &Errors) {
-        if let Meta::Path(_) = meta {
-            annotations.push(ParsedAnnotation {
-                span: ident.span(),
-                annotation: *self,
-                expr: None,
-            });
-        } else {
-            errors.push_new(
-                ident.span(),
-                format!(
-                    "{} doesn't take any values: #[rorm({})]",
-                    self.field(),
-                    self.field()
-                ),
-            );
-        }
-    }
-}
-
-struct ParseId;
-impl ParseAnnotation for ParseId {
-    fn applies(&self, ident: &Ident) -> bool {
-        ident == "id"
-    }
-
-    /// Parse the `#[rorm(id)]` annotation
-    fn parse(&self, ident: &Ident, meta: &Meta, annotations: &mut Annotations, errors: &Errors) {
-        if let Meta::Path(_) = meta {
-            annotations.push(ParsedAnnotation {
-                span: ident.span(),
-                annotation: Annotation::AutoIncrement,
-                expr: None,
-            });
-            annotations.push(ParsedAnnotation {
-                span: ident.span(),
-                annotation: Annotation::PrimaryKey,
-                expr: None,
-            });
-        } else {
-            errors.push_new(meta.span(), "id doesn't take any values: #[rorm(id)]");
-        }
-    }
-}
-
-struct ParseDefault;
-impl ParseAnnotation for ParseDefault {
-    fn applies(&self, ident: &Ident) -> bool {
-        ident == Annotation::Default.field()
-    }
-
-    /// Parse the `#[rorm(default = ..)]` annotation.
-    ///
-    /// It accepts a single literal as argument.
-    /// Currently the only supported literal types are:
-    /// - String
-    /// - Integer
-    /// - Floating Point Number
-    /// - Boolean
-    ///
-    /// TODO: Figure out how to check the literal's type is compatible with the annotated field's type
-    fn parse(&self, _ident: &Ident, meta: &Meta, annotations: &mut Annotations, errors: &Errors) {
-        let arg = match meta {
-            Meta::NameValue(syn::MetaNameValue { lit, .. }) => lit,
-            _ => {
-                errors.push_new(
-                    meta.span(),
-                    "default expects a single literal: #[rorm(default = ..)]",
-                );
-                return;
-            }
-        };
-
-        let variant = match arg {
-            syn::Lit::Str(_) => "String",
-            syn::Lit::Int(_) => "Integer",
-            syn::Lit::Float(_) => "Float",
-            syn::Lit::Bool(_) => "Boolean",
-            _ => {
-                errors.push_new(arg.span(), "unsupported literal");
-                return;
-            }
-        };
-
-        let variant = Ident::new(variant, arg.span());
-        annotations.push(ParsedAnnotation {
-            span: arg.span(),
-            annotation: Annotation::Default,
-            expr: Some(quote! {::rorm::hmr::annotations::DefaultValueData::#variant(#arg)}),
-        });
-    }
-}
-
-struct ParseMaxLength;
-impl ParseAnnotation for ParseMaxLength {
-    fn applies(&self, ident: &Ident) -> bool {
-        ident == Annotation::MaxLength.field()
-    }
-
-    /// Parse the `#[rorm(max_length = ..)]` annotation.
-    ///
-    /// It accepts a single integer literal as argument.
-    fn parse(&self, _ident: &Ident, meta: &Meta, annotations: &mut Annotations, errors: &Errors) {
-        match meta {
-            Meta::NameValue(syn::MetaNameValue {
-                lit: syn::Lit::Int(integer),
-                ..
-            }) => {
-                annotations.push(ParsedAnnotation {
-                    span: meta.span(),
-                    annotation: Annotation::MaxLength,
-                    expr: Some(quote! {
-                        #integer
-                    }),
-                });
-            }
-            _ => {
-                errors.push_new(
-                    meta.span(),
-                    "max_length expects a single integer literal: #rorm(max_length = 255)",
-                );
-            }
-        }
-    }
-}
-
-struct ParseChoices;
-impl ParseAnnotation for ParseChoices {
-    fn applies(&self, ident: &Ident) -> bool {
-        ident == Annotation::Choices.field()
-    }
-
-    /// Parse the `#[rorm(choices(..))]` annotation.
-    ///
-    /// It accepts any number of string literals as arguments.
-    fn parse(&self, _ident: &Ident, meta: &Meta, annotations: &mut Annotations, errors: &Errors) {
-        let usage_string =
-            "choices expects a list of string literals: #[rorm(choices(\"foo\", \"bar\", ..))]";
-
-        // Check if used as list i.e. "function call"
-        if let Meta::List(syn::MetaList { nested, .. }) = meta {
-            let mut choices = Vec::new();
-
-            // Check and collect string literals
-            for choice in nested.iter() {
-                match choice {
-                    syn::NestedMeta::Lit(syn::Lit::Str(choice)) => {
-                        choices.push(choice);
-                    }
-                    _ => {
-                        errors.push_new(choice.span(), usage_string);
-                        continue;
-                    }
-                }
-            }
-
-            annotations.push(ParsedAnnotation {
-                span: meta.span(),
-                annotation: Annotation::Choices,
-                expr: Some(quote! {
-                    (&[#(#choices),*])
-                }),
-            });
-        } else {
-            errors.push_new(meta.span(), usage_string);
-        }
-    }
-}
-
-struct ParseIndex;
-impl ParseAnnotation for ParseIndex {
-    fn applies(&self, ident: &Ident) -> bool {
-        ident == Annotation::Index.field()
-    }
-
-    /// Parse the `#[rorm(index)]` annotation.
-    ///
-    /// It accepts four different syntax's:
-    /// - `#[rorm(index)]`
-    /// - `#[rorm(index())]`
-    ///    *(semantically identical to first one)*
-    /// - `#[rorm(name = <string literal>)]`
-    /// - `#[rorm(name = <string literal>, priority = <integer literal>)]`
-    ///    *(insensitive to argument order)*
-    fn parse(&self, _ident: &Ident, meta: &Meta, annotations: &mut Annotations, errors: &Errors) {
-        match &meta {
-            // index was used on its own without arguments
-            Meta::Path(_) => {
-                annotations.push(ParsedAnnotation {
-                    span: meta.span(),
-                    annotation: Annotation::Index,
-                    expr: Some(quote! {(None)}),
-                });
-            }
-
-            // index was used as "function call"
-            Meta::List(syn::MetaList { nested, .. }) => {
-                let mut name = None;
-                let mut prio = None;
-
-                // Loop over arguments extracting `name` and `prio` while reporting any errors
-                for nested_meta in nested.into_iter() {
-                    // Only accept keyword arguments
-                    let (path, literal) =
-                        if let syn::NestedMeta::Meta(Meta::NameValue(syn::MetaNameValue {
-                            path,
-                            lit,
-                            ..
-                        })) = &nested_meta
-                        {
-                            (path.clone(), lit.clone())
-                        } else {
-                            errors.push_new(
-                                nested_meta.span(),
-                                "index expects keyword arguments: #[rorm(index(name = \"...\"))]",
-                            );
-                            continue;
-                        };
-
-                    // Only accept keywords who are identifier
-                    let ident = if let Some(ident) = path.get_ident() {
-                        ident
-                    } else {
-                        errors.push_new(
-                            nested_meta.span(),
-                            "index expects keyword arguments: #[rorm(index(name = \"...\"))]",
-                        );
-                        continue;
-                    };
-
-                    // Only accept "name" and "prio" as keywords
-                    // Check the associated value's type
-                    // Report duplications
-                    if ident == "name" {
-                        if name.is_none() {
-                            match literal {
-                                syn::Lit::Str(literal) => {
-                                    name = Some(literal);
-                                }
-                                _ => {
-                                    errors.push_new(
-                                    literal.span(),
-                                    "name expects a string literal: #[rorm(index(name = \"...\"))]",
-                                );
-                                }
-                            }
-                        } else {
-                            errors.push_new(ident.span(), "name has already been set");
-                        }
-                    } else if ident == "priority" {
-                        if prio.is_none() {
-                            match literal {
-                                syn::Lit::Int(literal) => {
-                                    prio = Some(literal);
-                                }
-                                _ => {
-                                    errors.push_new(literal.span(), "priority expects a integer literal: #[rorm(index(priority = \"...\"))]");
-                                }
-                            };
-                        } else {
-                            errors.push_new(ident.span(), "priority has already been set");
-                        }
-                    } else {
-                        errors.push_new(ident.span(), "unknown keyword argument");
-                    }
-                }
-
-                // Produce output depending on the 4 possible configurations
-                // of `prio.is_some()` and `name.is_some()`
-                if prio.is_some() && name.is_none() {
-                    errors.push_new(
-                        meta.span(),
-                        "index also requires a name when a priority is defined",
-                    );
-                } else {
-                    let inner = if let Some(name) = name {
-                        let prio = if let Some(prio) = prio {
-                            quote! { Some(#prio) }
-                        } else {
-                            quote! { None }
-                        };
-                        quote! { Some(::rorm::hmr::annotations::IndexData { name: #name, priority: #prio }) }
-                    } else {
-                        quote! { None }
-                    };
-                    annotations.push(ParsedAnnotation {
-                        span: meta.span(),
-                        annotation: Annotation::Index,
-                        expr: Some(quote! {(#inner)}),
-                    });
-                }
-            }
-
-            // index was used as keyword argument
-            _ => {
-                errors.push_new(meta.span(), "index ether stands on its own or looks like a function call: #[rorm(index)] or #[rorm(index(..))]");
-            }
-        }
-    }
-}
-
-struct ParseUnknown;
-impl ParseAnnotation for ParseUnknown {
-    /// This remaining catch all annotation always applies
-    fn applies(&self, _ident: &Ident) -> bool {
-        true
-    }
-
-    fn parse(&self, ident: &Ident, _meta: &Meta, _annotations: &mut Annotations, errors: &Errors) {
-        errors.push_new(ident.span(), "Unknown annotation")
-    }
-}
-
-// TODO redesign trait objects with simple function pointers?
-pub static ANNOTATIONS: &[&dyn ParseAnnotation] = &[
-    &Annotation::AutoCreateTime,
-    &Annotation::AutoUpdateTime,
-    &Annotation::PrimaryKey,
-    &Annotation::Unique,
-    &Annotation::AutoIncrement,
-    &ParseId,
-    &ParseDefault,
-    &ParseMaxLength,
-    &ParseChoices,
-    &ParseIndex,
-    &ParseUnknown,
-];
