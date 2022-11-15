@@ -73,13 +73,13 @@ Data of a JOIN expression.
 #[derive(Debug, Copy, Clone)]
 pub struct JoinTableData<'until_build, 'post_query> {
     /// Type of the join operation
-    pub(crate) join_type: JoinType,
+    pub join_type: JoinType,
     /// Name of the join table
-    pub(crate) table_name: &'until_build str,
+    pub table_name: &'until_build str,
     /// Alias for the join table
-    pub(crate) join_alias: &'until_build str,
+    pub join_alias: &'until_build str,
     /// Condition to apply the join on
-    pub(crate) join_condition: &'until_build Condition<'post_query>,
+    pub join_condition: &'until_build Condition<'post_query>,
 }
 
 /**

@@ -12,7 +12,8 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use futures::StreamExt;
-use rorm_db::join_table::{JoinTableImpl, JoinType};
+use rorm_db::database::{ColumnSelector, JoinTable};
+use rorm_db::join_table::JoinType;
 use rorm_db::row::Row;
 use rorm_db::transaction::Transaction;
 use rorm_db::value::Value;
@@ -509,11 +510,11 @@ pub extern "C" fn rorm_db_query_one(
                 }
             };
 
-            column_vec.push(db.get_sql_dialect().select_column(
+            column_vec.push(ColumnSelector {
                 table_name,
                 column_name,
                 select_alias,
-            ));
+            });
         }
     }
 
@@ -572,9 +573,14 @@ pub extern "C" fn rorm_db_query_one(
     };
 
     let fut = async move {
-        let join_vec: Vec<JoinTableImpl> = join_tuple
+        let join_vec: Vec<JoinTable> = join_tuple
             .iter()
-            .map(|(a, b, c, d)| db.get_sql_dialect().join_table(*a, b, c, d))
+            .map(|(a, b, c, d)| JoinTable {
+                join_type: *a,
+                table_name: b,
+                join_alias: c,
+                join_condition: d,
+            })
             .collect();
         match cond {
             None => {
@@ -705,11 +711,11 @@ pub extern "C" fn rorm_db_query_optional(
                 }
             };
 
-            column_vec.push(db.get_sql_dialect().select_column(
+            column_vec.push(ColumnSelector {
                 table_name,
                 column_name,
                 select_alias,
-            ));
+            });
         }
     }
 
@@ -768,9 +774,14 @@ pub extern "C" fn rorm_db_query_optional(
     };
 
     let fut = async move {
-        let join_vec: Vec<JoinTableImpl> = join_tuple
+        let join_vec: Vec<JoinTable> = join_tuple
             .iter()
-            .map(|(a, b, c, d)| db.get_sql_dialect().join_table(*a, b, c, d))
+            .map(|(a, b, c, d)| JoinTable {
+                join_type: *a,
+                table_name: b,
+                join_alias: c,
+                join_condition: d,
+            })
             .collect();
         match cond {
             None => {
@@ -915,11 +926,11 @@ pub extern "C" fn rorm_db_query_all(
                 }
             };
 
-            column_vec.push(db.get_sql_dialect().select_column(
+            column_vec.push(ColumnSelector {
                 table_name,
                 column_name,
                 select_alias,
-            ));
+            });
         }
     }
 
@@ -978,9 +989,14 @@ pub extern "C" fn rorm_db_query_all(
     };
 
     let fut = async move {
-        let join_vec: Vec<JoinTableImpl> = join_tuple
+        let join_vec: Vec<JoinTable> = join_tuple
             .iter()
-            .map(|(a, b, c, d)| db.get_sql_dialect().join_table(*a, b, c, d))
+            .map(|(a, b, c, d)| JoinTable {
+                join_type: *a,
+                table_name: b,
+                join_alias: c,
+                join_condition: d,
+            })
             .collect();
         let query_res = match cond {
             None => {
@@ -1114,11 +1130,11 @@ pub extern "C" fn rorm_db_query_stream(
                 }
             };
 
-            column_vec.push(db.get_sql_dialect().select_column(
+            column_vec.push(ColumnSelector {
                 table_name,
                 column_name,
                 select_alias,
-            ));
+            });
         }
     }
 
@@ -1157,9 +1173,14 @@ pub extern "C" fn rorm_db_query_stream(
         }
     }
 
-    let join_vec: Vec<JoinTableImpl> = join_tuple
+    let join_vec: Vec<JoinTable> = join_tuple
         .iter()
-        .map(|(a, b, c, d)| db.get_sql_dialect().join_table(*a, b, c, d))
+        .map(|(a, b, c, d)| JoinTable {
+            join_type: *a,
+            table_name: b,
+            join_alias: c,
+            join_condition: d,
+        })
         .collect();
     let query_stream = match condition {
         None => db.query_stream(

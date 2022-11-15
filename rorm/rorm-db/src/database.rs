@@ -10,9 +10,9 @@ use log::{debug, LevelFilter};
 use rorm_declaration::config::DatabaseDriver;
 use rorm_sql::delete::Delete;
 use rorm_sql::insert::Insert;
-use rorm_sql::join_table::JoinTableImpl;
+use rorm_sql::join_table::{JoinTableData, JoinTableImpl};
 use rorm_sql::select::{LimitClause, Select};
-use rorm_sql::select_column::SelectColumnImpl;
+use rorm_sql::select_column::{SelectColumnData, SelectColumnImpl};
 use rorm_sql::update::Update;
 use rorm_sql::{conditional, value, DBImpl};
 use sqlx::any::AnyPoolOptions;
@@ -26,6 +26,20 @@ use crate::result::QueryStream;
 use crate::row::Row;
 use crate::transaction::Transaction;
 use crate::utils;
+
+/**
+Type alias for [SelectColumnData]..
+
+As all databases use currently the same fields, a type alias is sufficient.
+*/
+pub type ColumnSelector<'a> = SelectColumnData<'a>;
+
+/**
+Type alias for [JoinTableData].
+
+As all databases use currently the same fields, a type alias is sufficient.
+*/
+pub type JoinTable<'until_build, 'post_build> = JoinTableData<'until_build, 'post_build>;
 
 /**
 Configuration to create a database connection.
@@ -251,8 +265,8 @@ impl Database {
     pub fn query_stream<'db, 'post_query, 'stream>(
         &'db self,
         model: &str,
-        columns: &[SelectColumnImpl<'_>],
-        joins: &[JoinTableImpl<'_, 'post_query>],
+        columns: &[ColumnSelector<'_>],
+        joins: &[JoinTable<'_, 'post_query>],
         conditions: Option<&conditional::Condition<'post_query>>,
         limit: Option<LimitClause>,
         transaction: Option<&'stream mut Transaction>,
@@ -261,7 +275,21 @@ impl Database {
         'post_query: 'stream,
         'db: 'stream,
     {
-        let mut q = self.db_impl.select(columns, model, joins);
+        let columns: Vec<SelectColumnImpl> = columns
+            .iter()
+            .map(|c| {
+                self.db_impl
+                    .select_column(c.table_name, c.column_name, c.select_alias)
+            })
+            .collect();
+        let joins: Vec<JoinTableImpl> = joins
+            .iter()
+            .map(|j| {
+                self.db_impl
+                    .join_table(j.join_type, j.table_name, j.join_alias, j.join_condition)
+            })
+            .collect();
+        let mut q = self.db_impl.select(&columns, model, &joins);
         if let Some(c) = conditions {
             q = q.where_clause(c);
         }
@@ -297,13 +325,27 @@ impl Database {
     pub async fn query_one(
         &self,
         model: &str,
-        columns: &[SelectColumnImpl<'_>],
-        joins: &[JoinTableImpl<'_, '_>],
+        columns: &[ColumnSelector<'_>],
+        joins: &[JoinTable<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
         offset: Option<u64>,
         transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Row, Error> {
-        let mut q = self.db_impl.select(columns, model, joins);
+        let columns: Vec<SelectColumnImpl> = columns
+            .iter()
+            .map(|c| {
+                self.db_impl
+                    .select_column(c.table_name, c.column_name, c.select_alias)
+            })
+            .collect();
+        let joins: Vec<JoinTableImpl> = joins
+            .iter()
+            .map(|j| {
+                self.db_impl
+                    .join_table(j.join_type, j.table_name, j.join_alias, j.join_condition)
+            })
+            .collect();
+        let mut q = self.db_impl.select(&columns, model, &joins);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
         }
@@ -347,13 +389,27 @@ impl Database {
     pub async fn query_optional(
         &self,
         model: &str,
-        columns: &[SelectColumnImpl<'_>],
-        joins: &[JoinTableImpl<'_, '_>],
+        columns: &[ColumnSelector<'_>],
+        joins: &[JoinTable<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
         offset: Option<u64>,
         transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Option<Row>, Error> {
-        let mut q = self.db_impl.select(columns, model, joins);
+        let columns: Vec<SelectColumnImpl> = columns
+            .iter()
+            .map(|c| {
+                self.db_impl
+                    .select_column(c.table_name, c.column_name, c.select_alias)
+            })
+            .collect();
+        let joins: Vec<JoinTableImpl> = joins
+            .iter()
+            .map(|j| {
+                self.db_impl
+                    .join_table(j.join_type, j.table_name, j.join_alias, j.join_condition)
+            })
+            .collect();
+        let mut q = self.db_impl.select(&columns, model, &joins);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
         }
@@ -397,13 +453,27 @@ impl Database {
     pub async fn query_all(
         &self,
         model: &str,
-        columns: &[SelectColumnImpl<'_>],
-        joins: &[JoinTableImpl<'_, '_>],
+        columns: &[ColumnSelector<'_>],
+        joins: &[JoinTable<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
         limit: Option<LimitClause>,
         transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Vec<Row>, Error> {
-        let mut q = self.db_impl.select(columns, model, joins);
+        let columns: Vec<SelectColumnImpl> = columns
+            .iter()
+            .map(|c| {
+                self.db_impl
+                    .select_column(c.table_name, c.column_name, c.select_alias)
+            })
+            .collect();
+        let joins: Vec<JoinTableImpl> = joins
+            .iter()
+            .map(|j| {
+                self.db_impl
+                    .join_table(j.join_type, j.table_name, j.join_alias, j.join_condition)
+            })
+            .collect();
+        let mut q = self.db_impl.select(&columns, model, &joins);
 
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());

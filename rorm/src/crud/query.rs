@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use std::ops::{Range, RangeInclusive, Sub};
 
 use futures::{Stream, StreamExt};
+use rorm_db::database::ColumnSelector;
 use rorm_db::select::LimitClause;
 use rorm_db::transaction::Transaction;
 use rorm_db::{conditional::Condition, error::Error, row::Row, Database};
@@ -11,7 +12,6 @@ use crate::crud::builder::{ConditionMarker, Sealed, TransactionMarker};
 use crate::internal::as_db_type::AsDbType;
 use crate::internal::field::{Field, FieldProxy};
 use crate::model::{Model, Patch};
-use crate::select_column::SelectColumnImpl;
 
 /// Builder for select queries
 ///
@@ -149,11 +149,15 @@ impl<
         L: LimitMarker,
     > QueryBuilder<'db, 'rf, M, S, C, T, L>
 {
-    fn get_columns(&self) -> Vec<SelectColumnImpl<'static>> {
+    fn get_columns(&self) -> Vec<ColumnSelector<'static>> {
         self.selector
             .columns()
             .iter()
-            .map(|x| self.db.get_sql_dialect().select_column(None, x, None))
+            .map(|x| ColumnSelector {
+                table_name: None,
+                column_name: x,
+                select_alias: None,
+            })
             .collect()
     }
 
