@@ -8,6 +8,7 @@ use rorm_declaration::hmr::Source;
 use rorm_declaration::imr;
 
 use crate::annotations::Annotations;
+use crate::const_panic;
 use crate::internal::as_db_type::AsDbType;
 use crate::model::Model;
 
@@ -45,17 +46,16 @@ pub trait Field {
         if let Some(implicit) = Self::Type::IMPLICIT {
             match Self::EXPLICIT_ANNOTATIONS.merge(implicit) {
                 Ok(annotations) => annotations,
-                Err(_duplicate) => {
-                    // TODO figure out how to generate error message
-                    panic!(
-                        //"The annotation ",
-                        //duplicate,
-                        //" on ",
-                        //Self::Model::TABLE,
-                        //".",
-                        //Self::NAME,
-                        //" is implied by its type and can't be set explicitly"
-                    )
+                Err(duplicate) => {
+                    const_panic!(&[
+                        "The annotation ",
+                        duplicate,
+                        " on ",
+                        Self::Model::TABLE,
+                        ".",
+                        Self::NAME,
+                        " is implied by its type and can't be set explicitly",
+                    ]);
                 }
             }
         } else {
@@ -67,14 +67,23 @@ pub trait Field {
     const SOURCE: Option<Source>;
 
     /// Entry point for compile time checks on a single field
-    const _CHECK: () = {
+    ///
+    /// It is "used" in [FieldProxy::new] to force the compiler to evaluate it.
+    const CHECK: usize = {
         // Annotations
         let mut annotations = Self::ANNOTATIONS.as_lint();
         annotations.not_null = !Self::Type::IS_NULLABLE && !Self::ANNOTATIONS.implicit_not_null();
         annotations.foreign_key = Self::Type::IS_FOREIGN.is_some();
         if let Err(err) = annotations.check() {
-            panic!("{}", err);
+            const_panic!(&[
+                Self::Model::TABLE,
+                ".",
+                Self::NAME,
+                " has invalid annotations: ",
+                err
+            ]);
         }
+        Self::INDEX
     };
 }
 
@@ -146,6 +155,8 @@ pub struct FieldProxy<Field, Path>(Field, PhantomData<Path>);
 impl<F: Field, P> FieldProxy<F, P> {
     /// Create a new instance
     pub const fn new(field: F) -> Self {
+        // "Use" the CHECK constant to force the compiler to evaluate it.
+        let _check: usize = F::CHECK;
         Self(field, PhantomData)
     }
 
