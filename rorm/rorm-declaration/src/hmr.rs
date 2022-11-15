@@ -73,15 +73,8 @@ pub mod db_type {
 pub mod annotations {
     use crate::imr;
 
-    /// Trait to store a concrete optional annotation as generic type parameter.
-    pub trait Annotation<T>: AsImr<Imr = imr::Annotation> {
-        /// This flag is set on annotations like [`PrimaryKey`] which don't allow null but
-        /// databases don't want you to tell them.
-        const IMPLICIT_NOT_NULL: bool = false;
-    }
-
     macro_rules! impl_annotations {
-        ($($(#[doc = $doc:literal])* $field:ident $anno:ident $(($data:ty))?, $implicit_not_null:expr,)*) => {
+        ($($(#[doc = $doc:literal])* $anno:ident $(($data:ty))?,)*) => {
             $(
                 $(#[doc = $doc])*
                 pub struct $anno$((
@@ -99,34 +92,36 @@ pub mod annotations {
                         }))?
                     }
                 }
-
-                impl Annotation<$anno> for $anno {
-                    const IMPLICIT_NOT_NULL: bool = $implicit_not_null;
-                }
             )*
         };
     }
 
     impl_annotations!(
         /// Will set the current time of the database when a row is created.
-        auto_create_time AutoCreateTime, false,
+        AutoCreateTime,
         /// Will set the current time of the database when a row is updated.
-        auto_update_time AutoUpdateTime, false,
+        AutoUpdateTime,
         /// AUTO_INCREMENT constraint
-        auto_increment AutoIncrement, false,
+        AutoIncrement,
         /// A list of choices to set
-        choices Choices(&'static [&'static str]), false,
+        Choices(&'static [&'static str]),
         /// DEFAULT constraint
-        default DefaultValue(DefaultValueData), false,
+        DefaultValue(DefaultValueData),
         /// Create an index. The optional [IndexData] can be used, to build more complex indexes.
-        index Index(Option<IndexData>), false,
+        Index(Option<IndexData>),
         /// Only for VARCHAR. Specifies the maximum length of the column's content.
-        max_length MaxLength(i32), false,
+        MaxLength(i32),
         /// The annotated column will be used as primary key
-        primary_key PrimaryKey, true,
+        PrimaryKey,
         /// UNIQUE constraint
-        unique Unique, false,
+        Unique,
     );
+
+    /// Action to take on a foreign key in case of on delete
+    pub type OnDelete = imr::ReferentialAction;
+
+    /// Action take on a foreign key in case of an update
+    pub type OnUpdate = imr::ReferentialAction;
 
     /// Represents a complex index
     pub struct IndexData {

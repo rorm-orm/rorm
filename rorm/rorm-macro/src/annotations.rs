@@ -15,6 +15,8 @@ pub struct Annotations {
     pub primary_key: bool,
     pub unique: bool,
     pub id: bool,
+    pub on_delete: Option<LitStr>,
+    pub on_update: Option<LitStr>,
 
     /// Parse the `#[rorm(default = ..)]` annotation.
     ///
@@ -99,6 +101,8 @@ impl Annotations {
             primary_key,
             unique,
             id: _, // Handled above
+            on_delete,
+            on_update,
             default,
             max_length,
             choices,
@@ -151,6 +155,24 @@ impl Annotations {
                 }
             }
         });
+        let parse_action = |lit: LitStr| match lit.value().as_str() {
+            "Restrict" => Some(quote! {Restrict}),
+            "Cascade" => Some(quote! {Cascade}),
+            "SetNull" => Some(quote! {SetNull}),
+            "SetDefault" => Some(quote! {SetDefault}),
+            _ => {
+                errors.push_new(lit.span(), "unsupported literal's value");
+                return None;
+            }
+        };
+        let on_delete = on_delete
+            .map(parse_action)
+            .flatten()
+            .map(|token| quote! {OnDelete::#token});
+        let on_update = on_update
+            .map(parse_action)
+            .flatten()
+            .map(|token| quote! {OnUpdate::#token});
 
         // Unwrap all options
         // Add absolute path
@@ -168,6 +190,8 @@ impl Annotations {
         let default = finalize(default);
         let index = finalize(index);
         let max_length = finalize(max_length);
+        let on_delete = finalize(on_delete);
+        let on_update = finalize(on_update);
         let primary_key = finalize(primary_key);
         let unique = finalize(unique);
 
@@ -181,6 +205,8 @@ impl Annotations {
                 default: #default,
                 index: #index,
                 max_length: #max_length,
+                on_delete: #on_delete,
+                on_update: #on_update,
                 primary_key: #primary_key,
                 unique: #unique,
             }

@@ -52,6 +52,7 @@ impl Errors {
         self.push(syn::Error::new(span, msg));
     }
 
+    #[allow(dead_code)]
     pub fn push_new_spanned<T: Display>(&self, start: Span, end: Span, msg: T) {
         let start = Ident::new("__placeholder", start);
         let end = Ident::new("__placeholder", end);

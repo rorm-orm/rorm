@@ -1,8 +1,8 @@
 //! This module implements a struct to store annotations
 
 use rorm_declaration::hmr::annotations::{
-    Annotation, AsImr, AutoCreateTime, AutoIncrement, AutoUpdateTime, Choices, DefaultValue, Index,
-    MaxLength, PrimaryKey, Unique,
+    AsImr, AutoCreateTime, AutoIncrement, AutoUpdateTime, Choices, DefaultValue, Index, MaxLength,
+    OnDelete, OnUpdate, PrimaryKey, Unique,
 };
 use rorm_declaration::{imr, lints};
 
@@ -29,6 +29,12 @@ pub struct Annotations {
     /// The `#[rorm(max_length = ..)]` annotation
     pub max_length: Option<MaxLength>,
 
+    /// The `#[rorm(on_delete = ..)]` annotation
+    pub on_delete: Option<OnDelete>,
+
+    /// The `#[rorm(on_update = ..)]` annotation
+    pub on_update: Option<OnUpdate>,
+
     /// The `#[rorm(primary_key)]` annotation
     pub primary_key: Option<PrimaryKey>,
 
@@ -49,6 +55,8 @@ impl AsImr for Annotations {
             default,
             index,
             max_length,
+            on_delete: _, // Has to be set by field
+            on_update: _, //
             primary_key,
             unique,
         } = self;
@@ -95,6 +103,8 @@ impl Annotations {
             default: None,
             index: None,
             max_length: None,
+            on_delete: None,
+            on_update: None,
             primary_key: None,
             unique: None,
         }
@@ -102,26 +112,7 @@ impl Annotations {
 
     /// Does any annotations imply not null such that setting it in sql would be an error?
     pub const fn implicit_not_null(&self) -> bool {
-        let Self {
-            auto_create_time,
-            auto_update_time,
-            auto_increment,
-            choices,
-            default,
-            index,
-            max_length,
-            primary_key,
-            unique,
-        } = self;
-        (auto_create_time.is_some() && AutoCreateTime::IMPLICIT_NOT_NULL)
-            || (auto_update_time.is_some() && AutoUpdateTime::IMPLICIT_NOT_NULL)
-            || (auto_increment.is_some() && AutoIncrement::IMPLICIT_NOT_NULL)
-            || (choices.is_some() && Choices::IMPLICIT_NOT_NULL)
-            || (default.is_some() && DefaultValue::IMPLICIT_NOT_NULL)
-            || (index.is_some() && Index::IMPLICIT_NOT_NULL)
-            || (max_length.is_some() && MaxLength::IMPLICIT_NOT_NULL)
-            || (primary_key.is_some() && PrimaryKey::IMPLICIT_NOT_NULL)
-            || (unique.is_some() && Unique::IMPLICIT_NOT_NULL)
+        self.primary_key.is_some()
     }
 
     /// Convert to the representation used by the shared lints.
@@ -169,6 +160,8 @@ impl Annotations {
             default,
             index,
             max_length,
+            on_delete,
+            on_update,
             primary_key,
             unique,
         } = other;);
