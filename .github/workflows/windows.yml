@@ -116,6 +116,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Linting
+        run: dub lint || echo FAIL
+        env:
+          DLFAGS: "-lowmem"
+        working-directory: ./dorm
+
       - name: Build rorm-lib (release)
         run: |
           export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
@@ -132,7 +138,7 @@ jobs:
 
   integration-test-windows:
     name: Integration Test
-    needs: [ dub-test-windows, cargo-test-stable-windows ]
+    needs: [ dub-test-windows, cargo-test-windows ]
     runs-on: [ self-hosted, windows, x64 ]
     steps:
       - uses: actions/checkout@v3
@@ -149,6 +155,7 @@ jobs:
         env:
           DFLAGS: "-lowmem"
         run: |
+          set -x
           export PATH=~/.cargo/bin:$PATH
           export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
           ./run.sh
@@ -156,7 +163,7 @@ jobs:
 
   sample-project-windows:
     name: Sample project
-    needs: [ cargo-test-stable-windows ]
+    needs: [ cargo-test-windows ]
     runs-on: [ self-hosted, windows, x64 ]
     strategy:
       fail-fast: false
