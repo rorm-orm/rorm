@@ -102,6 +102,13 @@ struct FFIOption(T)
 		raw_value = value;
 	}
 
+	ref auto opAssign(T value) return
+	{
+		state = State.some;
+		raw_value = value;
+		return this;
+	}
+
 	/// Returns true if the value is set, otherwise false.
 	bool opCast(T : bool)() const @safe nothrow @nogc
 	{
@@ -777,6 +784,38 @@ struct FFILimitClause
 }
 
 /**
+ * Allows specifying SQL `table_name.column_name as select_alias` syntax in a
+ * DB-agnostic way.
+ */
+struct FFIColumnSelector
+{
+	/// Optionally define which table or join alias this column comes from.
+	FFIOption!FFIString tableName;
+	/// The column name to select.
+	FFIString columnName;
+	/// Optionally rename to a different output name than `column_name`.
+	FFIOption!FFIString selectAlias;
+
+	this(FFIString columnName)
+	{
+		this.columnName = columnName;
+	}
+
+	this(FFIString tableName, FFIString columnName)
+	{
+		this.tableName = tableName;
+		this.columnName = columnName;
+	}
+
+	this(FFIString tableName, FFIString columnName, FFIString selectAlias)
+	{
+		this.tableName = tableName;
+		this.columnName = columnName;
+		this.selectAlias = selectAlias;
+	}
+}
+
+/**
  * This function queries the database given the provided parameters.
  *
  * Parameters:
@@ -799,7 +838,7 @@ void rorm_db_query_all(
 	DBHandle handle,
 	DBTransactionHandle transaction,
 	FFIString model,
-	FFIArray!FFIString columns,
+	FFIArray!FFIColumnSelector columns,
 	FFIArray!FFIJoin joins,
 	scope const(FFICondition)* condition,
 	FFIOption!FFILimitClause limit,
@@ -810,7 +849,7 @@ void rorm_db_query_one(
 	DBHandle handle,
 	DBTransactionHandle transaction,
 	FFIString model,
-	FFIArray!FFIString columns,
+	FFIArray!FFIColumnSelector columns,
 	FFIArray!FFIJoin joins,
 	scope const(FFICondition)* condition,
 	FFIOption!FFILimitClause limit,
@@ -846,7 +885,7 @@ void rorm_db_query_stream(
 	DBHandle handle,
 	DBTransactionHandle transaction,
 	FFIString model,
-	FFIArray!FFIString columns,
+	FFIArray!FFIColumnSelector columns,
 	FFIArray!FFIJoin joins,
 	scope const(FFICondition)* condition,
 	FFIOption!FFILimitClause limit,
@@ -1154,7 +1193,18 @@ unittest
 	scope (exit)
 		rorm_db_free(dbHandle);
 
-	scope stream = sync_call!rorm_db_query_stream(dbHandle, null, "foo".ffi, ["name".ffi, "notes".ffi].ffi, FFIArray!FFIJoin.init, null, FFIOption!FFILimitClause.init);
+	scope stream = sync_call!rorm_db_query_stream(
+		dbHandle, // db handle
+		null, // tx
+		"foo".ffi, // table name
+		[
+			FFIColumnSelector("name".ffi),
+			FFIColumnSelector("notes".ffi)
+		].ffi, // columns
+		FFIArray!FFIJoin.init, // joins
+		null, // condition
+		FFIOption!FFILimitClause.init, // limit, offset
+	);
 	scope (exit)
 		rorm_stream_free(stream);
 

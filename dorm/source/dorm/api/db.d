@@ -6,7 +6,7 @@ import dorm.lib.util;
 import dorm.types;
 import ffi = dorm.lib.ffi;
 
-import std.algorithm : move;
+import std.algorithm : any, move;
 import std.range : chain;
 import std.conv : text, to;
 import std.datetime : Clock, Date, DateTime, DateTimeException, SysTime, TimeOfDay, UTC;
@@ -710,12 +710,13 @@ struct ForeignModelConditionBuilderField(ModelRef, ModelFormat.Field field, stri
 		auto exist = fkName in ji.joinedTables;
 		if (exist)
 		{
-			return *exist;
+			return ji.joinSuppl[*exist].placeholder;
 		}
 		else
 		{
-			string placeholder = "_" ~ ji.joinedTables.length.to!string;
-			ji.joinedTables[fkName] = placeholder;
+			size_t index = ji.joins.length;
+			assert(ji.joinSuppl.length == index);
+			string placeholder = JoinInformation.joinAliasList[ji.joinedTables.length];
 			ffi.FFICondition* condition = new ffi.FFICondition();
 			condition.type = ffi.FFICondition.Type.BinaryCondition;
 			condition.binaryCondition.type = ffi.FFIBinaryCondition.Type.Equals;
@@ -728,11 +729,18 @@ struct ForeignModelConditionBuilderField(ModelRef, ModelFormat.Field field, stri
 			condition.binaryCondition.lhs = lhs;
 			condition.binaryCondition.rhs = rhs;
 
+			assert(ji.joins.length == index,
+				"this method must absolutely never be called in parallel on the same object");
+			ji.joinedTables[fkName] = index;
 			ji.joins ~= ffi.FFIJoin(
 				ffi.FFIJoinType.join,
 				ffi.ffi(DormLayout!RefDB.tableName),
 				ffi.ffi(placeholder),
 				condition
+			);
+			ji.joinSuppl ~= JoinInformation.JoinSuppl(
+				placeholder,
+				false
 			);
 			return placeholder;
 		}
@@ -882,9 +890,26 @@ struct ConditionBuilderField(T, ModelFormat.Field field)
 
 private struct JoinInformation
 {
+	private static immutable joinAliasList = {
+		// list of _0, _1, _2, _3, ... embedded into the executable
+		enum maxAliases = 64;
+		string[] aliasList;
+		foreach (i; 0 .. maxAliases)
+			aliasList ~= ("_" ~ i.to!string);
+		return aliasList;
+	}();
+
+	static struct JoinSuppl
+	{
+		string placeholder;
+		bool include;
+	}
+
 	private ffi.FFIJoin[] joins;
-	/// Lookup foreign key name -> join placeholder
-	private string[string] joinedTables;
+	/// Supplemental information for joins, same length and order as in joins.
+	private JoinSuppl[] joinSuppl;
+	/// Lookup foreign key name -> array index
+	private size_t[string] joinedTables;
 }
 
 struct SelectOperation(
@@ -977,9 +1002,17 @@ struct SelectOperation(
 	{
 		enum fields = FilterLayoutFields!(T, TSelect);
 
-		ffi.FFIString[fields.length] columns;
+		ffi.FFIColumnSelector[fields.length] columns;
 		static foreach (i, field; fields)
-			columns[i] = ffi.ffi(field.selectorColumnName(DormLayout!T.tableName));
+		{{
+			enum aliasedName = "__" ~ field.columnName;
+
+			columns[i] = ffi.FFIColumnSelector(
+				ffi.ffi(DormLayout!T.tableName),
+				ffi.ffi(field.columnName),
+				ffi.ffi(aliasedName)
+			);
+		}}
 
 		mixin(makeRtColumns);
 
@@ -1006,9 +1039,17 @@ struct SelectOperation(
 	{
 		enum fields = FilterLayoutFields!(T, TSelect);
 
-		ffi.FFIString[fields.length] columns;
+		ffi.FFIColumnSelector[fields.length] columns;
 		static foreach (i, field; fields)
-			columns[i] = ffi.ffi(field.selectorColumnName(DormLayout!T.tableName));
+		{{
+			enum aliasedName = "__" ~ field.columnName;
+
+			columns[i] = ffi.FFIColumnSelector(
+				ffi.ffi(DormLayout!T.tableName),
+				ffi.ffi(field.columnName),
+				ffi.ffi(aliasedName)
+			);
+		}}
 
 		mixin(makeRtColumns);
 
@@ -1028,9 +1069,17 @@ struct SelectOperation(
 	{
 		enum fields = FilterLayoutFields!(T, TSelect);
 
-		ffi.FFIString[fields.length] columns;
+		ffi.FFIColumnSelector[fields.length] columns;
 		static foreach (i, field; fields)
-			columns[i] = ffi.ffi(field.selectorColumnName(DormLayout!T.tableName));
+		{{
+			enum aliasedName = "__" ~ field.columnName;
+
+			columns[i] = ffi.FFIColumnSelector(
+				ffi.ffi(DormLayout!T.tableName),
+				ffi.ffi(field.columnName),
+				ffi.ffi(aliasedName)
+			);
+		}}
 
 		mixin(makeRtColumns);
 
@@ -1054,18 +1103,22 @@ struct SelectOperation(
 }
 
 private enum makeRtColumns = q{
-	// inputs: ffi.FFIString[n] columns;
+	// inputs: ffi.FFIColumnSelector[n] columns;
 	//         JoinInformation joinInformation;
 	//         T (template type)
-	// output: ffi.FFIString[] rtColumns;
+	// output: ffi.FFIColumnSelector[] rtColumns;
 
-	ffi.FFIString[] rtColumns = columns[];
-	if (joinInformation.joins.length)
+	ffi.FFIColumnSelector[] rtColumns = columns[];
+	if (joinInformation.joinSuppl.any!"a.include")
 	{
 		static foreach (fk; DormForeignKeys!T)
-		{{
-			if (auto joinPrefix = fk.columnName in joinInformation.joinedTables)
 			{
+			if (auto joinId = fk.columnName in joinInformation.joinedTables)
+			{
+				auto suppl = joinInformation.joinSuppl[*joinId];
+				if (suppl.include)
+				{
+					auto ffiPlaceholder = ffi.ffi(suppl.placeholder);
 				alias RefField = typeof(mixin("T.", fk.sourceColumn));
 				enum filteredFields = FilterLayoutFields!(RefField.TModel, RefField.TSelect);
 				size_t start = rtColumns.length;
@@ -1073,12 +1126,15 @@ private enum makeRtColumns = q{
 				rtColumns.length += filteredFields.length;
 				static foreach (field; filteredFields)
 				{{
-					auto reqCol = chain(*joinPrefix, ("." ~ field.columnName));
-					auto aliasCol = chain(*joinPrefix, ("_" ~ field.columnName));
-					rtColumns[start + (i++)] = ffi.ffi(text(reqCol, " AS ", aliasCol));
+						auto ffiColumnName = ffi.ffi(field.columnName);
+						auto aliasCol = text(suppl.placeholder, ("_" ~ field.columnName));
+						rtColumns[start + (i++)].tableName = ffiPlaceholder;
+						rtColumns[start + (i++)].columnName = ffiColumnName;
+						rtColumns[start + (i++)].selectAlias = ffi.ffi(aliasCol);
 				}}
 			}
-		}}
+			}
+		}
 	}
 };
 
@@ -1206,12 +1262,16 @@ TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row, JoinInformation ji) @sa
 	{
 		static foreach (fk; DormForeignKeys!T)
 		{{
-			if (auto pprefix = fk.columnName in ji.joinedTables)
+			if (auto idx = fk.columnName in ji.joinedTables)
 			{
-				string prefix = *pprefix;
+				auto suppl = ji.joinSuppl[*idx];
+				if (suppl.include)
+				{
+					auto prefix = suppl.placeholder;
 				alias ModelRef = typeof(mixin("T.", fk.sourceColumn));
 				mixin("base.", fk.sourceColumn) =
 					unwrapRowResult!(ModelRef.TModel, ModelRef.TSelect)(row, prefix);
+				}
 			}
 		}}
 	}
