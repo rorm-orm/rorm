@@ -26,6 +26,8 @@ pub mod error;
 pub mod insert;
 /// Implementation of JOIN statements
 pub mod join_table;
+/// Implementation of limit clauses
+pub mod limit_clause;
 /// Implementation of SQL ON CONFLICT extensions
 pub mod on_conflict;
 /// Implementation of SQL SELECT statements

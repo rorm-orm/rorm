@@ -5,7 +5,7 @@ use std::ops::{Range, RangeInclusive, Sub};
 use crate::conditions::Condition;
 use futures::{Stream, StreamExt};
 use rorm_db::database::ColumnSelector;
-use rorm_db::select::LimitClause;
+use rorm_db::limit_clause::LimitClause;
 use rorm_db::transaction::Transaction;
 use rorm_db::{error::Error, row::Row, Database};
 

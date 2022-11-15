@@ -4,7 +4,7 @@ use std::str::{from_utf8, Utf8Error};
 
 use chrono::{Datelike, Timelike};
 use futures::stream::BoxStream;
-use rorm_db::select::LimitClause;
+use rorm_db::limit_clause::LimitClause;
 use rorm_db::Row;
 
 use crate::representations::FFILimitClause;

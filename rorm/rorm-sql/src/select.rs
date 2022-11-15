@@ -2,19 +2,9 @@ use std::fmt::Write;
 
 use crate::conditional::{BuildCondition, Condition};
 use crate::join_table::{JoinTable, JoinTableImpl};
+use crate::limit_clause::LimitClause;
 use crate::select_column::{SelectColumn, SelectColumnImpl};
 use crate::{DBImpl, Value};
-
-/**
-Representation of a limit / offset clause in SQL.
-*/
-#[derive(Debug, Clone, Copy)]
-pub struct LimitClause {
-    /// Limit to set to
-    pub limit: u64,
-    /// Optional offset to append.
-    pub offset: Option<u64>,
-}
 
 /**
 Trait representing a select builder.

@@ -1,5 +1,5 @@
 use rorm_db::join_table::JoinType;
-use rorm_db::select::LimitClause;
+use rorm_db::limit_clause::LimitClause;
 use rorm_db::{DatabaseConfiguration, DatabaseDriver};
 
 use crate::utils::FFIOption;
