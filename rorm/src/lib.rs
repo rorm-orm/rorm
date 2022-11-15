@@ -67,8 +67,7 @@ pub use rorm_declaration::imr;
 // Reexported for use in parser structs of user
 pub use rorm_declaration::config;
 
-/// This module implements a struct to build and store annotations
-pub mod annotation_builder;
+pub mod annotations;
 /// Module implementing methods to [`Condition`](rorm_db::conditional::Condition)
 /// based on [`Field<T>`](crate::internal::field::Field)
 mod conditions;

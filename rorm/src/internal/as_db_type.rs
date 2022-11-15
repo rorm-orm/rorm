@@ -3,12 +3,10 @@
 use rorm_db::row::DecodeOwned;
 use rorm_db::value::Value;
 use rorm_declaration::hmr;
-use rorm_declaration::hmr::annotations;
 
-use crate::annotation_builder::NotSetAnnotations;
+use crate::annotations::Annotations;
 use crate::internal::field::Field;
-use crate::model::{DbEnum, ForeignModel};
-use crate::{annotation_builder, Model};
+use crate::model::{DbEnum, ForeignModel, Model};
 
 /// This trait maps rust types to database types
 ///
@@ -20,13 +18,8 @@ pub trait AsDbType {
     /// The database type as defined in the Intermediate Model Representation
     type DbType: hmr::db_type::DbType;
 
-    /// The default annotations' concrete [`Annotations<...>`] type
-    ///
-    /// [`Annotations<...>`]: crate::annotation_builder::Annotations
-    type Annotations;
-
-    /// the default annotations
-    const ANNOTATIONS: Self::Annotations;
+    /// Annotations implied by this type
+    const IMPLICIT: Option<Annotations> = None;
 
     /// Convert the associated primitive type into `Self`.
     ///
@@ -56,9 +49,6 @@ macro_rules! impl_as_db_type {
             type Primitive = Self;
 
             type DbType = hmr::db_type::$db_type;
-
-            type Annotations = NotSetAnnotations;
-            const ANNOTATIONS: Self::Annotations = NotSetAnnotations::new();
 
             #[inline(always)]
             fn from_primitive(primitive: Self::Primitive) -> Self {
@@ -97,8 +87,7 @@ impl<T: AsDbType> AsDbType for Option<T> {
     type Primitive = Option<T::Primitive>;
     type DbType = T::DbType;
 
-    type Annotations = T::Annotations;
-    const ANNOTATIONS: Self::Annotations = T::ANNOTATIONS;
+    const IMPLICIT: Option<Annotations> = T::IMPLICIT;
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         primitive.map(T::from_primitive)
@@ -118,9 +107,11 @@ impl<E: DbEnum> AsDbType for E {
     type Primitive = String;
     type DbType = hmr::db_type::Choices;
 
-    type Annotations = annotation_builder::Implicit<annotations::Choices, NotSetAnnotations>;
-    const ANNOTATIONS: Self::Annotations =
-        NotSetAnnotations::new().implicit_choices(annotations::Choices(E::CHOICES));
+    const IMPLICIT: Option<Annotations> = Some({
+        let mut annos = Annotations::empty();
+        annos.choices = Some(hmr::annotations::Choices(E::CHOICES));
+        annos
+    });
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         E::from_str(&primitive)
@@ -135,8 +126,7 @@ impl<M: Model> AsDbType for ForeignModel<M> {
     type Primitive = <<M::Primary as Field>::Type as AsDbType>::Primitive;
     type DbType = <<M::Primary as Field>::Type as AsDbType>::DbType;
 
-    type Annotations = <<M::Primary as Field>::Type as AsDbType>::Annotations;
-    const ANNOTATIONS: Self::Annotations = <<M::Primary as Field>::Type as AsDbType>::ANNOTATIONS;
+    const IMPLICIT: Option<Annotations> = <<M::Primary as Field>::Type as AsDbType>::IMPLICIT;
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         Self::Key(<M::Primary as Field>::Type::from_primitive(primitive))

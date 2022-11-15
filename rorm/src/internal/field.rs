@@ -1,14 +1,15 @@
 //! defines the [Field] struct which is stored under `Model::F`.
 
+use std::marker::PhantomData;
+
 use rorm_declaration::hmr::annotations::AsImr;
 use rorm_declaration::hmr::db_type::DbType;
 use rorm_declaration::hmr::Source;
 use rorm_declaration::imr;
-use std::marker::PhantomData;
 
-use crate::annotation_builder::{AnnotationsDescriptor, ImplicitNotNull};
+use crate::annotations::Annotations;
 use crate::internal::as_db_type::AsDbType;
-use crate::Model;
+use crate::model::Model;
 
 /// All information about a model's field stored in the type system.
 ///
@@ -36,11 +37,31 @@ pub trait Field {
     /// Name of this field
     const NAME: &'static str;
 
-    /// List of annotations set for this field
-    type Annotations: AnnotationsDescriptor + ImplicitNotNull + AsImr<Imr = Vec<imr::Annotation>>;
+    /// List of annotations which were set by the user
+    const EXPLICIT_ANNOTATIONS: Annotations;
 
-    /// List of annotations set for this field
-    const ANNOTATIONS: Self::Annotations;
+    /// List of the actual annotations
+    const ANNOTATIONS: Annotations = {
+        if let Some(implicit) = Self::Type::IMPLICIT {
+            match Self::EXPLICIT_ANNOTATIONS.merge(implicit) {
+                Ok(annotations) => annotations,
+                Err(duplicate) => {
+                    // TODO figure out how to generate error message
+                    panic!(
+                        //"The annotation ",
+                        //duplicate,
+                        //" on ",
+                        //Self::Model::TABLE,
+                        //".",
+                        //Self::NAME,
+                        //" is implied by its type and can't be set explicitly"
+                    )
+                }
+            }
+        } else {
+            Self::EXPLICIT_ANNOTATIONS
+        }
+    };
 
     /// Optional definition of the location of field in the source code
     const SOURCE: Option<Source>;
@@ -48,8 +69,8 @@ pub trait Field {
     /// Entry point for compile time checks on a single field
     const _CHECK: () = {
         // Annotations
-        let mut annotations: rorm_declaration::lints::Annotations = Self::Annotations::FOOTPRINT;
-        annotations.not_null = !Self::Type::IS_NULLABLE && !Self::Annotations::IMPLICIT_NOT_NULL;
+        let mut annotations = Self::ANNOTATIONS.as_lint();
+        annotations.not_null = !Self::Type::IS_NULLABLE && !Self::ANNOTATIONS.implicit_not_null();
         annotations.foreign_key = Self::Type::IS_FOREIGN.is_some();
         if let Err(err) = annotations.check() {
             panic!("{}", err);
@@ -60,7 +81,7 @@ pub trait Field {
 /// Get a [NewField] as imr
 pub fn as_imr<F: Field>() -> imr::Field {
     let mut annotations = F::ANNOTATIONS.as_imr();
-    if !F::Type::IS_NULLABLE && !F::Annotations::IMPLICIT_NOT_NULL {
+    if !F::Type::IS_NULLABLE && !F::ANNOTATIONS.implicit_not_null() {
         annotations.push(imr::Annotation::NotNull);
     }
     if let Some((table, column)) = F::Type::IS_FOREIGN {
@@ -146,7 +167,7 @@ impl<F: Field, P> FieldProxy<F, P> {
     }
 
     /// Get the field's annotations
-    pub const fn annotations(&self) -> F::Annotations {
+    pub const fn annotations(&self) -> Annotations {
         F::ANNOTATIONS
     }
 }

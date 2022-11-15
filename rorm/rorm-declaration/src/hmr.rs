@@ -72,98 +72,36 @@ pub mod db_type {
 /// [`imr::Annotation`]: crate::imr::Annotation
 pub mod annotations {
     use crate::imr;
-    use std::marker::PhantomData;
 
     /// Trait to store a concrete optional annotation as generic type parameter.
-    pub trait Annotation<T: 'static + Copy>: 'static + Copy {
-        /// Convert the annotation into its imr representation.
-        ///
-        /// [`NotSet`] and [`Forbidden`] return `None`.
-        /// [`Implicit`] and any annotation itself return `Some`.
-        fn as_imr(&self) -> Option<imr::Annotation>;
-
+    pub trait Annotation<T>: AsImr<Imr = imr::Annotation> {
         /// This flag is set on annotations like [`PrimaryKey`] which don't allow null but
         /// databases don't want you to tell them.
         const IMPLICIT_NOT_NULL: bool = false;
-
-        /// This flag indicates whether this annotation has been set or not.
-        ///
-        /// It differentiates [NotSet] and [Forbidden] from [Implicit] and the annotation itself (i.e. [Self]).
-        const IS_SET: bool;
-    }
-
-    /// An annotation which has not been set
-    #[derive(Copy, Clone)]
-    pub struct NotSet<T>(PhantomData<T>);
-    impl<T> NotSet<T> {
-        /// Alternative to constructor which avoids importing [`PhantomData`]
-        pub const fn new() -> Self {
-            NotSet(PhantomData)
-        }
-    }
-    impl<T: Annotation<T>> Annotation<T> for NotSet<T> {
-        fn as_imr(&self) -> Option<imr::Annotation> {
-            None
-        }
-
-        const IS_SET: bool = false;
-    }
-
-    /// An annotation which is implied by a field's datatype
-    #[derive(Copy, Clone)]
-    pub struct Implicit<T>(T);
-    impl<T> Implicit<T> {
-        /// Constructor to keep similar API to [`Forbidden`] and [`NotSet`]
-        pub const fn new(anno: T) -> Self {
-            Implicit(anno)
-        }
-    }
-    impl<T: Annotation<T>> Annotation<T> for Implicit<T> {
-        fn as_imr(&self) -> Option<imr::Annotation> {
-            self.0.as_imr()
-        }
-
-        const IMPLICIT_NOT_NULL: bool = T::IMPLICIT_NOT_NULL;
-        const IS_SET: bool = true;
-    }
-
-    /// An annotation which is forbidden to be set.
-    #[derive(Copy, Clone)]
-    pub struct Forbidden<T>(PhantomData<T>);
-    impl<T> Forbidden<T> {
-        /// Alternative to constructor which avoids importing [`PhantomData`]
-        pub const fn new() -> Self {
-            Forbidden(PhantomData)
-        }
-    }
-    impl<T: Annotation<T>> Annotation<T> for Forbidden<T> {
-        fn as_imr(&self) -> Option<imr::Annotation> {
-            None
-        }
-
-        const IS_SET: bool = false;
     }
 
     macro_rules! impl_annotations {
         ($($(#[doc = $doc:literal])* $field:ident $anno:ident $(($data:ty))?, $implicit_not_null:expr,)*) => {
             $(
                 $(#[doc = $doc])*
-                #[derive(Copy, Clone)]
                 pub struct $anno$((
                     /// The annotation's data
                     pub $data
                 ))?;
 
-                impl Annotation<$anno> for $anno {
-                    fn as_imr(&self) -> Option<imr::Annotation> {
-                        Some(imr::Annotation::$anno$(({
+                impl AsImr for $anno {
+                    type Imr = imr::Annotation;
+
+                    fn as_imr(&self) -> imr::Annotation {
+                        imr::Annotation::$anno$(({
                             let data: &$data = &self.0;
                             data.as_imr()
-                        }))?)
+                        }))?
                     }
+                }
 
+                impl Annotation<$anno> for $anno {
                     const IMPLICIT_NOT_NULL: bool = $implicit_not_null;
-                    const IS_SET: bool = true;
                 }
             )*
         };
@@ -190,18 +128,7 @@ pub mod annotations {
         unique Unique, false,
     );
 
-    /// This trait is used to "compute" [`Annotations<...>`]'s next concrete type after a step in the builder pattern.
-    ///
-    /// It would be reasonable to put the actual "step" method into this trait: `some_annos.add(SomeAnno)`
-    /// Sadly rust's traits don't support const methods (yet?).
-    /// So each "step" method needs its own name and exists completely detached to this trait: `some_annos.some_anno(SomeAnno)`
-    pub trait Step<T> {
-        /// The resulting type after this step
-        type Output;
-    }
-
     /// Represents a complex index
-    #[derive(Copy, Clone)]
     pub struct IndexData {
         /// Name of the index. Can be used multiple times in a model to create an
         /// index with multiple columns.
@@ -213,7 +140,6 @@ pub mod annotations {
     }
 
     /// A column's default value which is any non object / array json value
-    #[derive(Copy, Clone)]
     pub enum DefaultValueData {
         /// Use hexadecimal to represent binary data
         String(&'static str),

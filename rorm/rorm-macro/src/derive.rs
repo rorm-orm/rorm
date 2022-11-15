@@ -3,7 +3,6 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::spanned::Spanned;
 
-use crate::annotations::Annotation;
 use crate::errors::Errors;
 use crate::utils::{get_source, iter_rorm_attributes, to_db_name};
 use crate::{annotations, trait_impls};
@@ -154,7 +153,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
             #(
                 let field = <#model as ::rorm::model::Model>::FIELDS.#fields_ident;
                 let annos = &field.annotations();
-                if annos.is_auto_increment_set() {
+                if annos.auto_increment.is_some() {
                     count_auto_increment += 1;
                 }
             )*
@@ -273,7 +272,6 @@ fn parse_field(
     model_vis: &syn::Visibility,
     errors: &Errors,
 ) -> darling::Result<Option<ParsedField>> {
-    let span = field.span();
     let ident = if let Some(ident) = field.ident {
         ident
     } else {
@@ -281,30 +279,20 @@ fn parse_field(
         return Ok(None);
     };
 
-    let annotations = annotations::FieldAnnotations::from_attributes(&field.attrs)?;
-    eprintln!("{}: {:?}", ident, annotations);
-    let annotations = annotations.into_with_error(&span, errors);
-
-    let mut has_choices = false;
-    let mut is_primary = false;
-    for annotation in annotations.iter() {
-        match annotation.annotation {
-            Annotation::PrimaryKey => is_primary = true,
-            Annotation::Choices => has_choices = true,
-            _ => {}
-        }
-    }
+    let annotations = annotations::Annotations::from_attributes(&field.attrs)?;
 
     let value_type = field.ty;
 
     let db_name = syn::LitStr::new(&to_db_name(ident.to_string()), ident.span());
     let index = syn::LitInt::new(&index.to_string(), ident.span());
 
-    let db_type = if has_choices {
-        quote! { ::rorm::hmr::Choices }
+    let db_type = if annotations.choices.is_some() {
+        quote! { ::rorm::hmr::db_type::Choices }
     } else {
         quote! { <#value_type as ::rorm::internal::as_db_type::AsDbType>::DbType }
     };
+
+    let is_primary = annotations.primary_key || annotations.id;
     let vis = if is_primary {
         model_vis.clone()
     } else {
@@ -313,10 +301,8 @@ fn parse_field(
 
     let source = get_source(&ident);
 
-    let builder_steps = annotations.iter_steps();
-    let anno_type = annotations.get_type(&value_type);
-
     let type_ident = format_ident!("__{}_{}", model_type, ident);
+    let annotations = annotations.to_tokens(&errors);
     let definition = quote! {
         #vis struct #type_ident;
         impl ::rorm::internal::field::Field for #type_ident {
@@ -325,8 +311,7 @@ fn parse_field(
             type Model = #model_type;
             const INDEX: usize = #index;
             const NAME: &'static str = #db_name;
-            type Annotations = #anno_type;
-            const ANNOTATIONS: Self::Annotations = <#value_type as ::rorm::internal::as_db_type::AsDbType>::ANNOTATIONS #(#builder_steps)*;
+            const EXPLICIT_ANNOTATIONS: ::rorm::annotations::Annotations = #annotations;
             const SOURCE: Option<::rorm::hmr::Source> = #source;
         }
     };

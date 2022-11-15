@@ -9,7 +9,6 @@ use quote::{quote, ToTokens};
 mod annotations;
 mod derive;
 mod errors;
-mod impl_anno_builder;
 mod rename_linkme;
 mod trait_impls;
 mod utils;
@@ -106,10 +105,4 @@ pub fn rorm_main(args: TokenStream, item: TokenStream) -> TokenStream {
             #main
         }
     }).into()
-}
-
-#[doc(hidden)]
-#[proc_macro]
-pub fn impl_annotations_builder(args: TokenStream) -> TokenStream {
-    impl_anno_builder::impl_anno_builder(args.into()).into()
 }
