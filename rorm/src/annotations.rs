@@ -45,6 +45,8 @@ pub struct Annotations {
 impl AsImr for Annotations {
     type Imr = Vec<imr::Annotation>;
 
+    // Used for consistent syntax
+    #[allow(clippy::redundant_pattern_matching)]
     fn as_imr(&self) -> Vec<imr::Annotation> {
         // Deconstruct to help ensure every annotation is handled.
         let Self {

@@ -302,7 +302,7 @@ fn parse_field(
     let source = get_source(&ident);
 
     let type_ident = format_ident!("__{}_{}", model_type, ident);
-    let annotations = annotations.to_tokens(&errors);
+    let annotations = annotations.into_tokens(errors);
     let definition = quote! {
         #vis struct #type_ident;
         impl ::rorm::internal::field::Field for #type_ident {

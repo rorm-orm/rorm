@@ -87,7 +87,7 @@ pub struct NamedIndex {
 }
 
 impl Annotations {
-    pub fn to_tokens(mut self, errors: &Errors) -> TokenStream {
+    pub fn into_tokens(mut self, errors: &Errors) -> TokenStream {
         if self.id {
             self.auto_increment = true;
             self.primary_key = true;
@@ -118,7 +118,7 @@ impl Annotations {
         let max_length = max_length.map(|len| quote! {MaxLength(#len)});
         let choices = choices.map(|Choices(choices)| quote! { Choices(&[#(#choices),*]) });
         let default = default
-            .map(|default| {
+            .and_then(|default| {
                 let variant = match &default {
                     Lit::Str(_) => "String",
                     Lit::Int(_) => "Integer",
@@ -132,8 +132,7 @@ impl Annotations {
 
                 let variant = Ident::new(variant, Span::call_site());
                 Some(quote! {DefaultValue(::rorm::hmr::annotations::DefaultValueData::#variant(#default))})
-            })
-            .flatten();
+            });
         let index = index.map(|Index(index)| {
             match index {
                 None => {
@@ -162,16 +161,14 @@ impl Annotations {
             "SetDefault" => Some(quote! {SetDefault}),
             _ => {
                 errors.push_new(lit.span(), "unsupported literal's value");
-                return None;
+                None
             }
         };
         let on_delete = on_delete
-            .map(parse_action)
-            .flatten()
+            .and_then(parse_action)
             .map(|token| quote! {OnDelete::#token});
         let on_update = on_update
-            .map(parse_action)
-            .flatten()
+            .and_then(parse_action)
             .map(|token| quote! {OnUpdate::#token});
 
         // Unwrap all options
