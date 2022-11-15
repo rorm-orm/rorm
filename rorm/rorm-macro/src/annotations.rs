@@ -133,7 +133,7 @@ impl FieldAnnotations {
             };
 
             if !variant.is_empty() {
-                let variant = Ident::new(variant, field.clone());
+                let variant = Ident::new(variant, *field);
                 annotations.push((
                     Annotation::Default,
                     Some(quote! {::rorm::hmr::annotations::DefaultValueData::#variant(#default)}),
@@ -178,7 +178,7 @@ impl FieldAnnotations {
             annotations
                 .into_iter()
                 .map(|(annotation, expr)| ParsedAnnotation {
-                    span: field.clone(),
+                    span: *field,
                     annotation,
                     expr,
                 })
