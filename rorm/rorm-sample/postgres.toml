@@ -4,5 +4,5 @@ Driver = "Postgres"
 Name = "db"
 Host = "127.0.0.1"
 Port = 5432
-User = "user"
+User = "username"
 Password = "password"

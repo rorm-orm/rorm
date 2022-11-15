@@ -286,10 +286,10 @@ jobs:
       database:
         image: ${{ matrix.image }}
         env:
-          POSTGRES_USER: user
+          POSTGRES_USER: username
           POSTGRES_PASSWORD: password
           POSTGRES_DB: db
-          MARIADB_USER: user
+          MARIADB_USER: username
           MARIADB_PASSWORD: password
           MARIADB_DATABASE: db
           MARIADB_RANDOM_ROOT_PASSWORD: yes

@@ -1,0 +1,189 @@
+name: Build & Test for Windows
+on:
+  push:
+    paths-ignore:
+    - "*.md"
+    - docs
+  pull_request:
+
+# Using a UNIX shell (sh) is much more intuitive compared to the Windows powershell
+defaults:
+  run:
+    shell: sh
+
+# This CI configuration makes heavy use of the local cache of a self-hosted Windows runner
+# Due to eval restrictions in the GitHub workflow configuration, the CARGO_TARGET_DIR must be set for every single step
+jobs:
+  build-windows:
+    name: Build rorm (stable)
+    runs-on: [ self-hosted, windows, x64 ]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build rorm-lib
+        run: |
+          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          ~/.cargo/bin/cargo build -p rorm-lib
+          ~/.cargo/bin/cargo build -p rorm-lib -r
+        working-directory: ./rorm
+
+      - name: Install rorm-cli (release)
+        run: CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target ~/.cargo/bin/cargo install rorm-cli --path ./rorm/rorm-cli
+
+      - name: Build rorm-sample
+        run: |
+          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          ~/.cargo/bin/cargo build
+          ~/.cargo/bin/cargo build -r
+        working-directory: ./rorm/rorm-sample
+
+  cargo-test-windows:
+    name: Cargo Tests (stable)
+    needs: build-windows
+    env:
+      RUSTFLAGS: "-Cinstrument-coverage"
+      LLVM_PROFILE_FILE: "coverage-rorm_%p-%m.profraw"
+    runs-on: [ self-hosted, windows, x64 ]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install coverage utilitiy
+        run: ~/.cargo/bin/cargo install grcov
+
+      - name: Run tests
+        run: |
+          export PATH=~/.cargo/bin:$PATH
+          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          set -e
+          set -x
+          cargo build -F tokio-rustls
+          cargo test -p rorm-cli
+          cargo test -p rorm-db -F tokio-rustls
+          cargo test -p rorm-declaration
+          cargo test -p rorm-lib
+          cargo test -p rorm-macro
+          # TODO: This is currently not supported and results in linker errors (LNK1181)
+          # cargo test -p rorm-sql -F sqlite
+          cargo test -F tokio-rustls
+        working-directory: ./rorm
+
+      - name: Create code coverage report
+        run: |
+          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          ~/.cargo/bin/grcov . --binary-path $CARGO_TARGET_DIR/debug -s . -t html --branch --ignore-not-existing -o ./coverage
+          cp -rv coverage-rorm*raw ./coverage
+        working-directory: ./rorm
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: rorm/coverage
+
+  clippy-analyze-windows:
+    name: Clippy Analyze
+    needs: build-windows
+    runs-on: [ self-hosted, windows, x64 ]
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup utilities
+        run: |
+          ~/.cargo/bin/rustup component add clippy
+          ~/.cargo/bin/cargo install clippy-sarif sarif-fmt
+
+      - name: Run rust-clippy
+        run: |
+          export PATH=~/.cargo/bin:$PATH
+          export CARGO_TARGET_DIR=~/actions/cache/nightly/${GITHUB_REPOSITORY}/rorm/target
+          cargo clippy -F tokio-rustls --message-format=json | clippy-sarif | tee ../rust-clippy-results.sarif | sarif-fmt
+        continue-on-error: true
+        working-directory: rorm
+
+      - name: Upload analysis results to GitHub
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: rust-clippy-results.sarif
+          wait-for-processing: true
+
+  dub-test-windows:
+    name: Dub Test
+    needs: build-windows
+    runs-on: [ self-hosted, windows, x64 ]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build rorm-lib (release)
+        run: |
+          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          ~/.cargo/bin/cargo build -p rorm-lib -r
+          mkdir -pv target/release/
+          cp -v ${CARGO_TARGET_DIR}/release/rorm.lib target/release/
+        working-directory: ./rorm
+
+      - name: Run tests
+        run: dub test
+        env:
+          DFLAGS: "-lowmem"
+        working-directory: ./dorm
+
+  integration-test-windows:
+    name: Integration Test
+    needs: [ dub-test-windows, cargo-test-stable-windows ]
+    runs-on: [ self-hosted, windows, x64 ]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build rorm-lib (release)
+        run: |
+          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          ~/.cargo/bin/cargo build -p rorm-lib -r
+          mkdir -pv target/release/
+          cp -v ${CARGO_TARGET_DIR}/release/rorm.lib target/release/
+        working-directory: ./rorm
+
+      - name: Run integration tests
+        env:
+          DFLAGS: "-lowmem"
+        run: |
+          export PATH=~/.cargo/bin:$PATH
+          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          ./run.sh
+        working-directory: ./dorm/integration-tests/
+
+  sample-project-windows:
+    name: Sample project
+    needs: [ cargo-test-stable-windows ]
+    runs-on: [ self-hosted, windows, x64 ]
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - mysql.toml
+          - postgres.toml
+          - sqlite.toml
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Run the sample help
+        run: CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target RUST_BACKTRACE=full ~/.cargo/bin/cargo run -- --help
+        working-directory: ./rorm/rorm-sample
+
+      - name: Run the project for ${{ matrix.config }}
+        run: |
+          set -x
+          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          echo Config: ${{ matrix.config }}
+          echo "DROP DATABASE db; CREATE DATABASE db;" | "C:\\Program Files\\MariaDB 10.6\\bin\\mysql.exe" -uroot -proot mysql
+          echo "DROP DATABASE db; CREATE DATABASE db; ALTER DATABASE db OWNER TO username; GRANT ALL PRIVILEGES ON DATABASE db TO username;" | PGPASSWORD=postgres "C:\\Program Files\\PostgreSQL\\15\\bin\\psql.exe" -e -w -hlocalhost -Upostgres postgres
+          rm -rvf .models.json
+          ~/.cargo/bin/rorm-cli migrate --database-config "${{ matrix.config }}" --log-sql
+          ~/.cargo/bin/cargo run -F rorm-main
+          ~/.cargo/bin/rorm-cli make-migrations
+          ~/.cargo/bin/rorm-cli migrate --database-config "${{ matrix.config }}" --log-sql
+          RUST_BACKTRACE=full RUST_LOG=rorm=debug ~/.cargo/bin/cargo run -- "${{ matrix.config }}"
+        working-directory: ./rorm/rorm-sample
