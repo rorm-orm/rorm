@@ -33,7 +33,17 @@ pub const fn concat_into<const N: usize>(
             bytes = tail;
             buffer[i] = *head;
             i += 1;
+
+            // Handle buffer overflow
+            if i == N {
+                buffer[i - 1] = DOT;
+                buffer[i - 2] = DOT;
+                buffer[i - 3] = DOT;
+                return (N, buffer);
+            }
         }
     }
     (i, buffer)
 }
+
+const DOT: u8 = ".".as_bytes()[0];
