@@ -643,14 +643,69 @@ struct ConditionBuilder(T)
 		void not()() { static assert(false, "Model " ~ T.stringof
 			~ " has no fields that can be used with .not"); }
 
+	mixin DynamicMissingMemberErrorHelper!"condition field";
+}
+
+/// This MUST be mixed in at the end to show proper members
+private mixin template DynamicMissingMemberErrorHelper(string fieldName, string simplifyName = "")
+{
 	auto opDispatch(string member)()
 	{
 		import std.string : join;
 
-		pragma(msg, supplErrorPrefix ~ "cannot access condition field '" ~ member ~ "'. Available members are: "
-			~ [__traits(allMembers, ConditionBuilder)][0 .. ConditionBuilder.tupleof.length].join(", "));
+		enum available = [__traits(allMembers, typeof(this))][0 .. $ - 1].filterBuiltins;
+
+		enum suggestion = findSuggestion(available, member);
+		enum suggestionMsg = suggestion.length ? "\n\n\t\tDid you mean " ~ suggestion ~ "?" : "";
+
+		pragma(msg, supplErrorPrefix ~ fieldName ~ " `" ~ member ~ "` does not exist on "
+			~ (simplifyName.length ? simplifyName : typeof(this).stringof) ~ ". Available members are: "
+			~ available.join(", ") ~ suggestionMsg);
 		static assert(false);
 	}
+}
+
+private string[] filterBuiltins(string[] members)
+{
+	import std.algorithm : among, remove;
+
+	foreach_reverse (i, member; members)
+		if (member.among("__ctor", "__dtor"))
+			members = members.remove(i);
+	return members;
+}
+
+private string findSuggestion(string[] available, string member)
+{
+	// TODO: levenshteinDistance doesn't work at CTFE
+	// import std.algorithm : levenshteinDistance;
+
+	// size_t minDistance = size_t.max;
+	// string suggestion;
+
+	// foreach (a; available)
+	// {
+	// 	auto dist = levenshteinDistance(a, member);
+	// 	if (dist < minDistance)
+	// 	{
+	// 		suggestion = a;
+	// 		minDistance = dist;
+	// 	}
+	// }
+	// return minDistance < 3 ? suggestion : null;
+
+	import std.string : soundex;
+
+	char[4] q, test;
+	if (!soundex(member, q[]))
+		return null;
+	foreach (a; available)
+	{
+		auto t = soundex(a, test[]);
+		if (t == q)
+			return a;
+	}
+	return null;
 }
 
 private enum supplErrorPrefix = "           \x1B[1;31mDORM Error:\x1B[m ";
@@ -670,14 +725,7 @@ struct NotConditionBuilder(T)
 		}
 	}
 
-	auto opDispatch(string member)()
-	{
-		import std.string : join;
-
-		pragma(msg, supplErrorPrefix ~ "cannot access negated condition field '" ~ member ~ "'. Available members are: "
-			~ [__traits(allMembers, NotConditionBuilder)][0 .. $ - 1].join(", "));
-		static assert(false);
-	}
+	mixin DynamicMissingMemberErrorHelper!"negated condition field";
 }
 
 private Condition* makeConditionIdentifier(T)(T value) @safe
@@ -765,6 +813,11 @@ struct ForeignModelConditionBuilderField(ModelRef, ModelFormat.Field field, stri
 				"`); }");
 		}
 	}
+
+	mixin DynamicMissingMemberErrorHelper!(
+		"foreign condition field",
+		"`ForeignModelConditionBuilderField` on " ~ RefDB.stringof ~ "." ~ field.sourceColumn
+	);
 }
 
 /// Returns `"baz"` from `"foo.bar.baz"` (identifier after last .)
@@ -886,6 +939,11 @@ struct ConditionBuilderField(T, ModelFormat.Field field)
 	{
 		return Condition(TernaryCondition(TernaryConditionType.NotBetween, lhs, makeConditionConstant!field(min), makeConditionConstant!field(max)));
 	}
+
+	mixin DynamicMissingMemberErrorHelper!(
+		"field comparision operator",
+		"`ConditionBuilderField!(" ~ T.stringof ~ ")` on " ~ field.sourceColumn
+	);
 }
 
 private struct JoinInformation
