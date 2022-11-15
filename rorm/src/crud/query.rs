@@ -2,7 +2,6 @@
 use std::marker::PhantomData;
 use std::ops::{Range, RangeInclusive, Sub};
 
-use futures::stream::BoxStream;
 use futures::{Stream, StreamExt};
 use rorm_db::select::LimitClause;
 use rorm_db::transaction::Transaction;
@@ -150,14 +149,17 @@ impl<
         L: LimitMarker,
     > QueryBuilder<'db, 'rf, M, S, C, T, L>
 {
-    /// Retrieve all matching rows
-    pub async fn all_as_rows(self) -> Result<Vec<Row>, Error> {
-        let columns: Vec<SelectColumnImpl> = self
-            .selector
+    fn get_columns(&self) -> Vec<SelectColumnImpl<'static>> {
+        self.selector
             .columns()
             .iter()
             .map(|x| self.db.get_sql_dialect().select_column(None, x, None))
-            .collect();
+            .collect()
+    }
+
+    /// Retrieve and decode all matching rows
+    pub async fn all(self) -> Result<Vec<S::Result>, Error> {
+        let columns = self.get_columns();
         self.db
             .query_all(
                 M::TABLE,
@@ -167,72 +169,6 @@ impl<
                 self.limit.into_option(),
                 self.transaction.into_option(),
             )
-            .await
-    }
-
-    /// Retrieve exactly one matching row
-    ///
-    /// An error is returned if no value could be retrieved.
-    pub async fn one_as_row(self) -> Result<Row, Error> {
-        let columns: Vec<SelectColumnImpl> = self
-            .selector
-            .columns()
-            .iter()
-            .map(|x| self.db.get_sql_dialect().select_column(None, x, None))
-            .collect();
-        self.db
-            .query_one(
-                M::TABLE,
-                &columns,
-                &[],
-                self.condition.as_option(),
-                None,
-                self.transaction.into_option(),
-            )
-            .await
-    }
-
-    /// Retrieve the query as a stream of rows
-    pub fn stream_as_row(self) -> BoxStream<'rf, Result<Row, Error>> {
-        let columns: Vec<SelectColumnImpl> = self
-            .selector
-            .columns()
-            .iter()
-            .map(|x| self.db.get_sql_dialect().select_column(None, x, None))
-            .collect();
-        self.db.query_stream(
-            M::TABLE,
-            &columns,
-            &[],
-            self.condition.as_option(),
-            self.limit.into_option(),
-            self.transaction.into_option(),
-        )
-    }
-
-    /// Try to retrieve the a matching row
-    pub async fn optional_as_row(self) -> Result<Option<Row>, Error> {
-        let columns: Vec<SelectColumnImpl> = self
-            .selector
-            .columns()
-            .iter()
-            .map(|x| self.db.get_sql_dialect().select_column(None, x, None))
-            .collect();
-        self.db
-            .query_optional(
-                M::TABLE,
-                &columns,
-                &[],
-                self.condition.as_option(),
-                None,
-                self.transaction.into_option(),
-            )
-            .await
-    }
-
-    /// Retrieve and decode all matching rows
-    pub async fn all(self) -> Result<Vec<S::Result>, Error> {
-        self.all_as_rows()
             .await?
             .into_iter()
             .map(|x| {
@@ -241,24 +177,57 @@ impl<
             .collect::<Result<Vec<_>, _>>()
     }
 
+    /// Retrieve and decode the query as a stream
+    pub fn stream(self) -> impl Stream<Item = Result<S::Result, Error>> + 'rf {
+        let columns = self.get_columns();
+        self.db
+            .query_stream(
+                M::TABLE,
+                &columns,
+                &[],
+                self.condition.as_option(),
+                self.limit.into_option(),
+                self.transaction.into_option(),
+            )
+            .map(|row| {
+                S::decode(row?).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
+            })
+    }
+
     /// Retrieve and decode exactly one matching row
     ///
     /// An error is returned if no value could be retrieved.
     pub async fn one(self) -> Result<S::Result, Error> {
-        S::decode(self.one_as_row().await?)
-            .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
-    }
-
-    /// Retrieve and decode the query as a stream
-    pub fn stream(self) -> impl Stream<Item = Result<S::Result, Error>> + 'rf {
-        self.stream_as_row().map(|row| {
-            S::decode(row?).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
-        })
+        let columns = self.get_columns();
+        let row = self
+            .db
+            .query_one(
+                M::TABLE,
+                &columns,
+                &[],
+                self.condition.as_option(),
+                None,
+                self.transaction.into_option(),
+            )
+            .await?;
+        S::decode(row).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
     }
 
     /// Try to retrieve and decode a matching row
     pub async fn optional(self) -> Result<Option<S::Result>, Error> {
-        match self.optional_as_row().await? {
+        let columns = self.get_columns();
+        let row = self
+            .db
+            .query_optional(
+                M::TABLE,
+                &columns,
+                &[],
+                self.condition.as_option(),
+                None,
+                self.transaction.into_option(),
+            )
+            .await?;
+        match row {
             None => Ok(None),
             Some(row) => {
                 Ok(Some(S::decode(row).map_err(|_| {
@@ -428,6 +397,9 @@ impl<O: OffsetMarker> LimitMarker for Limit<O> {
         })
     }
 }
+trait JustLimitMarker: LimitMarker {}
+impl JustLimitMarker for () {}
+impl JustLimitMarker for Limit<()> {}
 
 /// Marker for the generic parameter storing a limit's offset.
 ///
