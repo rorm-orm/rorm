@@ -363,7 +363,9 @@ macro_rules! query {
 /// Finite alternative to [RangeBounds](std::ops::RangeBounds)
 ///
 /// It unifies [Range] and [RangeInclusive]
+#[allow(clippy::len_without_is_empty)] // Since it is generic, there is no trivial way to compare with zero
 pub trait FiniteRange<T> {
+    // and I don't see why I should use an "IsZero" trait, just to satisfy clippy.
     /// The lower bound of the range (inclusive)
     fn start(&self) -> T;
 
