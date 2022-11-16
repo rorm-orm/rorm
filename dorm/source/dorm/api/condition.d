@@ -168,13 +168,19 @@ FFIValue conditionValue(ModelFormat.Field fieldInfo, T)(T c) @trusted
 	else static if (is(T : DateTime))
 	{
 		ret.type = FFIValue.Type.NaiveDateTime;
-		ret.naiveDateTime = ffi.FFIDateTime(cast(int)c.year, cast(uint)c.month, cast(uint)c.day, cast(uint)c.hour, cast(uint)c.minute, cast(uint)c.second);
+		ret.naiveDateTime = ffi.FFIDateTime(
+			cast(int)c.year, cast(uint)c.month, cast(uint)c.day,
+			cast(uint)c.hour, cast(uint)c.minute, cast(uint)c.second
+		);
 	}
 	else static if (is(T : SysTime))
 	{
 		ret.type = FFIValue.Type.NaiveDateTime;
 		auto d = cast(DateTime) c.toUTC;
-		ret.naiveDateTime = ffi.FFIDateTime(cast(int)d.year, cast(uint)d.month, cast(uint)d.day, cast(uint)d.hour, cast(uint)d.minute, cast(uint)d.second);
+		ret.naiveDateTime = ffi.FFIDateTime(
+			cast(int)d.year, cast(uint)d.month, cast(uint)d.day,
+			cast(uint)d.hour, cast(uint)d.minute, cast(uint)d.second
+		);
 	}
 	else static if (is(T == ffi.FFIString))
 	{
@@ -338,9 +344,18 @@ string dumpTree(ffi.FFICondition[] c)
 				case FFIValue.Type.F64: query ~= "f64:" ~ c.value.f64.to!string; break;
 				case FFIValue.Type.Null: query ~= "[null]"; break;
 				case FFIValue.Type.Binary: query ~= "(binary)"; break;
-				case FFIValue.Type.NaiveTime: auto t = c.value.naiveTime; query ~= format!"%02d:%02d:%02d"(t.hour, t.min, t.sec); break;
-				case FFIValue.Type.NaiveDate: auto d = c.value.naiveDate; query ~= format!"%04d-%02d-%02d"(d.year, d.month, d.day); break;
-				case FFIValue.Type.NaiveDateTime: auto dt = c.value.naiveDateTime; query ~= format!"%04d-%02d-%02dT%02d:%02d:%02d"(dt.year, dt.month, dt.day, dt.hour, dt.min, dt.sec); break;
+				case FFIValue.Type.NaiveTime:
+					auto t = c.value.naiveTime;
+					query ~= format!"%02d:%02d:%02d"(t.hour, t.min, t.sec);
+					break;
+				case FFIValue.Type.NaiveDate:
+					auto d = c.value.naiveDate;
+					query ~= format!"%04d-%02d-%02d"(d.year, d.month, d.day);
+					break;
+				case FFIValue.Type.NaiveDateTime:
+					auto dt = c.value.naiveDateTime;
+					query ~= format!"%04d-%02d-%02dT%02d:%02d:%02d"(dt.year, dt.month, dt.day, dt.hour, dt.min, dt.sec);
+					break;
 			}
 			query ~= ")";
 			break;
@@ -492,6 +507,7 @@ unittest
 	);
 
 	auto tree = makeTree(*condition);
-	auto query = dumpTree(tree);
-	assert(query == "WHERE ( Value(ident:foo) = Value(`wert`) AND Value(ident:bar) > Value(i32:5) AND NOT ( Value(ident:baz) = Value(i32:1) OR Value(ident:baz) = Value(i32:4) ) )");
+	const query = dumpTree(tree);
+	assert(query == "WHERE ( Value(ident:foo) = Value(`wert`) AND Value(ident:bar) > Value(i32:5) AND "
+		~ "NOT ( Value(ident:baz) = Value(i32:1) OR Value(ident:baz) = Value(i32:4) ) )");
 }

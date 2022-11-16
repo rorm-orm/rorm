@@ -23,7 +23,7 @@ public import dorm.lib.ffi : DBBackend;
 public import dorm.api.condition;
 
 static if (!is(typeof(mustuse)))
-	enum mustuse;
+	private enum mustuse; // @suppress(dscanner.style.phobos_naming_convention)
 
 /**
  * Configuration operation to connect to a database.
@@ -61,8 +61,9 @@ struct DBConnectOptions
  *
  * to access the database.
  *
- * This struct cannot be copied, to pass it around, use `ref`. Once the struct
- * goes out of scope or gets unset, the connection to the database will be freed.
+ * This struct cannot be copied, to pass it around, use `ref` or `move`. Once
+ * the struct goes out of scope or gets unset, the connection to the database
+ * will be freed.
  */
 struct DormDB
 {
@@ -96,23 +97,43 @@ struct DormDB
 
 	@disable this(this);
 
+	/// Starts a database transaction, on which most operations can be called.
+	///
+	/// Gets automatically rolled back if commit isn't called and the
+	/// transaction goes out of scope, but it's recommended to explicitly
+	/// call `rollback` to clarify the intent.
 	DormTransaction startTransaction() return
 	{
-		ffi.DBTransactionHandle handle;
+		ffi.DBTransactionHandle txHandle;
 		(() @trusted {
 			auto ctx = FreeableAsyncResult!(ffi.DBTransactionHandle).make;
 			ffi.rorm_db_start_transaction(this.handle, ctx.callback.expand);
-			handle = ctx.result();
+			txHandle = ctx.result();
 		})();
-		return DormTransaction(&this, handle);
+		return DormTransaction(&this, txHandle);
 	}
 
+	/// Database operation to insert a single value or multiple values when a
+	/// slice is passed into `insert`.
+	///
+	/// It's possible to insert full Model instances, in which case every field
+	/// of the model is used for the insertion. (also the primary key)
+	///
+	/// It's also possible to insert DormPatch instances to only pass the
+	/// available fields into the SQL insert statement. This means default
+	/// values will be auto-generated if possible.
+	/// (see $(REF hasGeneratedDefaultValue, dorm,declarative,ModelFormat,Field))
+	///
+	/// This is the place where `@constructValue` constructors are called.
+	///
+	/// This method can also be used on transactions.
 	void insert(T)(T value)
 	if (!is(T == U[], U))
 	{
 		return (() @trusted => insertImpl!true(handle, (&value)[0 .. 1], null))();
 	}
 
+	/// ditto
 	void insert(T)(scope T[] value)
 	{
 		return insertImpl!false(handle, value, null);
@@ -139,13 +160,16 @@ struct DormDB
 	 *     queryString = SQL statement to execute.
 	 *     bindParams = Parameters to fill into placeholders of `queryString`.
 	 */
-	RawSQLIterator rawSQL(scope return const(char)[] queryString, scope return ffi.FFIValue[] bindParams = null) return pure
+	RawSQLIterator rawSQL(
+		scope return const(char)[] queryString,
+		scope return ffi.FFIValue[] bindParams = null
+	) return pure
 	{
 		return RawSQLIterator(&this, null, queryString, bindParams);
 	}
 }
 
-///
+/// Helper struct that makes it possible to `foreach` over the `rawSQL` result.
 @mustuse struct RawSQLIterator
 {
 	private DormDB* db;
@@ -161,6 +185,7 @@ struct DormDB
 		return rowCountImpl;
 	}
 
+	// TODO: delegate with @safe / @system differences + index overloads + don't mark whole thing as @trusted
 	/// Starts a new query and iterates all the results on each foreach call.
 	int opApply(scope int delegate(scope RawRow row) dg) @trusted
 	{
@@ -385,12 +410,14 @@ struct DormTransaction
 		})();
 	}
 
-	/// Transacted variant of $(LREF DormDB.insert).
+	/// Transacted variant of $(LREF DormDB.insert). Can insert a single value
+	/// or multiple values at once.
 	void insert(T)(T value)
 	{
 		return (() @trusted => insertImpl!true(db.handle, (&value)[0 .. 1], txHandle))();
 	}
 
+	/// ditto
 	void insert(T)(scope T[] value)
 	{
 		return insertImpl!false(db.handle, value, txHandle);
@@ -420,7 +447,11 @@ private string makePatchAccessPrefix(Patch, DB)()
 	return ret;
 }
 
-private void insertImpl(bool single, T)(scope ffi.DBHandle handle, scope T[] value, ffi.DBTransactionHandle transaction) @safe
+private void insertImpl(bool single, T)(
+	scope ffi.DBHandle handle,
+	scope T[] value,
+	ffi.DBTransactionHandle transaction)
+@safe
 {
 	import core.lifetime;
 	alias DB = DBType!T;
@@ -598,12 +629,32 @@ private void insertImpl(bool single, T)(scope ffi.DBHandle handle, scope T[] val
 
 // defined this as global so that we can pass `Foo.fieldName` as alias argument,
 // to have it be selected.
-static SelectOperation!(DBType!(Selection), SelectType!(Selection)) select(Selection...)(return ref const DormDB db) @trusted
+/// Starts a builder struct that can be used to query data from the database.
+///
+/// It's possible to query full Model instances (get all fields), which are
+/// allocated by the GC. It's also possible to only query parts of a Model, for
+/// which DormPatch types are used, which is useful for improved query
+/// performance when only using parts of a Model as well as reusing the data in
+/// later update calls. (if the primary key is included in the patch)
+///
+/// See `SelectOperation` for possible conditions and how to extract data.
+///
+/// This method can also be used on transactions.
+static SelectOperation!(DBType!(Selection), SelectType!(Selection)) select(
+	Selection...
+)(
+	return ref const DormDB db
+) @trusted
 {
 	return typeof(return)(&db, null);
 }
 
-static SelectOperation!(DBType!(Selection), SelectType!(Selection)) select(Selection...)(return ref const DormTransaction tx) @trusted
+/// ditto
+static SelectOperation!(DBType!(Selection), SelectType!(Selection)) select(
+	Selection...
+)(
+	return ref const DormTransaction tx
+) @trusted
 {
 	return typeof(return)(tx.db, tx.txHandle);
 }
@@ -615,6 +666,22 @@ private struct ConditionBuilderData
 	JoinInformation joinInformation;
 }
 
+/// This is the type of the variable that is passed into the condition callback
+/// at runtime on the `SelectOperation` struct. It automatically mirrors all
+/// DORM fields that are defined on the passed-in `T` Model class.
+///
+/// Fields can be accessed with the same name they were defined in the Model
+/// class. Embedded structs will only use the deepest variable name, e.g. a
+/// nested field of name `userCommon.username` will only need to be accessed
+/// using `username`. Duplicate / shadowing members is not implemented and will
+/// be unable to use the condition builder on them.
+///
+/// If any boolean types are defined in the model, they can be quickly checked
+/// to be false using the `not.booleanFieldName` helper.
+/// See `NotConditionBuilder` for this.
+///
+/// When mistyping names, an expressive error message is printed as compile
+/// time output, showing all possible members for convenience.
 struct ConditionBuilder(T)
 {
 	private ConditionBuilderData* builderData;
@@ -638,10 +705,16 @@ struct ConditionBuilder(T)
 	}
 
 	static if (__traits(allMembers, NotConditionBuilder!T).length > 1)
+	{
+		/// Helper to quickly create `field == false` conditions for boolean fields.
 		NotConditionBuilder!T not;
+	}
 	else
+	{
+		/// Helper to quickly create `field == false` conditions for boolean fields.
 		void not()() { static assert(false, "Model " ~ T.stringof
 			~ " has no fields that can be used with .not"); }
+	}
 
 	mixin DynamicMissingMemberErrorHelper!"condition field";
 }
@@ -710,6 +783,9 @@ private string findSuggestion(string[] available, string member)
 
 private enum supplErrorPrefix = "           \x1B[1;31mDORM Error:\x1B[m ";
 
+/// Helper type to quickly create `field == false` conditions for boolean fields.
+///
+/// See `ConditionBuilder`
 struct NotConditionBuilder(T)
 {
 	static foreach (field; DormFields!T)
@@ -740,18 +816,25 @@ private Condition* makeConditionConstant(ModelFormat.Field fieldInfo, T)(T value
 	return new Condition(conditionValue!fieldInfo(value));
 }
 
+/// Helper type to access sub-fields through `ModelRef` foreign key fields. Will
+/// join the foreign model table automatically if using any fields on there,
+/// other than the primary key, which can be read directly from the source.
+///
+/// Just like `ConditionBuilder` this automatically mirrors all DORM fields of
+/// the _foreign_ table, i.e. the referenced model type.
 struct ForeignModelConditionBuilderField(ModelRef, ModelFormat.Field field, string srcTableName)
 {
 	alias RefDB = ModelRef.TModel;
 
 	private ConditionBuilderData* data;
 
+	/// Constructs this ForeignModelConditionBuilderField, operating on the given data pointer during its lifetime
 	this(ConditionBuilderData* data) @safe
 	{
 		this.data = data;
 	}
 
-	string ensureJoined() @trusted
+	private string ensureJoined() @trusted
 	{
 		auto ji = &data.joinInformation;
 		string fkName = field.columnName;
@@ -830,12 +913,36 @@ private string lastIdentifier(string s)
 	return s;
 }
 
+/// Type that actually implements the condition building on a
+/// `ConditionBuilder`.
+///
+/// Implements building simple unary, binary and ternary operators:
+/// - `equals`
+/// - `notEquals`
+/// - `isTrue` (only defined on boolean types)
+/// - `lessThan`
+/// - `lessThanOrEqual`
+/// - `greaterThan`
+/// - `greaterThanOrEqual`
+/// - `like`
+/// - `notLike`
+/// - `regexp`
+/// - `notRegexp`
+/// - `in_`
+/// - `notIn`
+/// - `isNull`
+/// - `isNotNull`
+/// - `exists`
+/// - `notExists`
+/// - `between`
+/// - `notBetween`
 struct ConditionBuilderField(T, ModelFormat.Field field)
 {
 	// TODO: all the type specific field to Condition thingies
 
 	private string columnName;
 
+	/// Constructs this ConditionBuilderField with the given columnName for generated conditions.
 	this(string columnName) @safe
 	{
 		this.columnName = columnName;
@@ -846,66 +953,88 @@ struct ConditionBuilderField(T, ModelFormat.Field field)
 		return makeConditionIdentifier(columnName);
 	}
 
+	/// Returns: SQL condition `field == value`
 	Condition equals(V)(V value) @safe
 	{
 		return Condition(BinaryCondition(BinaryConditionType.Equals, lhs, makeConditionConstant!field(value)));
 	}
 
+	/// Returns: SQL condition `field != value`
 	Condition notEquals(V)(V value) @safe
 	{
 		return Condition(BinaryCondition(BinaryConditionType.NotEquals, lhs, makeConditionConstant!field(value)));
 	}
 
+	static if (field.type == ModelFormat.Field.DBType.boolean)
+	{
+		/// Returns: SQL condition `field == true`
+		Condition isTrue() @safe
+		{
+			return equals(true);
+		}
+	}
+
+	/// Returns: SQL condition `field < value`
 	Condition lessThan(V)(V value) @safe
 	{
 		return Condition(BinaryCondition(BinaryConditionType.Less, lhs, makeConditionConstant!field(value)));
 	}
 
+	/// Returns: SQL condition `field <= value`
 	Condition lessThanOrEqual(V)(V value) @safe
 	{
 		return Condition(BinaryCondition(BinaryConditionType.LessOrEquals, lhs, makeConditionConstant!field(value)));
 	}
 
+	/// Returns: SQL condition `field > value`
 	Condition greaterThan(V)(V value) @safe
 	{
 		return Condition(BinaryCondition(BinaryConditionType.Greater, lhs, makeConditionConstant!field(value)));
 	}
 
+	/// Returns: SQL condition `field >= value`
 	Condition greaterThanOrEqual(V)(V value) @safe
 	{
 		return Condition(BinaryCondition(BinaryConditionType.GreaterOrEquals, lhs, makeConditionConstant!field(value)));
 	}
 
+	/// Returns: SQL condition `field LIKE value`
 	Condition like(V)(V value) @safe
 	{
 		return Condition(BinaryCondition(BinaryConditionType.Like, lhs, makeConditionConstant!field(value)));
 	}
 
+	/// Returns: SQL condition `field NOT LIKE value`
 	Condition notLike(V)(V value) @safe
 	{
 		return Condition(BinaryCondition(BinaryConditionType.NotLike, lhs, makeConditionConstant!field(value)));
 	}
 
+	/// Returns: SQL condition `field REGEXP value`
 	Condition regexp(V)(V value) @safe
 	{
 		return Condition(BinaryCondition(BinaryConditionType.Regexp, lhs, makeConditionConstant!field(value)));
 	}
 
+	/// Returns: SQL condition `field NOT REGEXP value`
 	Condition notRegexp(V)(V value) @safe
 	{
 		return Condition(BinaryCondition(BinaryConditionType.NotRegexp, lhs, makeConditionConstant!field(value)));
 	}
 
+	/// Returns: SQL condition `field IN value`
 	Condition in_(V)(V value) @safe
 	{
 		return Condition(BinaryCondition(BinaryConditionType.In, lhs, makeConditionConstant!field(value)));
 	}
 
+	/// Returns: SQL condition `field NOT IN value`
 	Condition notIn(V)(V value) @safe
 	{
 		return Condition(BinaryCondition(BinaryConditionType.NotIn, lhs, makeConditionConstant!field(value)));
 	}
 
+	/// Returns: SQL condition `field IS NULL`
 	Condition isNull() @safe
 	{
 		return Condition(UnaryCondition(UnaryConditionType.IsNull, lhs));
@@ -913,6 +1042,7 @@ struct ConditionBuilderField(T, ModelFormat.Field field)
 
 	alias equalsNull = isNull;
 
+	/// Returns: SQL condition `field IS NOT NULL`
 	Condition isNotNull() @safe
 	{
 		return Condition(UnaryCondition(UnaryConditionType.IsNotNull, lhs));
@@ -920,24 +1050,38 @@ struct ConditionBuilderField(T, ModelFormat.Field field)
 
 	alias notEqualsNull = isNotNull;
 
+	/// Returns: SQL condition `field EXISTS`
 	Condition exists() @safe
 	{
 		return Condition(UnaryCondition(UnaryConditionType.Exists, lhs));
 	}
 
+	/// Returns: SQL condition `field NOT EXISTS`
 	Condition notExists() @safe
 	{
 		return Condition(UnaryCondition(UnaryConditionType.NotExists, lhs));
 	}
 
+	/// Returns: SQL condition `field BETWEEN min AND max`
 	Condition between(L, R)(L min, R max) @safe
 	{
-		return Condition(TernaryCondition(TernaryConditionType.Between, lhs, makeConditionConstant!field(min), makeConditionConstant!field(max)));
+		return Condition(TernaryCondition(
+			TernaryConditionType.Between,
+			lhs,
+			makeConditionConstant!field(min),
+			makeConditionConstant!field(max)
+		));
 	}
 
+	/// Returns: SQL condition `field NOT BETWEEN min AND max`
 	Condition notBetween(L, R)(L min, R max) @safe
 	{
-		return Condition(TernaryCondition(TernaryConditionType.NotBetween, lhs, makeConditionConstant!field(min), makeConditionConstant!field(max)));
+		return Condition(TernaryCondition(
+			TernaryConditionType.NotBetween,
+			lhs,
+			makeConditionConstant!field(min),
+			makeConditionConstant!field(max)
+		));
 	}
 
 	mixin DynamicMissingMemberErrorHelper!(
@@ -970,6 +1114,27 @@ private struct JoinInformation
 	private size_t[string] joinedTables;
 }
 
+// TODO: extend docs here
+/**
+ * This is the builder struct that's used for select operations (queries)
+ *
+ * Don't construct this struct manually, use the db.select or tx.select method
+ * (UFCS method defined globally) to create this struct.
+ *
+ * The following methods are implemented for restricting queries: (most can
+ * only be called once, which is enforced through the template parameters)
+ * - `condition` is used to set the "WHERE" clause in SQL. It can only be
+ *   called once on any query operation.
+ * - `limit` can be used to set a maximum number of rows to return. When this
+ *   restriction is called, `findOne` can no longer be used.
+ * - `offset` can be used to offset after how many rows to start returning.
+ *
+ * The following methods can then be used to extract the data:
+ * - `stream` to asynchronously stream data (can be used as iterator / range)
+ * - `array` to eagerly fetch all data and do a big memory allocation to store
+ *   all the values into.
+ * - `findOne` to find the first matching item or throw for no data.
+ */
 struct SelectOperation(
 	T,
 	TSelect,
@@ -984,13 +1149,37 @@ struct SelectOperation(
 	private ffi.DBTransactionHandle tx;
 	private ffi.FFICondition[] conditionTree;
 	private JoinInformation joinInformation;
-	private long _offset, _limit;
+	private ulong _offset, _limit;
+
+	// TODO: might be copyable
+	@disable this(this);
 
 	static if (!hasWhere)
 	{
-		alias SelectBuilder = Condition delegate(ConditionBuilder!T);
+		static if (__traits(compiles, ConditionBuilder!T))
+			alias SelectBuilder = Condition delegate(ConditionBuilder!T);
+		else
+			alias SelectBuilder = void;
 
-		SelectOperation!(T, TSelect, true, hasOrder, hasLimit) condition(SelectBuilder callback) return @trusted
+		/// Limits the query to only rows matching this condition. Maps to the
+		/// `WHERE` clause in an SQL statement.
+		///
+		/// This method may only be called once on each query.
+		///
+		/// It's possible to use conditions in two ways:
+		/// - directly pass in a manually constructed Condition
+		/// - using the callback-based overload which will also handle joins
+		///   and is easier to use in general.
+		///
+		/// See `ConditionBuilder` to see how the callback-based overload is
+		/// implemented. Basically the argument that is passed to the callback
+		/// is a virtual type that mirrors all the DB-related types from the
+		/// Model class, on which operations such as `.equals` or `.like` can
+		/// be called to generate conditions.
+		///
+		/// Use the `Condition.and(...)`, `Condition.or(...)` or `Condition.not(...)`
+		/// methods to combine conditions into more complex ones.
+		SelectOperation!(T, TSelect, true, hasOrder, hasLimit) condition()(SelectBuilder callback) return @trusted
 		{
 			scope ConditionBuilderData data;
 			scope ConditionBuilder!T builder;
@@ -998,48 +1187,64 @@ struct SelectOperation(
 			data.joinInformation = move(joinInformation);
 			conditionTree = callback(builder).makeTree;
 			joinInformation = move(data.joinInformation);
-			return cast(typeof(return))this;
+			return cast(typeof(return))move(this);
+		}
+
+		/// ditto
+		SelectOperation!(T, TSelect, true, hasOrder, hasLimit) condition(Condition condition) return @trusted
+		{
+			conditionTree = condition.makeTree;
+			return cast(typeof(return))move(this);
 		}
 	}
 
 	static if (!hasOrder)
 	{
+		/// Not yet implemented.
 		SelectOperation!(T, TSelect, hasWhere, true, hasLimit) orderBy(T...)(T) return @trusted
 		{
 			static assert(false, "not implemented");
 		}
 	}
 
-	static if (hasLimit && !hasOffset)
+	static if (!hasOffset)
 	{
-		SelectOperation!(T, TSelect, hasWhere, true, true) offset(long offset) return @trusted
+		/// Sets the offset. (number of rows after which to return from the database)
+		SelectOperation!(T, TSelect, hasWhere, true, hasLimit) offset(ulong offset) return @trusted
 		{
 			_offset = offset;
-			return cast(typeof(return))this;
+			return cast(typeof(return))move(this);
 		}
 	}
 
 	static if (!hasLimit)
 	{
-		SelectOperation!(T, TSelect, hasWhere, false, true) limit(long limit) return @trusted
+		/// Sets the maximum number of rows to return. Using this method disables the `findOne` method.
+		SelectOperation!(T, TSelect, hasWhere, hasOffset, true) limit(ulong limit) return @trusted
 		{
 			_limit = limit;
-			return cast(typeof(return))this;
+			return cast(typeof(return))move(this);
 		}
 	}
 
 	static if (!hasOffset && !hasLimit)
 	{
+		/// Implementation detail, makes it possible to use `[start .. end]` on
+		/// the select struct to set both offset and limit at the same time.
+		///
+		/// Start is inclusive, end is exclusive - mimicking how array slicing
+		/// works.
 		size_t[2] opSlice(size_t start, size_t end)
 		{
 			return [start, end];
 		}
 
+		/// ditto
 		SelectOperation!(T, TSelect, hasWhere, true, true) opIndex(size_t[2] slice) return @trusted
 		{
 			this._offset = slice[0];
 			this._limit = cast(long)slice[1] - cast(long)slice[0];
-			return cast(typeof(return))this;
+			return cast(typeof(return))move(this);
 		}
 	}
 
@@ -1056,6 +1261,9 @@ struct SelectOperation(
 		return ret;
 	}
 
+	/// Fetches all result data into one array. Uses the GC to allocate the
+	/// data, so it's not needed to keep track of how long objects live by the
+	/// user.
 	TSelect[] array() @trusted
 	{
 		enum fields = FilterLayoutFields!(T, TSelect);
@@ -1093,6 +1301,9 @@ struct SelectOperation(
 		return ret;
 	}
 
+	/// Fetches all data into a range that can be iterated over or processed
+	/// with regular range functions. Does not allocate an array to store the
+	/// fetched data in, but may still use sparingly the GC in implementation.
 	auto stream() @trusted
 	{
 		enum fields = FilterLayoutFields!(T, TSelect);
@@ -1111,7 +1322,6 @@ struct SelectOperation(
 
 		mixin(makeRtColumns);
 
-		// TODO: pass in limit, offset
 		auto stream = sync_call!(ffi.rorm_db_query_stream)(db.handle,
 			tx,
 			ffi.ffi(DormLayout!T.tableName),
@@ -1123,40 +1333,43 @@ struct SelectOperation(
 		return RormStream!(T, TSelect)(stream, joinInformation);
 	}
 
-	TSelect findOne() @trusted
+	static if (!hasLimit)
 	{
-		enum fields = FilterLayoutFields!(T, TSelect);
+		/// Returns the first row of the result data or throws if no data exists.
+		TSelect findOne() @trusted
+		{
+			enum fields = FilterLayoutFields!(T, TSelect);
 
-		ffi.FFIColumnSelector[fields.length] columns;
-		static foreach (i, field; fields)
-		{{
-			enum aliasedName = "__" ~ field.columnName;
+			ffi.FFIColumnSelector[fields.length] columns;
+			static foreach (i, field; fields)
+			{{
+				enum aliasedName = "__" ~ field.columnName;
 
-			columns[i] = ffi.FFIColumnSelector(
+				columns[i] = ffi.FFIColumnSelector(
+					ffi.ffi(DormLayout!T.tableName),
+					ffi.ffi(field.columnName),
+					ffi.ffi(aliasedName)
+				);
+			}}
+
+			mixin(makeRtColumns);
+
+			TSelect ret;
+			auto ctx = FreeableAsyncResult!(void delegate(scope ffi.DBRowHandle)).make;
+			ctx.forward_callback = (scope row) {
+				ret = unwrapRowResult!(T, TSelect)(row, joinInformation);
+			};
+			ffi.rorm_db_query_one(db.handle,
+				tx,
 				ffi.ffi(DormLayout!T.tableName),
-				ffi.ffi(field.columnName),
-				ffi.ffi(aliasedName)
-			);
-		}}
-
-		mixin(makeRtColumns);
-
-		TSelect ret;
-		auto ctx = FreeableAsyncResult!(void delegate(scope ffi.DBRowHandle)).make;
-		ctx.forward_callback = (scope row) {
-			ret = unwrapRowResult!(T, TSelect)(row, joinInformation);
-		};
-		// TODO: pass in joins, offset
-		ffi.rorm_db_query_one(db.handle,
-			tx,
-			ffi.ffi(DormLayout!T.tableName),
-			ffi.ffi(rtColumns),
-			ffi.ffi(joinInformation.joins),
-			conditionTree.length ? &conditionTree[0] : null,
-			ffiLimit,
-			ctx.callback.expand);
-		ctx.result();
-		return ret;
+				ffi.ffi(rtColumns),
+				ffi.ffi(joinInformation.joins),
+				conditionTree.length ? &conditionTree[0] : null,
+				ffi.FFIOption!ulong(_offset),
+				ctx.callback.expand);
+			ctx.result();
+			return ret;
+		}
 	}
 }
 
@@ -1170,32 +1383,33 @@ private enum makeRtColumns = q{
 	if (joinInformation.joinSuppl.any!"a.include")
 	{
 		static foreach (fk; DormForeignKeys!T)
-			{
+		{
 			if (auto joinId = fk.columnName in joinInformation.joinedTables)
 			{
 				auto suppl = joinInformation.joinSuppl[*joinId];
 				if (suppl.include)
 				{
 					auto ffiPlaceholder = ffi.ffi(suppl.placeholder);
-				alias RefField = typeof(mixin("T.", fk.sourceColumn));
-				enum filteredFields = FilterLayoutFields!(RefField.TModel, RefField.TSelect);
-				size_t start = rtColumns.length;
-				size_t i = 0;
-				rtColumns.length += filteredFields.length;
-				static foreach (field; filteredFields)
-				{{
+					alias RefField = typeof(mixin("T.", fk.sourceColumn));
+					enum filteredFields = FilterLayoutFields!(RefField.TModel, RefField.TSelect);
+					size_t start = rtColumns.length;
+					size_t i = 0;
+					rtColumns.length += filteredFields.length;
+					static foreach (field; filteredFields)
+					{{
 						auto ffiColumnName = ffi.ffi(field.columnName);
 						auto aliasCol = text(suppl.placeholder, ("_" ~ field.columnName));
 						rtColumns[start + (i++)].tableName = ffiPlaceholder;
 						rtColumns[start + (i++)].columnName = ffiColumnName;
 						rtColumns[start + (i++)].selectAlias = ffi.ffi(aliasCol);
-				}}
-			}
+					}}
+				}
 			}
 		}
 	}
 };
 
+/// Row streaming range implementation. (query_stream)
 private struct RormStream(T, TSelect)
 {
 	import dorm.lib.util;
@@ -1213,7 +1427,11 @@ private struct RormStream(T, TSelect)
 		}
 	}
 
-	extern(C) private static void rowCallback(void* data, ffi.DBRowHandle result, scope ffi.RormError error) nothrow @trusted
+	extern(C) private static void rowCallback(
+		void* data,
+		ffi.DBRowHandle result,
+		scope ffi.RormError error
+	) nothrow @trusted
 	{
 		auto res = cast(RowHandleState*)data;
 		if (error.tag == ffi.RormError.Tag.NoRowsLeftInStream)
@@ -1250,6 +1468,8 @@ private struct RormStream(T, TSelect)
 
 	@disable this(this);
 
+	/// Helper to `foreach` over this entire stream using the row mapped to
+	/// `TSelect`.
 	int opApply(scope int delegate(TSelect) dg)
 	{
 		int result = 0;
@@ -1262,6 +1482,8 @@ private struct RormStream(T, TSelect)
 		return result;
 	}
 
+	/// Helper to `foreach` over this entire stream using an index (simply
+	/// counting up from 0 in D code) and the row mapped to `TSelect`.
 	int opApply(scope int delegate(size_t i, TSelect) dg)
 	{
 		int result = 0;
@@ -1275,19 +1497,28 @@ private struct RormStream(T, TSelect)
 		return result;
 	}
 
-	auto front() @property @trusted
+	/// Starts the iteration if it hasn't already, waits until data is there
+	/// and returns the current row.
+	///
+	/// Implements the standard D range interface.
+	auto front() @trusted
 	{
 		if (!started) nextIteration();
 		return unwrapRowResult!(T, TSelect)(currentHandle.result(), joinInformation);
 	}
-	
-	bool empty() @property @trusted
+
+	/// Starts the iteration if it hasn't already, waits until data is there
+	/// and returns if there is any data left to be read using `front`.
+	bool empty() @trusted
 	{
 		if (!started) nextIteration();
 		currentHandle.impl.event.wait();
 		return currentHandle.done;
 	}
 
+	/// Starts the iteration if it hasn't already, waits until the current
+	/// request is finished and skips the current row, so empty and front can
+	/// be called next.
 	void popFront() @trusted
 	{
 		if (!started) nextIteration();
@@ -1313,6 +1544,10 @@ private struct RormStream(T, TSelect)
 	static assert(isInputRange!RormStream, "implementation error: did not become an input range");
 }
 
+/// Extracts the DBRowHandle, optionally using JoinInformation when joins were
+/// used, into the TSelect datatype. TSelect may be a DormPatch or the model T
+/// directly. This is mostly used internally. Expect changes to this API until
+/// there is a stable API.
 TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row, JoinInformation ji) @safe
 {
 	auto base = unwrapRowResultImpl!(T, TSelect)(row, "__");
@@ -1326,9 +1561,9 @@ TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row, JoinInformation ji) @sa
 				if (suppl.include)
 				{
 					auto prefix = suppl.placeholder;
-				alias ModelRef = typeof(mixin("T.", fk.sourceColumn));
-				mixin("base.", fk.sourceColumn) =
-					unwrapRowResult!(ModelRef.TModel, ModelRef.TSelect)(row, prefix);
+					alias ModelRef = typeof(mixin("T.", fk.sourceColumn));
+					mixin("base.", fk.sourceColumn) =
+						unwrapRowResult!(ModelRef.TModel, ModelRef.TSelect)(row, prefix);
 				}
 			}
 		}}
@@ -1336,11 +1571,15 @@ TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row, JoinInformation ji) @sa
 	return base;
 }
 
+/// ditto
 TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row) @safe
 {
 	return unwrapRowResultImpl!(T, TSelect, false)(row, null);
 }
 
+/// Unwraps the row like the other unwrap methods, but prefixes all fields with
+/// `<placeholder>_`, so for example placeholder `foo` and field `user` would
+/// result in `foo_user`.
 TSelect unwrapRowResult(T, TSelect)(ffi.DBRowHandle row, string placeholder) @safe
 {
 	scope placeholderDot = new char[placeholder.length + 1];
@@ -1359,14 +1598,21 @@ private TSelect unwrapRowResultImpl(T, TSelect)(ffi.DBRowHandle row, string colu
 	static foreach (field; fields)
 	{
 		mixin("res." ~ field.sourceColumn) = extractField!(field, typeof(mixin("res." ~ field.sourceColumn)),
-			text(" from model ", T.stringof, " in column ", field.sourceColumn, " in file ", field.definedAt).idup)(row, rowError, columnPrefix);
+			text(" from model ", T.stringof,
+				" in column ", field.sourceColumn,
+				" in file ", field.definedAt).idup
+			)(row, rowError, columnPrefix);
 		if (rowError)
 			throw rowError.makeException(" (in column '" ~ columnPrefix ~ field.columnName ~ "')");
 	}
 	return res;
 }
 
-private T extractField(alias field, T, string errInfo)(ffi.DBRowHandle row, ref ffi.RormError error, string columnPrefix) @trusted
+private T extractField(alias field, T, string errInfo)(
+	ffi.DBRowHandle row,
+	ref ffi.RormError error,
+	string columnPrefix
+) @trusted
 {
 	import std.conv;
 	import dorm.declarative;
@@ -1604,6 +1850,16 @@ private T fieldInto(T, string errInfo, From)(scope From v, ref ffi.RormError err
 		static assert(false, "did not implement conversion from " ~ From.stringof ~ " into " ~ T.stringof ~ errInfo);
 }
 
+/// Sets up the DORM runtime that is required to use DORM (and its
+/// implementation library "RORM")
+///
+/// You must use this mixin to use DORM. You can simply call
+/// ```d
+/// mixin SetupDormRuntime;
+/// ```
+/// in your entrypoint file to have the runtime setup automatically.
+///
+/// Supports passing in a timeout (Duration or integer msecs)
 mixin template SetupDormRuntime(alias timeout = 10.seconds)
 {
 	__gshared bool _initializedDormRuntime;

@@ -180,7 +180,8 @@ struct ModelFormat
 		 *   not provided in an insert statement,
 		 *   (@defaultValue, @autoCreateTime, @autoIncrement)
 		 * - has a `@constructValue` annotation (which is handled in db.d)
-		 * - is of type `Nullable!T`, which implies that `null` is the default value.
+		 * - is nullable (e.g. of type `Nullable!T`), which implies that `null`
+		 *   is the default value.
 		 */
 		@serdeIgnore
 		bool hasGeneratedDefaultValue() const @property

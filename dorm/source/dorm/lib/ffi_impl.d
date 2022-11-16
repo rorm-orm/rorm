@@ -852,7 +852,7 @@ void rorm_db_query_one(
 	FFIArray!FFIColumnSelector columns,
 	FFIArray!FFIJoin joins,
 	scope const(FFICondition)* condition,
-	FFIOption!FFILimitClause limit,
+	FFIOption!ulong offset,
 	DBQueryOneCallback callback,
 	void* context);
 /// ditto

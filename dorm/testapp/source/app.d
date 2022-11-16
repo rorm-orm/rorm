@@ -10,7 +10,7 @@ import dorm.api.db;
 
 mixin SetupDormRuntime;
 
-void main(string[] args)
+void main()
 {
 	@DormPatch!User
 	struct UserSelection

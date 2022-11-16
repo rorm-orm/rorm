@@ -13,7 +13,7 @@ import dorm.api.db;
 
 mixin SetupDormRuntime;
 
-void main(string[] args)
+void main()
 {
 	DBConnectOptions options = {
 		backend: DBBackend.SQLite,
@@ -37,7 +37,7 @@ void main(string[] args)
 		ulong someTimestamp = 1_000_000_000UL;
 		int uuid = int.max;
 		int someInt = 20;
-		Common commonFields = Common("CommonName", SuperCommon(12345));
+		Common commonFields = Common("CommonName", SuperCommon(12_345));
 	}
 
 	db.insert(UserInsert.init);

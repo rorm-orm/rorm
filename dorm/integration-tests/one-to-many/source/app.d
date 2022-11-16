@@ -14,7 +14,7 @@ import dorm.declarative.conversion;
 
 mixin SetupDormRuntime;
 
-void main(string[] args)
+void main()
 {
 	DBConnectOptions options = {
 		backend: DBBackend.SQLite,
