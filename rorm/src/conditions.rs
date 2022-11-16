@@ -1,62 +1,9 @@
+use crate::internal::field::{Field, FieldProxy};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use rorm_db::{conditional, value};
-
-/// Basic trait to convert things to rorm-sql types
-pub trait AsSql<'a>: 'a {
-    /// Type to convert to
-    type SQL;
-
-    /// Convert to rorm-sql type
-    fn as_sql(&self) -> Self::SQL;
-}
-
-mod impl_as_sql {
-    use rorm_db::value;
-
-    use super::AsSql;
-    use crate::internal::field::{Field, FieldProxy};
-
-    impl<'a> AsSql<'a> for &'a str {
-        type SQL = value::Value<'a>;
-        fn as_sql(&self) -> Self::SQL {
-            value::Value::String(self)
-        }
-    }
-
-    impl<'a> AsSql<'a> for &'a &[u8] {
-        type SQL = value::Value<'a>;
-        fn as_sql(&self) -> Self::SQL {
-            value::Value::Binary(self)
-        }
-    }
-
-    impl<'a, F: Field> AsSql<'a> for &'static FieldProxy<F, ()> {
-        type SQL = value::Value<'a>;
-        fn as_sql(&self) -> Self::SQL {
-            value::Value::Ident(self.name())
-        }
-    }
-
-    macro_rules! impl_numeric {
-        ($type:ty, $value_variant:ident) => {
-            impl<'a> AsSql<'a> for $type {
-                type SQL = value::Value<'a>;
-                fn as_sql(&self) -> Self::SQL {
-                    value::Value::$value_variant(*self)
-                }
-            }
-        };
-    }
-
-    impl_numeric!(i16, I16);
-    impl_numeric!(i32, I32);
-    impl_numeric!(i64, I64);
-    impl_numeric!(f32, F32);
-    impl_numeric!(f64, F64);
-    impl_numeric!(chrono::NaiveDate, NaiveDate);
-    impl_numeric!(chrono::NaiveDateTime, NaiveDateTime);
-    impl_numeric!(chrono::NaiveTime, NaiveTime);
-}
+use rorm_declaration::hmr::db_type::{
+    Choices, Date, DateTime, DbType, Double, Float, Int16, Int32, Int64, Time, VarBinary, VarChar,
+};
 
 /// Node in a condition tree
 pub trait Condition<'a>: 'a {
@@ -71,9 +18,16 @@ pub trait Condition<'a>: 'a {
         Box::new(self)
     }
 }
-impl<'a, T: AsSql<'a, SQL = value::Value<'a>>> Condition<'a> for T {
+impl<'a> Condition<'a> for Box<dyn Condition<'a>> {
     fn as_sql(&self) -> conditional::Condition<'a> {
-        conditional::Condition::Value(AsSql::as_sql(self))
+        self.as_ref().as_sql()
+    }
+
+    fn boxed(self) -> Box<dyn Condition<'a>>
+    where
+        Self: Sized,
+    {
+        self
     }
 }
 
@@ -107,11 +61,10 @@ pub enum Value<'a> {
     /// Naive DateTime representation
     NaiveDateTime(NaiveDateTime),
 }
-impl<'a> AsSql<'a> for Value<'a> {
-    type SQL = value::Value<'a>;
-
-    fn as_sql(&self) -> Self::SQL {
-        match *self {
+impl<'a> Value<'a> {
+    /// Convert into an [sql::Value](value::Value) instead of an [sql::Condition](conditional::Condition) directly.
+    pub fn into_sql(self) -> value::Value<'a> {
+        match self {
             Value::Null => value::Value::Null,
             Value::String(v) => value::Value::String(v),
             Value::I64(v) => value::Value::I64(v),
@@ -127,17 +80,20 @@ impl<'a> AsSql<'a> for Value<'a> {
         }
     }
 }
+impl<'a> Condition<'a> for Value<'a> {
+    fn as_sql(&self) -> conditional::Condition<'a> {
+        conditional::Condition::Value(self.into_sql())
+    }
+}
 
 /// A column name
 #[derive(Copy, Clone)]
 pub struct Column<'a> {
     pub(crate) name: &'a str,
 }
-impl<'a> AsSql<'a> for Column<'a> {
-    type SQL = value::Value<'a>;
-
-    fn as_sql(&self) -> Self::SQL {
-        value::Value::Ident(self.name)
+impl<'a> Condition<'a> for Column<'a> {
+    fn as_sql(&self) -> conditional::Condition<'a> {
+        conditional::Condition::Value(value::Value::Ident(self.name))
     }
 }
 
@@ -265,74 +221,96 @@ impl<'a, A: Condition<'a>> Condition<'a> for Collection<A> {
         )
     }
 }
-impl<'a> Condition<'a> for Collection<Box<dyn Condition<'a>>> {
-    fn as_sql(&self) -> conditional::Condition<'a> {
-        (match self.operator {
-            CollectionOperator::And => conditional::Condition::Conjunction,
-            CollectionOperator::Or => conditional::Condition::Disjunction,
-        })(
-            self.args
-                .iter()
-                .map(|condition| condition.as_sql())
-                .collect(),
-        )
+
+/// Mark common rust types as convertable into certain condition values.
+///
+/// This trait is used to simplify rorm's api and not internally.
+pub trait IntoSingleValue<'a, D: DbType>: 'a {
+    /// The condition tree node type
+    ///
+    /// Either [Value] or [Column]
+    type Condition: Condition<'a>;
+
+    /// Convert into a condition tree node
+    ///
+    /// Call this when the result is used in the generic condition tree,
+    /// i.e. when you need to preserve a column's data.
+    fn into_condition(self) -> Self::Condition;
+
+    /// Convert into an sql value
+    ///
+    /// Call this when the result is passed to the db and columns don't need different treatment than values.
+    ///
+    /// This method will probably be refactored or removed.
+    // TODO it's used in update which theoretically should handle joins and therefore needs the distinction
+    fn into_value(self) -> value::Value<'a>;
+}
+
+impl<'a, S: AsRef<str> + ?Sized> IntoSingleValue<'a, VarChar> for &'a S {
+    type Condition = Value<'a>;
+    fn into_condition(self) -> Self::Condition {
+        Value::String(self.as_ref())
+    }
+    fn into_value(self) -> value::Value<'a> {
+        IntoSingleValue::<'a, VarChar>::into_condition(self).into_sql()
     }
 }
 
+impl<'a, S: AsRef<str> + ?Sized> IntoSingleValue<'a, Choices> for &'a S {
+    type Condition = Value<'a>;
+    fn into_condition(self) -> Self::Condition {
+        Value::String(self.as_ref())
+    }
+    fn into_value(self) -> value::Value<'a> {
+        IntoSingleValue::<'a, Choices>::into_condition(self).into_sql()
+    }
+}
+
+impl<'a, S: AsRef<[u8]> + ?Sized> IntoSingleValue<'a, VarBinary> for &'a S {
+    type Condition = Value<'a>;
+    fn into_condition(self) -> Self::Condition {
+        Value::Binary(self.as_ref())
+    }
+    fn into_value(self) -> value::Value<'a> {
+        self.into_condition().into_sql()
+    }
+}
+
+impl<'a, F: Field> IntoSingleValue<'a, F::DbType> for &'static FieldProxy<F, ()> {
+    type Condition = Column<'a>;
+    fn into_condition(self) -> Self::Condition {
+        Column { name: self.name() }
+    }
+    fn into_value(self) -> value::Value<'a> {
+        value::Value::Ident(self.name())
+    }
+}
+
+macro_rules! impl_numeric {
+    ($type:ty, $value_variant:ident, $db_type:ident) => {
+        impl<'a> IntoSingleValue<'a, $db_type> for $type {
+            type Condition = Value<'a>;
+            fn into_condition(self) -> Self::Condition {
+                Value::$value_variant(self)
+            }
+            fn into_value(self) -> value::Value<'a> {
+                self.into_condition().into_sql()
+            }
+        }
+    };
+}
+impl_numeric!(i16, I16, Int16);
+impl_numeric!(i32, I32, Int32);
+impl_numeric!(i64, I64, Int64);
+impl_numeric!(f32, F32, Float);
+impl_numeric!(f64, F64, Double);
+impl_numeric!(chrono::NaiveDate, NaiveDate, Date);
+impl_numeric!(chrono::NaiveDateTime, NaiveDateTime, DateTime);
+impl_numeric!(chrono::NaiveTime, NaiveTime, Time);
+
 /// Implement the various condition methods on [FieldProxy]
 mod impl_proxy {
-    use rorm_declaration::hmr::db_type::{
-        Date, DateTime, DbType, Double, Float, Int16, Int32, Int64, Time, VarBinary, VarChar,
-    };
-
     use super::*;
-    use crate::internal::field::{Field, FieldProxy};
-
-    pub trait IntoAsValue<'a, D: DbType>: 'a {
-        type AsValue: AsSql<'a, SQL = value::Value<'a>>;
-
-        fn into_value(self) -> Self::AsValue;
-    }
-
-    impl<'a, S: AsRef<str> + ?Sized> IntoAsValue<'a, VarChar> for &'a S {
-        type AsValue = Value<'a>;
-        fn into_value(self) -> Self::AsValue {
-            Value::String(self.as_ref())
-        }
-    }
-
-    impl<'a, S: AsRef<[u8]> + ?Sized> IntoAsValue<'a, VarBinary> for &'a S {
-        type AsValue = Value<'a>;
-        fn into_value(self) -> Self::AsValue {
-            Value::Binary(self.as_ref())
-        }
-    }
-
-    impl<'a, F: Field> IntoAsValue<'a, F::DbType> for &'static FieldProxy<F, ()> {
-        type AsValue = Column<'a>;
-        fn into_value(self) -> Self::AsValue {
-            Column { name: self.name() }
-        }
-    }
-
-    macro_rules! impl_numeric {
-        ($type:ty, $value_variant:ident, $db_type:ident) => {
-            impl<'a> IntoAsValue<'a, $db_type> for $type {
-                type AsValue = Value<'a>;
-                fn into_value(self) -> Self::AsValue {
-                    Value::$value_variant(self)
-                }
-            }
-        };
-    }
-    impl_numeric!(i16, I16, Int16);
-    impl_numeric!(i32, I32, Int32);
-    impl_numeric!(i64, I64, Int64);
-    impl_numeric!(f32, F32, Float);
-    impl_numeric!(f64, F64, Double);
-    impl_numeric!(chrono::NaiveDate, NaiveDate, Date);
-    impl_numeric!(chrono::NaiveDateTime, NaiveDateTime, DateTime);
-    impl_numeric!(chrono::NaiveTime, NaiveTime, Time);
 
     // Helper methods hiding most of the verbosity in creating Conditions
     impl<F: Field> FieldProxy<F, ()> {
@@ -378,109 +356,117 @@ mod impl_proxy {
 
     impl<F: Field> FieldProxy<F, ()> {
         /// Check if this field's value lies between two other values
-        pub fn between<'a, T1: IntoAsValue<'a, F::DbType>, T2: IntoAsValue<'a, F::DbType>>(
+        pub fn between<
+            'a,
+            T1: IntoSingleValue<'a, F::DbType>,
+            T2: IntoSingleValue<'a, F::DbType>,
+        >(
             &self,
             lower: T1,
             upper: T2,
-        ) -> Ternary<Column<'a>, T1::AsValue, T2::AsValue> {
+        ) -> Ternary<Column<'a>, T1::Condition, T2::Condition> {
             self.__ternary(
                 TernaryOperator::Between,
-                lower.into_value(),
-                upper.into_value(),
+                lower.into_condition(),
+                upper.into_condition(),
             )
         }
 
         /// Check if this field's value does not lie between two other values
-        pub fn not_between<'a, T1: IntoAsValue<'a, F::DbType>, T2: IntoAsValue<'a, F::DbType>>(
+        pub fn not_between<
+            'a,
+            T1: IntoSingleValue<'a, F::DbType>,
+            T2: IntoSingleValue<'a, F::DbType>,
+        >(
             &self,
             lower: T1,
             upper: T2,
-        ) -> Ternary<Column<'a>, T1::AsValue, T2::AsValue> {
+        ) -> Ternary<Column<'a>, T1::Condition, T2::Condition> {
             self.__ternary(
                 TernaryOperator::NotBetween,
-                lower.into_value(),
-                upper.into_value(),
+                lower.into_condition(),
+                upper.into_condition(),
             )
         }
 
         /// Check if this field's value is equal to another value
-        pub fn equals<'a, T: IntoAsValue<'a, F::DbType>>(
+        pub fn equals<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::AsValue> {
-            self.__binary(BinaryOperator::Equals, arg.into_value())
+        ) -> Binary<Column<'a>, T::Condition> {
+            self.__binary(BinaryOperator::Equals, arg.into_condition())
         }
 
         /// Check if this field's value is not equal to another value
-        pub fn not_equals<'a, T: IntoAsValue<'a, F::DbType>>(
+        pub fn not_equals<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::AsValue> {
-            self.__binary(BinaryOperator::NotEquals, arg.into_value())
+        ) -> Binary<Column<'a>, T::Condition> {
+            self.__binary(BinaryOperator::NotEquals, arg.into_condition())
         }
 
         /// Check if this field's value is greater than another value
-        pub fn greater<'a, T: IntoAsValue<'a, F::DbType>>(
+        pub fn greater<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::AsValue> {
-            self.__binary(BinaryOperator::Greater, arg.into_value())
+        ) -> Binary<Column<'a>, T::Condition> {
+            self.__binary(BinaryOperator::Greater, arg.into_condition())
         }
 
         /// Check if this field's value is greater than or equal to another value
-        pub fn greater_or_equals<'a, T: IntoAsValue<'a, F::DbType>>(
+        pub fn greater_or_equals<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::AsValue> {
-            self.__binary(BinaryOperator::GreaterOrEquals, arg.into_value())
+        ) -> Binary<Column<'a>, T::Condition> {
+            self.__binary(BinaryOperator::GreaterOrEquals, arg.into_condition())
         }
 
         /// Check if this field's value is less than another value
-        pub fn less<'a, T: IntoAsValue<'a, F::DbType>>(
+        pub fn less<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::AsValue> {
-            self.__binary(BinaryOperator::Less, arg.into_value())
+        ) -> Binary<Column<'a>, T::Condition> {
+            self.__binary(BinaryOperator::Less, arg.into_condition())
         }
 
         /// Check if this field's value is less than or equal to another value
-        pub fn less_or_equals<'a, T: IntoAsValue<'a, F::DbType>>(
+        pub fn less_or_equals<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::AsValue> {
-            self.__binary(BinaryOperator::LessOrEquals, arg.into_value())
+        ) -> Binary<Column<'a>, T::Condition> {
+            self.__binary(BinaryOperator::LessOrEquals, arg.into_condition())
         }
 
         /// Check if this field's value is similar to another value
-        pub fn like<'a, T: IntoAsValue<'a, F::DbType>>(
+        pub fn like<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::AsValue> {
-            self.__binary(BinaryOperator::Like, arg.into_value())
+        ) -> Binary<Column<'a>, T::Condition> {
+            self.__binary(BinaryOperator::Like, arg.into_condition())
         }
 
         /// Check if this field's value is not similar to another value
-        pub fn not_like<'a, T: IntoAsValue<'a, F::DbType>>(
+        pub fn not_like<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::AsValue> {
-            self.__binary(BinaryOperator::NotLike, arg.into_value())
+        ) -> Binary<Column<'a>, T::Condition> {
+            self.__binary(BinaryOperator::NotLike, arg.into_condition())
         }
 
         /// Check if this field's value is matched by a regex
-        pub fn regexp<'a, T: IntoAsValue<'a, F::DbType>>(
+        pub fn regexp<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::AsValue> {
-            self.__binary(BinaryOperator::Regexp, arg.into_value())
+        ) -> Binary<Column<'a>, T::Condition> {
+            self.__binary(BinaryOperator::Regexp, arg.into_condition())
         }
 
         /// Check if this field's value is not matched by a regex
-        pub fn not_regexp<'a, T: IntoAsValue<'a, F::DbType>>(
+        pub fn not_regexp<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::AsValue> {
-            self.__binary(BinaryOperator::NotRegexp, arg.into_value())
+        ) -> Binary<Column<'a>, T::Condition> {
+            self.__binary(BinaryOperator::NotRegexp, arg.into_condition())
         }
 
         // TODO in, not_in: requires different trait than IntoCondValue

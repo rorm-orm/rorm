@@ -9,7 +9,7 @@ use rorm_db::transaction::Transaction;
 use rorm_db::value::Value;
 use rorm_db::Database;
 
-use crate::conditions::{AsSql, Condition};
+use crate::conditions::{Condition, IntoSingleValue};
 use crate::crud::builder::{ConditionMarker, Sealed, TransactionMarker};
 use crate::internal::field::{Field, FieldProxy};
 use crate::Model;
@@ -93,12 +93,12 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
     pub fn set<F: Field>(
         self,
         _field: FieldProxy<F, ()>,
-        value: impl AsSql<'rf, SQL = Value<'rf>>,
+        value: impl IntoSingleValue<'rf, F::DbType>,
     ) -> UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T> {
         #[rustfmt::skip]
         let UpdateBuilder { db, _phantom, condition, transaction, .. } = self;
         #[rustfmt::skip]
-        return UpdateBuilder { db, columns: vec![(F::NAME, value.as_sql())], _phantom, condition, transaction, };
+        return UpdateBuilder { db, columns: vec![(F::NAME, value.into_value())], _phantom, condition, transaction, };
     }
 }
 
@@ -111,10 +111,10 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
     pub fn set<F: Field>(
         self,
         _field: FieldProxy<F, ()>,
-        value: impl AsSql<'rf, SQL = Value<'rf>>,
+        value: impl IntoSingleValue<'rf, F::DbType>,
     ) -> Self {
         let mut builder = self;
-        builder.columns.push((F::NAME, value.as_sql()));
+        builder.columns.push((F::NAME, value.into_value()));
         builder
     }
 
