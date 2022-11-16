@@ -39,7 +39,7 @@ serde = { version = "1.0" }
 
 [features]
 default = [
-    "sqlx-all-extensions",
+    "sqlx-all-supported-extensions",
     "all-driver",
     "serde/derive",
     "log/serde"
@@ -64,17 +64,9 @@ sqlite = [
     "rorm-sql/sqlite"
 ]
 
-sqlx-all-extensions = [
-    "sqlx?/uuid",
+sqlx-all-supported-extensions = [
     "sqlx?/chrono",
-    "sqlx?/time",
-    "sqlx?/bstr",
-    "sqlx?/bigdecimal",
-    "sqlx?/decimal",
-    "sqlx?/ipnetwork",
-    "sqlx?/json",
     "sqlx?/any",
-    "sqlx?/tls",
 ]
 
 async-std = []
