@@ -2,12 +2,16 @@
 //!
 //! It is basically a generic version of the [rorm_db::Condition] tree.
 
-use crate::internal::field::{Field, FieldProxy};
+use std::marker::PhantomData;
+
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use rorm_db::{conditional, value};
 use rorm_declaration::hmr::db_type::{
     Choices, Date, DateTime, DbType, Double, Float, Int16, Int32, Int64, Time, VarBinary, VarChar,
 };
+
+use crate::internal::field::{Field, FieldProxy};
+use crate::internal::relation_path::Path;
 
 pub mod collections;
 pub use collections::{DynamicCollection, StaticCollection};
@@ -98,12 +102,22 @@ impl<'a> Condition<'a> for Value<'a> {
 
 /// A column name
 #[derive(Copy, Clone)]
-pub struct Column<'a> {
-    pub(crate) name: &'a str,
+pub struct Column<F, P> {
+    pub(crate) field: PhantomData<F>,
+    pub(crate) path: PhantomData<P>,
 }
-impl<'a> Condition<'a> for Column<'a> {
+impl<F: Field, P: Path> Column<F, P> {
+    /// Construct a new instance
+    pub const fn new() -> Self {
+        Column {
+            field: PhantomData,
+            path: PhantomData,
+        }
+    }
+}
+impl<'a, F: Field, P: Path> Condition<'a> for Column<F, P> {
     fn as_sql(&self) -> conditional::Condition<'a> {
-        conditional::Condition::Value(value::Value::Ident(self.name))
+        conditional::Condition::Value(value::Value::Ident(F::NAME))
     }
 }
 
@@ -241,10 +255,10 @@ impl<'a, S: AsRef<[u8]> + ?Sized> IntoSingleValue<'a, VarBinary> for &'a S {
     }
 }
 
-impl<'a, F: Field> IntoSingleValue<'a, F::DbType> for &'static FieldProxy<F, ()> {
-    type Condition = Column<'a>;
+impl<'a, F: Field, P: Path> IntoSingleValue<'a, F::DbType> for &'static FieldProxy<F, P> {
+    type Condition = Column<F, P>;
     fn into_condition(self) -> Self::Condition {
-        Column { name: self.name() }
+        Column::new()
     }
     fn into_value(self) -> value::Value<'a> {
         value::Value::Ident(self.name())
@@ -278,9 +292,9 @@ mod impl_proxy {
     use super::*;
 
     // Helper methods hiding most of the verbosity in creating Conditions
-    impl<F: Field> FieldProxy<F, ()> {
-        fn __column(&self) -> Column<'static> {
-            Column { name: self.name() }
+    impl<F: Field, P: Path> FieldProxy<F, P> {
+        fn __column(&self) -> Column<F, P> {
+            Column::new()
         }
 
         /*
@@ -296,7 +310,7 @@ mod impl_proxy {
             &self,
             operator: BinaryOperator,
             snd_arg: B,
-        ) -> Binary<Column<'a>, B> {
+        ) -> Binary<Column<F, P>, B> {
             Binary {
                 operator,
                 fst_arg: self.__column(),
@@ -309,7 +323,7 @@ mod impl_proxy {
             operator: TernaryOperator,
             snd_arg: B,
             trd_arg: C,
-        ) -> Ternary<Column<'a>, B, C> {
+        ) -> Ternary<Column<F, P>, B, C> {
             Ternary {
                 operator,
                 fst_arg: self.__column(),
@@ -317,9 +331,7 @@ mod impl_proxy {
                 trd_arg,
             }
         }
-    }
 
-    impl<F: Field> FieldProxy<F, ()> {
         /// Check if this field's value lies between two other values
         pub fn between<
             'a,
@@ -329,7 +341,7 @@ mod impl_proxy {
             &self,
             lower: T1,
             upper: T2,
-        ) -> Ternary<Column<'a>, T1::Condition, T2::Condition> {
+        ) -> Ternary<Column<F, P>, T1::Condition, T2::Condition> {
             self.__ternary(
                 TernaryOperator::Between,
                 lower.into_condition(),
@@ -346,7 +358,7 @@ mod impl_proxy {
             &self,
             lower: T1,
             upper: T2,
-        ) -> Ternary<Column<'a>, T1::Condition, T2::Condition> {
+        ) -> Ternary<Column<F, P>, T1::Condition, T2::Condition> {
             self.__ternary(
                 TernaryOperator::NotBetween,
                 lower.into_condition(),
@@ -358,7 +370,7 @@ mod impl_proxy {
         pub fn equals<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::Condition> {
+        ) -> Binary<Column<F, P>, T::Condition> {
             self.__binary(BinaryOperator::Equals, arg.into_condition())
         }
 
@@ -366,7 +378,7 @@ mod impl_proxy {
         pub fn not_equals<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::Condition> {
+        ) -> Binary<Column<F, P>, T::Condition> {
             self.__binary(BinaryOperator::NotEquals, arg.into_condition())
         }
 
@@ -374,7 +386,7 @@ mod impl_proxy {
         pub fn greater<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::Condition> {
+        ) -> Binary<Column<F, P>, T::Condition> {
             self.__binary(BinaryOperator::Greater, arg.into_condition())
         }
 
@@ -382,7 +394,7 @@ mod impl_proxy {
         pub fn greater_or_equals<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::Condition> {
+        ) -> Binary<Column<F, P>, T::Condition> {
             self.__binary(BinaryOperator::GreaterOrEquals, arg.into_condition())
         }
 
@@ -390,7 +402,7 @@ mod impl_proxy {
         pub fn less<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::Condition> {
+        ) -> Binary<Column<F, P>, T::Condition> {
             self.__binary(BinaryOperator::Less, arg.into_condition())
         }
 
@@ -398,7 +410,7 @@ mod impl_proxy {
         pub fn less_or_equals<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::Condition> {
+        ) -> Binary<Column<F, P>, T::Condition> {
             self.__binary(BinaryOperator::LessOrEquals, arg.into_condition())
         }
 
@@ -406,7 +418,7 @@ mod impl_proxy {
         pub fn like<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::Condition> {
+        ) -> Binary<Column<F, P>, T::Condition> {
             self.__binary(BinaryOperator::Like, arg.into_condition())
         }
 
@@ -414,7 +426,7 @@ mod impl_proxy {
         pub fn not_like<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::Condition> {
+        ) -> Binary<Column<F, P>, T::Condition> {
             self.__binary(BinaryOperator::NotLike, arg.into_condition())
         }
 
@@ -422,7 +434,7 @@ mod impl_proxy {
         pub fn regexp<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::Condition> {
+        ) -> Binary<Column<F, P>, T::Condition> {
             self.__binary(BinaryOperator::Regexp, arg.into_condition())
         }
 
@@ -430,7 +442,7 @@ mod impl_proxy {
         pub fn not_regexp<'a, T: IntoSingleValue<'a, F::DbType>>(
             &self,
             arg: T,
-        ) -> Binary<Column<'a>, T::Condition> {
+        ) -> Binary<Column<F, P>, T::Condition> {
             self.__binary(BinaryOperator::NotRegexp, arg.into_condition())
         }
 

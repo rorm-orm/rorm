@@ -8,9 +8,9 @@ use rorm_db::error::Error;
 use rorm_db::transaction::Transaction;
 use rorm_db::Database;
 
-use crate::conditions::{Binary, Column, Condition, DynamicCollection, Value};
+use crate::conditions::{Condition, DynamicCollection};
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
-use crate::model::Model;
+use crate::model::{Model, PatchAsCondition};
 
 /// Builder for delete queries
 ///
@@ -47,10 +47,7 @@ impl<'db, 'rf, M: Model> DeleteBuilder<'db, 'rf, M, (), ()> {
 
 impl<'db, 'rf, M: Model, T: TransactionMarker<'rf, 'db>> DeleteBuilder<'db, 'rf, M, (), T> {
     /// Set the condition to delete a single model instance
-    pub fn single(
-        self,
-        model: &'rf M,
-    ) -> DeleteBuilder<'db, 'rf, M, Binary<Column<'rf>, Value<'rf>>, T> {
+    pub fn single(self, model: &'rf M) -> DeleteBuilder<'db, 'rf, M, PatchAsCondition<'rf, M>, T> {
         self.condition(
             model
                 .as_condition()
@@ -62,7 +59,7 @@ impl<'db, 'rf, M: Model, T: TransactionMarker<'rf, 'db>> DeleteBuilder<'db, 'rf,
     pub fn bulk(
         self,
         models: impl IntoIterator<Item = &'rf M>,
-    ) -> DeleteBuilder<'db, 'rf, M, DynamicCollection<Binary<Column<'rf>, Value<'rf>>>, T> {
+    ) -> DeleteBuilder<'db, 'rf, M, DynamicCollection<PatchAsCondition<'rf, M>>, T> {
         self.condition(DynamicCollection::or(
             models
                 .into_iter()

@@ -20,7 +20,7 @@ use crate::model::Model;
 /// Having this is a trait instead of a generic struct (as it used to be),
 /// writing generic code is way cleaner.
 /// Also thanks to the [FieldProxy] all a field's information is accessible both via types as well as values.
-pub trait Field {
+pub trait Field: 'static {
     /// The rust data type stored in this field
     type Type: AsDbType;
 

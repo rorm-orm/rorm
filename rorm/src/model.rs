@@ -46,21 +46,22 @@ pub trait Patch: FromRow {
     /// Get a field's db value by its index
     fn get(&self, index: usize) -> Option<Value>;
 
-    /// Build a [Condition] which only matches on this instance.
+    /// Build a [Condition](crate::conditions::Condition) which only matches on this instance.
     ///
     /// This method defaults to using the primary key.
     /// If the patch does not store the models primary key, this method will return `None`.
-    fn as_condition(&self) -> Option<Binary<Column<'static>, Value<'_>>> {
+    fn as_condition(&self) -> Option<PatchAsCondition<Self>> {
         self.get(<<Self::Model as Model>::Primary as Field>::INDEX)
             .map(|value| Binary {
                 operator: BinaryOperator::Equals,
-                fst_arg: Column {
-                    name: <<Self::Model as Model>::Primary as Field>::NAME,
-                },
+                fst_arg: Column::new(),
                 snd_arg: value,
             })
     }
 }
+/// The [Condition](crate::conditions::Condition) type returned by [Patch::as_condition]
+pub type PatchAsCondition<'a, P> =
+    Binary<Column<<<P as Patch>::Model as Model>::Primary, ()>, Value<'a>>;
 
 /// Check whether a [`Patch`] contains a certain field index.
 ///

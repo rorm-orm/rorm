@@ -5,6 +5,7 @@
 
 pub mod as_db_type;
 pub mod field;
+pub mod relation_path;
 
 #[doc(hidden)]
 #[macro_export]
