@@ -1,10 +1,10 @@
 //! defines and implements the [AsDbType] trait.
 
 use rorm_db::row::DecodeOwned;
-use rorm_db::value::Value;
 use rorm_declaration::hmr;
 
 use crate::annotations::Annotations;
+use crate::conditions::Value;
 use crate::internal::field::Field;
 use crate::model::{DbEnum, ForeignModel, Model};
 

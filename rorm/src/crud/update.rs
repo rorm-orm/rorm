@@ -4,13 +4,12 @@ use std::future::{Future, IntoFuture};
 use std::marker::PhantomData;
 use std::pin::Pin;
 
-use rorm_db::conditional::Condition;
 use rorm_db::error::Error;
 use rorm_db::transaction::Transaction;
 use rorm_db::value::Value;
 use rorm_db::Database;
 
-use crate::conditions::IntoCondValue;
+use crate::conditions::{AsSql, Condition};
 use crate::crud::builder::{ConditionMarker, Sealed, TransactionMarker};
 use crate::internal::field::{Field, FieldProxy};
 use crate::Model;
@@ -62,10 +61,7 @@ impl<'db, 'rf, M: Model, L: ColumnsMarker, T: TransactionMarker<'rf, 'db>>
     UpdateBuilder<'db, 'rf, M, L, (), T>
 {
     /// Add a condition to the query
-    pub fn condition(
-        self,
-        condition: Condition<'rf>,
-    ) -> UpdateBuilder<'db, 'rf, M, L, Condition<'rf>, T> {
+    pub fn condition<C: Condition<'rf>>(self, condition: C) -> UpdateBuilder<'db, 'rf, M, L, C, T> {
         #[rustfmt::skip]
         let UpdateBuilder { db, columns, _phantom, transaction, .. } = self;
         #[rustfmt::skip]
@@ -97,12 +93,12 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
     pub fn set<F: Field>(
         self,
         _field: FieldProxy<F, ()>,
-        value: impl IntoCondValue<'rf, F::DbType>,
+        value: impl AsSql<'rf, SQL = Value<'rf>>,
     ) -> UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T> {
         #[rustfmt::skip]
         let UpdateBuilder { db, _phantom, condition, transaction, .. } = self;
         #[rustfmt::skip]
-        return UpdateBuilder { db, columns: vec![(F::NAME, value.into_value())], _phantom, condition, transaction, };
+        return UpdateBuilder { db, columns: vec![(F::NAME, value.as_sql())], _phantom, condition, transaction, };
     }
 }
 
@@ -115,10 +111,10 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
     pub fn set<F: Field>(
         self,
         _field: FieldProxy<F, ()>,
-        value: impl IntoCondValue<'rf, F::DbType>,
+        value: impl AsSql<'rf, SQL = Value<'rf>>,
     ) -> Self {
         let mut builder = self;
-        builder.columns.push((F::NAME, value.into_value()));
+        builder.columns.push((F::NAME, value.as_sql()));
         builder
     }
 
@@ -128,7 +124,7 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
             .update(
                 M::TABLE,
                 &self.columns,
-                self.condition.as_option(),
+                self.condition.into_option().as_ref(),
                 self.transaction.into_option(),
             )
             .await

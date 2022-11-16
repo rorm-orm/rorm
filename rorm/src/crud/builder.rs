@@ -1,11 +1,12 @@
 //! This module provides primitives used by the various builder.
 
-use rorm_db::conditional::Condition;
+use rorm_db::conditional as sql;
 
 #[doc(hidden)]
 pub(crate) mod private {
     pub trait Private {}
 }
+use crate::conditions::Condition;
 use private::Private;
 use rorm_db::transaction::Transaction;
 
@@ -21,18 +22,19 @@ impl Sealed for () {}
 /// Marker for the generic parameter storing a db [Condition]
 pub trait ConditionMarker<'a>: Sealed + 'a {
     /// Get the generic condition as [Option] expected by [rorm_db]
-    fn as_option(&self) -> Option<&Condition<'a>>;
+    fn into_option(self) -> Option<sql::Condition<'a>>;
 }
 
-impl<'a> Sealed for Condition<'a> {}
-impl<'a> ConditionMarker<'a> for Condition<'a> {
-    fn as_option(&self) -> Option<&Condition<'a>> {
-        Some(self)
+impl<'a> ConditionMarker<'a> for () {
+    fn into_option(self) -> Option<sql::Condition<'a>> {
+        None
     }
 }
-impl<'a> ConditionMarker<'a> for () {
-    fn as_option(&self) -> Option<&Condition<'a>> {
-        None
+
+impl<'a, T: Condition<'a>> Sealed for T {}
+impl<'a, T: Condition<'a>> ConditionMarker<'a> for T {
+    fn into_option(self) -> Option<sql::Condition<'a>> {
+        Some(self.as_sql())
     }
 }
 

@@ -70,7 +70,7 @@ pub use rorm_declaration::config;
 pub mod annotations;
 /// Module implementing methods to [`Condition`](rorm_db::conditional::Condition)
 /// based on [`Field<T>`](crate::internal::field::Field)
-mod conditions;
+pub mod conditions;
 pub mod crud;
 pub mod internal;
 /// This module holds traits and structs for working with models

@@ -1,7 +1,6 @@
+use crate::conditions::{Binary, BinaryOperator, Column, Value};
 use crate::internal::field::Field;
-use rorm_db::conditional::{self, Condition};
 use rorm_db::row::FromRow;
-use rorm_db::value::Value;
 use rorm_declaration::imr;
 
 /// Map a rust enum, whose variant don't hold any data, into a database enum
@@ -51,15 +50,14 @@ pub trait Patch: FromRow {
     ///
     /// This method defaults to using the primary key.
     /// If the patch does not store the models primary key, this method will return `None`.
-    fn as_condition(&self) -> Option<Condition> {
+    fn as_condition(&self) -> Option<Binary<Column<'static>, Value<'_>>> {
         self.get(<<Self::Model as Model>::Primary as Field>::INDEX)
-            .map(|value| {
-                Condition::BinaryCondition(conditional::BinaryCondition::Equals(Box::new([
-                    Condition::Value(Value::Ident(
-                        <<Self::Model as Model>::Primary as Field>::NAME,
-                    )),
-                    Condition::Value(value),
-                ])))
+            .map(|value| Binary {
+                operator: BinaryOperator::Equals,
+                fst_arg: Column {
+                    name: <<Self::Model as Model>::Primary as Field>::NAME,
+                },
+                snd_arg: value,
             })
     }
 }

@@ -2,11 +2,12 @@
 use std::marker::PhantomData;
 use std::ops::{Range, RangeInclusive, Sub};
 
+use crate::conditions::Condition;
 use futures::{Stream, StreamExt};
 use rorm_db::database::ColumnSelector;
 use rorm_db::select::LimitClause;
 use rorm_db::transaction::Transaction;
-use rorm_db::{conditional::Condition, error::Error, row::Row, Database};
+use rorm_db::{error::Error, row::Row, Database};
 
 use crate::crud::builder::{ConditionMarker, Sealed, TransactionMarker};
 use crate::internal::as_db_type::AsDbType;
@@ -70,10 +71,10 @@ impl<'db, 'a, M: Model, S: Selector<M>, T: TransactionMarker<'a, 'db>, LO: LimOf
     QueryBuilder<'db, 'a, M, S, (), T, LO>
 {
     /// Add a condition to the query
-    pub fn condition(
+    pub fn condition<C: Condition<'a>>(
         self,
-        condition: Condition<'a>,
-    ) -> QueryBuilder<'db, 'a, M, S, Condition<'a>, T, LO> {
+        condition: C,
+    ) -> QueryBuilder<'db, 'a, M, S, C, T, LO> {
         #[rustfmt::skip]
         let QueryBuilder { db, selector, _phantom, transaction, lim_off, .. } = self;
         #[rustfmt::skip]
@@ -195,7 +196,7 @@ impl<
                 M::TABLE,
                 &columns,
                 &[],
-                self.condition.as_option(),
+                self.condition.into_option().as_ref(),
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
             )
@@ -215,7 +216,7 @@ impl<
                 M::TABLE,
                 &columns,
                 &[],
-                self.condition.as_option(),
+                self.condition.into_option().as_ref(),
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
             )
@@ -246,7 +247,7 @@ impl<
                 M::TABLE,
                 &columns,
                 &[],
-                self.condition.as_option(),
+                self.condition.into_option().as_ref(),
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
             )
@@ -263,7 +264,7 @@ impl<
                 M::TABLE,
                 &columns,
                 &[],
-                self.condition.as_option(),
+                self.condition.into_option().as_ref(),
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
             )

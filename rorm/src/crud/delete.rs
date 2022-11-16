@@ -8,7 +8,7 @@ use rorm_db::error::Error;
 use rorm_db::transaction::Transaction;
 use rorm_db::Database;
 
-use crate::conditional::Condition;
+use crate::conditions::{Binary, Collection, CollectionOperator, Column, Condition, Value};
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
 use crate::model::Model;
 
@@ -47,7 +47,10 @@ impl<'db, 'rf, M: Model> DeleteBuilder<'db, 'rf, M, (), ()> {
 
 impl<'db, 'rf, M: Model, T: TransactionMarker<'rf, 'db>> DeleteBuilder<'db, 'rf, M, (), T> {
     /// Set the condition to delete a single model instance
-    pub fn single(self, model: &'rf M) -> DeleteBuilder<'db, 'rf, M, Condition<'rf>, T> {
+    pub fn single(
+        self,
+        model: &'rf M,
+    ) -> DeleteBuilder<'db, 'rf, M, Binary<Column<'rf>, Value<'rf>>, T> {
         self.condition(
             model
                 .as_condition()
@@ -59,9 +62,10 @@ impl<'db, 'rf, M: Model, T: TransactionMarker<'rf, 'db>> DeleteBuilder<'db, 'rf,
     pub fn bulk(
         self,
         models: impl IntoIterator<Item = &'rf M>,
-    ) -> DeleteBuilder<'db, 'rf, M, Condition<'rf>, T> {
-        self.condition(Condition::Disjunction(
-            models
+    ) -> DeleteBuilder<'db, 'rf, M, Collection<Binary<Column<'rf>, Value<'rf>>>, T> {
+        self.condition(Collection {
+            operator: CollectionOperator::Or,
+            args: models
                 .into_iter()
                 .map(|model| {
                     model
@@ -69,14 +73,11 @@ impl<'db, 'rf, M: Model, T: TransactionMarker<'rf, 'db>> DeleteBuilder<'db, 'rf,
                         .expect("Model should always have a primary key")
                 })
                 .collect(),
-        ))
+        })
     }
 
     /// Add a condition to the delete query
-    pub fn condition(
-        self,
-        condition: Condition<'rf>,
-    ) -> DeleteBuilder<'db, 'rf, M, Condition<'rf>, T> {
+    pub fn condition<C: Condition<'rf>>(self, condition: C) -> DeleteBuilder<'db, 'rf, M, C, T> {
         #[rustfmt::skip]
         let DeleteBuilder { db, transaction, _phantom, .. } = self;
         #[rustfmt::skip]
@@ -114,15 +115,15 @@ impl<'db, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf, 'db>
         self.db
             .delete(
                 M::TABLE,
-                self.condition.as_option(),
+                self.condition.into_option().as_ref(),
                 self.transaction.into_option(),
             )
             .await
     }
 }
 
-impl<'db, 'rf, M: Model + 'rf, T: TransactionMarker<'rf, 'db>> IntoFuture
-    for DeleteBuilder<'db, 'rf, M, Condition<'rf>, T>
+impl<'db, 'rf, M: Model + 'rf, T: TransactionMarker<'rf, 'db>, C: Condition<'rf>> IntoFuture
+    for DeleteBuilder<'db, 'rf, M, C, T>
 {
     type Output = Result<u64, Error>;
     type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + 'rf>>;

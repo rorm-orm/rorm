@@ -1,5 +1,6 @@
 //! Insert builder and macro
 
+use crate::conditions::AsSql;
 use crate::crud::builder::TransactionMarker;
 use rorm_db::transaction::Transaction;
 use rorm_db::{error::Error, Database};
@@ -48,7 +49,7 @@ impl<'db: 'rf, 'rf, P: Patch> InsertBuilder<'db, 'rf, P, ()> {
 impl<'db: 'rf, 'rf, P: Patch, T: TransactionMarker<'rf, 'db>> InsertBuilder<'db, 'rf, P, T> {
     /// Insert a single patch into the db
     pub async fn single(self, patch: &'rf P) -> Result<(), Error> {
-        let values = Vec::from_iter(iter_columns(patch));
+        let values = Vec::from_iter(iter_columns(patch).map(|value| value.as_sql()));
         self.db
             .insert(
                 P::Model::TABLE,
@@ -63,7 +64,9 @@ impl<'db: 'rf, 'rf, P: Patch, T: TransactionMarker<'rf, 'db>> InsertBuilder<'db,
     pub async fn bulk(self, patches: impl IntoIterator<Item = &'rf P>) -> Result<(), Error> {
         let mut values = Vec::new();
         for patch in patches {
-            values.push(Vec::from_iter(iter_columns(patch)));
+            values.push(Vec::from_iter(
+                iter_columns(patch).map(|value| value.as_sql()),
+            ));
         }
         let values_slices = Vec::from_iter(values.iter().map(Vec::as_slice));
         self.db
