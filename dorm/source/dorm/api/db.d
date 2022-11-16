@@ -697,7 +697,7 @@ struct ConditionBuilder(T)
 		{
 			mixin("ForeignModelConditionBuilderField!(typeof(T.", field.sourceColumn, "), field, DormLayout!T.tableName) ",
 				field.sourceColumn.lastIdentifier,
-				"() return { return typeof(return)(builderData); }");
+				"() @property return { return typeof(return)(builderData); }");
 		}
 		else
 		{
@@ -722,6 +722,23 @@ struct ConditionBuilder(T)
 	}
 
 	mixin DynamicMissingMemberErrorHelper!"condition field";
+}
+
+struct PopulateBuilder(T)
+{
+	private ConditionBuilderData* builderData;
+
+	static foreach (field; DormFields!T)
+	{
+		static if (field.isForeignKey)
+		{
+			mixin("PopulateRefBuilder!(typeof(T.", field.sourceColumn, "), field, DormLayout!T.tableName) ",
+				field.sourceColumn.lastIdentifier,
+				"() @property return { return typeof(return)(builderData); }");
+		}
+	}
+
+	mixin DynamicMissingMemberErrorHelper!"populate builder";
 }
 
 /// This MUST be mixed in at the end to show proper members
@@ -799,7 +816,7 @@ struct NotConditionBuilder(T)
 		{
 			mixin("Condition ",
 				field.sourceColumn.lastIdentifier,
-				"() { return Condition(UnaryCondition(UnaryConditionType.Not,
+				"() @property { return Condition(UnaryCondition(UnaryConditionType.Not,
 					makeConditionIdentifier(`",
 				DormLayout!T.tableName, ".", field.columnName,
 				"`))); }");
@@ -821,16 +838,8 @@ private Condition* makeConditionConstant(ModelFormat.Field fieldInfo, T)(T value
 	return new Condition(conditionValue!fieldInfo(value));
 }
 
-/// Helper type to access sub-fields through `ModelRef` foreign key fields. Will
-/// join the foreign model table automatically if using any fields on there,
-/// other than the primary key, which can be read directly from the source.
-///
-/// Just like `ConditionBuilder` this automatically mirrors all DORM fields of
-/// the _foreign_ table, i.e. the referenced model type.
-struct ForeignModelConditionBuilderField(ModelRef, ModelFormat.Field field, string srcTableName)
+private mixin template ForeignJoinHelper()
 {
-	alias RefDB = ModelRef.TModel;
-
 	private ConditionBuilderData* data;
 
 	/// Constructs this ForeignModelConditionBuilderField, operating on the given data pointer during its lifetime
@@ -839,14 +848,19 @@ struct ForeignModelConditionBuilderField(ModelRef, ModelFormat.Field field, stri
 		this.data = data;
 	}
 
-	private string ensureJoined() @trusted
+	private string ensureJoined() @safe
+	{
+		return data.joinInformation.joinSuppl[ensureJoinedIdx].placeholder;
+	}
+
+	private size_t ensureJoinedIdx() @trusted
 	{
 		auto ji = &data.joinInformation;
 		string fkName = field.columnName;
 		auto exist = fkName in ji.joinedTables;
 		if (exist)
 		{
-			return ji.joinSuppl[*exist].placeholder;
+			return *exist;
 		}
 		else
 		{
@@ -878,9 +892,22 @@ struct ForeignModelConditionBuilderField(ModelRef, ModelFormat.Field field, stri
 				placeholder,
 				false
 			);
-			return placeholder;
+			return index;
 		}
 	}
+}
+
+/// Helper type to access sub-fields through `ModelRef` foreign key fields. Will
+/// join the foreign model table automatically if using any fields on there,
+/// other than the primary key, which can be read directly from the source.
+///
+/// Just like `ConditionBuilder` this automatically mirrors all DORM fields of
+/// the _foreign_ table, i.e. the referenced model type.
+struct ForeignModelConditionBuilderField(ModelRef, ModelFormat.Field field, string srcTableName)
+{
+	alias RefDB = ModelRef.TModel;
+
+	mixin ForeignJoinHelper;
 
 	static foreach (field; DormFields!RefDB)
 	{
@@ -896,7 +923,7 @@ struct ForeignModelConditionBuilderField(ModelRef, ModelFormat.Field field, stri
 		{
 			mixin("ConditionBuilderField!(typeof(RefDB.", field.sourceColumn, "), field) ",
 				field.sourceColumn.lastIdentifier,
-				"() @safe return { string placeholder = ensureJoined(); return typeof(return)(placeholder ~ `.",
+				"() @property @safe return { string placeholder = ensureJoined(); return typeof(return)(placeholder ~ `.",
 				field.columnName,
 				"`); }");
 		}
@@ -905,6 +932,31 @@ struct ForeignModelConditionBuilderField(ModelRef, ModelFormat.Field field, stri
 	mixin DynamicMissingMemberErrorHelper!(
 		"foreign condition field",
 		"`ForeignModelConditionBuilderField` on " ~ RefDB.stringof ~ "." ~ field.sourceColumn
+	);
+}
+
+struct PopulateRef
+{
+	size_t idx;
+}
+
+struct PopulateRefBuilder(ModelRef, ModelFormat.Field field, string srcTableName)
+{
+	alias RefDB = ModelRef.TModel;
+
+	mixin ForeignJoinHelper;
+
+	/// Explicitly say this field is used
+	PopulateRef[] yes()
+	{
+		return [PopulateRef(ensureJoinedIdx)];
+	}
+
+	// TODO: nested foreign keys
+
+	mixin DynamicMissingMemberErrorHelper!(
+		"populate field",
+		"`PopulateRefBuilder` on " ~ RefDB.stringof ~ "." ~ field.sourceColumn
 	);
 }
 
@@ -1211,6 +1263,28 @@ struct SelectOperation(
 		}
 	}
 
+	/// Argument to `populate`. Callback that takes in an `OrderBuilder!T` and
+	/// returns the ffi ordering value that can be easily created using the
+	/// builder.
+	alias PopulateBuilderCallback = PopulateRef[] delegate(PopulateBuilder!T);
+
+	/// Eagerly loads the data for the specified foreign key ModelRef fields
+	/// when executing the query.
+	///
+	/// Returning `u => null` means no further populate will be added. (Useful
+	/// only at runtime)
+	typeof(this) populate(PopulateBuilderCallback callback) return @trusted
+	{
+		scope ConditionBuilderData data;
+		scope PopulateBuilder!T builder;
+		builder.builderData = &data;
+		data.joinInformation = move(joinInformation);
+		foreach (populates; callback(builder))
+			joinInformation.joinSuppl[populates.idx].include = true;
+		joinInformation = move(data.joinInformation);
+		return move(this);
+	}
+
 	static if (!hasOffset)
 	{
 		/// Sets the offset. (number of rows after which to return from the database)
@@ -1403,9 +1477,10 @@ private enum makeRtColumns = q{
 					{{
 						auto ffiColumnName = ffi.ffi(field.columnName);
 						auto aliasCol = text(suppl.placeholder, ("_" ~ field.columnName));
-						rtColumns[start + (i++)].tableName = ffiPlaceholder;
-						rtColumns[start + (i++)].columnName = ffiColumnName;
-						rtColumns[start + (i++)].selectAlias = ffi.ffi(aliasCol);
+						rtColumns[start + i].tableName = ffiPlaceholder;
+						rtColumns[start + i].columnName = ffiColumnName;
+						rtColumns[start + i].selectAlias = ffi.ffi(aliasCol);
+						i++;
 					}}
 				}
 			}
