@@ -1,5 +1,6 @@
 use rorm_db::join_table::JoinType;
 use rorm_db::limit_clause::LimitClause;
+use rorm_db::ordering::Ordering;
 use rorm_db::{DatabaseConfiguration, DatabaseDriver};
 
 use crate::utils::FFIOption;
@@ -511,4 +512,35 @@ pub struct FFIColumnSelector<'a> {
     pub(crate) table_name: FFIOption<FFIString<'a>>,
     pub(crate) column_name: FFIString<'a>,
     pub(crate) select_alias: FFIOption<FFIString<'a>>,
+}
+
+/**
+Representation of the [Ordering]
+*/
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub enum FFIOrdering {
+    /// Ascending
+    Asc,
+    /// Descending
+    Desc,
+}
+
+impl From<FFIOrdering> for Ordering {
+    fn from(v: FFIOrdering) -> Self {
+        match v {
+            FFIOrdering::Asc => Self::Asc,
+            FFIOrdering::Desc => Self::Desc,
+        }
+    }
+}
+
+/**
+Representation of a [OrderByEntry]
+*/
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct FFIOrderByEntry<'a> {
+    pub(crate) ordering: FFIOrdering,
+    pub(crate) column_name: FFIString<'a>,
 }

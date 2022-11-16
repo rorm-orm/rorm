@@ -12,6 +12,7 @@ use rorm_sql::delete::Delete;
 use rorm_sql::insert::Insert;
 use rorm_sql::join_table::{JoinTableData, JoinTableImpl};
 use rorm_sql::limit_clause::LimitClause;
+use rorm_sql::ordering::OrderByEntry;
 use rorm_sql::select::Select;
 use rorm_sql::select_column::{SelectColumnData, SelectColumnImpl};
 use rorm_sql::update::Update;
@@ -269,6 +270,7 @@ impl Database {
         columns: &[ColumnSelector<'_>],
         joins: &[JoinTable<'_, 'post_query>],
         conditions: Option<&conditional::Condition<'post_query>>,
+        order_by_clause: &[OrderByEntry<'_>],
         limit: Option<LimitClause>,
         transaction: Option<&'stream mut Transaction>,
     ) -> BoxStream<'stream, Result<Row, Error>>
@@ -290,7 +292,9 @@ impl Database {
                     .join_table(j.join_type, j.table_name, j.join_alias, j.join_condition)
             })
             .collect();
-        let mut q = self.db_impl.select(&columns, model, &joins);
+        let mut q = self
+            .db_impl
+            .select(&columns, model, &joins, order_by_clause);
         if let Some(c) = conditions {
             q = q.where_clause(c);
         }
@@ -329,6 +333,7 @@ impl Database {
         columns: &[ColumnSelector<'_>],
         joins: &[JoinTable<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
+        order_by_clause: &[OrderByEntry<'_>],
         offset: Option<u64>,
         transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Row, Error> {
@@ -346,7 +351,9 @@ impl Database {
                     .join_table(j.join_type, j.table_name, j.join_alias, j.join_condition)
             })
             .collect();
-        let mut q = self.db_impl.select(&columns, model, &joins);
+        let mut q = self
+            .db_impl
+            .select(&columns, model, &joins, order_by_clause);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
         }
@@ -393,6 +400,7 @@ impl Database {
         columns: &[ColumnSelector<'_>],
         joins: &[JoinTable<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
+        order_by_clause: &[OrderByEntry<'_>],
         offset: Option<u64>,
         transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Option<Row>, Error> {
@@ -410,7 +418,9 @@ impl Database {
                     .join_table(j.join_type, j.table_name, j.join_alias, j.join_condition)
             })
             .collect();
-        let mut q = self.db_impl.select(&columns, model, &joins);
+        let mut q = self
+            .db_impl
+            .select(&columns, model, &joins, order_by_clause);
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());
         }
@@ -457,6 +467,7 @@ impl Database {
         columns: &[ColumnSelector<'_>],
         joins: &[JoinTable<'_, '_>],
         conditions: Option<&conditional::Condition<'_>>,
+        order_by_clause: &[OrderByEntry<'_>],
         limit: Option<LimitClause>,
         transaction: Option<&mut Transaction<'_>>,
     ) -> Result<Vec<Row>, Error> {
@@ -474,7 +485,9 @@ impl Database {
                     .join_table(j.join_type, j.table_name, j.join_alias, j.join_condition)
             })
             .collect();
-        let mut q = self.db_impl.select(&columns, model, &joins);
+        let mut q = self
+            .db_impl
+            .select(&columns, model, &joins, order_by_clause);
 
         if conditions.is_some() {
             q = q.where_clause(conditions.unwrap());

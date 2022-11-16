@@ -3,6 +3,7 @@ use std::fmt::Write;
 use crate::conditional::{BuildCondition, Condition};
 use crate::join_table::{JoinTable, JoinTableImpl};
 use crate::limit_clause::LimitClause;
+use crate::ordering::{OrderByEntry, Ordering};
 use crate::select_column::{SelectColumn, SelectColumnImpl};
 use crate::{DBImpl, Value};
 
@@ -43,7 +44,8 @@ pub struct SelectData<'until_build, 'post_query> {
     pub(crate) where_clause: Option<&'until_build Condition<'post_query>>,
     pub(crate) distinct: bool,
     pub(crate) lookup: Vec<Value<'post_query>>,
-    pub(crate) join_tables: Vec<JoinTableImpl<'until_build, 'post_query>>,
+    pub(crate) join_tables: &'until_build [JoinTableImpl<'until_build, 'post_query>],
+    pub(crate) order_by_clause: &'until_build [OrderByEntry<'until_build>],
 }
 
 /**
@@ -135,13 +137,35 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
 
                 write!(s, " FROM {}", d.from_clause).unwrap();
 
-                for x in &d.join_tables {
+                for x in d.join_tables {
                     write!(s, " ").unwrap();
                     x.build(&mut s, &mut d.lookup);
                 }
 
                 if let Some(c) = d.where_clause {
                     write!(s, " WHERE {}", c.build(DBImpl::SQLite, &mut d.lookup)).unwrap()
+                };
+
+                if !d.order_by_clause.is_empty() {
+                    write!(s, " ORDER BY ").unwrap();
+
+                    let order_by_len = d.order_by_clause.len();
+                    for (idx, entry) in d.order_by_clause.iter().enumerate() {
+                        write!(
+                            s,
+                            "{}{}",
+                            entry.column_name,
+                            match entry.ordering {
+                                Ordering::Asc => "",
+                                Ordering::Desc => " DESC",
+                            }
+                        )
+                        .unwrap();
+
+                        if idx != order_by_len - 1 {
+                            write!(s, ", ").unwrap();
+                        }
+                    }
                 };
 
                 if let Some(limit) = d.limit {
@@ -179,6 +203,28 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
                     write!(s, " WHERE {}", c.build(DBImpl::MySQL, &mut d.lookup)).unwrap()
                 };
 
+                if !d.order_by_clause.is_empty() {
+                    write!(s, " ORDER BY ").unwrap();
+
+                    let order_by_len = d.order_by_clause.len();
+                    for (idx, entry) in d.order_by_clause.iter().enumerate() {
+                        write!(
+                            s,
+                            "{}{}",
+                            entry.column_name,
+                            match entry.ordering {
+                                Ordering::Asc => "",
+                                Ordering::Desc => " DESC",
+                            }
+                        )
+                        .unwrap();
+
+                        if idx != order_by_len - 1 {
+                            write!(s, ", ").unwrap();
+                        }
+                    }
+                };
+
                 if let Some(limit) = d.limit {
                     write!(s, " LIMIT {}", limit).unwrap();
                     if let Some(offset) = d.offset {
@@ -212,6 +258,28 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
 
                 if let Some(c) = d.where_clause {
                     write!(s, " WHERE {}", c.build(DBImpl::Postgres, &mut d.lookup)).unwrap()
+                };
+
+                if !d.order_by_clause.is_empty() {
+                    write!(s, " ORDER BY ").unwrap();
+
+                    let order_by_len = d.order_by_clause.len();
+                    for (idx, entry) in d.order_by_clause.iter().enumerate() {
+                        write!(
+                            s,
+                            "\"{}\"{}",
+                            entry.column_name,
+                            match entry.ordering {
+                                Ordering::Asc => "",
+                                Ordering::Desc => " DESC",
+                            }
+                        )
+                        .unwrap();
+
+                        if idx != order_by_len - 1 {
+                            write!(s, ", ").unwrap();
+                        }
+                    }
                 };
 
                 if let Some(limit) = d.limit {

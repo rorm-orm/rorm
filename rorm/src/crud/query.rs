@@ -197,6 +197,7 @@ impl<
                 &columns,
                 &[],
                 self.condition.into_option().as_ref(),
+                &[],
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
             )
@@ -217,6 +218,7 @@ impl<
                 &columns,
                 &[],
                 self.condition.into_option().as_ref(),
+                &[],
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
             )
@@ -248,6 +250,7 @@ impl<
                 &columns,
                 &[],
                 self.condition.into_option().as_ref(),
+                &[],
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
             )
@@ -265,6 +268,7 @@ impl<
                 &columns,
                 &[],
                 self.condition.into_option().as_ref(),
+                &[],
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
             )

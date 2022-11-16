@@ -30,6 +30,8 @@ pub mod join_table;
 pub mod limit_clause;
 /// Implementation of SQL ON CONFLICT extensions
 pub mod on_conflict;
+/// Implementation of ORDER BY expressions
+pub mod ordering;
 /// Implementation of SQL SELECT statements
 pub mod select;
 /// Implementation of identifiers in select queries
@@ -66,6 +68,7 @@ use crate::create_column::CreateColumnMySQLData;
 use crate::create_column::CreateColumnPostgresData;
 #[cfg(feature = "sqlite")]
 use crate::create_column::CreateColumnSQLiteData;
+use crate::ordering::OrderByEntry;
 use crate::select_column::{SelectColumnData, SelectColumnImpl};
 
 /**
@@ -306,9 +309,10 @@ impl DBImpl {
         columns: &'until_build [SelectColumnImpl],
         from_clause: &'until_build str,
         joins: &'until_build [JoinTableImpl<'until_build, 'post_build>],
+        order_by_clause: &'until_build [OrderByEntry<'until_build>],
     ) -> impl Select<'until_build, 'post_build> {
         let d = SelectData {
-            join_tables: joins.to_vec(),
+            join_tables: joins,
             resulting_columns: columns,
             limit: None,
             offset: None,
@@ -316,6 +320,7 @@ impl DBImpl {
             where_clause: None,
             distinct: false,
             lookup: vec![],
+            order_by_clause,
         };
         match self {
             #[cfg(feature = "sqlite")]

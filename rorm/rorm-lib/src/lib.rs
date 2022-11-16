@@ -14,6 +14,7 @@ use std::time::Duration;
 use futures::StreamExt;
 use rorm_db::database::{ColumnSelector, JoinTable};
 use rorm_db::join_table::JoinType;
+use rorm_db::ordering::OrderByEntry;
 use rorm_db::row::Row;
 use rorm_db::transaction::Transaction;
 use rorm_db::value::Value;
@@ -22,7 +23,8 @@ use tokio::runtime::Runtime;
 
 use crate::errors::Error;
 use crate::representations::{
-    Condition, DBConnectOptions, FFIColumnSelector, FFIJoin, FFILimitClause, FFIUpdate, FFIValue,
+    Condition, DBConnectOptions, FFIColumnSelector, FFIJoin, FFILimitClause, FFIOrderByEntry,
+    FFIUpdate, FFIValue,
 };
 use crate::utils::{
     get_data_from_row, FFIDate, FFIDateTime, FFIOption, FFISlice, FFIString, FFITime, Stream,
@@ -445,6 +447,7 @@ specify a null pointer.
 - `columns`: Array of columns to retrieve from the database.
 - `joins`: Array of joins to add to the query.
 - `condition`: Pointer to a [Condition].
+- `order_by`: Array of [FFIOrderByEntry].
 - `offset`: Optional offset to set to the query.
 - `callback`: callback function. Takes the `context`, a pointer to a row and an [Error].
 - `context`: Pass through void pointer.
@@ -463,6 +466,7 @@ pub extern "C" fn rorm_db_query_one(
     columns: FFISlice<'static, FFIColumnSelector<'static>>,
     joins: FFISlice<'static, FFIJoin<'static>>,
     condition: Option<&'static Condition>,
+    order_by: FFISlice<'static, FFIOrderByEntry<'static>>,
     offset: FFIOption<u64>,
     callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Row>>, Error) -> ()>,
     context: VoidPtr,
@@ -572,6 +576,23 @@ pub extern "C" fn rorm_db_query_one(
         None
     };
 
+    let mut order_by_vec = vec![];
+    {
+        let order_by_slice: &[FFIOrderByEntry] = order_by.into();
+        for x in order_by_slice {
+            let ordering = x.ordering.into();
+            let Ok(column_name) = x.column_name.try_into() else {
+                unsafe { cb(context, None, Error::InvalidStringError) };
+                return;
+            };
+
+            order_by_vec.push(OrderByEntry {
+                ordering,
+                column_name,
+            })
+        }
+    }
+
     let fut = async move {
         let join_vec: Vec<JoinTable> = join_tuple
             .iter()
@@ -590,6 +611,7 @@ pub extern "C" fn rorm_db_query_one(
                         column_vec.as_slice(),
                         join_vec.as_slice(),
                         None,
+                        &order_by_vec,
                         offset,
                         transaction,
                     )
@@ -608,6 +630,7 @@ pub extern "C" fn rorm_db_query_one(
                     column_vec.as_slice(),
                     join_vec.as_slice(),
                     Some(&c),
+                    &order_by_vec,
                     offset,
                     transaction,
                 )
@@ -646,6 +669,7 @@ specify a null pointer.
 - `columns`: Array of columns to retrieve from the database.
 - `joins`: Array of joins to add to the query.
 - `condition`: Pointer to a [Condition].
+- `order_by`: Array of [FFIOrderByEntry].
 - `offset`: Optional offset to set to the query.
 - `callback`: callback function. Takes the `context`, a pointer to a row and an [Error].
 - `context`: Pass through void pointer.
@@ -664,6 +688,7 @@ pub extern "C" fn rorm_db_query_optional(
     columns: FFISlice<'static, FFIColumnSelector<'static>>,
     joins: FFISlice<'static, FFIJoin<'static>>,
     condition: Option<&'static Condition>,
+    order_by: FFISlice<'static, FFIOrderByEntry<'static>>,
     offset: FFIOption<u64>,
     callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Row>>, Error) -> ()>,
     context: VoidPtr,
@@ -773,6 +798,23 @@ pub extern "C" fn rorm_db_query_optional(
         None
     };
 
+    let mut order_by_vec = vec![];
+    {
+        let order_by_slice: &[FFIOrderByEntry] = order_by.into();
+        for x in order_by_slice {
+            let ordering = x.ordering.into();
+            let Ok(column_name) = x.column_name.try_into() else {
+                unsafe { cb(context, None, Error::InvalidStringError) };
+                return;
+            };
+
+            order_by_vec.push(OrderByEntry {
+                ordering,
+                column_name,
+            })
+        }
+    }
+
     let fut = async move {
         let join_vec: Vec<JoinTable> = join_tuple
             .iter()
@@ -791,6 +833,7 @@ pub extern "C" fn rorm_db_query_optional(
                         column_vec.as_slice(),
                         join_vec.as_slice(),
                         None,
+                        &order_by_vec,
                         offset,
                         transaction,
                     )
@@ -816,6 +859,7 @@ pub extern "C" fn rorm_db_query_optional(
                     column_vec.as_slice(),
                     join_vec.as_slice(),
                     Some(&c),
+                    &order_by_vec,
                     offset,
                     transaction,
                 )
@@ -860,6 +904,7 @@ specify a null pointer.
 - `columns`: Array of columns to retrieve from the database.
 - `joins`: Array of joins to add to the query.
 - `condition`: Pointer to a [Condition].
+- `order_by`: Array of [FFIOrderByEntry].
 - `limit`: Optional limit / offset to set to the query.
 - `callback`: callback function. Takes the `context`, a FFISlice of rows and an [Error].
 - `context`: Pass through void pointer.
@@ -879,6 +924,7 @@ pub extern "C" fn rorm_db_query_all(
     columns: FFISlice<'static, FFIColumnSelector<'static>>,
     joins: FFISlice<'static, FFIJoin<'static>>,
     condition: Option<&'static Condition>,
+    order_by: FFISlice<'static, FFIOrderByEntry<'static>>,
     limit: FFIOption<FFILimitClause>,
     callback: Option<unsafe extern "C" fn(VoidPtr, FFISlice<&Row>, Error) -> ()>,
     context: VoidPtr,
@@ -988,6 +1034,23 @@ pub extern "C" fn rorm_db_query_all(
         None
     };
 
+    let mut order_by_vec = vec![];
+    {
+        let order_by_slice: &[FFIOrderByEntry] = order_by.into();
+        for x in order_by_slice {
+            let ordering = x.ordering.into();
+            let Ok(column_name) = x.column_name.try_into() else {
+                unsafe { cb(context, FFISlice::empty(), Error::InvalidStringError) };
+                return;
+            };
+
+            order_by_vec.push(OrderByEntry {
+                ordering,
+                column_name,
+            })
+        }
+    }
+
     let fut = async move {
         let join_vec: Vec<JoinTable> = join_tuple
             .iter()
@@ -1005,6 +1068,7 @@ pub extern "C" fn rorm_db_query_all(
                     column_vec.as_slice(),
                     join_vec.as_slice(),
                     None,
+                    &order_by_vec,
                     limit,
                     transaction,
                 )
@@ -1016,6 +1080,7 @@ pub extern "C" fn rorm_db_query_all(
                     column_vec.as_slice(),
                     join_vec.as_slice(),
                     Some(&cond),
+                    &order_by_vec,
                     limit,
                     transaction,
                 )
@@ -1069,6 +1134,7 @@ Returns a pointer to the created stream.
 - `columns`: Array of columns to retrieve from the database.
 - `joins`: Array of joins to add to the query.
 - `condition`: Pointer to a [Condition].
+- `order_by`: Array of [FFIOrderByEntry].
 - `limit`: Optional limit / offset to set to the query.
 - `callback`: callback function. Takes the `context`, a stream pointer and an [Error].
 - `context`: Pass through void pointer.
@@ -1083,6 +1149,7 @@ pub extern "C" fn rorm_db_query_stream(
     columns: FFISlice<FFIColumnSelector>,
     joins: FFISlice<'static, FFIJoin<'static>>,
     condition: Option<&Condition>,
+    order_by: FFISlice<'static, FFIOrderByEntry<'static>>,
     limit: FFIOption<FFILimitClause>,
     callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Stream>>, Error) -> ()>,
     context: VoidPtr,
@@ -1182,12 +1249,31 @@ pub extern "C" fn rorm_db_query_stream(
             join_condition: d,
         })
         .collect();
+
+    let mut order_by_vec = vec![];
+    {
+        let order_by_slice: &[FFIOrderByEntry] = order_by.into();
+        for x in order_by_slice {
+            let ordering = x.ordering.into();
+            let Ok(column_name) = x.column_name.try_into() else {
+                unsafe { cb(context, None, Error::InvalidStringError) };
+                return;
+            };
+
+            order_by_vec.push(OrderByEntry {
+                ordering,
+                column_name,
+            })
+        }
+    }
+
     let query_stream = match condition {
         None => db.query_stream(
             model_conv.unwrap(),
             column_vec.as_slice(),
             join_vec.as_slice(),
             None,
+            &order_by_vec,
             limit,
             transaction,
         ),
@@ -1210,6 +1296,7 @@ pub extern "C" fn rorm_db_query_stream(
                 column_vec.as_slice(),
                 join_vec.as_slice(),
                 Some(&cond_conv.unwrap()),
+                &order_by_vec,
                 limit,
                 transaction,
             )
