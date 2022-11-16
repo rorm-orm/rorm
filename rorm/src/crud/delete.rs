@@ -8,7 +8,7 @@ use rorm_db::error::Error;
 use rorm_db::transaction::Transaction;
 use rorm_db::Database;
 
-use crate::conditions::{Binary, Collection, Column, Condition, Value};
+use crate::conditions::{Binary, Column, Condition, DynamicCollection, Value};
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
 use crate::model::Model;
 
@@ -62,8 +62,8 @@ impl<'db, 'rf, M: Model, T: TransactionMarker<'rf, 'db>> DeleteBuilder<'db, 'rf,
     pub fn bulk(
         self,
         models: impl IntoIterator<Item = &'rf M>,
-    ) -> DeleteBuilder<'db, 'rf, M, Collection<Binary<Column<'rf>, Value<'rf>>>, T> {
-        self.condition(Collection::or(
+    ) -> DeleteBuilder<'db, 'rf, M, DynamicCollection<Binary<Column<'rf>, Value<'rf>>>, T> {
+        self.condition(DynamicCollection::or(
             models
                 .into_iter()
                 .map(|model| {

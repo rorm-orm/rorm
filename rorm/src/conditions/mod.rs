@@ -1,3 +1,7 @@
+//! A high-level generic condition tree
+//!
+//! It is basically a generic version of the [rorm_db::Condition] tree.
+
 use crate::internal::field::{Field, FieldProxy};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use rorm_db::{conditional, value};
@@ -5,20 +9,26 @@ use rorm_declaration::hmr::db_type::{
     Choices, Date, DateTime, DbType, Double, Float, Int16, Int32, Int64, Time, VarBinary, VarChar,
 };
 
+pub mod collections;
+pub use collections::{DynamicCollection, StaticCollection};
+
+/// A [Condition] in a box.
+pub type BoxedCondition<'a> = Box<dyn Condition<'a>>;
+
 /// Node in a condition tree
 pub trait Condition<'a>: 'a {
     /// Convert the condition into rorm-sql's format
     fn as_sql(&self) -> conditional::Condition<'a>;
 
     /// Convert the condition into a boxed trait object to erase its concrete type
-    fn boxed(self) -> Box<dyn Condition<'a>>
+    fn boxed(self) -> BoxedCondition<'a>
     where
         Self: Sized,
     {
         Box::new(self)
     }
 }
-impl<'a> Condition<'a> for Box<dyn Condition<'a>> {
+impl<'a> Condition<'a> for BoxedCondition<'a> {
     fn as_sql(&self) -> conditional::Condition<'a> {
         self.as_ref().as_sql()
     }
@@ -174,51 +184,6 @@ impl<'a, A: Condition<'a>, B: Condition<'a>, C: Condition<'a>> Condition<'a> for
             self.snd_arg.as_sql(),
             self.trd_arg.as_sql(),
         ])))
-    }
-}
-
-/// A list of conditions joined by AND or OR
-#[derive(Clone)]
-pub struct Collection<A> {
-    pub(crate) operator: CollectionOperator,
-    pub(crate) args: Vec<A>,
-}
-impl<A> Collection<A> {
-    /// Create a list of conditions joined by AND
-    pub fn and(args: Vec<A>) -> Self {
-        Self {
-            operator: CollectionOperator::And,
-            args,
-        }
-    }
-
-    /// Create a list of conditions joined by OR
-    pub fn or(args: Vec<A>) -> Self {
-        Self {
-            operator: CollectionOperator::Or,
-            args,
-        }
-    }
-}
-/// Operator to join a [Collection] with
-#[derive(Copy, Clone)]
-pub enum CollectionOperator {
-    /// Join the list with AND
-    And,
-    /// Join the list with OR
-    Or,
-}
-impl<'a, A: Condition<'a>> Condition<'a> for Collection<A> {
-    fn as_sql(&self) -> conditional::Condition<'a> {
-        (match self.operator {
-            CollectionOperator::And => conditional::Condition::Conjunction,
-            CollectionOperator::Or => conditional::Condition::Disjunction,
-        })(
-            self.args
-                .iter()
-                .map(|condition| condition.as_sql())
-                .collect(),
-        )
     }
 }
 

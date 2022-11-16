@@ -1,7 +1,7 @@
 use chrono::naive::NaiveDate;
 use futures::TryStreamExt;
-use rorm::conditions::{Collection, Condition};
-use rorm::{delete, insert, query, Database, Model, Patch};
+use rorm::conditions::Condition;
+use rorm::{delete, insert, or, query, Database, Model, Patch};
 
 mod prepared_statements;
 
@@ -166,10 +166,10 @@ pub(crate) async fn operate(db: Database, driver: DatabaseVariant) -> anyhow::Re
 
     // Drop the one car with black color and all cars with a serial no above 1000
     delete!(&db, Car)
-        .condition(Collection::or(vec![
+        .condition(or![
             Car::FIELDS.color.equals("black").boxed(),
             Car::FIELDS.serial_no.greater(1000).boxed(),
-        ]))
+        ])
         .await?;
     assert_eq!(991, query!(&db, Car).all().await?.len());
 
