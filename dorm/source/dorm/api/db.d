@@ -25,6 +25,11 @@ public import dorm.api.condition;
 static if (!is(typeof(mustuse)))
 	private enum mustuse; // @suppress(dscanner.style.phobos_naming_convention)
 
+/// Currently only a limited number of joins is supported per query, this could
+/// configure it when it becomes a problem. This is due to a maximum number of
+/// join aliases being available right now.
+private enum maxJoins = 256;
+
 /**
  * Configuration operation to connect to a database.
  */
@@ -1094,9 +1099,8 @@ private struct JoinInformation
 {
 	private static immutable joinAliasList = {
 		// list of _0, _1, _2, _3, ... embedded into the executable
-		enum maxAliases = 64;
 		string[] aliasList;
-		foreach (i; 0 .. maxAliases)
+		foreach (i; 0 .. maxJoins)
 			aliasList ~= ("_" ~ i.to!string);
 		return aliasList;
 	}();
