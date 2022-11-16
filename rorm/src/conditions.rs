@@ -227,6 +227,23 @@ pub struct Collection<A> {
     pub(crate) operator: CollectionOperator,
     pub(crate) args: Vec<A>,
 }
+impl<A> Collection<A> {
+    /// Create a list of conditions joined by AND
+    pub fn and(args: Vec<A>) -> Self {
+        Self {
+            operator: CollectionOperator::And,
+            args,
+        }
+    }
+
+    /// Create a list of conditions joined by OR
+    pub fn or(args: Vec<A>) -> Self {
+        Self {
+            operator: CollectionOperator::Or,
+            args,
+        }
+    }
+}
 /// Operator to join a [Collection] with
 #[derive(Copy, Clone)]
 pub enum CollectionOperator {
@@ -236,6 +253,19 @@ pub enum CollectionOperator {
     Or,
 }
 impl<'a, A: Condition<'a>> Condition<'a> for Collection<A> {
+    fn as_sql(&self) -> conditional::Condition<'a> {
+        (match self.operator {
+            CollectionOperator::And => conditional::Condition::Conjunction,
+            CollectionOperator::Or => conditional::Condition::Disjunction,
+        })(
+            self.args
+                .iter()
+                .map(|condition| condition.as_sql())
+                .collect(),
+        )
+    }
+}
+impl<'a> Condition<'a> for Collection<Box<dyn Condition<'a>>> {
     fn as_sql(&self) -> conditional::Condition<'a> {
         (match self.operator {
             CollectionOperator::And => conditional::Condition::Conjunction,

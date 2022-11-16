@@ -8,7 +8,7 @@ use rorm_db::error::Error;
 use rorm_db::transaction::Transaction;
 use rorm_db::Database;
 
-use crate::conditions::{Binary, Collection, CollectionOperator, Column, Condition, Value};
+use crate::conditions::{Binary, Collection, Column, Condition, Value};
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
 use crate::model::Model;
 
@@ -63,9 +63,8 @@ impl<'db, 'rf, M: Model, T: TransactionMarker<'rf, 'db>> DeleteBuilder<'db, 'rf,
         self,
         models: impl IntoIterator<Item = &'rf M>,
     ) -> DeleteBuilder<'db, 'rf, M, Collection<Binary<Column<'rf>, Value<'rf>>>, T> {
-        self.condition(Collection {
-            operator: CollectionOperator::Or,
-            args: models
+        self.condition(Collection::or(
+            models
                 .into_iter()
                 .map(|model| {
                     model
@@ -73,7 +72,7 @@ impl<'db, 'rf, M: Model, T: TransactionMarker<'rf, 'db>> DeleteBuilder<'db, 'rf,
                         .expect("Model should always have a primary key")
                 })
                 .collect(),
-        })
+        ))
     }
 
     /// Add a condition to the delete query
