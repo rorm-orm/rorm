@@ -815,6 +815,24 @@ struct FFIColumnSelector
 	}
 }
 
+/// For use with `FFIOrderByEntry`
+enum FFIOrdering
+{
+	/// Ascending
+	asc,
+	/// Descending
+	desc,
+}
+
+/// Represents a single part of an `ORDER BY` clause in SQL.
+struct FFIOrderByEntry
+{
+	/// Specifies if this is ordered in ascending or descending order.
+	FFIOrdering ordering;
+	/// Specifies on which column to order on.
+	FFIString columnName;
+}
+
 /**
  * This function queries the database given the provided parameters.
  *
@@ -825,12 +843,18 @@ struct FFIColumnSelector
  *     columns = Array of columns to retrieve from the database.
  *     joins = Array of joins to add to the query.
  *     condition = Pointer to an $(LREF FFICondition).
+ *     orderBy = Allows to specify columns to order the result by.
  *     limit = Optionally limit and offset which rows are returned.
  *     callback = callback function. Takes the `context`, a row handle and an
  *         error that must be checked first.
  *     context = context pointer to pass through as-is into the callback.
  *
  * Important: - Make sure that `db`, `model`, `columns` and `condition` are allocated until the callback is executed.
+ *
+ * Differences between these methods:
+ * - `rorm_db_query_all` gets an array of rows, which all need to be processed inside the callback.
+ * - `rorm_db_query_one` gets the first row of the query, throwing if no rows are present.
+ * - `rorm_db_query_optional` gets the first row of the query, or null if there are none.
  *
  * This function is called completely synchronously.
  */
@@ -841,6 +865,7 @@ void rorm_db_query_all(
 	FFIArray!FFIColumnSelector columns,
 	FFIArray!FFIJoin joins,
 	scope const(FFICondition)* condition,
+	FFIArray!FFIOrderByEntry orderBy,
 	FFIOption!FFILimitClause limit,
 	DBQueryAllCallback callback,
 	void* context);
@@ -852,11 +877,26 @@ void rorm_db_query_one(
 	FFIArray!FFIColumnSelector columns,
 	FFIArray!FFIJoin joins,
 	scope const(FFICondition)* condition,
+	FFIArray!FFIOrderByEntry orderBy,
 	FFIOption!ulong offset,
 	DBQueryOneCallback callback,
 	void* context);
 /// ditto
+void rorm_db_query_optional(
+	DBHandle handle,
+	DBTransactionHandle transaction,
+	FFIString model,
+	FFIArray!FFIColumnSelector columns,
+	FFIArray!FFIJoin joins,
+	scope const(FFICondition)* condition,
+	FFIArray!FFIOrderByEntry orderBy,
+	FFIOption!ulong offset,
+	DBQueryOptionalCallback callback,
+	void* context);
+/// ditto
 alias DBQueryOneCallback = extern(C) void function(void* context, scope DBRowHandle row, scope RormError);
+/// ditto
+alias DBQueryOptionalCallback = extern(C) void function(void* context, scope DBRowHandle row, scope RormError);
 /// ditto
 alias DBQueryAllCallback = extern(C) void function(void* context, scope FFIArray!DBRowHandle row, scope RormError);
 
@@ -872,6 +912,7 @@ alias DBQueryAllCallback = extern(C) void function(void* context, scope FFIArray
  *     columns = Array of columns to retrieve from the database.
  *     joins = Array of joins to add to the query.
  *     condition = Pointer to an $(LREF FFICondition).
+ *     orderBy = Allows to specify columns to order the result by.
  *     limit = Optionally limit and offset which rows are returned.
  *     callback = callback function. Takes the `context`, a stream handle and an
  *         error that must be checked first.
@@ -888,6 +929,7 @@ void rorm_db_query_stream(
 	FFIArray!FFIColumnSelector columns,
 	FFIArray!FFIJoin joins,
 	scope const(FFICondition)* condition,
+	FFIArray!FFIOrderByEntry orderBy,
 	FFIOption!FFILimitClause limit,
 	DBQueryStreamCallback callback,
 	void* context);
@@ -1203,6 +1245,7 @@ unittest
 		].ffi, // columns
 		FFIArray!FFIJoin.init, // joins
 		null, // condition
+		FFIArray!FFIOrderByEntry.init,
 		FFIOption!FFILimitClause.init, // limit, offset
 	);
 	scope (exit)

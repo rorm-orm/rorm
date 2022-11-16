@@ -59,4 +59,12 @@ void main()
 		.condition(c => c.author.email.like("alice%"))
 		.array;
 	assert(aliceComments.length == 1);
+
+	Comment[] sortedComments = db.select!Comment
+		.orderBy(c => c.author.email.asc)
+		.populate(c => c.author.yes)
+		.array;
+	assert(sortedComments.length == 2);
+	assert(sortedComments[0].author.populated.fullName == "Alice is cool");
+	assert(sortedComments[1].author.populated.fullName == "Bob Bobbington");
 }

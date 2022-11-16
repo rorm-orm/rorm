@@ -13,6 +13,7 @@ import std.datetime : Clock, Date, DateTime, DateTimeException, SysTime, TimeOfD
 import std.meta;
 import std.range.primitives;
 import std.traits;
+import std.typecons : Nullable;
 
 import core.attribute;
 import core.time;
@@ -724,6 +725,38 @@ struct ConditionBuilder(T)
 	mixin DynamicMissingMemberErrorHelper!"condition field";
 }
 
+struct OrderBuilder(T)
+{
+	private ConditionBuilderData* builderData;
+
+	static foreach (field; DormFields!T)
+	{
+		static if (field.isForeignKey)
+		{
+			mixin("ForeignModelOrderBuilderField!(typeof(T.", field.sourceColumn, "), field, DormLayout!T.tableName) ",
+				field.sourceColumn.lastIdentifier,
+				"() @property return { return typeof(return)(builderData); }");
+		}
+		else
+		{
+			mixin("OrderBuilderField!(typeof(T.", field.sourceColumn, "), field) ",
+				field.sourceColumn.lastIdentifier,
+				" = OrderBuilderField!(typeof(T.", field.sourceColumn, "), field)(`",
+				DormLayout!T.tableName, ".", field.columnName,
+				"`);");
+		}
+	}
+
+	/// Only useful at runtime: when it's decided that no ordering needs to be
+	/// done after all, simply return this method to do nothing.
+	ffi.FFIOrderByEntry none() const @safe @property
+	{
+		return ffi.FFIOrderByEntry.init;
+	}
+
+	mixin DynamicMissingMemberErrorHelper!"order field";
+}
+
 struct PopulateBuilder(T)
 {
 	private ConditionBuilderData* builderData;
@@ -932,6 +965,38 @@ struct ForeignModelConditionBuilderField(ModelRef, ModelFormat.Field field, stri
 	mixin DynamicMissingMemberErrorHelper!(
 		"foreign condition field",
 		"`ForeignModelConditionBuilderField` on " ~ RefDB.stringof ~ "." ~ field.sourceColumn
+	);
+}
+
+struct ForeignModelOrderBuilderField(ModelRef, ModelFormat.Field field, string srcTableName)
+{
+	alias RefDB = ModelRef.TModel;
+
+	mixin ForeignJoinHelper;
+
+	static foreach (field; DormFields!RefDB)
+	{
+		static if (__traits(isSame, ModelRef.primaryKeyAlias, mixin("RefDB.", field.sourceColumn)))
+		{
+			mixin("OrderBuilderField!(ModelRef.PrimaryKeyType, field) ",
+				field.sourceColumn.lastIdentifier,
+				" = OrderBuilderField!(ModelRef.PrimaryKeyType, field)(`",
+				srcTableName, ".", field.columnName,
+				"`);");
+		}
+		else
+		{
+			mixin("OrderBuilderField!(typeof(RefDB.", field.sourceColumn, "), field) ",
+				field.sourceColumn.lastIdentifier,
+				"() @property @safe return { string placeholder = ensureJoined(); return typeof(return)(placeholder ~ `.",
+				field.columnName,
+				"`); }");
+		}
+	}
+
+	mixin DynamicMissingMemberErrorHelper!(
+		"foreign condition field",
+		"`ForeignModelOrderBuilderField` on " ~ RefDB.stringof ~ "." ~ field.sourceColumn
 	);
 }
 
@@ -1147,6 +1212,36 @@ struct ConditionBuilderField(T, ModelFormat.Field field)
 	);
 }
 
+/// Type that actually implements the asc/desc methods inside the orderBy
+/// callback. (`OrderBuilder`) Defaults to ascending.
+struct OrderBuilderField(T, ModelFormat.Field field)
+{
+	private string columnName;
+
+	/// Constructs this OrderBuilderField with the given columnName for generated orders.
+	this(string columnName) @safe
+	{
+		this.columnName = columnName;
+	}
+
+	/// Ascending ordering.
+	ffi.FFIOrderByEntry asc() @safe
+	{
+		return ffi.FFIOrderByEntry(ffi.FFIOrdering.asc, ffi.ffi(columnName));
+	}
+
+	/// Descending ordering.
+	ffi.FFIOrderByEntry desc() @safe
+	{
+		return ffi.FFIOrderByEntry(ffi.FFIOrdering.desc, ffi.ffi(columnName));
+	}
+
+	mixin DynamicMissingMemberErrorHelper!(
+		"field ordering",
+		"`OrderBuilderField!(" ~ T.stringof ~ ")` on " ~ field.sourceColumn
+	);
+}
+
 private struct JoinInformation
 {
 	private static immutable joinAliasList = {
@@ -1182,20 +1277,27 @@ private struct JoinInformation
  * - `condition` is used to set the "WHERE" clause in SQL. It can only be
  *   called once on any query operation.
  * - `limit` can be used to set a maximum number of rows to return. When this
- *   restriction is called, `findOne` can no longer be used.
+ *   restriction is called, `findOne` and `findOptional` can no longer be used.
  * - `offset` can be used to offset after how many rows to start returning.
+ * - `orderBy` can be used to order how the results are to be returned by the
+ *   database.
+ *
+ * The following methods are important when working with `ModelRef` / foreign
+ * keys:
+ * - `populate` eagerly loads data from a foreign model, (re)using a join
  *
  * The following methods can then be used to extract the data:
  * - `stream` to asynchronously stream data (can be used as iterator / range)
  * - `array` to eagerly fetch all data and do a big memory allocation to store
  *   all the values into.
  * - `findOne` to find the first matching item or throw for no data.
+ * - `findOptional` to find the first matching item or return Nullable!T.init
+ *    for no data.
  */
 struct SelectOperation(
 	T,
 	TSelect,
 	bool hasWhere = false,
-	bool hasOrder = false,
 	bool hasOffset = false,
 	bool hasLimit = false,
 )
@@ -1204,6 +1306,7 @@ struct SelectOperation(
 	private const(DormDB)* db;
 	private ffi.DBTransactionHandle tx;
 	private ffi.FFICondition[] conditionTree;
+	private ffi.FFIOrderByEntry[] ordering;
 	private JoinInformation joinInformation;
 	private ulong _offset, _limit;
 
@@ -1212,20 +1315,15 @@ struct SelectOperation(
 
 	static if (!hasWhere)
 	{
-		static if (__traits(compiles, ConditionBuilder!T))
-			alias SelectBuilder = Condition delegate(ConditionBuilder!T);
-		else
-			alias SelectBuilder = void;
+		/// Argument to `condition`. Callback that takes in a
+		/// `ConditionBuilder!T` and returns a `Condition` that can easily be
+		/// created using that builder.
+		alias ConditionBuilderCallback = Condition delegate(ConditionBuilder!T);
 
 		/// Limits the query to only rows matching this condition. Maps to the
 		/// `WHERE` clause in an SQL statement.
 		///
 		/// This method may only be called once on each query.
-		///
-		/// It's possible to use conditions in two ways:
-		/// - directly pass in a manually constructed Condition
-		/// - using the callback-based overload which will also handle joins
-		///   and is easier to use in general.
 		///
 		/// See `ConditionBuilder` to see how the callback-based overload is
 		/// implemented. Basically the argument that is passed to the callback
@@ -1234,8 +1332,12 @@ struct SelectOperation(
 		/// be called to generate conditions.
 		///
 		/// Use the `Condition.and(...)`, `Condition.or(...)` or `Condition.not(...)`
-		/// methods to combine conditions into more complex ones.
-		SelectOperation!(T, TSelect, true, hasOrder, hasLimit) condition()(SelectBuilder callback) return @trusted
+		/// methods to combine conditions into more complex ones. You can also
+		/// choose to not use the builder object at all and integrate manually
+		/// constructed
+		SelectOperation!(T, TSelect, true, hasOffset, hasLimit) condition(
+			ConditionBuilderCallback callback
+		) return @trusted
 		{
 			scope ConditionBuilderData data;
 			scope ConditionBuilder!T builder;
@@ -1245,22 +1347,34 @@ struct SelectOperation(
 			joinInformation = move(data.joinInformation);
 			return cast(typeof(return))move(this);
 		}
-
-		/// ditto
-		SelectOperation!(T, TSelect, true, hasOrder, hasLimit) condition(Condition condition) return @trusted
-		{
-			conditionTree = condition.makeTree;
-			return cast(typeof(return))move(this);
-		}
 	}
 
-	static if (!hasOrder)
+	/// Argument to `orderBy`. Callback that takes in an `OrderBuilder!T` and
+	/// returns the ffi ordering value that can be easily created using the
+	/// builder.
+	alias OrderBuilderCallback = ffi.FFIOrderByEntry delegate(OrderBuilder!T);
+
+	/// Allows ordering by the specified field with the specified direction.
+	/// (defaults to ascending)
+	///
+	/// Returning `u => u.none` means no ordering will be added. (Useful only
+	/// at runtime)
+	///
+	/// Multiple `orderBy` can be added to the same query object. Ordering is
+	/// important - the first order orders all the rows, the second order only
+	/// orders each group of rows where the previous order had the same values,
+	/// etc.
+	typeof(this) orderBy(OrderBuilderCallback callback) return @trusted
 	{
-		/// Not yet implemented.
-		SelectOperation!(T, TSelect, hasWhere, true, hasLimit) orderBy(T...)(T) return @trusted
-		{
-			static assert(false, "not implemented");
-		}
+		scope ConditionBuilderData data;
+		scope OrderBuilder!T builder;
+		builder.builderData = &data;
+		data.joinInformation = move(joinInformation);
+		auto order = callback(builder);
+		if (order !is typeof(order).init)
+			ordering ~= order;
+		joinInformation = move(data.joinInformation);
+		return move(this);
 	}
 
 	/// Argument to `populate`. Callback that takes in an `OrderBuilder!T` and
@@ -1297,7 +1411,8 @@ struct SelectOperation(
 
 	static if (!hasLimit)
 	{
-		/// Sets the maximum number of rows to return. Using this method disables the `findOne` method.
+		/// Sets the maximum number of rows to return. Using this method
+		/// disables the `findOne` and `findOptional` methods.
 		SelectOperation!(T, TSelect, hasWhere, hasOffset, true) limit(ulong limit) return @trusted
 		{
 			_limit = limit;
@@ -1373,6 +1488,7 @@ struct SelectOperation(
 			ffi.ffi(rtColumns),
 			ffi.ffi(joinInformation.joins),
 			conditionTree.length ? &conditionTree[0] : null,
+			ffi.ffi(ordering),
 			ffiLimit,
 			ctx.callback.expand);
 		ctx.result();
@@ -1406,6 +1522,7 @@ struct SelectOperation(
 			ffi.ffi(rtColumns),
 			ffi.ffi(joinInformation.joins),
 			conditionTree.length ? &conditionTree[0] : null,
+			ffi.ffi(ordering),
 			ffiLimit);
 
 		return RormStream!(T, TSelect)(stream, joinInformation);
@@ -1443,6 +1560,45 @@ struct SelectOperation(
 				ffi.ffi(rtColumns),
 				ffi.ffi(joinInformation.joins),
 				conditionTree.length ? &conditionTree[0] : null,
+				ffi.ffi(ordering),
+				ffi.FFIOption!ulong(_offset),
+				ctx.callback.expand);
+			ctx.result();
+			return ret;
+		}
+
+		/// Returns the first row of the result data or throws if no data exists.
+		Nullable!TSelect findOptional() @trusted
+		{
+			enum fields = FilterLayoutFields!(T, TSelect);
+
+			ffi.FFIColumnSelector[fields.length] columns;
+			static foreach (i, field; fields)
+			{{
+				enum aliasedName = "__" ~ field.columnName;
+
+				columns[i] = ffi.FFIColumnSelector(
+					ffi.ffi(DormLayout!T.tableName),
+					ffi.ffi(field.columnName),
+					ffi.ffi(aliasedName)
+				);
+			}}
+
+			mixin(makeRtColumns);
+
+			Nullable!TSelect ret;
+			auto ctx = FreeableAsyncResult!(void delegate(scope ffi.DBRowHandle)).make;
+			ctx.forward_callback = (scope row) {
+				if (row)
+					ret = unwrapRowResult!(T, TSelect)(row, joinInformation);
+			};
+			ffi.rorm_db_query_optional(db.handle,
+				tx,
+				ffi.ffi(DormLayout!T.tableName),
+				ffi.ffi(rtColumns),
+				ffi.ffi(joinInformation.joins),
+				conditionTree.length ? &conditionTree[0] : null,
+				ffi.ffi(ordering),
 				ffi.FFIOption!ulong(_offset),
 				ctx.callback.expand);
 			ctx.result();
