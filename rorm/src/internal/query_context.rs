@@ -62,7 +62,7 @@ impl QueryContextBuilder {
                     format!("_{new_alias}.{}", M::Primary::NAME),
                     parent_alias
                         .map(|parent_alias| format!("_{parent_alias}.{}", F::NAME))
-                        .unwrap_or_else(|| F::NAME.to_string()),
+                        .unwrap_or_else(|| format!("{}.{}", F::Model::TABLE, F::NAME)),
                 ],
             },
         );
@@ -78,7 +78,8 @@ impl QueryContextBuilder {
         }
 
         if path_id == ProxyId::of::<()>() {
-            self.fields.insert(proxy_id, F::NAME.to_string());
+            self.fields
+                .insert(proxy_id, format!("{}.{}", F::Model::TABLE, F::NAME));
             return;
         }
 
