@@ -1,5 +1,6 @@
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
 use crate::internal::field::Field;
+use crate::internal::relation_path::Path;
 use rorm_db::row::FromRow;
 use rorm_declaration::imr;
 
@@ -31,7 +32,7 @@ pub trait DbEnum {
 /// Trait implemented on Patches i.e. a subset of a model's fields.
 ///
 /// Implemented by [`derive(Patch)`] as well as [`derive(Model)`].
-pub trait Patch: FromRow {
+pub trait Patch: FromRow + 'static {
     /// The model this patch is for
     type Model: Model;
 
@@ -61,7 +62,7 @@ pub trait Patch: FromRow {
 }
 /// The [Condition](crate::conditions::Condition) type returned by [Patch::as_condition]
 pub type PatchAsCondition<'a, P> =
-    Binary<Column<<<P as Patch>::Model as Model>::Primary, ()>, Value<'a>>;
+    Binary<Column<<<P as Patch>::Model as Model>::Primary, <P as Patch>::Model>, Value<'a>>;
 
 /// Check whether a [`Patch`] contains a certain field index.
 ///
@@ -94,17 +95,15 @@ pub trait Model: Patch<Model = Self> {
     /// A struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`](crate::internal::field::Field)).
     ///
     /// The struct is constructed once in the [`Model::FIELDS`] constant.
-    type Fields<Path>: ConstNew;
+    type Fields<P: Path>: ConstNew;
 
     /// A constant struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`](crate::internal::field::Field)).
-    // Actually FIELDS is an alias for F instead of the other way around.
-    // This changes was made in the hope it would improve IDE support.
-    const FIELDS: Self::Fields<()> = Self::Fields::NEW;
+    const FIELDS: Self::Fields<Self> = Self::Fields::NEW;
 
     /// Shorthand version of [`FIELDS`]
     ///
     /// [`FIELDS`]: Model::FIELDS
-    const F: Self::Fields<()> = Self::Fields::NEW;
+    const F: Self::Fields<Self> = Self::Fields::NEW;
 
     /// The model's table name
     const TABLE: &'static str;

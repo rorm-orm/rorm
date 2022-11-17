@@ -28,34 +28,30 @@ use crate::{ForeignModel, Model};
 ///     = Comment::F.user.fields().group.fields().name;
 /// ```
 pub trait Path: 'static {
+    /// The model (or table in the context of joins) this path originates from
+    type Origin: Model;
+
     /// Add all joins required to use this path to the builder
     fn add_to_join_builder(builder: &mut QueryContextBuilder);
 }
-impl Path for () {
+impl<M: Model> Path for M {
+    type Origin = M;
+
     fn add_to_join_builder(_builder: &mut QueryContextBuilder) {}
 }
 
 /// A single step in a [Path]
 #[derive(Copy, Clone)]
-pub struct PathStep<F, P>(PhantomData<(F, P)>);
+pub struct PathStep<F, P: Path>(PhantomData<(F, P)>);
 
-impl<M, F, P> PathStep<F, P>
-where
-    M: Model,
-    F: Field<Type = ForeignModel<M>>,
-    P: Path,
-{
-    /// Create a new instance
-    pub const fn new() -> Self {
-        Self(PhantomData)
-    }
-}
 impl<M, F, P> Path for PathStep<F, P>
 where
     M: Model,
     F: Field<Type = ForeignModel<M>> + 'static,
     P: Path,
 {
+    type Origin = P::Origin;
+
     fn add_to_join_builder(builder: &mut QueryContextBuilder) {
         builder.add_relation_path::<M, F, P>()
     }

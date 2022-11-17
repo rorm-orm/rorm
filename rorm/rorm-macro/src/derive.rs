@@ -131,7 +131,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
         impl ::rorm::model::Model for #model {
             type Primary = #primary_key;
 
-            type Fields<Path> = #fields_struct<Path>;
+            type Fields<P: ::rorm::internal::relation_path::Path> = #fields_struct<P>;
 
             const TABLE: &'static str = #table_name;
 
@@ -160,8 +160,6 @@ pub fn model(strct: TokenStream) -> TokenStream {
             if count_auto_increment > 1 {
                 panic!("\"auto_increment\" can only be set once per model");
             }
-
-            ()
         };
 
         #impl_patch

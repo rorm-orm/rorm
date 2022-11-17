@@ -32,10 +32,6 @@ pub const fn concat_into<const N: usize>(
         strings = tail;
         let mut bytes = head.as_bytes();
         while let [head, tail @ ..] = bytes {
-            bytes = tail;
-            buffer[i] = *head;
-            i += 1;
-
             // Handle buffer overflow
             if i == N {
                 buffer[i - 1] = DOT;
@@ -43,6 +39,10 @@ pub const fn concat_into<const N: usize>(
                 buffer[i - 3] = DOT;
                 return (N, buffer);
             }
+
+            bytes = tail;
+            buffer[i] = *head;
+            i += 1;
         }
     }
     (i, buffer)
