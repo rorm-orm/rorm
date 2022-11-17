@@ -114,7 +114,8 @@ pub(crate) async fn operate(db: Database, driver: DatabaseVariant) -> anyhow::Re
 
     // Get the sum of all users' IDs
     let mut sum = 0;
-    let mut s = query!(&db, (User::F.id,)).stream();
+    let mut context = Default::default();
+    let mut s = query!(&db, (User::F.id,)).stream(&mut context);
     while let Some((id,)) = s.try_next().await? {
         sum += id;
     }

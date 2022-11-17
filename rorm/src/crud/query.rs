@@ -215,9 +215,13 @@ impl<
     }
 
     /// Retrieve and decode the query as a stream
+    ///
+    /// In order to resolve joins a [QueryContext] is needed, which has to survive the query.
+    /// So as temporary solution it has to be provided in order to stream a query.
+    /// This is **WIP**!
     pub fn stream(
         self,
-        context: &'rf mut QueryContext,
+        context: &'rf mut QueryContext, // TODO
     ) -> impl Stream<Item = Result<S::Result, Error>> + 'rf {
         let columns = self.get_columns();
         let mut builder = QueryContextBuilder::new();
