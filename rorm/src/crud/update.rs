@@ -12,6 +12,7 @@ use rorm_db::Database;
 use crate::conditions::{Condition, IntoSingleValue};
 use crate::crud::builder::{ConditionMarker, Sealed, TransactionMarker};
 use crate::internal::field::{Field, FieldProxy};
+use crate::internal::query_context::QueryContext;
 use crate::Model;
 
 /// Marker for the generic parameter storing a list of columns.
@@ -120,11 +121,12 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
 
     /// Perform the update operation
     pub async fn exec(self) -> Result<u64, Error> {
+        let context = QueryContext::new();
         self.db
             .update(
                 M::TABLE,
                 &self.columns,
-                self.condition.into_option().as_ref(),
+                self.condition.into_option(&context).as_ref(),
                 self.transaction.into_option(),
             )
             .await

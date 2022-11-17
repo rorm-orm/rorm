@@ -10,6 +10,7 @@ use rorm_db::Database;
 
 use crate::conditions::{Condition, DynamicCollection};
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
+use crate::internal::query_context::QueryContext;
 use crate::model::{Model, PatchAsCondition};
 
 /// Builder for delete queries
@@ -108,10 +109,11 @@ impl<'db, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf, 'db>
 {
     /// Perform the delete operation
     async fn exec(self) -> Result<u64, Error> {
+        let context = QueryContext::new();
         self.db
             .delete(
                 M::TABLE,
-                self.condition.into_option().as_ref(),
+                self.condition.into_option(&context).as_ref(),
                 self.transaction.into_option(),
             )
             .await

@@ -6,6 +6,7 @@
 //!
 //! Where static and dynamic mean whether the collection's size is known at compile time.
 
+use crate::internal::query_context::{QueryContext, QueryContextBuilder};
 use rorm_db::conditional;
 
 use super::Condition;
@@ -58,14 +59,23 @@ impl<A> DynamicCollection<A> {
 }
 
 impl<'a, A: Condition<'a>> Condition<'a> for DynamicCollection<A> {
-    fn as_sql(&self) -> conditional::Condition<'a> {
+    fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
+        for cond in self.vector.iter() {
+            cond.add_to_builder(builder);
+        }
+    }
+
+    fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
+    where
+        'a: 'c,
+    {
         (match self.operator {
             CollectionOperator::And => conditional::Condition::Conjunction,
             CollectionOperator::Or => conditional::Condition::Disjunction,
         })(
             self.vector
                 .iter()
-                .map(|condition| condition.as_sql())
+                .map(|condition| condition.as_sql(context))
                 .collect(),
         )
     }
@@ -119,15 +129,23 @@ macro_rules! impl_static_collection {
         impl_static_collection!(impl $generic);
     };
     (impl $($generic:ident),+) => {
+        #[allow(non_snake_case)] // the macro is simpler when generic variable are reused as value variables
         impl<'a, $($generic: Condition<'a>),+> Condition<'a> for StaticCollection<($($generic,)+)> {
-            fn as_sql(&self) -> conditional::Condition<'a> {
-                #[allow(non_snake_case)] // the macro is simpler when generic variable are reused as value variables
+            fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
+                let ($($generic,)+) = &self.tuple;
+                $($generic.add_to_builder(builder);)+
+            }
+
+            fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
+            where
+                'a: 'c
+            {
                 let ($($generic,)+) = &self.tuple;
                 (match self.operator {
                     CollectionOperator::And => conditional::Condition::Conjunction,
                     CollectionOperator::Or => conditional::Condition::Disjunction,
                 })(vec![
-                    $($generic.as_sql(),)+
+                    $($generic.as_sql(context),)+
                 ])
             }
         }

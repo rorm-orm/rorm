@@ -14,6 +14,7 @@ use crate::internal::field::{Field, FieldProxy};
 use crate::internal::relation_path::Path;
 
 pub mod collections;
+use crate::internal::query_context::{QueryContext, QueryContextBuilder};
 pub use collections::{DynamicCollection, StaticCollection};
 
 /// A [Condition] in a box.
@@ -21,8 +22,13 @@ pub type BoxedCondition<'a> = Box<dyn Condition<'a>>;
 
 /// Node in a condition tree
 pub trait Condition<'a>: 'a {
-    /// Convert the condition into rorm-sql's format
-    fn as_sql(&self) -> conditional::Condition<'a>;
+    /// Prepare a query context to be able to handle this condition by registering all implicit joins.
+    fn add_to_builder(&self, builder: &mut QueryContextBuilder);
+
+    /// Convert the condition into rorm-sql's format using a query context's registered joins.
+    fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
+    where
+        'a: 'c;
 
     /// Convert the condition into a boxed trait object to erase its concrete type
     fn boxed(self) -> BoxedCondition<'a>
@@ -33,8 +39,15 @@ pub trait Condition<'a>: 'a {
     }
 }
 impl<'a> Condition<'a> for BoxedCondition<'a> {
-    fn as_sql(&self) -> conditional::Condition<'a> {
-        self.as_ref().as_sql()
+    fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
+        self.as_ref().add_to_builder(builder);
+    }
+
+    fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
+    where
+        'a: 'c,
+    {
+        self.as_ref().as_sql(context)
     }
 
     fn boxed(self) -> Box<dyn Condition<'a>>
@@ -95,7 +108,12 @@ impl<'a> Value<'a> {
     }
 }
 impl<'a> Condition<'a> for Value<'a> {
-    fn as_sql(&self) -> conditional::Condition<'a> {
+    fn add_to_builder(&self, _builder: &mut QueryContextBuilder) {}
+
+    fn as_sql<'c>(&self, _context: &'c QueryContext) -> conditional::Condition<'c>
+    where
+        'a: 'c,
+    {
         conditional::Condition::Value(self.into_sql())
     }
 }
@@ -116,8 +134,15 @@ impl<F: Field, P: Path> Column<F, P> {
     }
 }
 impl<'a, F: Field, P: Path> Condition<'a> for Column<F, P> {
-    fn as_sql(&self) -> conditional::Condition<'a> {
-        conditional::Condition::Value(value::Value::Ident(F::NAME))
+    fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
+        builder.add_field_proxy::<F, P>();
+    }
+
+    fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
+    where
+        'a: 'c,
+    {
+        conditional::Condition::Value(value::Value::Ident(context.get_field::<F, P>()))
     }
 }
 
@@ -153,7 +178,15 @@ pub enum BinaryOperator {
     NotRegexp,
 }
 impl<'a, A: Condition<'a>, B: Condition<'a>> Condition<'a> for Binary<A, B> {
-    fn as_sql(&self) -> conditional::Condition<'a> {
+    fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
+        self.fst_arg.add_to_builder(builder);
+        self.snd_arg.add_to_builder(builder);
+    }
+
+    fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
+    where
+        'a: 'c,
+    {
         conditional::Condition::BinaryCondition((match self.operator {
             BinaryOperator::Equals => conditional::BinaryCondition::Equals,
             BinaryOperator::NotEquals => conditional::BinaryCondition::NotEquals,
@@ -166,8 +199,8 @@ impl<'a, A: Condition<'a>, B: Condition<'a>> Condition<'a> for Binary<A, B> {
             BinaryOperator::Regexp => conditional::BinaryCondition::Regexp,
             BinaryOperator::NotRegexp => conditional::BinaryCondition::NotRegexp,
         })(Box::new([
-            self.fst_arg.as_sql(),
-            self.snd_arg.as_sql(),
+            self.fst_arg.as_sql(context),
+            self.snd_arg.as_sql(context),
         ])))
     }
 }
@@ -189,14 +222,23 @@ pub enum TernaryOperator {
     NotBetween,
 }
 impl<'a, A: Condition<'a>, B: Condition<'a>, C: Condition<'a>> Condition<'a> for Ternary<A, B, C> {
-    fn as_sql(&self) -> conditional::Condition<'a> {
+    fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
+        self.fst_arg.add_to_builder(builder);
+        self.snd_arg.add_to_builder(builder);
+        self.trd_arg.add_to_builder(builder);
+    }
+
+    fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
+    where
+        'a: 'c,
+    {
         conditional::Condition::TernaryCondition((match self.operator {
             TernaryOperator::Between => conditional::TernaryCondition::Between,
             TernaryOperator::NotBetween => conditional::TernaryCondition::NotBetween,
         })(Box::new([
-            self.fst_arg.as_sql(),
-            self.snd_arg.as_sql(),
-            self.trd_arg.as_sql(),
+            self.fst_arg.as_sql(context),
+            self.snd_arg.as_sql(context),
+            self.trd_arg.as_sql(context),
         ])))
     }
 }

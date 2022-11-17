@@ -8,9 +8,10 @@ use rorm_declaration::hmr::Source;
 use rorm_declaration::imr;
 
 use crate::annotations::Annotations;
-use crate::const_panic;
 use crate::internal::as_db_type::AsDbType;
-use crate::model::Model;
+use crate::internal::relation_path::{Path, PathStep};
+use crate::model::{ConstNew, Model};
+use crate::{const_panic, ForeignModel};
 
 /// All information about a model's field stored in the type system.
 ///
@@ -180,5 +181,12 @@ impl<F: Field, P> FieldProxy<F, P> {
     /// Get the field's annotations
     pub const fn annotations(&self) -> Annotations {
         F::ANNOTATIONS
+    }
+}
+
+impl<M: Model, F: Field<Type = ForeignModel<M>>, P: Path> FieldProxy<F, P> {
+    /// Get the foreign model's fields keeping track where you came from
+    pub const fn fields(&self) -> M::Fields<PathStep<F, P>> {
+        M::Fields::NEW
     }
 }

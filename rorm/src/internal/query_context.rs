@@ -69,7 +69,7 @@ impl QueryContextBuilder {
     }
 
     /// Add a [FieldProxy] ensuring its relation path is joined and its column is on the correct table
-    pub fn add_field_proxy<F: Field, P: Path>(&mut self, _: FieldProxy<F, P>) {
+    pub fn add_field_proxy<F: Field, P: Path>(&mut self) {
         let proxy_id = ProxyId::of::<FieldProxy<F, P>>();
         let path_id = PathId::of::<P>();
 
@@ -132,15 +132,28 @@ impl QueryContextBuilder {
 ///
 /// Since rorm-db borrows all of its parameters, there has to be someone who own it.
 /// This struct owns all the implicit data required to query something i.e. join and alias information.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct QueryContext {
     joins: Vec<JoinData>,
     fields: HashMap<ProxyId, String>,
 }
 impl QueryContext {
+    /// Create an empty context
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Create a vector borrowing the joins in rorm_db's format which can be passed to it as slice.
-    pub fn as_db_ready(&self) -> Vec<rorm_db::database::JoinTable> {
+    pub fn get_joins(&self) -> Vec<rorm_db::database::JoinTable> {
         self.joins.iter().map(JoinData::as_db_ready).collect()
+    }
+
+    /// Get a field's column name joined with its table
+    pub fn get_field<F: Field, P: Path>(&self) -> &str {
+        self.fields
+            .get(&ProxyId::of::<FieldProxy<F, P>>())
+            .expect("Here be error handling?") // TODO
+            .as_str()
     }
 }
 

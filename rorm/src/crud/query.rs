@@ -12,6 +12,7 @@ use rorm_db::{error::Error, row::Row, Database};
 use crate::crud::builder::{ConditionMarker, Sealed, TransactionMarker};
 use crate::internal::as_db_type::AsDbType;
 use crate::internal::field::{Field, FieldProxy};
+use crate::internal::query_context::{QueryContext, QueryContextBuilder};
 use crate::model::{Model, Patch};
 
 /// Builder for select queries
@@ -191,12 +192,16 @@ impl<
     /// Retrieve and decode all matching rows
     pub async fn all(self) -> Result<Vec<S::Result>, Error> {
         let columns = self.get_columns();
+        let mut builder = QueryContextBuilder::new();
+        self.condition.add_to_builder(&mut builder);
+        let context = builder.finish();
+        let joins = context.get_joins();
         self.db
             .query_all(
                 M::TABLE,
                 &columns,
-                &[],
-                self.condition.into_option().as_ref(),
+                &joins,
+                self.condition.into_option(&context).as_ref(),
                 &[],
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
@@ -210,14 +215,21 @@ impl<
     }
 
     /// Retrieve and decode the query as a stream
-    pub fn stream(self) -> impl Stream<Item = Result<S::Result, Error>> + 'rf {
+    pub fn stream(
+        self,
+        context: &'rf mut QueryContext,
+    ) -> impl Stream<Item = Result<S::Result, Error>> + 'rf {
         let columns = self.get_columns();
+        let mut builder = QueryContextBuilder::new();
+        self.condition.add_to_builder(&mut builder);
+        *context = builder.finish();
+        let joins = context.get_joins();
         self.db
             .query_stream(
                 M::TABLE,
                 &columns,
-                &[],
-                self.condition.into_option().as_ref(),
+                &joins,
+                self.condition.into_option(context).as_ref(),
                 &[],
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
@@ -243,13 +255,17 @@ impl<
     /// An error is returned if no value could be retrieved.
     pub async fn one(self) -> Result<S::Result, Error> {
         let columns = self.get_columns();
+        let mut builder = QueryContextBuilder::new();
+        self.condition.add_to_builder(&mut builder);
+        let context = builder.finish();
+        let joins = context.get_joins();
         let row = self
             .db
             .query_one(
                 M::TABLE,
                 &columns,
-                &[],
-                self.condition.into_option().as_ref(),
+                &joins,
+                self.condition.into_option(&context).as_ref(),
                 &[],
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
@@ -261,13 +277,17 @@ impl<
     /// Try to retrieve and decode a matching row
     pub async fn optional(self) -> Result<Option<S::Result>, Error> {
         let columns = self.get_columns();
+        let mut builder = QueryContextBuilder::new();
+        self.condition.add_to_builder(&mut builder);
+        let context = builder.finish();
+        let joins = context.get_joins();
         let row = self
             .db
             .query_optional(
                 M::TABLE,
                 &columns,
-                &[],
-                self.condition.into_option().as_ref(),
+                &joins,
+                self.condition.into_option(&context).as_ref(),
                 &[],
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
