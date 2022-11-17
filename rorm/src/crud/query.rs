@@ -170,7 +170,7 @@ impl<
             .columns()
             .iter()
             .map(|x| ColumnSelector {
-                table_name: None,
+                table_name: Some(M::TABLE),
                 column_name: x,
                 select_alias: None,
             })
