@@ -6,8 +6,56 @@ on:
       - docs
   pull_request:
 
-# This CI configuration makes heavy use of the local cache of a self-hosted Linux runner
+# This CI configuration makes heavy use of the local cache of a self-hosted Linux runner, except for the first job
 jobs:
+  build-linux-shared:
+    name: Build rorm from scratch
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: "-Cinstrument-coverage"
+      LLVM_PROFILE_FILE: "coverage-rorm_%p-%m.profraw"
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Update rust
+        run: rustup update
+
+      - name: Install rorm-cli (release)
+        run: |
+          rustup component add clippy
+          cargo install clippy-sarif sarif-fmt
+          cargo install rorm-cli --path ./rorm/rorm-cli -f
+
+      - name: Build and test
+        run: |
+          set -x
+          cargo build -p rorm-lib
+          cargo test -p rorm-cli
+          cargo test -p rorm-db -F tokio-rustls
+          cargo test -p rorm-declaration
+          cargo test -p rorm-lib
+          cargo test -p rorm-macro
+          cargo test -p rorm-sql -F sqlite
+          cargo test -p rorm-sql -F mysql
+          cargo test -p rorm-sql -F postgres
+          cargo test -F tokio-rustls
+        working-directory: ./rorm
+
+      - name: Execute rorm-sample with SQLite
+        env:
+          CONFIG_FILE: "sqlite.toml"
+        run: |
+          set -x
+          RUST_BACKTRACE=full cargo run -- --help
+          echo Config: ${CONFIG_FILE}
+          rm -rvf .models.json
+          rorm-cli migrate --database-config "${CONFIG_FILE}" --log-sql
+          cargo run -F rorm-main
+          rorm-cli make-migrations
+          rorm-cli migrate --database-config "${CONFIG_FILE}" --log-sql
+          RUST_BACKTRACE=full RUST_LOG=rorm=debug cargo run -- "${CONFIG_FILE}"
+        working-directory: ./rorm/rorm-sample
+
   build-linux:
     name: Build rorm
     runs-on: [ self-hosted, linux, x64 ]
@@ -50,7 +98,6 @@ jobs:
           export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/rorm/target
           set -e
           set -x
-          cargo build -F tokio-rustls
           cargo test -p rorm-cli
           cargo test -p rorm-db -F tokio-rustls
           cargo test -p rorm-declaration

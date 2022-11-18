@@ -29,7 +29,6 @@ jobs:
         run: |
           set -x
           cargo build -p rorm-lib
-          cargo build -p rorm-lib -r
           cargo test -p rorm-cli
           cargo test -p rorm-db -F tokio-rustls
           cargo test -p rorm-declaration
@@ -40,12 +39,6 @@ jobs:
           cargo test -p rorm-sql -F postgres
           cargo test -F tokio-rustls
         working-directory: ./rorm
-
-      - name: Build rorm-sample
-        run: |
-          cargo build
-          cargo build -r
-        working-directory: ./rorm/rorm-sample
 
       - name: Execute rorm-sample with SQLite
         env:

@@ -11,9 +11,71 @@ defaults:
   run:
     shell: sh
 
-# This CI configuration makes heavy use of the local cache of a self-hosted Windows runner
+# This CI configuration makes heavy use of the local cache of a self-hosted Windows runner, except for the first job
 # Due to eval restrictions in the GitHub workflow configuration, the CARGO_TARGET_DIR must be set for every single step
 jobs:
+  build-windows-shared:
+    name: Build rorm from scratch
+    runs-on: windows-latest
+    env:
+      RUSTFLAGS: "-Cinstrument-coverage"
+      LLVM_PROFILE_FILE: "coverage-rorm_%p-%m.profraw"
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download the SQLite3 lib files
+        run: |
+          set -x
+          curl https://sqlite.org/2022/sqlite-amalgamation-3400000.zip -O
+          unzip sqlite-amalgamation-3400000.zip
+          mv sqlite-amalgamation-3400000 sqlite-dev
+          rm -v sqlite-amalgamation-3400000.zip
+          curl https://sqlite.org/2022/sqlite-dll-win64-x64-3400000.zip -O
+          unzip sqlite-dll-win64-x64-3400000.zip
+          mv sqlite3.def sqlite3.dll sqlite-dev
+          rm -v sqlite-dll-win64-x64-3400000.zip
+
+      - name: Build the SQLite3 library
+        shell: cmd
+        run: |
+          cd sqlite-dev
+          dir
+          set VSCMD_DEBUG=1
+          "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\Tools\\VsDevCmd.bat" & dir && lib /DEF:sqlite3.def /OUT:sqlite3.lib /MACHINE:x64 & dir
+
+      - name: Update rust, install utilities, build & test
+        env:
+          CONFIG_FILE: "sqlite.toml"
+        run: |
+          set -x
+          cp -v sqlite-dev/sqlite3.lib rorm
+          cp -v sqlite-dev/sqlite3.lib rorm/rorm-sql
+          rustup update
+          rustup component add clippy
+          cargo install clippy-sarif sarif-fmt
+          cargo install rorm-cli --path ./rorm/rorm-cli -f
+          cd rorm
+          cargo build -p rorm-lib
+          cargo test -p rorm-cli
+          cargo test -p rorm-db -F tokio-rustls
+          cargo test -p rorm-declaration
+          cargo test -p rorm-lib
+          cargo test -p rorm-macro
+          ls -lah rorm-sql
+          cargo test -p rorm-sql -F sqlite
+          cargo test -p rorm-sql -F mysql
+          cargo test -p rorm-sql -F postgres
+          cargo test -F tokio-rustls
+          cd rorm-sample
+          RUST_BACKTRACE=full cargo run -- --help
+          echo Config: ${CONFIG_FILE}
+          rm -rvf .models.json
+          rorm-cli migrate --database-config "${CONFIG_FILE}" --log-sql
+          cargo run -F rorm-main
+          rorm-cli make-migrations
+          rorm-cli migrate --database-config "${CONFIG_FILE}" --log-sql
+          RUST_BACKTRACE=full RUST_LOG=rorm=debug cargo run -- "${CONFIG_FILE}"
+
   build-windows:
     name: Build rorm (stable)
     runs-on: [ self-hosted, windows, x64 ]
