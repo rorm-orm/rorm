@@ -13,6 +13,7 @@ use crate::crud::builder::{ConditionMarker, Sealed, TransactionMarker};
 use crate::internal::as_db_type::AsDbType;
 use crate::internal::field::{Field, FieldProxy};
 use crate::internal::query_context::{QueryContext, QueryContextBuilder};
+use crate::internal::relation_path::Path;
 use crate::model::{Model, Patch};
 
 /// Builder for select queries
@@ -49,7 +50,7 @@ pub trait Selector<M: Model> {
     fn decode(row: Row) -> Result<Self::Result, Error>;
 
     /// Columns to query
-    fn columns(&self) -> &[&'static str];
+    fn columns(&self, builder: &mut QueryContextBuilder) -> &[ColumnSelector<'static>];
 }
 
 impl<'db, 'rf, M: Model, S: Selector<M>> QueryBuilder<'db, 'rf, M, S, (), (), ()> {
@@ -163,43 +164,20 @@ impl<
         S: Selector<M>,
         C: ConditionMarker<'rf>,
         T: TransactionMarker<'rf, 'db>,
-        LO: LimOffMarker,
-    > QueryBuilder<'db, 'rf, M, S, C, T, LO>
-{
-    fn get_columns(&self) -> Vec<ColumnSelector<'static>> {
-        self.selector
-            .columns()
-            .iter()
-            .map(|x| ColumnSelector {
-                table_name: Some(M::TABLE),
-                column_name: x,
-                select_alias: None,
-            })
-            .collect()
-    }
-}
-
-impl<
-        'rf,
-        'db: 'rf,
-        M: Model,
-        S: Selector<M>,
-        C: ConditionMarker<'rf>,
-        T: TransactionMarker<'rf, 'db>,
         L: LimitMarker,
     > QueryBuilder<'db, 'rf, M, S, C, T, L>
 {
     /// Retrieve and decode all matching rows
     pub async fn all(self) -> Result<Vec<S::Result>, Error> {
-        let columns = self.get_columns();
         let mut builder = QueryContextBuilder::new();
+        let columns = self.selector.columns(&mut builder);
         self.condition.add_to_builder(&mut builder);
         let context = builder.finish();
         let joins = context.get_joins();
         self.db
             .query_all(
                 M::TABLE,
-                &columns,
+                columns,
                 &joins,
                 self.condition.into_option(&context).as_ref(),
                 &[],
@@ -223,15 +201,15 @@ impl<
         self,
         context: &'rf mut QueryContext, // TODO
     ) -> impl Stream<Item = Result<S::Result, Error>> + 'rf {
-        let columns = self.get_columns();
         let mut builder = QueryContextBuilder::new();
+        let columns = self.selector.columns(&mut builder);
         self.condition.add_to_builder(&mut builder);
         *context = builder.finish();
         let joins = context.get_joins();
         self.db
             .query_stream(
                 M::TABLE,
-                &columns,
+                columns,
                 &joins,
                 self.condition.into_option(context).as_ref(),
                 &[],
@@ -258,8 +236,8 @@ impl<
     ///
     /// An error is returned if no value could be retrieved.
     pub async fn one(self) -> Result<S::Result, Error> {
-        let columns = self.get_columns();
         let mut builder = QueryContextBuilder::new();
+        let columns = self.selector.columns(&mut builder);
         self.condition.add_to_builder(&mut builder);
         let context = builder.finish();
         let joins = context.get_joins();
@@ -267,7 +245,7 @@ impl<
             .db
             .query_one(
                 M::TABLE,
-                &columns,
+                columns,
                 &joins,
                 self.condition.into_option(&context).as_ref(),
                 &[],
@@ -280,8 +258,8 @@ impl<
 
     /// Try to retrieve and decode a matching row
     pub async fn optional(self) -> Result<Option<S::Result>, Error> {
-        let columns = self.get_columns();
         let mut builder = QueryContextBuilder::new();
+        let columns = self.selector.columns(&mut builder);
         self.condition.add_to_builder(&mut builder);
         let context = builder.finish();
         let joins = context.get_joins();
@@ -289,7 +267,7 @@ impl<
             .db
             .query_optional(
                 M::TABLE,
-                &columns,
+                columns,
                 &joins,
                 self.condition.into_option(&context).as_ref(),
                 &[],
@@ -515,19 +493,29 @@ impl OffsetMarker for u64 {
 }
 
 /// The [Selector] for patches.
-///
-/// # Why implement `Selector` on `SelectPatch<P>` instead of `P` directly?
-/// Since a selector is used by reference, it needs a runtime value.
-/// But there wouldn't be any data to create a patch's instance with.
-/// On top of that all that data would be ignored anyway,
-/// because the columns to query are stored in the patch type.
-///
-/// => So create a struct without data to "wrap" the patch type.
-pub struct SelectPatch<P: Patch>(PhantomData<P>);
+pub struct SelectPatch<P: Patch> {
+    patch: PhantomData<P>,
+    columns: Vec<ColumnSelector<'static>>,
+}
 impl<P: Patch> SelectPatch<P> {
     /// Create a SelectPatch
-    pub const fn new() -> Self {
-        SelectPatch(PhantomData)
+    pub fn new() -> Self {
+        SelectPatch {
+            patch: PhantomData,
+            columns: P::COLUMNS
+                .iter()
+                .map(|x| ColumnSelector {
+                    table_name: Some(P::Model::TABLE),
+                    column_name: x,
+                    select_alias: None,
+                })
+                .collect(),
+        }
+    }
+}
+impl<P: Patch> Default for SelectPatch<P> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 impl<M: Model, P: Patch<Model = M>> Selector<M> for SelectPatch<P> {
@@ -537,43 +525,38 @@ impl<M: Model, P: Patch<Model = M>> Selector<M> for SelectPatch<P> {
         P::from_row(row)
     }
 
-    fn columns(&self) -> &[&'static str] {
-        P::COLUMNS
+    fn columns(&self, _builder: &mut QueryContextBuilder) -> &[ColumnSelector<'static>] {
+        &self.columns
     }
 }
 
 /// The [Selector] for tuple
 ///
 /// Implemented for tuple of size 8 or less.
-///
-/// # Why `SelectTuple<T, const C: usize>`?
-/// Unlike patches (see [SelectPatch]) tuples are just normal datatypes. So why do they need a wrapper?
-///
-/// The [Selector] trait needs to produce a slice of columns to give to the database implementation.
-/// For a patch this is easy since the trait stores it in the associated constant [Patch::COLUMNS].
-/// For tuples the data is there, namely in `Field`'s `name` field, but stored in structs' fields in a tuple, not a simple slice.
-/// So in order to have a slice, these `name` fields have to be copied into some storage.
-/// But since `Selector::columns` just returns a slice, it can't do the copying, because the storage would be dropped immediately.
-///
-/// => So wrap the tuple and add an array of the correct size to copy the columns into.
 pub struct SelectTuple<T, const C: usize> {
     #[allow(dead_code)]
     tuple: T,
-    columns: [&'static str; C],
+    columns: [ColumnSelector<'static>; C],
 }
 macro_rules! impl_select_tuple {
-    ($C:literal, ($($index:tt: <$F:ident>,)+)) => {
-        impl<M: Model, $($F: Field<Model = M>),+> SelectTuple<($(FieldProxy<$F, M>,)+), $C> {
+    ($C:literal, ($($index:tt: <$F:ident, $P:ident>,)+)) => {
+        impl<$($F: Field, $P: Path),+> SelectTuple<($(FieldProxy<$F, $P>,)+), $C> {
             /// Create a SelectTuple
-            pub const fn new(tuple: ($(FieldProxy<$F, M>,)+)) -> Self {
+            pub const fn new(tuple: ($(FieldProxy<$F, $P>,)+)) -> Self {
                 Self {
                     tuple,
-                    columns: [$($F::NAME),+],
+                    columns: [$(
+                        ColumnSelector {
+                            table_name: Some($P::ALIAS),
+                            column_name: $F::NAME,
+                            select_alias: None,
+                        }
+                    ),+],
                 }
             }
         }
-        impl<M: Model, $($F: Field<Model = M>),+> Selector<M>
-            for SelectTuple<($(FieldProxy<$F, M>,)+), $C>
+        impl<M: Model, $($F: Field, $P: Path<Origin = M>),+> Selector<M>
+            for SelectTuple<($(FieldProxy<$F, $P>,)+), $C>
         {
             type Result = ($($F::Type,)+);
 
@@ -581,17 +564,18 @@ macro_rules! impl_select_tuple {
                 Ok(($($F::Type::from_primitive(row.get::<<<$F as Field>::Type as AsDbType>::Primitive, usize>($index)?),)+))
             }
 
-            fn columns(&self) -> &[&'static str] {
+            fn columns(&self, builder: &mut QueryContextBuilder) -> &[ColumnSelector<'static>] {
+                $($P::add_to_join_builder(builder);)+
                 &self.columns
             }
         }
     };
 }
-impl_select_tuple!(1, (0: <F0>,));
-impl_select_tuple!(2, (0: <F0>, 1: <F1>,));
-impl_select_tuple!(3, (0: <F0>, 1: <F1>, 2: <F2>,));
-impl_select_tuple!(4, (0: <F0>, 1: <F1>, 2: <F2>, 3: <F3>,));
-impl_select_tuple!(5, (0: <F0>, 1: <F1>, 2: <F2>, 3: <F3>, 4: <F4>,));
-impl_select_tuple!(6, (0: <F0>, 1: <F1>, 2: <F2>, 3: <F3>, 4: <F4>, 5: <F5>,));
-impl_select_tuple!(7, (0: <F0>, 1: <F1>, 2: <F2>, 3: <F3>, 4: <F4>, 5: <F5>, 6: <F6>,));
-impl_select_tuple!(8, (0: <F0>, 1: <F1>, 2: <F2>, 3: <F3>, 4: <F4>, 5: <F5>, 6: <F6>, 7: <F7>,));
+impl_select_tuple!(1, (0: <F0, P0>,));
+impl_select_tuple!(2, (0: <F0, P0>, 1: <F1, P1>,));
+impl_select_tuple!(3, (0: <F0, P0>, 1: <F1, P1>, 2: <F2, P2>,));
+impl_select_tuple!(4, (0: <F0, P0>, 1: <F1, P1>, 2: <F2, P2>, 3: <F3, P3>,));
+impl_select_tuple!(5, (0: <F0, P0>, 1: <F1, P1>, 2: <F2, P2>, 3: <F3, P3>, 4: <F4, P4>,));
+impl_select_tuple!(6, (0: <F0, P0>, 1: <F1, P1>, 2: <F2, P2>, 3: <F3, P3>, 4: <F4, P4>, 5: <F5, P5>,));
+impl_select_tuple!(7, (0: <F0, P0>, 1: <F1, P1>, 2: <F2, P2>, 3: <F3, P3>, 4: <F4, P4>, 5: <F5, P5>, 6: <F6, P6>,));
+impl_select_tuple!(8, (0: <F0, P0>, 1: <F1, P1>, 2: <F2, P2>, 3: <F3, P3>, 4: <F4, P4>, 5: <F5, P5>, 6: <F6, P6>, 7: <F7, P7>,));
