@@ -15,7 +15,7 @@ D programming language with the name `dorm`.
 
 `rorm` supports the following databases:
 - SQLite 3
-- MariaDB 10.5, 10.6, 10.8 and 10.9
+- MariaDB 10.5 - 10.9
 - Postgres 11 - 15
 
 ## Documentation

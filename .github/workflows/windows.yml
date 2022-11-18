@@ -77,30 +77,30 @@ jobs:
           RUST_BACKTRACE=full RUST_LOG=rorm=debug cargo run -- "${CONFIG_FILE}"
 
   build-windows:
-    name: Build rorm (stable)
+    name: Build rorm
     runs-on: [ self-hosted, windows, x64 ]
     steps:
       - uses: actions/checkout@v3
 
       - name: Build rorm-lib
         run: |
-          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/rorm/target
           ~/.cargo/bin/cargo build -p rorm-lib
           ~/.cargo/bin/cargo build -p rorm-lib -r
         working-directory: ./rorm
 
       - name: Install rorm-cli (release)
-        run: CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target ~/.cargo/bin/cargo install rorm-cli --path ./rorm/rorm-cli
+        run: CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/rorm/target ~/.cargo/bin/cargo install rorm-cli --path ./rorm/rorm-cli
 
       - name: Build rorm-sample
         run: |
-          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/rorm/target
           ~/.cargo/bin/cargo build
           ~/.cargo/bin/cargo build -r
         working-directory: ./rorm/rorm-sample
 
   cargo-test-windows:
-    name: Cargo Tests (stable)
+    name: Cargo Tests
     needs: build-windows
     env:
       RUSTFLAGS: "-Cinstrument-coverage"
@@ -115,23 +115,25 @@ jobs:
       - name: Run tests
         run: |
           export PATH=~/.cargo/bin:$PATH
-          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/rorm/target
           set -e
           set -x
-          cargo build -F tokio-rustls
           cargo test -p rorm-cli
           cargo test -p rorm-db -F tokio-rustls
           cargo test -p rorm-declaration
           cargo test -p rorm-lib
           cargo test -p rorm-macro
-          # TODO: This is currently not supported and results in linker errors (LNK1181)
-          # cargo test -p rorm-sql -F sqlite
+          cp -v ~/sqlite3.lib ./
+          cp -v ~/sqlite3.lib rorm-sql/
+          cargo test -p rorm-sql -F sqlite
+          cargo test -p rorm-sql -F mysql
+          cargo test -p rorm-sql -F postgres
           cargo test -F tokio-rustls
         working-directory: ./rorm
 
       - name: Create code coverage report
         run: |
-          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/rorm/target
           ~/.cargo/bin/grcov . --binary-path $CARGO_TARGET_DIR/debug -s . -t html --branch --ignore-not-existing -o ./coverage
           cp -rv coverage-rorm*raw ./coverage
         working-directory: ./rorm
@@ -140,36 +142,6 @@ jobs:
         with:
           name: coverage-report
           path: rorm/coverage
-
-  clippy-analyze-windows:
-    name: Clippy Analyze
-    needs: build-windows
-    runs-on: [ self-hosted, windows, x64 ]
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Setup utilities
-        run: |
-          ~/.cargo/bin/rustup component add clippy
-          ~/.cargo/bin/cargo install clippy-sarif sarif-fmt
-
-      - name: Run rust-clippy
-        run: |
-          export PATH=~/.cargo/bin:$PATH
-          export CARGO_TARGET_DIR=~/actions/cache/nightly/${GITHUB_REPOSITORY}/rorm/target
-          cargo clippy -F tokio-rustls --message-format=json | clippy-sarif | tee ../rust-clippy-results.sarif | sarif-fmt
-        continue-on-error: true
-        working-directory: rorm
-
-      - name: Upload analysis results to GitHub
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: rust-clippy-results.sarif
-          wait-for-processing: true
 
   dub-test-windows:
     name: Dub Test
@@ -186,7 +158,7 @@ jobs:
 
       - name: Build rorm-lib (release)
         run: |
-          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/rorm/target
           ~/.cargo/bin/cargo build -p rorm-lib -r
           mkdir -pv target/release/
           cp -v ${CARGO_TARGET_DIR}/release/rorm.lib target/release/
@@ -207,7 +179,7 @@ jobs:
 
       - name: Build rorm-lib (release)
         run: |
-          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/rorm/target
           ~/.cargo/bin/cargo build -p rorm-lib -r
           mkdir -pv target/release/
           cp -v ${CARGO_TARGET_DIR}/release/rorm.lib target/release/
@@ -219,7 +191,7 @@ jobs:
         run: |
           set -x
           export PATH=~/.cargo/bin:$PATH
-          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/rorm/target
           ./run.sh
         working-directory: ./dorm/integration-tests/
 
@@ -239,19 +211,19 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Run the sample help
-        run: CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target RUST_BACKTRACE=full ~/.cargo/bin/cargo run -- --help
+        run: CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/rorm/target RUST_BACKTRACE=full ~/.cargo/bin/cargo run -- --help
         working-directory: ./rorm/rorm-sample
 
       - name: Run the project for ${{ matrix.config }}
         run: |
           set -x
-          export CARGO_TARGET_DIR=~/actions/cache/stable/${GITHUB_REPOSITORY}/rorm/target
+          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/rorm/target
           echo Config: ${{ matrix.config }}
           echo "DROP DATABASE db; CREATE DATABASE db;" | "C:\\Program Files\\MariaDB 10.6\\bin\\mysql.exe" -uroot -proot mysql
           echo "DROP DATABASE db; CREATE DATABASE db; ALTER DATABASE db OWNER TO username; GRANT ALL PRIVILEGES ON DATABASE db TO username;" | PGPASSWORD=postgres "C:\\Program Files\\PostgreSQL\\15\\bin\\psql.exe" -e -w -hlocalhost -Upostgres postgres
           rm -rvf .models.json
           ~/.cargo/bin/rorm-cli migrate --database-config "${{ matrix.config }}" --log-sql
-          ~/.cargo/bin/cargo run -F rorm-main
+          ~/.cargo/bin/cargo run -F rorm-main --quiet
           ~/.cargo/bin/rorm-cli make-migrations
           ~/.cargo/bin/rorm-cli migrate --database-config "${{ matrix.config }}" --log-sql
           RUST_BACKTRACE=full RUST_LOG=rorm=debug ~/.cargo/bin/cargo run -- "${{ matrix.config }}"
