@@ -2,6 +2,7 @@ use darling::FromAttributes;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::spanned::Spanned;
+use syn::LitStr;
 
 use crate::errors::Errors;
 use crate::utils::{get_source, iter_rorm_attributes, to_db_name};
@@ -45,6 +46,12 @@ pub fn db_enum(enm: TokenStream) -> TokenStream {
     }
 }
 
+#[derive(FromAttributes, Debug, Default)]
+#[darling(attributes(rorm), default)]
+pub struct ModelAnnotations {
+    pub rename: Option<LitStr>,
+}
+
 pub fn model(strct: TokenStream) -> TokenStream {
     let strct = match syn::parse2::<syn::ItemStruct>(strct) {
         Ok(strct) => strct,
@@ -55,6 +62,9 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let span = proc_macro2::Span::call_site();
 
     let mut darling_acc = darling::error::Accumulator::default();
+    let annotations = darling_acc
+        .handle(ModelAnnotations::from_attributes(&strct.attrs))
+        .unwrap_or_default();
     let mut fields = Vec::with_capacity(strct.fields.len());
     for (index, field) in strct.fields.into_iter().enumerate() {
         if let Some(Some(field)) =
@@ -95,8 +105,15 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let static_get_imr = format_ident!("__{}_get_imr", strct.ident);
     // Const name for compile time checks
     let compile_check = format_ident!("__compile_check_{}", strct.ident);
+
     // Database table's name
-    let table_name = syn::LitStr::new(&to_db_name(strct.ident.to_string()), strct.ident.span());
+    let table_name = annotations
+        .rename
+        .unwrap_or_else(|| LitStr::new(&to_db_name(strct.ident.to_string()), strct.ident.span()));
+    if table_name.value().contains("__") {
+        errors.push_new(table_name.span(), "Names can't contain a double underscore. You might want to consider using `#[rorm(rename = \"...\")]`.");
+    }
+
     // File, line and column the struct was defined in
     let model_source = get_source(&span);
 
@@ -110,6 +127,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let fields_type: Vec<_> = fields.iter().map(|field| &field.type_ident).collect();
     let fields_definition = fields.iter().map(|field| &field.definition);
     let primary_key = &primary_field.type_ident;
+
     quote! {
         #(
             #[allow(non_camel_case_types)]
@@ -277,11 +295,18 @@ fn parse_field(
         return Ok(None);
     };
 
-    let annotations = annotations::Annotations::from_attributes(&field.attrs)?;
+    let mut annotations = annotations::Annotations::from_attributes(&field.attrs)?;
 
     let value_type = field.ty;
 
-    let db_name = syn::LitStr::new(&to_db_name(ident.to_string()), ident.span());
+    let db_name = annotations
+        .rename
+        .take()
+        .unwrap_or_else(|| syn::LitStr::new(&to_db_name(ident.to_string()), ident.span()));
+    if db_name.value().contains("__") {
+        errors.push_new(db_name.span(), "Names can't contain a double underscore. You might want to consider using `#[rorm(rename = \"...\")]`.");
+    }
+
     let index = syn::LitInt::new(&index.to_string(), ident.span());
 
     let db_type = if annotations.choices.is_some() {
