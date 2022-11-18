@@ -11,7 +11,7 @@ use rorm_declaration::hmr::db_type::{
 };
 
 use crate::internal::field::{Field, FieldProxy};
-use crate::internal::relation_path::Path;
+use crate::internal::relation_path::{JoinAlias, Path};
 
 pub mod collections;
 use crate::internal::query_context::{QueryContext, QueryContextBuilder};
@@ -138,11 +138,11 @@ impl<'a, F: Field, P: Path> Condition<'a> for Column<F, P> {
         builder.add_field_proxy::<F, P>();
     }
 
-    fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
+    fn as_sql<'c>(&self, _context: &'c QueryContext) -> conditional::Condition<'c>
     where
         'a: 'c,
     {
-        conditional::Condition::Value(value::Value::Ident(context.get_field::<F, P>()))
+        conditional::Condition::Value(value::Value::Ident(FieldProxy::<F, P>::ALIAS))
     }
 }
 

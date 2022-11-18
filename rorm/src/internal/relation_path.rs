@@ -2,9 +2,9 @@
 
 use std::marker::PhantomData;
 
-use crate::internal::field::Field;
+use crate::internal::field::{Field, FieldProxy};
 use crate::internal::query_context::QueryContextBuilder;
-use crate::{ForeignModel, Model};
+use crate::{const_concat, ForeignModel, Model};
 
 /// Trait to store a relation path in generics
 ///
@@ -27,7 +27,7 @@ use crate::{ForeignModel, Model};
 /// let _: FieldProxy<__Name, PathStep<__Group, PathStep<__User, ()>>>
 ///     = Comment::F.user.fields().group.fields().name;
 /// ```
-pub trait Path: 'static {
+pub trait Path: JoinAlias + 'static {
     /// The model (or table in the context of joins) this path originates from
     type Origin: Model;
 
@@ -55,4 +55,22 @@ where
     fn add_to_join_builder(builder: &mut QueryContextBuilder) {
         builder.add_relation_path::<M, F, P>()
     }
+}
+
+/// Trait shared by [Path] and [FieldProxy] which provides a unique join alias at compile time.s
+pub trait JoinAlias {
+    /// Unique join alias
+    const ALIAS: &'static str;
+}
+
+impl<M: Model> JoinAlias for M {
+    const ALIAS: &'static str = M::TABLE;
+}
+
+impl<F: Field, P: Path> JoinAlias for PathStep<F, P> {
+    const ALIAS: &'static str = const_concat!(&[P::ALIAS, "__", F::NAME]);
+}
+
+impl<F: Field, P: Path> JoinAlias for FieldProxy<F, P> {
+    const ALIAS: &'static str = const_concat!(&[P::ALIAS, ".", F::NAME]);
 }
