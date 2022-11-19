@@ -7,7 +7,8 @@ use std::marker::PhantomData;
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use rorm_db::{conditional, value};
 use rorm_declaration::hmr::db_type::{
-    Choices, Date, DateTime, DbType, Double, Float, Int16, Int32, Int64, Time, VarBinary, VarChar,
+    Boolean, Choices, Date, DateTime, DbType, Double, Float, Int16, Int32, Int64, Time, VarBinary,
+    VarChar,
 };
 
 use crate::internal::field::{Field, FieldProxy};
@@ -323,6 +324,7 @@ macro_rules! impl_numeric {
         }
     };
 }
+impl_numeric!(bool, Bool, Boolean);
 impl_numeric!(i16, I16, Int16);
 impl_numeric!(i32, I32, Int32);
 impl_numeric!(i64, I64, Int64);

@@ -5,6 +5,7 @@ use log::LevelFilter;
 use rorm::{config::DatabaseConfig, Database, DatabaseConfiguration, DatabaseDriver};
 use serde::{Deserialize, Serialize};
 
+pub mod forum;
 mod operations;
 
 #[derive(Serialize, Deserialize, Debug)]
