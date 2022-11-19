@@ -6,8 +6,56 @@ on:
       - docs
   pull_request:
 
-# This CI configuration makes heavy use of the local cache of a self-hosted Linux runner
+# This CI configuration makes heavy use of the local cache of a self-hosted Linux runner, except for the first job
 jobs:
+  build-linux-shared:
+    name: Build rorm from scratch
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: "-Cinstrument-coverage"
+      LLVM_PROFILE_FILE: "coverage-rorm_%p-%m.profraw"
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Update rust
+        run: rustup update
+
+      - name: Install rorm-cli (release)
+        run: |
+          rustup component add clippy
+          cargo install clippy-sarif sarif-fmt
+          cargo install rorm-cli --path ./rorm/rorm-cli -f
+
+      - name: Build and test
+        run: |
+          set -x
+          cargo build -p rorm-lib
+          cargo test -p rorm-cli
+          cargo test -p rorm-db -F tokio-rustls
+          cargo test -p rorm-declaration
+          cargo test -p rorm-lib
+          cargo test -p rorm-macro
+          cargo test -p rorm-sql -F sqlite
+          cargo test -p rorm-sql -F mysql
+          cargo test -p rorm-sql -F postgres
+          cargo test -F tokio-rustls
+        working-directory: ./rorm
+
+      - name: Execute rorm-sample with SQLite
+        env:
+          CONFIG_FILE: "sqlite.toml"
+        run: |
+          set -x
+          RUST_BACKTRACE=full cargo run -- --help
+          echo Config: ${CONFIG_FILE}
+          rm -rvf .models.json
+          rorm-cli migrate --database-config "${CONFIG_FILE}" --log-sql
+          cargo run -F rorm-main
+          rorm-cli make-migrations
+          rorm-cli migrate --database-config "${CONFIG_FILE}" --log-sql
+          RUST_BACKTRACE=full RUST_LOG=rorm=debug cargo run -- "${CONFIG_FILE}"
+        working-directory: ./rorm/rorm-sample
+
   build-linux:
     name: Build rorm
     runs-on: [ self-hosted, linux, x64 ]
@@ -50,7 +98,6 @@ jobs:
           export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/rorm/target
           set -e
           set -x
-          cargo build -F tokio-rustls
           cargo test -p rorm-cli
           cargo test -p rorm-db -F tokio-rustls
           cargo test -p rorm-declaration
@@ -92,14 +139,15 @@ jobs:
         run: |
           export PATH=~/.cargo/bin:$PATH
           export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/rorm/target
-          cargo clippy -F tokio-rustls --message-format=json | clippy-sarif | tee ../rust-clippy-results.sarif | sarif-fmt
+          cargo clippy --workspace --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+          python3 ../.github/qa/fix_clippy_sarif.py --base rorm rust-clippy-results.sarif
         continue-on-error: true
         working-directory: rorm
 
-      - name: Upload analysis results to GitHub
+      - name: Upload clippy analysis results to GitHub
         uses: github/codeql-action/upload-sarif@v2
         with:
-          sarif_file: rust-clippy-results.sarif
+          sarif_file: rorm/rust-clippy-results.sarif
           wait-for-processing: true
 
   dub-test-linux:
@@ -108,12 +156,6 @@ jobs:
     runs-on: [ self-hosted, linux, x64 ]
     steps:
       - uses: actions/checkout@v3
-
-      - name: Linting
-        run: dub lint || echo FAIL
-        env:
-          DLFAGS: "-lowmem"
-        working-directory: ./dorm
 
       - name: Build rorm-lib (release)
         run: |
@@ -128,6 +170,21 @@ jobs:
         env:
           DFLAGS: "-lowmem"
         working-directory: ./dorm
+
+      - name: Lint dorm with dscanner
+        run: |
+          dub run dscanner -- --report --reportFile=report.json --reportFormat=sonarQubeGenericIssueData
+          wc -l report.json
+          python3 ../.github/qa/sonar_to_sarif.py -i report.json -o report.sarif --base dorm --git ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}
+        env:
+          DLFAGS: "-lowmem"
+        working-directory: ./dorm
+
+      - name: Upload dscanner analysis results to GitHub
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: dorm/report.sarif
+          wait-for-processing: true
 
   integration-test-linux:
     name: Integration Test
@@ -167,6 +224,9 @@ jobs:
             health_cmd: "mysqladmin ping"
             config: mysql.toml
           - image: mariadb:10.8
+            health_cmd: "mysqladmin ping"
+            config: mysql.toml
+          - image: mariadb:10.7
             health_cmd: "mysqladmin ping"
             config: mysql.toml
           - image: mariadb:10.6
