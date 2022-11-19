@@ -351,7 +351,7 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
             }
             #[cfg(feature = "postgres")]
             CreateColumnImpl::Postgres(mut d) => {
-                write!(s, "{} ", d.name).unwrap();
+                write!(s, "\"{}\" ", d.name).unwrap();
 
                 match d.data_type {
                     DbType::VarChar => {
