@@ -11,6 +11,14 @@ pub enum Value<'a> {
     /// This variant will not be escaped, so do not
     /// pass unchecked data to it.
     Ident(&'a str),
+    /// Representation of a column name with
+    /// an optional table name
+    Column {
+        /// Name of the table
+        table_name: Option<&'a str>,
+        /// Name of the column
+        column_name: &'a str,
+    },
     /// String representation
     String(&'a str),
     /// i64 representation

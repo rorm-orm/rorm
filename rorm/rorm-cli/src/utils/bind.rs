@@ -31,5 +31,6 @@ where
             query.bind(NULL)
         }
         value::Value::Ident(_) => query,
+        value::Value::Column { .. } => query,
     }
 }

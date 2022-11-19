@@ -222,6 +222,32 @@ impl<'a> BuildCondition<'a> for Condition<'a> {
             }
             Condition::Value(value) => match value {
                 Value::Ident(string) => write!(writer, "{}", string),
+                Value::Column {
+                    table_name,
+                    column_name,
+                } => match dialect {
+                    #[cfg(feature = "sqlite")]
+                    DBImpl::SQLite => {
+                        if let Some(table_name) = table_name {
+                            write!(writer, "{}.", table_name)?;
+                        }
+                        write!(writer, "{}", column_name)
+                    }
+                    #[cfg(feature = "mysql")]
+                    DBImpl::MySQL => {
+                        if let Some(table_name) = table_name {
+                            write!(writer, "{}.", table_name)?;
+                        }
+                        write!(writer, "{}", column_name)
+                    }
+                    #[cfg(feature = "postgres")]
+                    DBImpl::Postgres => {
+                        if let Some(table_name) = table_name {
+                            write!(writer, "\"{}\".", table_name)?;
+                        }
+                        write!(writer, "{}", column_name)
+                    }
+                },
                 _ => {
                     lookup.push(*value);
                     match dialect {
