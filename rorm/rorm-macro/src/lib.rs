@@ -8,16 +8,17 @@ use quote::{quote, ToTokens};
 
 mod annotations;
 mod derive;
-mod errors;
 mod rename_linkme;
 mod trait_impls;
 mod utils;
 
-use errors::Errors;
-
 #[proc_macro_derive(DbEnum)]
 pub fn derive_db_enum(input: TokenStream) -> TokenStream {
-    derive::db_enum(input.into()).into()
+    match derive::db_enum(input.into()) {
+        Ok(tokens) => tokens,
+        Err(error) => error.write_errors(),
+    }
+    .into()
 }
 
 /// This attribute is used to turn a struct into a database model.
@@ -42,12 +43,20 @@ pub fn derive_db_enum(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_derive(Model, attributes(rorm))]
 pub fn derive_model(input: TokenStream) -> TokenStream {
-    derive::model(input.into()).into()
+    match derive::model(input.into()) {
+        Ok(tokens) => tokens,
+        Err(error) => error.write_errors(),
+    }
+    .into()
 }
 
 #[proc_macro_derive(Patch, attributes(rorm))]
 pub fn derive_patch(input: TokenStream) -> TokenStream {
-    derive::patch(input.into()).into()
+    match derive::patch(input.into()) {
+        Ok(tokens) => tokens,
+        Err(error) => error.write_errors(),
+    }
+    .into()
 }
 
 #[doc(hidden)]
@@ -79,16 +88,11 @@ pub fn rename_linkme(_args: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_attribute]
 pub fn rorm_main(args: TokenStream, item: TokenStream) -> TokenStream {
-    let errors = Errors::new();
-
     let main = syn::parse_macro_input!(item as syn::ItemFn);
     let feature = syn::parse::<syn::LitStr>(args)
         .unwrap_or_else(|_| syn::LitStr::new("rorm-main", Span::call_site()));
-    if main.sig.ident != "main" {
-        errors.push_new(Span::call_site(), "only allowed on main function");
-    }
 
-    (if errors.is_empty() {
+    (if main.sig.ident == "main" {
         quote! {
             #[cfg(feature = #feature)]
             fn main() -> Result<(), String> {
@@ -101,7 +105,7 @@ pub fn rorm_main(args: TokenStream, item: TokenStream) -> TokenStream {
         }
     } else {
         quote! {
-            #errors
+            compile_error!("only allowed on main function");
             #main
         }
     }).into()

@@ -1,31 +1,34 @@
-use darling::FromAttributes;
-use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote, ToTokens};
+use darling::{Error, FromAttributes, FromMeta};
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::{format_ident, quote};
 use syn::spanned::Spanned;
 use syn::LitStr;
 
-use crate::errors::Errors;
-use crate::utils::{get_source, iter_rorm_attributes, to_db_name};
+use crate::utils::{get_source, to_db_name};
 use crate::{annotations, trait_impls};
 
-pub fn db_enum(enm: TokenStream) -> TokenStream {
+pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
     let enm = match syn::parse2::<syn::ItemEnum>(enm) {
         Ok(enm) => enm,
-        Err(err) => return err.into_compile_error(),
+        Err(err) => return Ok(err.into_compile_error()),
     };
 
-    let errors = Errors::new();
+    let mut errors = Error::accumulator();
     let mut identifiers = Vec::new();
     for variant in enm.variants {
         if variant.fields.is_empty() {
             identifiers.push(variant.ident);
         } else {
-            errors.push_new(variant.span(), "Variants aren't allowed to contain data");
+            errors.push(
+                Error::unsupported_shape("variants aren't allowed to contain data")
+                    .with_span(&variant.fields),
+            );
         }
     }
     let db_enum = enm.ident;
 
-    quote! {
+    errors.finish()?;
+    Ok(quote! {
         impl ::rorm::model::DbEnum for #db_enum {
             fn from_str(string: &str) -> Self {
                 use #db_enum::*;
@@ -40,10 +43,8 @@ pub fn db_enum(enm: TokenStream) -> TokenStream {
             const CHOICES: &'static [&'static str] = &[
                 #(stringify!(#identifiers)),*
             ];
-
-            #errors
         }
-    }
+    })
 }
 
 #[derive(FromAttributes, Debug, Default)]
@@ -52,55 +53,48 @@ pub struct ModelAnnotations {
     pub rename: Option<LitStr>,
 }
 
-pub fn model(strct: TokenStream) -> TokenStream {
+pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
     let strct = match syn::parse2::<syn::ItemStruct>(strct) {
         Ok(strct) => strct,
-        Err(err) => return err.into_compile_error(),
+        Err(err) => return Ok(err.into_compile_error()),
     };
 
-    let errors = Errors::new();
-    let span = proc_macro2::Span::call_site();
+    let span = Span::call_site();
 
-    let mut darling_acc = darling::error::Accumulator::default();
-    let annotations = darling_acc
+    let mut errors = Error::accumulator();
+    let annotations = errors
         .handle(ModelAnnotations::from_attributes(&strct.attrs))
         .unwrap_or_default();
-    let mut fields = Vec::with_capacity(strct.fields.len());
-    let mut ignored_fields = Vec::with_capacity(strct.fields.len());
+    let mut fields = Vec::new();
+    let mut ignored_fields = Vec::new();
     for (index, field) in strct.fields.into_iter().enumerate() {
-        if let Some(field) =
-            darling_acc.handle(parse_field(index, field, &strct.ident, &strct.vis, &errors))
-        {
+        if let Some(field) = errors.handle(parse_field(index, field, &strct.ident, &strct.vis)) {
             match field {
                 StructField::Db(field) => fields.push(field),
                 StructField::Ignored(name) => ignored_fields.push(name),
             }
         }
     }
-    let darling_err = darling_acc
-        .finish()
-        .err()
-        .map(darling::error::Error::write_errors);
 
     let mut primary_field: Option<&ParsedField> = None;
     for field in fields.iter() {
         match (field.is_primary, primary_field) {
             (true, None) => primary_field = Some(field),
-            (true, Some(_)) => errors.push_new(
-                field.ident.span(),
-                "Another primary key column has already been defined.",
+            (true, Some(_)) => errors.push(
+                Error::custom("Another primary key column has already been defined.")
+                    .with_span(&field.ident),
             ),
             _ => {}
         }
     }
-    let primary_field = if let Some(primary_field) = primary_field {
-        primary_field
+    let primary_key = if let Some(primary_field) = primary_field {
+        primary_field.type_ident.clone()
     } else {
-        errors.push_new(
-            span,
-            "Missing primary key. Please annotate a field with ether `#[rorm(id)]` or `#[rorm(primary_key)]`",
+        errors.push(
+            Error::custom("Missing primary key. Please annotate a field with ether `#[rorm(id)]` or `#[rorm(primary_key)]`")
+                .with_span(&Span::call_site()),
         );
-        return errors.into_token_stream();
+        Ident::new("_", span)
     };
 
     // Static struct containing all model's fields
@@ -115,7 +109,7 @@ pub fn model(strct: TokenStream) -> TokenStream {
         .rename
         .unwrap_or_else(|| LitStr::new(&to_db_name(strct.ident.to_string()), strct.ident.span()));
     if table_name.value().contains("__") {
-        errors.push_new(table_name.span(), "Names can't contain a double underscore. You might want to consider using `#[rorm(rename = \"...\")]`.");
+        errors.push(Error::custom("Names can't contain a double underscore. You might want to consider using `#[rorm(rename = \"...\")]`.").with_span(&table_name));
     }
 
     // File, line and column the struct was defined in
@@ -131,9 +125,9 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let fields_vis = fields.iter().map(|field| &field.vis);
     let fields_type: Vec<_> = fields.iter().map(|field| &field.type_ident).collect();
     let fields_definition = fields.iter().map(|field| &field.definition);
-    let primary_key = &primary_field.type_ident;
 
-    quote! {
+    errors.finish()?;
+    Ok(quote! {
         #(
             #[allow(non_camel_case_types)]
             #fields_definition
@@ -192,75 +186,58 @@ pub fn model(strct: TokenStream) -> TokenStream {
         #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
         #[::rorm::rename_linkme]
         static #static_get_imr: fn() -> ::rorm::imr::Model = <#model as ::rorm::model::Model>::get_imr;
+    })
+}
 
-        #errors
-        #darling_err
+#[derive(FromAttributes, Debug)]
+#[darling(attributes(rorm))]
+pub struct PatchAnnotations {
+    pub model: ModelPath,
+}
+
+#[derive(FromAttributes, Debug)]
+#[darling(attributes(rorm))]
+pub struct NoAnnotations;
+
+#[derive(Debug)]
+pub struct ModelPath(syn::Path);
+impl FromMeta for ModelPath {
+    fn from_string(value: &str) -> darling::Result<Self> {
+        syn::parse_str::<syn::Path>(value)
+            .map(ModelPath)
+            .map_err(|error| Error::unknown_value(&error.to_string()))
     }
 }
 
-pub fn patch(strct: TokenStream) -> TokenStream {
+pub fn patch(strct: TokenStream) -> darling::Result<TokenStream> {
     let strct = match syn::parse2::<syn::ItemStruct>(strct) {
         Ok(strct) => strct,
-        Err(err) => return err.into_compile_error(),
+        Err(err) => return Ok(err.into_compile_error()),
     };
 
-    let errors = Errors::new();
-    let span = proc_macro2::Span::call_site();
-
-    let mut model_path = None;
-    for meta in iter_rorm_attributes(&strct.attrs, &errors) {
-        // get the annotation's identifier.
-        // since one is required for every annotation, error if it is missing.
-        let ident = if let Some(ident) = meta.path().get_ident() {
-            ident
-        } else {
-            errors.push_new(meta.path().span(), "expected identifier");
-            continue;
-        };
-
-        if ident == "model" {
-            if model_path.is_some() {
-                errors.push_new(meta.span(), "model is already defined");
-                continue;
-            }
-            match meta {
-                syn::Meta::NameValue(value) => match value.lit {
-                    syn::Lit::Str(string) => match syn::parse_str::<syn::Path>(&string.value()) {
-                        Ok(path) => {
-                            model_path = Some(path);
-                        }
-                        Err(error) => errors.push(error),
-                    },
-                    _ => errors.push_new(value.lit.span(), "the model attribute expects a path inside a string: `#[rorm(model = \"path::to::model\")]`"),
-                }
-                _ => errors.push_new(meta.span(), "the model attribute expects a single value: `#[rorm(model = \"path::to::model\")]`"),
-            }
-        }
-    }
-    let model_path = if let Some(model_path) = model_path {
-        model_path
-    } else {
-        errors.push_new(span, "missing model attribute. please add `#[rorm(model = \"path::to::model\")]` to your struct!\n\nif you have, maybe you forget to quotes?");
-        return errors.into_token_stream();
-    };
+    let mut errors = Error::accumulator();
 
     let mut field_idents = Vec::new();
     for field in strct.fields {
-        for meta in iter_rorm_attributes(&field.attrs, &errors) {
-            errors.push_new(meta.span(), "patches don't accept attributes on fields");
-        }
+        errors.handle(NoAnnotations::from_attributes(&field.attrs));
         if let Some(ident) = field.ident {
             field_idents.push(ident);
         } else {
-            errors.push_new(field.span(), "missing field name");
+            errors.push(Error::custom("missing field name").with_span(&field));
         }
     }
+
+    let Some(PatchAnnotations {model: ModelPath(model_path)}) = errors.handle(PatchAnnotations::from_attributes(&strct.attrs)) else {
+        return errors.finish_with(TokenStream::new());
+    };
 
     let patch = strct.ident;
     let compile_check = format_ident!("__compile_check_{}", patch);
     let impl_patch = trait_impls::patch(&patch, &model_path, &field_idents);
     let impl_try_from_row = trait_impls::try_from_row(&patch, &model_path, &field_idents, &[]);
-    quote! {
+
+    errors.finish()?;
+    Ok(quote! {
         #[allow(non_snake_case)]
         fn #compile_check(model: #model_path) {
             // check fields exist on model and match model's types
@@ -274,9 +251,7 @@ pub fn patch(strct: TokenStream) -> TokenStream {
 
         #impl_patch
         #impl_try_from_row
-
-        #errors
-    }
+    })
 }
 
 struct ParsedField {
@@ -295,28 +270,35 @@ fn parse_field(
     field: syn::Field,
     model_type: &Ident,
     model_vis: &syn::Visibility,
-    errors: &Errors,
 ) -> darling::Result<StructField> {
+    let mut errors = Error::accumulator();
+
     let ident = if let Some(ident) = field.ident {
         ident
     } else {
-        return Err(darling::Error::custom("field has no name").with_span(&field.ident));
+        errors.push(Error::unsupported_shape("field has no name").with_span(&field.ident));
+        Ident::new("_", field.span())
     };
 
-    let mut annotations = annotations::Annotations::from_attributes(&field.attrs)?;
-    if annotations.ignore {
-        return Ok(StructField::Ignored(ident));
-    }
+    let mut annotations = errors
+        .handle(annotations::Annotations::from_attributes(&field.attrs))
+        .unwrap_or_default();
 
-    let value_type = field.ty;
+    if annotations.ignore {
+        return errors.finish_with(StructField::Ignored(ident));
+    }
 
     let db_name = annotations
         .rename
         .take()
-        .unwrap_or_else(|| syn::LitStr::new(&to_db_name(ident.to_string()), ident.span()));
+        .unwrap_or_else(|| LitStr::new(&to_db_name(ident.to_string()), ident.span()));
     if db_name.value().contains("__") {
-        errors.push_new(db_name.span(), "Names can't contain a double underscore. You might want to consider using `#[rorm(rename = \"...\")]`.");
+        errors.push(Error::custom("Names can't contain a double underscore. You might want to consider using `#[rorm(rename = \"...\")]`.").with_span(&db_name));
     }
+
+    errors.finish()?;
+
+    let value_type = field.ty;
 
     let index = syn::LitInt::new(&index.to_string(), ident.span());
 
@@ -336,7 +318,7 @@ fn parse_field(
     let source = get_source(&ident);
 
     let type_ident = format_ident!("__{}_{}", model_type, ident);
-    let annotations = annotations.into_tokens(errors);
+    let annotations = annotations.into_tokens();
     let definition = quote! {
         #vis struct #type_ident;
         impl ::rorm::internal::field::Field for #type_ident {

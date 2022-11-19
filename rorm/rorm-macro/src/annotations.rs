@@ -1,10 +1,8 @@
-use darling::{FromAttributes, FromMeta};
+use darling::{Error, FromAttributes, FromMeta};
 
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::{Lit, LitInt, LitStr, NestedMeta};
-
-use crate::errors::Errors;
 
 #[derive(FromAttributes, Debug, Default)]
 #[darling(attributes(rorm), default)]
@@ -15,8 +13,8 @@ pub struct Annotations {
     pub primary_key: bool,
     pub unique: bool,
     pub id: bool,
-    pub on_delete: Option<LitStr>,
-    pub on_update: Option<LitStr>,
+    pub on_delete: Option<OnAction>,
+    pub on_update: Option<OnAction>,
     pub rename: Option<LitStr>,
     pub ignore: bool,
 
@@ -30,7 +28,7 @@ pub struct Annotations {
     /// - Boolean
     ///
     /// TODO: Figure out how to check the literal's type is compatible with the annotated field's type
-    pub default: Option<Lit>,
+    pub default: Option<Default>,
 
     /// Parse the `#[rorm(max_length = ..)]` annotation.
     ///
@@ -52,6 +50,47 @@ pub struct Annotations {
     /// - `#[rorm(index(name = <string literal>, priority = <integer literal>))]`
     ///    *(insensitive to argument order)*
     pub index: Option<Index>,
+}
+
+#[derive(Debug)]
+pub struct Default {
+    variant: &'static str,
+    literal: Lit,
+}
+impl FromMeta for Default {
+    fn from_value(value: &Lit) -> darling::Result<Self> {
+        Ok(Default {
+            variant: match value {
+                Lit::Str(_) => Ok("String"),
+                Lit::Int(_) => Ok("Integer"),
+                Lit::Float(_) => Ok("Float"),
+                Lit::Bool(_) => Ok("Boolean"),
+                _ => Err(Error::unexpected_lit_type(value)),
+            }?,
+            literal: value.clone(),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct OnAction(Ident);
+impl FromMeta for OnAction {
+    fn from_value(lit: &Lit) -> darling::Result<Self> {
+        static OPTIONS: [&str; 4] = ["Restrict", "Cascade", "SetNull", "SetDefault"];
+        (match lit {
+            Lit::Str(string) => {
+                let string = string.value();
+                let value = string.as_str();
+                if OPTIONS.contains(&value) {
+                    Ok(OnAction(Ident::new(value, lit.span())))
+                } else {
+                    Err(Error::unknown_field_with_alts(value, &OPTIONS))
+                }
+            }
+            _ => Err(Error::unexpected_lit_type(lit)),
+        })
+        .map_err(|e| e.with_span(lit))
+    }
 }
 
 #[derive(Debug)]
@@ -89,7 +128,7 @@ pub struct NamedIndex {
 }
 
 impl Annotations {
-    pub fn into_tokens(mut self, errors: &Errors) -> TokenStream {
+    pub fn into_tokens(mut self) -> TokenStream {
         if self.id {
             self.auto_increment = true;
             self.primary_key = true;
@@ -121,22 +160,10 @@ impl Annotations {
         let unique = unique.then(|| quote! {Unique});
         let max_length = max_length.map(|len| quote! {MaxLength(#len)});
         let choices = choices.map(|Choices(choices)| quote! { Choices(&[#(#choices),*]) });
-        let default = default
-            .and_then(|default| {
-                let variant = match &default {
-                    Lit::Str(_) => "String",
-                    Lit::Int(_) => "Integer",
-                    Lit::Float(_) => "Float",
-                    Lit::Bool(_) => "Boolean",
-                    _ => {
-                        errors.push_new(default.span(), "unsupported literal");
-                        return None;
-                    }
-                };
-
-                let variant = Ident::new(variant, Span::call_site());
-                Some(quote! {DefaultValue(::rorm::hmr::annotations::DefaultValueData::#variant(#default))})
-            });
+        let default = default.map(|Default { variant, literal }| {
+            let variant = Ident::new(variant, literal.span());
+            quote! {DefaultValue(::rorm::hmr::annotations::DefaultValueData::#variant(#literal))}
+        });
         let index = index.map(|Index(index)| {
             match index {
                 None => {
@@ -158,22 +185,8 @@ impl Annotations {
                 }
             }
         });
-        let parse_action = |lit: LitStr| match lit.value().as_str() {
-            "Restrict" => Some(quote! {Restrict}),
-            "Cascade" => Some(quote! {Cascade}),
-            "SetNull" => Some(quote! {SetNull}),
-            "SetDefault" => Some(quote! {SetDefault}),
-            _ => {
-                errors.push_new(lit.span(), "unsupported literal's value");
-                None
-            }
-        };
-        let on_delete = on_delete
-            .and_then(parse_action)
-            .map(|token| quote! {OnDelete::#token});
-        let on_update = on_update
-            .and_then(parse_action)
-            .map(|token| quote! {OnUpdate::#token});
+        let on_delete = on_delete.map(|OnAction(token)| quote! {OnDelete::#token});
+        let on_update = on_update.map(|OnAction(token)| quote! {OnUpdate::#token});
 
         // Unwrap all options
         // Add absolute path

@@ -1,4 +1,3 @@
-use crate::errors::Errors;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::spanned::Spanned;
@@ -27,37 +26,4 @@ pub fn get_source<T: Spanned>(spanned: &T) -> TokenStream {
 #[cfg(not(feature = "unstable"))]
 pub fn get_source<T: Spanned>(_spanned: &T) -> TokenStream {
     quote! {None}
-}
-
-/// Iterate over all "arguments" inside any #[rorm(..)] attribute
-///
-/// It enforces the rorm attributes to look like function calls (see [syn::Meta::List])
-/// as well as excluding literals as their direct arguments (see [syn::NestedMeta::lit])
-pub fn iter_rorm_attributes<'a>(
-    attrs: &'a [syn::Attribute],
-    errors: &'a Errors,
-) -> impl Iterator<Item = syn::Meta> + 'a {
-    attrs
-        .iter()
-        .filter(|attr| attr.path.is_ident("rorm"))
-        .map(syn::Attribute::parse_meta)
-        .filter_map(Result::ok)
-        .filter_map(|meta| match meta {
-            syn::Meta::List(syn::MetaList { nested, .. }) => Some(nested.into_iter()),
-            _ => {
-                errors.push_new(meta.span(), "Attribute should be of shape: `rorm(..)`");
-                None
-            }
-        })
-        .flatten()
-        .filter_map(|nested_meta| match nested_meta {
-            syn::NestedMeta::Meta(meta) => Some(meta),
-            syn::NestedMeta::Lit(_) => {
-                errors.push_new(
-                    nested_meta.span(),
-                    "`rorm(..)` doesn't take literals directly",
-                );
-                None
-            }
-        })
 }
