@@ -353,7 +353,7 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                 write!(s, "{} ", d.name).unwrap();
 
                 match d.data_type {
-                    DbType::VarChar | DbType::Choices => {
+                    DbType::VarChar => {
                         let a_opt = d
                             .annotations
                             .iter()
@@ -371,6 +371,37 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                         } else {
                             return Err(Error::SQLBuildError(
                                 "character varying must have a max_length annotation".to_string(),
+                            ));
+                        }
+                    }
+                    DbType::Choices => {
+                        let a_opt = d.annotations.iter().find(|x| {
+                            x.annotation
+                                .eq_shallow(&Annotation::Choices(Default::default()))
+                        });
+
+                        if let Some(a) = a_opt {
+                            if let Annotation::Choices(values) = a.annotation {
+                                *s = format!(
+                                    "CREATE TYPE _{}_{} AS ENUM({}); {}",
+                                    d.table_name,
+                                    d.name,
+                                    values
+                                        .iter()
+                                        .map(|x| { postgres::fmt(x) })
+                                        .collect::<Vec<String>>()
+                                        .join(", "),
+                                    s
+                                );
+                                write!(s, "_{}_{} ", d.table_name, d.name,).unwrap();
+                            } else {
+                                return Err(Error::SQLBuildError(
+                                    "VARCHAR must have a MaxLength annotation".to_string(),
+                                ));
+                            }
+                        } else {
+                            return Err(Error::SQLBuildError(
+                                "VARCHAR must have a MaxLength annotation".to_string(),
                             ));
                         }
                     }
