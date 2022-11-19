@@ -106,6 +106,7 @@ impl DBImpl {
             columns: vec![],
             if_not_exists: false,
             lookup: vec![],
+            pre_statements: vec![],
             statements: vec![],
         };
 
@@ -291,6 +292,7 @@ impl DBImpl {
                 table_name,
                 data_type,
                 annotations: a,
+                pre_statements: None,
                 statements: None,
             }),
         }

@@ -75,6 +75,7 @@ pub struct CreateColumnPostgresData<'until_build, 'post_build> {
     pub(crate) table_name: &'until_build str,
     pub(crate) data_type: DbType,
     pub(crate) annotations: Vec<SQLAnnotation<'post_build>>,
+    pub(crate) pre_statements: Option<&'until_build mut Vec<(String, Vec<Value<'post_build>>)>>,
     pub(crate) statements: Option<&'until_build mut Vec<(String, Vec<Value<'post_build>>)>>,
 }
 
@@ -382,17 +383,21 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
 
                         if let Some(a) = a_opt {
                             if let Annotation::Choices(values) = a.annotation {
-                                *s = format!(
-                                    "CREATE TYPE _{}_{} AS ENUM({}); {}",
-                                    d.table_name,
-                                    d.name,
-                                    values
-                                        .iter()
-                                        .map(|x| { postgres::fmt(x) })
-                                        .collect::<Vec<String>>()
-                                        .join(", "),
-                                    s
-                                );
+                                if let Some(stmts) = d.pre_statements {
+                                    stmts.push((
+                                        format!(
+                                            "CREATE TYPE _{}_{} AS ENUM({});",
+                                            d.table_name,
+                                            d.name,
+                                            values
+                                                .iter()
+                                                .map(|x| { postgres::fmt(x) })
+                                                .collect::<Vec<String>>()
+                                                .join(", ")
+                                        ),
+                                        vec![],
+                                    ));
+                                };
                                 write!(s, "_{}_{} ", d.table_name, d.name,).unwrap();
                             } else {
                                 return Err(Error::SQLBuildError(
