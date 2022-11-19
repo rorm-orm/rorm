@@ -11,7 +11,7 @@ use rorm_declaration::hmr::db_type::{
 };
 
 use crate::internal::field::{Field, FieldProxy};
-use crate::internal::relation_path::{JoinAlias, Path};
+use crate::internal::relation_path::Path;
 
 pub mod collections;
 use crate::internal::query_context::{QueryContext, QueryContextBuilder};
@@ -142,7 +142,10 @@ impl<'a, F: Field, P: Path> Condition<'a> for Column<F, P> {
     where
         'a: 'c,
     {
-        conditional::Condition::Value(value::Value::Ident(FieldProxy::<F, P>::ALIAS))
+        conditional::Condition::Value(value::Value::Column {
+            table_name: Some(P::ALIAS),
+            column_name: F::NAME,
+        })
     }
 }
 

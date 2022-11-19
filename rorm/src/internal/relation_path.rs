@@ -2,7 +2,7 @@
 
 use std::marker::PhantomData;
 
-use crate::internal::field::{Field, FieldProxy};
+use crate::internal::field::Field;
 use crate::internal::query_context::QueryContextBuilder;
 use crate::{const_concat, ForeignModel, Model};
 
@@ -69,8 +69,4 @@ impl<M: Model> JoinAlias for M {
 
 impl<F: Field, P: Path> JoinAlias for PathStep<F, P> {
     const ALIAS: &'static str = const_concat!(&[P::ALIAS, "__", F::NAME]);
-}
-
-impl<F: Field, P: Path> JoinAlias for FieldProxy<F, P> {
-    const ALIAS: &'static str = const_concat!(&[P::ALIAS, ".", F::NAME]);
 }

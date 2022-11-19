@@ -50,8 +50,8 @@ impl QueryContextBuilder {
                 alias: PathStep::<F, P>::ALIAS,
                 table_name: M::TABLE,
                 fields: [
-                    FieldProxy::<M::Primary, PathStep<F, P>>::ALIAS,
-                    FieldProxy::<F, P>::ALIAS,
+                    [PathStep::<F, P>::ALIAS, M::Primary::NAME],
+                    [P::ALIAS, F::NAME],
                 ],
             },
         );
@@ -108,7 +108,7 @@ enum TempJoinData {
 
         table_name: &'static str,
 
-        fields: [&'static str; 2],
+        fields: [[&'static str; 2]; 2],
     },
     Dynamic {
         alias: usize,
@@ -157,13 +157,19 @@ impl From<TempJoinData> for Join {
             TempJoinData::Static {
                 alias,
                 table_name,
-                fields,
+                fields: [[table_a, column_a], [table_b, column_b]],
             } => Join::Static {
                 table_name,
                 join_alias: alias,
                 join_condition: Condition::BinaryCondition(BinaryCondition::Equals(Box::new([
-                    Condition::Value(Value::Ident(fields[0])),
-                    Condition::Value(Value::Ident(fields[1])),
+                    Condition::Value(Value::Column {
+                        table_name: Some(table_a),
+                        column_name: column_a,
+                    }),
+                    Condition::Value(Value::Column {
+                        table_name: Some(table_b),
+                        column_name: column_b,
+                    }),
                 ]))),
             },
             TempJoinData::Dynamic {
