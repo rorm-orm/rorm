@@ -586,8 +586,20 @@ pub extern "C" fn rorm_db_query_one(
                 return;
             };
 
+            let table_name = match x.table_name {
+                FFIOption::None => None,
+                FFIOption::Some(v) => {
+                    let Ok(tn) = v.try_into() else {
+                        unsafe { cb(context, None, Error::InvalidStringError) };
+                        return;
+                    };
+                    Some(tn)
+                }
+            };
+
             order_by_vec.push(OrderByEntry {
                 ordering,
+                table_name,
                 column_name,
             })
         }
@@ -808,8 +820,20 @@ pub extern "C" fn rorm_db_query_optional(
                 return;
             };
 
+            let table_name = match x.table_name {
+                FFIOption::None => None,
+                FFIOption::Some(v) => {
+                    let Ok(tn) = v.try_into() else {
+                        unsafe { cb(context, None, Error::InvalidStringError) };
+                        return;
+                    };
+                    Some(tn)
+                }
+            };
+
             order_by_vec.push(OrderByEntry {
                 ordering,
+                table_name,
                 column_name,
             })
         }
@@ -1044,8 +1068,20 @@ pub extern "C" fn rorm_db_query_all(
                 return;
             };
 
+            let table_name = match x.table_name {
+                FFIOption::None => None,
+                FFIOption::Some(v) => {
+                    let Ok(tn) = v.try_into() else {
+                        unsafe { cb(context, FFISlice::empty(), Error::InvalidStringError) };
+                        return;
+                    };
+                    Some(tn)
+                }
+            };
+
             order_by_vec.push(OrderByEntry {
                 ordering,
+                table_name,
                 column_name,
             })
         }
@@ -1260,8 +1296,20 @@ pub extern "C" fn rorm_db_query_stream(
                 return;
             };
 
+            let table_name = match x.table_name {
+                FFIOption::None => None,
+                FFIOption::Some(v) => {
+                    let Ok(tn) = v.try_into() else {
+                        unsafe { cb(context, None, Error::InvalidStringError) };
+                        return;
+                    };
+                    Some(tn)
+                }
+            };
+
             order_by_vec.push(OrderByEntry {
                 ordering,
+                table_name,
                 column_name,
             })
         }

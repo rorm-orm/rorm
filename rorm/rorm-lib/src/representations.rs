@@ -566,5 +566,6 @@ Representation of a [OrderByEntry]
 #[derive(Copy, Clone)]
 pub struct FFIOrderByEntry<'a> {
     pub(crate) ordering: FFIOrdering,
+    pub(crate) table_name: FFIOption<FFIString<'a>>,
     pub(crate) column_name: FFIString<'a>,
 }

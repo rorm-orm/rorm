@@ -151,6 +151,9 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
 
                     let order_by_len = d.order_by_clause.len();
                     for (idx, entry) in d.order_by_clause.iter().enumerate() {
+                        if let Some(table_name) = entry.table_name {
+                            write!(s, "{}.", table_name).unwrap();
+                        };
                         write!(
                             s,
                             "{}{}",
@@ -208,6 +211,9 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
 
                     let order_by_len = d.order_by_clause.len();
                     for (idx, entry) in d.order_by_clause.iter().enumerate() {
+                        if let Some(table_name) = entry.table_name {
+                            write!(s, "{}.", table_name).unwrap();
+                        };
                         write!(
                             s,
                             "{}{}",
@@ -265,6 +271,9 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
 
                     let order_by_len = d.order_by_clause.len();
                     for (idx, entry) in d.order_by_clause.iter().enumerate() {
+                        if let Some(table_name) = entry.table_name {
+                            write!(s, "\"{}\".", table_name).unwrap();
+                        };
                         write!(
                             s,
                             "\"{}\"{}",
