@@ -66,11 +66,15 @@ pub fn model(strct: TokenStream) -> TokenStream {
         .handle(ModelAnnotations::from_attributes(&strct.attrs))
         .unwrap_or_default();
     let mut fields = Vec::with_capacity(strct.fields.len());
+    let mut ignored_fields = Vec::with_capacity(strct.fields.len());
     for (index, field) in strct.fields.into_iter().enumerate() {
-        if let Some(Some(field)) =
+        if let Some(field) =
             darling_acc.handle(parse_field(index, field, &strct.ident, &strct.vis, &errors))
         {
-            fields.push(field);
+            match field {
+                StructField::Db(field) => fields.push(field),
+                StructField::Ignored(name) => ignored_fields.push(name),
+            }
         }
     }
     let darling_err = darling_acc
@@ -121,7 +125,8 @@ pub fn model(strct: TokenStream) -> TokenStream {
     let vis = strct.vis;
     let model = strct.ident;
     let impl_patch = trait_impls::patch(&model, &model, &fields_ident);
-    let impl_try_from_row = trait_impls::try_from_row(&model, &model, &fields_ident);
+    let impl_try_from_row =
+        trait_impls::try_from_row(&model, &model, &fields_ident, &ignored_fields);
 
     let fields_vis = fields.iter().map(|field| &field.vis);
     let fields_type: Vec<_> = fields.iter().map(|field| &field.type_ident).collect();
@@ -254,7 +259,7 @@ pub fn patch(strct: TokenStream) -> TokenStream {
     let patch = strct.ident;
     let compile_check = format_ident!("__compile_check_{}", patch);
     let impl_patch = trait_impls::patch(&patch, &model_path, &field_idents);
-    let impl_try_from_row = trait_impls::try_from_row(&patch, &model_path, &field_idents);
+    let impl_try_from_row = trait_impls::try_from_row(&patch, &model_path, &field_idents, &[]);
     quote! {
         #[allow(non_snake_case)]
         fn #compile_check(model: #model_path) {
@@ -281,21 +286,27 @@ struct ParsedField {
     type_ident: Ident,
     definition: TokenStream,
 }
+enum StructField {
+    Db(ParsedField),
+    Ignored(Ident),
+}
 fn parse_field(
     index: usize,
     field: syn::Field,
     model_type: &Ident,
     model_vis: &syn::Visibility,
     errors: &Errors,
-) -> darling::Result<Option<ParsedField>> {
+) -> darling::Result<StructField> {
     let ident = if let Some(ident) = field.ident {
         ident
     } else {
-        errors.push_new(field.ident.span(), "field has no name");
-        return Ok(None);
+        return Err(darling::Error::custom("field has no name").with_span(&field.ident));
     };
 
     let mut annotations = annotations::Annotations::from_attributes(&field.attrs)?;
+    if annotations.ignore {
+        return Ok(StructField::Ignored(ident));
+    }
 
     let value_type = field.ty;
 
@@ -338,7 +349,7 @@ fn parse_field(
             const SOURCE: Option<::rorm::hmr::Source> = #source;
         }
     };
-    Ok(Some(ParsedField {
+    Ok(StructField::Db(ParsedField {
         is_primary,
         vis,
         ident,

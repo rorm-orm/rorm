@@ -18,6 +18,7 @@ pub struct Annotations {
     pub on_delete: Option<LitStr>,
     pub on_update: Option<LitStr>,
     pub rename: Option<LitStr>,
+    pub ignore: bool,
 
     /// Parse the `#[rorm(default = ..)]` annotation.
     ///
@@ -105,6 +106,7 @@ impl Annotations {
             on_delete,
             on_update,
             rename: _, // Not a db annotation
+            ignore: _, // Not a db annotation
             default,
             max_length,
             choices,

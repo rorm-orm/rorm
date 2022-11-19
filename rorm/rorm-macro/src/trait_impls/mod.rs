@@ -28,7 +28,12 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
     }
 }
 
-pub fn try_from_row(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStream {
+pub fn try_from_row(
+    strct: &Ident,
+    model: &impl ToTokens,
+    fields: &[Ident],
+    ignored: &[Ident],
+) -> TokenStream {
     quote! {
         impl ::rorm::row::FromRow for #strct {
             fn from_row(row: ::rorm::row::Row) -> Result<Self, ::rorm::Error> {
@@ -37,6 +42,9 @@ pub fn try_from_row(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> T
                         #fields: <#model as ::rorm::model::Model>::FIELDS.#fields.convert_primitive(
                             row.get(<#model as ::rorm::model::Model>::FIELDS.#fields.name())?
                         ),
+                    )*
+                    #(
+                        #ignored: Default::default(),
                     )*
                 })
             }

@@ -55,4 +55,7 @@ pub struct Thread {
     pub name: String,
 
     pub creator: ForeignModel<User>,
+
+    #[rorm(ignore)]
+    pub fred: Option<std::thread::Thread>,
 }
