@@ -257,7 +257,7 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                             if let Annotation::Choices(values) = a.annotation {
                                 write!(
                                     s,
-                                    "VARCHAR({}) ",
+                                    "ENUM({}) ",
                                     values
                                         .iter()
                                         .map(|x| {
