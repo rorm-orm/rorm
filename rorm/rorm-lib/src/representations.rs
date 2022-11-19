@@ -106,10 +106,17 @@ This enum represents a value
 pub enum FFIValue<'a> {
     /// null representation
     Null,
-    /// Representation of an identifier, e.g. a column.
+    /// Representation of an identifier.
     /// This variant will not be escaped, so do not
     /// pass unchecked data to it.
     Ident(FFIString<'a>),
+    /// Representation of a column.
+    Column {
+        /// Optional table name
+        table_name: FFIOption<FFIString<'a>>,
+        /// Name of the column
+        column_name: FFIString<'a>,
+    },
     /// String representation
     String(FFIString<'a>),
     /// i64 representation
@@ -143,6 +150,23 @@ impl<'a> TryFrom<&'a FFIValue<'a>> for rorm_db::value::Value<'a> {
             FFIValue::Ident(x) => Ok(rorm_db::value::Value::Ident(
                 x.try_into().map_err(|_| Error::InvalidStringError)?,
             )),
+            FFIValue::Column {
+                table_name,
+                column_name,
+            } => {
+                let table_name = match table_name {
+                    FFIOption::None => None,
+                    FFIOption::Some(v) => {
+                        Some(v.try_into().map_err(|_| Error::InvalidStringError)?)
+                    }
+                };
+                Ok(rorm_db::value::Value::Column {
+                    table_name,
+                    column_name: column_name
+                        .try_into()
+                        .map_err(|_| Error::InvalidStringError)?,
+                })
+            }
             FFIValue::String(x) => Ok(rorm_db::value::Value::String(
                 x.try_into().map_err(|_| Error::InvalidStringError)?,
             )),
@@ -164,26 +188,26 @@ impl<'a> TryFrom<&'a FFIValue<'a>> for rorm_db::value::Value<'a> {
 This enum represents all available ternary expression.
  */
 #[repr(C)]
-pub enum TernaryCondition<'a> {
+pub enum FFITernaryCondition<'a> {
     /// Between represents "{} BETWEEN {} AND {}" from SQL
-    Between([&'a Condition<'a>; 3]),
+    Between([&'a FFICondition<'a>; 3]),
     /// Between represents "{} NOT BETWEEN {} AND {}" from SQL
-    NotBetween([&'a Condition<'a>; 3]),
+    NotBetween([&'a FFICondition<'a>; 3]),
 }
 
-impl<'a> TryFrom<&TernaryCondition<'a>> for rorm_db::conditional::TernaryCondition<'a> {
+impl<'a> TryFrom<&FFITernaryCondition<'a>> for rorm_db::conditional::TernaryCondition<'a> {
     type Error = Error<'a>;
 
-    fn try_from(value: &TernaryCondition<'a>) -> Result<Self, Self::Error> {
+    fn try_from(value: &FFITernaryCondition<'a>) -> Result<Self, Self::Error> {
         match value {
-            TernaryCondition::Between(x) => {
+            FFITernaryCondition::Between(x) => {
                 let [a, b, c] = x;
                 let x_conv = [(*a).try_into()?, (*b).try_into()?, (*c).try_into()?];
                 Ok(rorm_db::conditional::TernaryCondition::Between(Box::new(
                     x_conv,
                 )))
             }
-            TernaryCondition::NotBetween(x) => {
+            FFITernaryCondition::NotBetween(x) => {
                 let [a, b, c] = x;
                 let x_conv = [(*a).try_into()?, (*b).try_into()?, (*c).try_into()?];
                 Ok(rorm_db::conditional::TernaryCondition::NotBetween(
@@ -198,114 +222,114 @@ impl<'a> TryFrom<&TernaryCondition<'a>> for rorm_db::conditional::TernaryConditi
 This enum represents a binary expression.
  */
 #[repr(C)]
-pub enum BinaryCondition<'a> {
+pub enum FFIBinaryCondition<'a> {
     /// Representation of "{} = {}" in SQL
-    Equals([&'a Condition<'a>; 2]),
+    Equals([&'a FFICondition<'a>; 2]),
     /// Representation of "{} <> {}" in SQL
-    NotEquals([&'a Condition<'a>; 2]),
+    NotEquals([&'a FFICondition<'a>; 2]),
     /// Representation of "{} > {}" in SQL
-    Greater([&'a Condition<'a>; 2]),
+    Greater([&'a FFICondition<'a>; 2]),
     /// Representation of "{} >= {}" in SQL
-    GreaterOrEquals([&'a Condition<'a>; 2]),
+    GreaterOrEquals([&'a FFICondition<'a>; 2]),
     /// Representation of "{} < {}" in SQL
-    Less([&'a Condition<'a>; 2]),
+    Less([&'a FFICondition<'a>; 2]),
     /// Representation of "{} <= {}" in SQL
-    LessOrEquals([&'a Condition<'a>; 2]),
+    LessOrEquals([&'a FFICondition<'a>; 2]),
     /// Representation of "{} LIKE {}" in SQL
-    Like([&'a Condition<'a>; 2]),
+    Like([&'a FFICondition<'a>; 2]),
     /// Representation of "{} NOT LIKE {}" in SQL
-    NotLike([&'a Condition<'a>; 2]),
+    NotLike([&'a FFICondition<'a>; 2]),
     /// Representation of "{} REGEXP {}" in SQL
-    Regexp([&'a Condition<'a>; 2]),
+    Regexp([&'a FFICondition<'a>; 2]),
     /// Representation of "{} NOT REGEXP {}" in SQL
-    NotRegexp([&'a Condition<'a>; 2]),
+    NotRegexp([&'a FFICondition<'a>; 2]),
     /// Representation of "{} IN {}" in SQL
-    In([&'a Condition<'a>; 2]),
+    In([&'a FFICondition<'a>; 2]),
     /// Representation of "{} NOT IN {}" in SQL
-    NotIn([&'a Condition<'a>; 2]),
+    NotIn([&'a FFICondition<'a>; 2]),
 }
 
-impl<'a> TryFrom<&BinaryCondition<'a>> for rorm_db::conditional::BinaryCondition<'a> {
+impl<'a> TryFrom<&FFIBinaryCondition<'a>> for rorm_db::conditional::BinaryCondition<'a> {
     type Error = Error<'a>;
 
-    fn try_from(value: &BinaryCondition<'a>) -> Result<Self, Self::Error> {
+    fn try_from(value: &FFIBinaryCondition<'a>) -> Result<Self, Self::Error> {
         match value {
-            BinaryCondition::Equals(x) => {
+            FFIBinaryCondition::Equals(x) => {
                 let [a, b] = x;
                 let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::Equals(Box::new(
                     x_conv,
                 )))
             }
-            BinaryCondition::NotEquals(x) => {
+            FFIBinaryCondition::NotEquals(x) => {
                 let [a, b] = x;
                 let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::NotEquals(Box::new(
                     x_conv,
                 )))
             }
-            BinaryCondition::Greater(x) => {
+            FFIBinaryCondition::Greater(x) => {
                 let [a, b] = x;
                 let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::Greater(Box::new(
                     x_conv,
                 )))
             }
-            BinaryCondition::GreaterOrEquals(x) => {
+            FFIBinaryCondition::GreaterOrEquals(x) => {
                 let [a, b] = x;
                 let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::GreaterOrEquals(
                     Box::new(x_conv),
                 ))
             }
-            BinaryCondition::Less(x) => {
+            FFIBinaryCondition::Less(x) => {
                 let [a, b] = x;
                 let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::Less(Box::new(
                     x_conv,
                 )))
             }
-            BinaryCondition::LessOrEquals(x) => {
+            FFIBinaryCondition::LessOrEquals(x) => {
                 let [a, b] = x;
                 let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::LessOrEquals(
                     Box::new(x_conv),
                 ))
             }
-            BinaryCondition::Like(x) => {
+            FFIBinaryCondition::Like(x) => {
                 let [a, b] = x;
                 let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::Like(Box::new(
                     x_conv,
                 )))
             }
-            BinaryCondition::NotLike(x) => {
+            FFIBinaryCondition::NotLike(x) => {
                 let [a, b] = x;
                 let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::NotLike(Box::new(
                     x_conv,
                 )))
             }
-            BinaryCondition::Regexp(x) => {
+            FFIBinaryCondition::Regexp(x) => {
                 let [a, b] = x;
                 let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::Regexp(Box::new(
                     x_conv,
                 )))
             }
-            BinaryCondition::NotRegexp(x) => {
+            FFIBinaryCondition::NotRegexp(x) => {
                 let [a, b] = x;
                 let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::NotRegexp(Box::new(
                     x_conv,
                 )))
             }
-            BinaryCondition::In(x) => {
+            FFIBinaryCondition::In(x) => {
                 let [a, b] = x;
                 let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::In(Box::new(x_conv)))
             }
-            BinaryCondition::NotIn(x) => {
+            FFIBinaryCondition::NotIn(x) => {
                 let [a, b] = x;
                 let x_conv = [(*a).try_into()?, (*b).try_into()?];
                 Ok(rorm_db::conditional::BinaryCondition::NotIn(Box::new(
@@ -320,37 +344,37 @@ impl<'a> TryFrom<&BinaryCondition<'a>> for rorm_db::conditional::BinaryCondition
 This enum represents all available unary conditions.
  */
 #[repr(C)]
-pub enum UnaryCondition<'a> {
+pub enum FFIUnaryCondition<'a> {
     /// Representation of SQL's "{} IS NULL"
-    IsNull(&'a Condition<'a>),
+    IsNull(&'a FFICondition<'a>),
     /// Representation of SQL's "{} IS NOT NULL"
-    IsNotNull(&'a Condition<'a>),
+    IsNotNull(&'a FFICondition<'a>),
     /// Representation of SQL's "EXISTS {}"
-    Exists(&'a Condition<'a>),
+    Exists(&'a FFICondition<'a>),
     /// Representation of SQL's "NOT EXISTS {}"
-    NotExists(&'a Condition<'a>),
+    NotExists(&'a FFICondition<'a>),
     /// Representation of SQL's "NOT {}"
-    Not(&'a Condition<'a>),
+    Not(&'a FFICondition<'a>),
 }
 
-impl<'a> TryFrom<&UnaryCondition<'a>> for rorm_db::conditional::UnaryCondition<'a> {
+impl<'a> TryFrom<&FFIUnaryCondition<'a>> for rorm_db::conditional::UnaryCondition<'a> {
     type Error = Error<'a>;
 
-    fn try_from(value: &UnaryCondition<'a>) -> Result<Self, Self::Error> {
+    fn try_from(value: &FFIUnaryCondition<'a>) -> Result<Self, Self::Error> {
         match value {
-            UnaryCondition::IsNull(x) => Ok(rorm_db::conditional::UnaryCondition::IsNull(
+            FFIUnaryCondition::IsNull(x) => Ok(rorm_db::conditional::UnaryCondition::IsNull(
                 Box::new((*x).try_into()?),
             )),
-            UnaryCondition::IsNotNull(x) => Ok(rorm_db::conditional::UnaryCondition::IsNotNull(
+            FFIUnaryCondition::IsNotNull(x) => Ok(rorm_db::conditional::UnaryCondition::IsNotNull(
                 Box::new((*x).try_into()?),
             )),
-            UnaryCondition::Exists(x) => Ok(rorm_db::conditional::UnaryCondition::Exists(
+            FFIUnaryCondition::Exists(x) => Ok(rorm_db::conditional::UnaryCondition::Exists(
                 Box::new((*x).try_into()?),
             )),
-            UnaryCondition::NotExists(x) => Ok(rorm_db::conditional::UnaryCondition::NotExists(
+            FFIUnaryCondition::NotExists(x) => Ok(rorm_db::conditional::UnaryCondition::NotExists(
                 Box::new((*x).try_into()?),
             )),
-            UnaryCondition::Not(x) => Ok(rorm_db::conditional::UnaryCondition::Not(Box::new(
+            FFIUnaryCondition::Not(x) => Ok(rorm_db::conditional::UnaryCondition::Not(Box::new(
                 (*x).try_into()?,
             ))),
         }
@@ -361,52 +385,52 @@ impl<'a> TryFrom<&UnaryCondition<'a>> for rorm_db::conditional::UnaryCondition<'
 This enum represents a condition tree.
  */
 #[repr(C)]
-pub enum Condition<'a> {
+pub enum FFICondition<'a> {
     /// A list of [Condition]s, that get expanded to "{} AND {} ..."
-    Conjunction(FFISlice<'a, Condition<'a>>),
+    Conjunction(FFISlice<'a, FFICondition<'a>>),
     /// A list of [Condition]s, that get expanded to "{} OR {} ..."
-    Disjunction(FFISlice<'a, Condition<'a>>),
+    Disjunction(FFISlice<'a, FFICondition<'a>>),
     /// Representation of a unary condition.
-    UnaryCondition(UnaryCondition<'a>),
+    UnaryCondition(FFIUnaryCondition<'a>),
     /// Representation of a binary condition.
-    BinaryCondition(BinaryCondition<'a>),
+    BinaryCondition(FFIBinaryCondition<'a>),
     /// Representation of a ternary condition.
-    TernaryCondition(TernaryCondition<'a>),
+    TernaryCondition(FFITernaryCondition<'a>),
     /// Representation of a value.
     Value(FFIValue<'a>),
 }
 
-impl<'a> TryFrom<&'a Condition<'a>> for rorm_db::conditional::Condition<'a> {
+impl<'a> TryFrom<&'a FFICondition<'a>> for rorm_db::conditional::Condition<'a> {
     type Error = Error<'a>;
 
-    fn try_from(value: &'a Condition<'a>) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a FFICondition<'a>) -> Result<Self, Self::Error> {
         match value {
-            Condition::Conjunction(x) => {
-                let x_conv: &[Condition] = x.into();
+            FFICondition::Conjunction(x) => {
+                let x_conv: &[FFICondition] = x.into();
                 let mut x_vec = vec![];
                 for cond in x_conv {
                     x_vec.push(cond.try_into()?);
                 }
                 Ok(rorm_db::conditional::Condition::Conjunction(x_vec))
             }
-            Condition::Disjunction(x) => {
-                let x_conv: &[Condition] = x.into();
+            FFICondition::Disjunction(x) => {
+                let x_conv: &[FFICondition] = x.into();
                 let mut x_vec = vec![];
                 for cond in x_conv {
                     x_vec.push(cond.try_into()?);
                 }
                 Ok(rorm_db::conditional::Condition::Disjunction(x_vec))
             }
-            Condition::UnaryCondition(x) => Ok(rorm_db::conditional::Condition::UnaryCondition(
+            FFICondition::UnaryCondition(x) => Ok(rorm_db::conditional::Condition::UnaryCondition(
                 x.try_into()?,
             )),
-            Condition::BinaryCondition(x) => Ok(rorm_db::conditional::Condition::BinaryCondition(
-                x.try_into()?,
-            )),
-            Condition::TernaryCondition(x) => Ok(
+            FFICondition::BinaryCondition(x) => Ok(
+                rorm_db::conditional::Condition::BinaryCondition(x.try_into()?),
+            ),
+            FFICondition::TernaryCondition(x) => Ok(
                 rorm_db::conditional::Condition::TernaryCondition(x.try_into()?),
             ),
-            Condition::Value(x) => Ok(rorm_db::conditional::Condition::Value(x.try_into()?)),
+            FFICondition::Value(x) => Ok(rorm_db::conditional::Condition::Value(x.try_into()?)),
         }
     }
 }
@@ -483,7 +507,7 @@ pub struct FFIJoin<'a> {
     /// Alias for the join table
     pub(crate) join_alias: FFIString<'a>,
     /// Condition to apply the join on
-    pub(crate) join_condition: &'a Condition<'a>,
+    pub(crate) join_condition: &'a FFICondition<'a>,
 }
 
 /**

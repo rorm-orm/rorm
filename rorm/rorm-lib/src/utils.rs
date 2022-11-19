@@ -207,12 +207,15 @@ pub(crate) type Stream<'a> = BoxStream<'a, Result<Row, rorm_db::error::Error>>;
 Helper type to wrap [Option] ffi safe.
 */
 #[repr(C)]
+#[derive(Clone)]
 pub enum FFIOption<T> {
     /// None value
     None,
     /// Some value
     Some(T),
 }
+
+impl<T> Copy for FFIOption<T> where T: Copy {}
 
 macro_rules! ffi_opt_impl {
     ($from:ty, $to:ty) => {

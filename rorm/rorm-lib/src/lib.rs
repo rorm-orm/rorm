@@ -23,7 +23,7 @@ use tokio::runtime::Runtime;
 
 use crate::errors::Error;
 use crate::representations::{
-    Condition, DBConnectOptions, FFIColumnSelector, FFIJoin, FFILimitClause, FFIOrderByEntry,
+    DBConnectOptions, FFIColumnSelector, FFICondition, FFIJoin, FFILimitClause, FFIOrderByEntry,
     FFIUpdate, FFIValue,
 };
 use crate::utils::{
@@ -465,7 +465,7 @@ pub extern "C" fn rorm_db_query_one(
     model: FFIString<'static>,
     columns: FFISlice<'static, FFIColumnSelector<'static>>,
     joins: FFISlice<'static, FFIJoin<'static>>,
-    condition: Option<&'static Condition>,
+    condition: Option<&'static FFICondition>,
     order_by: FFISlice<'static, FFIOrderByEntry<'static>>,
     offset: FFIOption<u64>,
     callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Row>>, Error) -> ()>,
@@ -687,7 +687,7 @@ pub extern "C" fn rorm_db_query_optional(
     model: FFIString<'static>,
     columns: FFISlice<'static, FFIColumnSelector<'static>>,
     joins: FFISlice<'static, FFIJoin<'static>>,
-    condition: Option<&'static Condition>,
+    condition: Option<&'static FFICondition>,
     order_by: FFISlice<'static, FFIOrderByEntry<'static>>,
     offset: FFIOption<u64>,
     callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Row>>, Error) -> ()>,
@@ -923,7 +923,7 @@ pub extern "C" fn rorm_db_query_all(
     model: FFIString<'static>,
     columns: FFISlice<'static, FFIColumnSelector<'static>>,
     joins: FFISlice<'static, FFIJoin<'static>>,
-    condition: Option<&'static Condition>,
+    condition: Option<&'static FFICondition>,
     order_by: FFISlice<'static, FFIOrderByEntry<'static>>,
     limit: FFIOption<FFILimitClause>,
     callback: Option<unsafe extern "C" fn(VoidPtr, FFISlice<&Row>, Error) -> ()>,
@@ -1148,7 +1148,7 @@ pub extern "C" fn rorm_db_query_stream(
     model: FFIString,
     columns: FFISlice<FFIColumnSelector>,
     joins: FFISlice<'static, FFIJoin<'static>>,
-    condition: Option<&Condition>,
+    condition: Option<&FFICondition>,
     order_by: FFISlice<'static, FFIOrderByEntry<'static>>,
     limit: FFIOption<FFILimitClause>,
     callback: Option<unsafe extern "C" fn(VoidPtr, Option<Box<Stream>>, Error) -> ()>,
@@ -1395,7 +1395,7 @@ pub extern "C" fn rorm_db_delete(
     db: &'static Database,
     transaction: Option<&'static mut Transaction>,
     model: FFIString<'static>,
-    condition: Option<&'static Condition>,
+    condition: Option<&'static FFICondition>,
     callback: Option<unsafe extern "C" fn(VoidPtr, u64, Error) -> ()>,
     context: VoidPtr,
 ) {
@@ -1703,7 +1703,7 @@ pub extern "C" fn rorm_db_update(
     transaction: Option<&'static mut Transaction>,
     model: FFIString<'static>,
     updates: FFISlice<'static, FFIUpdate<'static>>,
-    condition: Option<&'static Condition>,
+    condition: Option<&'static FFICondition>,
     callback: Option<unsafe extern "C" fn(VoidPtr, u64, Error) -> ()>,
     context: VoidPtr,
 ) {
