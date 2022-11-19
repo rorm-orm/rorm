@@ -483,9 +483,9 @@ impl<'until_build, 'post_build> CreateColumn<'post_build>
                             DefaultValue::Float(f) => write!(s, "DEFAULT {}", f).unwrap(),
                             DefaultValue::Boolean(b) => {
                                 if *b {
-                                    write!(s, "DEFAULT 1").unwrap();
+                                    write!(s, "DEFAULT true").unwrap();
                                 } else {
-                                    write!(s, "DEFAULT 0").unwrap();
+                                    write!(s, "DEFAULT false").unwrap();
                                 }
                             }
                         },
