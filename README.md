@@ -20,7 +20,7 @@ D programming language with the name `dorm`.
 
 ## Documentation
 
-See the `docs/` directory or just use the 
+Take a look at [rorm-orm/docs](https://github.com/rorm-orm/docs) or just use the 
 deployed documentation: [rorm.rs](https://rorm.rs).
 
 ## Contribution
