@@ -102,3 +102,16 @@ pub fn write_models(writer: &mut impl Write) -> Result<(), String> {
 pub fn print_models() -> Result<(), String> {
     write_models(&mut std::io::stdout())
 }
+
+#[doc(hidden)]
+pub(crate) mod private {
+    pub trait Private {}
+}
+/// Put this macro inside a trait to seal it i.e. prevent extern implementations.
+#[macro_export]
+macro_rules! sealed {
+    () => {
+        /// This method prohibits implementation of this trait out side of its defining crate.
+        fn _not_implementable<P: $crate::private::Private>() {}
+    };
+}

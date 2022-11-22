@@ -1,10 +1,12 @@
 //! A type level version of [`imr::DbType`](crate::imr::DbType) to be used in generic type bound checks
 
 use super::AsImr;
-use crate::imr;
+use crate::{imr, sealed};
 
 /// Trait to associate the type-level db types with their runtime db types
 pub trait DbType: 'static {
+    sealed!();
+
     /// Equivalent runtime db type
     const IMR: imr::DbType;
 }
@@ -62,6 +64,8 @@ impl_db_types!(
 
 /// A type-level [Option], ether some [DbType] or none i.e. `()`
 pub trait OptionDbType {
+    sealed!();
+
     /// [Option::unwrap_or]
     ///
     /// `Self`, if it is "some" i.e. not `()` and `Default` otherwise

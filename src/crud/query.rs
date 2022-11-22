@@ -9,12 +9,13 @@ use rorm_db::limit_clause::LimitClause;
 use rorm_db::transaction::Transaction;
 use rorm_db::{error::Error, row::Row, Database};
 
-use crate::crud::builder::{ConditionMarker, Sealed, TransactionMarker};
+use crate::crud::builder::{ConditionMarker, TransactionMarker};
 use crate::internal::as_db_type::AsDbType;
 use crate::internal::field::{Field, FieldProxy};
 use crate::internal::query_context::{QueryContext, QueryContextBuilder};
 use crate::internal::relation_path::Path;
 use crate::model::{Model, Patch};
+use crate::sealed;
 
 /// Builder for select queries
 ///
@@ -417,7 +418,9 @@ impl FiniteRange<u64> for RangeInclusive<u64> {
 }
 
 /// Unification of [LimitMarker] and [OffsetMarker]
-pub trait LimOffMarker: Sealed {}
+pub trait LimOffMarker {
+    sealed!();
+}
 impl LimOffMarker for () {}
 impl<O: OffsetMarker> LimOffMarker for Limit<O> {}
 impl LimOffMarker for u64 {}
@@ -425,7 +428,9 @@ impl LimOffMarker for u64 {}
 /// Marker for the generic parameter storing a limit.
 ///
 /// Valid values are `()`, `Limit<()>` and `Limit<u64>`.
-pub trait LimitMarker: Sealed + LimOffMarker {
+pub trait LimitMarker: LimOffMarker {
+    sealed!();
+
     /// Convert the generic limit into [Option<LimitClause>]
     fn into_option(self) -> Option<LimitClause>;
 }
@@ -442,7 +447,6 @@ pub struct Limit<O: OffsetMarker> {
     /// Optional offset to begin query at
     offset: O,
 }
-impl<O: OffsetMarker> Sealed for Limit<O> {}
 impl<O: OffsetMarker> LimitMarker for Limit<O> {
     fn into_option(self) -> Option<LimitClause> {
         Some(LimitClause {
@@ -453,7 +457,9 @@ impl<O: OffsetMarker> LimitMarker for Limit<O> {
 }
 
 /// Unification of `()` and `Limit<()>`
-pub trait AcceptsOffset: Sealed + LimOffMarker {
+pub trait AcceptsOffset: LimOffMarker {
+    sealed!();
+
     /// The resulting type i.e. `u64` or `Limit<u64>`
     type Result: LimOffMarker;
     /// "Add" the offset to the type
@@ -476,7 +482,9 @@ impl AcceptsOffset for Limit<()> {
 /// Marker for the generic parameter storing a limit's offset.
 ///
 /// Valid values are `()` and `u64`.
-pub trait OffsetMarker: Sealed + LimOffMarker {
+pub trait OffsetMarker: LimOffMarker {
+    sealed!();
+
     /// Convert the generic offset into [Option<u64>]
     fn into_option(self) -> Option<u64>;
 }
@@ -485,7 +493,6 @@ impl OffsetMarker for () {
         None
     }
 }
-impl Sealed for u64 {}
 impl OffsetMarker for u64 {
     fn into_option(self) -> Option<u64> {
         Some(self)

@@ -1,27 +1,16 @@
 //! This module provides primitives used by the various builder.
 
 use rorm_db::conditional as sql;
-
-#[doc(hidden)]
-pub(crate) mod private {
-    pub trait Private {}
-}
-use crate::conditions::Condition;
-use crate::internal::query_context::{QueryContext, QueryContextBuilder};
-use private::Private;
 use rorm_db::transaction::Transaction;
 
-/// This trait can not be implemented by foreign packages.
-///
-/// It is the base for marker traits used in our builders.
-pub trait Sealed {
-    #[doc(hidden)]
-    fn sealed<P: Private>() {}
-}
-impl Sealed for () {}
+use crate::conditions::Condition;
+use crate::internal::query_context::{QueryContext, QueryContextBuilder};
+use crate::sealed;
 
 /// Marker for the generic parameter storing an optional [Condition]
-pub trait ConditionMarker<'a>: Sealed + 'a {
+pub trait ConditionMarker<'a>: 'a {
+    sealed!();
+
     /// Prepare a query context to be able to handle this condition by registering all implicit joins.
     fn add_to_builder(&self, builder: &mut QueryContextBuilder);
 
@@ -42,7 +31,6 @@ impl<'a> ConditionMarker<'a> for () {
     }
 }
 
-impl<'a, T: Condition<'a>> Sealed for T {}
 impl<'a, T: Condition<'a>> ConditionMarker<'a> for T {
     fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
         Condition::add_to_builder(self, builder);
@@ -58,12 +46,13 @@ impl<'a, T: Condition<'a>> ConditionMarker<'a> for T {
 }
 
 /// Marker for the generic parameter storing a db [Transaction]
-pub trait TransactionMarker<'rf, 'db>: Sealed + 'rf {
+pub trait TransactionMarker<'rf, 'db>: 'rf {
+    sealed!();
+
     /// Convert the generic transaction into [Option] expected by [rorm_db]
     fn into_option(self) -> Option<&'rf mut Transaction<'db>>;
 }
 
-impl<'rf, 'db: 'rf> Sealed for &'rf mut Transaction<'db> {}
 impl<'rf, 'db: 'rf> TransactionMarker<'rf, 'db> for &'rf mut Transaction<'db> {
     fn into_option(self) -> Option<&'rf mut Transaction<'db>> {
         Some(self)

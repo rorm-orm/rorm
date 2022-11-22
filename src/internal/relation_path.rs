@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 
 use crate::internal::field::Field;
 use crate::internal::query_context::QueryContextBuilder;
-use crate::{const_concat, ForeignModel, Model};
+use crate::{const_concat, sealed, ForeignModel, Model};
 
 /// Trait to store a relation path in generics
 ///
@@ -28,6 +28,8 @@ use crate::{const_concat, ForeignModel, Model};
 ///     = Comment::F.user.fields().group.fields().name;
 /// ```
 pub trait Path: JoinAlias + 'static {
+    sealed!();
+
     /// The model (or table in the context of joins) this path originates from
     type Origin: Model;
 
@@ -59,6 +61,8 @@ where
 
 /// Trait shared by [Path] and [FieldProxy] which provides a unique join alias at compile time.s
 pub trait JoinAlias {
+    sealed!();
+
     /// Unique join alias
     const ALIAS: &'static str;
 }

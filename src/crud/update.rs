@@ -10,15 +10,16 @@ use rorm_db::value::Value;
 use rorm_db::Database;
 
 use crate::conditions::{Condition, IntoSingleValue};
-use crate::crud::builder::{ConditionMarker, Sealed, TransactionMarker};
+use crate::crud::builder::{ConditionMarker, TransactionMarker};
 use crate::internal::field::{Field, FieldProxy};
 use crate::internal::query_context::QueryContext;
-use crate::Model;
+use crate::{sealed, Model};
 
 /// Marker for the generic parameter storing a list of columns.
-pub trait ColumnsMarker: Sealed {}
+pub trait ColumnsMarker {
+    sealed!();
+}
 
-impl<'a> Sealed for Vec<(&'static str, Value<'a>)> {}
 impl<'a> ColumnsMarker for Vec<(&'static str, Value<'a>)> {}
 impl ColumnsMarker for () {}
 

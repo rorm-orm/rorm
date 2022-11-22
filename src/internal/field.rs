@@ -7,18 +7,20 @@ use rorm_db::{Error, Row};
 use rorm_declaration::imr;
 
 use crate::conditions::Value;
-use crate::const_panic;
 use crate::internal::as_db_type::AsDbType;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::{DbType, OptionDbType};
 use crate::internal::hmr::{AsImr, Source};
 use crate::internal::relation_path::{Path, PathStep};
 use crate::model::{ConstNew, ForeignModel, Model};
+use crate::{const_panic, sealed};
 
 /// Little hack to constraint [RawField::RawType] to be the same as [Field::Type] while adding additional constraints.
 ///
 /// **Remember `Self` is always the identical type as `T`!**
 pub trait Identical<T>: Into<T> + From<T> {
+    sealed!();
+
     /// "Convert" a reference of `Self` into `T`
     fn as_t_ref(&self) -> &T;
 
@@ -43,7 +45,9 @@ pub struct Column;
 /// Marker trait for the two kinds of fields:
 /// - A [Column] field is corresponds to a column in the database.
 /// - A [Pseudo] field is something which is part of and interacts with this orm, but isn't actually present in the database.
-pub trait FieldKind {}
+pub trait FieldKind {
+    sealed!();
+}
 impl FieldKind for Pseudo {}
 impl FieldKind for Column {}
 
@@ -89,6 +93,8 @@ pub trait RawField: 'static {
 
 /// A [RawField] of kind [Column]
 pub trait Field: RawField<Kind = Column> {
+    sealed!();
+
     /// The rust data type stored in this field
     type Type: AsDbType + Identical<Self::RawType>;
 
@@ -146,6 +152,8 @@ impl<T: AsDbType, F: RawField<RawType = T, Kind = Column>> Field for F {
 
 /// A common interface unifying the [RawFields](RawField) of various [FieldKinds](FieldKind)
 pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
+    sealed!();
+
     /// Get the field in the intermediate model representation
     ///
     /// Since pseudo field need the same interface this method might return nothing.
