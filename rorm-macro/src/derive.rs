@@ -29,21 +29,36 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
 
     errors.finish()?;
     Ok(quote! {
-        impl ::rorm::model::DbEnum for #db_enum {
-            fn from_str(string: &str) -> Self {
-                use #db_enum::*;
-                match string {
-                    #(stringify!(#identifiers) => #identifiers,)*
-                    _ => panic!("Unexpected database value"),
-                }
-            }
-            fn to_str(&self) -> &'static str {
-                Self::CHOICES[*self as usize]
-            }
+        const _: () = {
             const CHOICES: &'static [&'static str] = &[
                 #(stringify!(#identifiers)),*
             ];
-        }
+
+            impl ::rorm::internal::as_db_type::AsDbType for #db_enum {
+                type Primitive = String;
+                type DbType = ::rorm::hmr::db_type::Choices;
+
+                const IMPLICIT: Option<::rorm::annotations::Annotations> = Some({
+                    let mut annos = ::rorm::annotations::Annotations::empty();
+                    annos.choices = Some(::rorm::hmr::annotations::Choices(CHOICES));
+                    annos
+                });
+
+                fn from_primitive(primitive: Self::Primitive) -> Self {
+                    use #db_enum::*;
+                    match primitive.as_str() {
+                        #(stringify!(#identifiers) => #identifiers,)*
+                        _ => panic!("Unexpected database value"),
+                    }
+                }
+
+                fn as_primitive(&self) -> ::rorm::conditions::Value {
+                    ::rorm::conditions::Value::String(CHOICES[*self as usize])
+                }
+            }
+
+            impl ::rorm::internal::as_db_type::DbEnum for #db_enum {}
+        };
     })
 }
 

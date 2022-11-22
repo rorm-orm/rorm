@@ -4,30 +4,6 @@ use crate::internal::relation_path::Path;
 use rorm_db::row::FromRow;
 use rorm_declaration::imr;
 
-/// Map a rust enum, whose variant don't hold any data, into a database enum
-///
-/// ```rust
-/// #[derive(Copy, Clone, rorm::DbEnum)]
-/// pub enum Gender {
-///     Male,
-///     Female,
-///     Other,
-/// }
-/// ```
-pub trait DbEnum {
-    /// Convert a string into its corresponding variant.
-    ///
-    /// # Panics
-    /// Panics, if no variant matches. Since the string should only come from the db,
-    /// a non matching string would indicate an invalid db state.
-    fn from_str(string: &str) -> Self;
-
-    /// Convert a variant into its corresponding string.
-    fn to_str(&self) -> &'static str;
-
-    /// A slice containing all variants as strings.
-    const CHOICES: &'static [&'static str];
-}
 
 /// Trait implemented on Patches i.e. a subset of a model's fields.
 ///

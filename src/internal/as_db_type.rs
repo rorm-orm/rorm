@@ -6,7 +6,7 @@ use rorm_declaration::hmr;
 use crate::annotations::Annotations;
 use crate::conditions::Value;
 use crate::internal::field::Field;
-use crate::model::{DbEnum, ForeignModel, Model};
+use crate::model::{ForeignModel, Model};
 
 /// This trait maps rust types to database types
 ///
@@ -103,25 +103,6 @@ impl<T: AsDbType> AsDbType for Option<T> {
     const IS_NULLABLE: bool = true;
 }
 
-impl<E: DbEnum> AsDbType for E {
-    type Primitive = String;
-    type DbType = hmr::db_type::Choices;
-
-    const IMPLICIT: Option<Annotations> = Some({
-        let mut annos = Annotations::empty();
-        annos.choices = Some(hmr::annotations::Choices(E::CHOICES));
-        annos
-    });
-
-    fn from_primitive(primitive: Self::Primitive) -> Self {
-        E::from_str(&primitive)
-    }
-
-    fn as_primitive(&self) -> Value {
-        Value::String(self.to_str())
-    }
-}
-
 impl<M: Model> AsDbType for ForeignModel<M> {
     type Primitive = <<M::Primary as Field>::Type as AsDbType>::Primitive;
     type DbType = <<M::Primary as Field>::Type as AsDbType>::DbType;
@@ -150,3 +131,16 @@ impl<M: Model> AsDbType for ForeignModel<M> {
     const IS_FOREIGN: Option<(&'static str, &'static str)> =
         Some((M::TABLE, <M::Primary as Field>::NAME));
 }
+
+/// Map a rust enum, whose variant don't hold any data, and can be stored as strings in a database.
+///
+/// Use the derive macro to implement a db enum:
+/// ```rust
+/// #[derive(Copy, Clone, rorm::DbEnum)]
+/// pub enum Gender {
+///     Male,
+///     Female,
+///     Other,
+/// }
+/// ```
+pub trait DbEnum: AsDbType<DbType = hmr::db_type::Choices, Primitive = String> {}
