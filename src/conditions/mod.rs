@@ -1,6 +1,6 @@
 //! A high-level generic condition tree
 //!
-//! It is basically a generic version of the [rorm_db::Condition] tree.
+//! It is basically a generic version of the [rorm_db::Condition](conditional::Condition) tree.
 
 use std::marker::PhantomData;
 

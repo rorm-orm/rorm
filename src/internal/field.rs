@@ -219,7 +219,7 @@ impl<T: Default, F: RawField<Kind = Pseudo, RawType = T>> AbstractField<Pseudo> 
 /// On top of that it can be used to keep track of the "path" this field is accessed through, when dealing with relations.
 ///
 /// ## Type as Value
-/// In other words [FieldProxy] allows access to things like [Field::NAME] without access to the concrete field type.
+/// In other words [FieldProxy] allows access to things like [RawField::NAME] without access to the concrete field type.
 ///
 /// Pseudo code for illustration:
 /// ```skip

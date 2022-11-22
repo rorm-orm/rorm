@@ -59,7 +59,7 @@ where
     }
 }
 
-/// Trait shared by [Path] and [FieldProxy] which provides a unique join alias at compile time.s
+/// Trait shared by [Path] and [FieldProxy](super::field::FieldProxy) which provides a unique join alias at compile time.s
 pub trait JoinAlias {
     sealed!();
 
