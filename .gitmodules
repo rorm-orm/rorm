@@ -1,0 +1,3 @@
+[submodule "rorm/rorm-cli"]
+	path = rorm/rorm-cli
+	url = git@github.com:rorm-orm/rorm-cli.git
