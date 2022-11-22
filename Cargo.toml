@@ -1,10 +1,8 @@
 [workspace]
 members = [
 	".",
-	"rorm-cli",
 	"rorm-db",
 	"rorm-declaration",
-	"rorm-lib",
 	"rorm-macro",
 	"rorm-sample",
 	"rorm-sql",

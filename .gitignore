@@ -16,3 +16,4 @@ database.toml
 *.h
 *.hpp
 .vagrant/
+Cargo.lock

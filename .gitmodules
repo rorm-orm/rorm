@@ -3,13 +3,13 @@
 	url = https://github.com/rorm-orm/rorm-cli.git
 [submodule "rorm-declaration"]
 	path = rorm-declaration
-	url = https://github.com/rorm-orm/rorm-declaration.git
+	url = https://github.com/rorm-orm/rorm-declaration
 [submodule "rorm-sql"]
 	path = rorm-sql
-	url = https://github.com/rorm-orm/rorm-sql.git
+	url = https://github.com/rorm-orm/rorm-sql
 [submodule "rorm-db"]
 	path = rorm-db
-	url = https://github.com/rorm-orm/rorm-db.git
+	url = https://github.com/rorm-orm/rorm-db
 [submodule "rorm-lib"]
 	path = rorm-lib
 	url = https://github.com/rorm-orm/rorm-lib.git
