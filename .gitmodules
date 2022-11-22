@@ -4,3 +4,6 @@
 [submodule "rorm/rorm-declaration"]
 	path = rorm/rorm-declaration
 	url = git@github.com:rorm-orm/rorm-declaration.git
+[submodule "rorm/rorm-sql"]
+	path = rorm/rorm-sql
+	url = git@github.com:rorm-orm/rorm-sql.git
