@@ -1,15 +1,15 @@
-[submodule "rorm/rorm-cli"]
-	path = rorm/rorm-cli
+[submodule "rorm-cli"]
+	path = rorm-cli
 	url = https://github.com/rorm-orm/rorm-cli.git
-[submodule "rorm/rorm-declaration"]
-	path = rorm/rorm-declaration
+[submodule "rorm-declaration"]
+	path = rorm-declaration
 	url = https://github.com/rorm-orm/rorm-declaration.git
-[submodule "rorm/rorm-sql"]
-	path = rorm/rorm-sql
+[submodule "rorm-sql"]
+	path = rorm-sql
 	url = https://github.com/rorm-orm/rorm-sql.git
-[submodule "rorm/rorm-db"]
-	path = rorm/rorm-db
+[submodule "rorm-db"]
+	path = rorm-db
 	url = https://github.com/rorm-orm/rorm-db.git
-[submodule "rorm/rorm-lib"]
-	path = rorm/rorm-lib
+[submodule "rorm-lib"]
+	path = rorm-lib
 	url = https://github.com/rorm-orm/rorm-lib.git
