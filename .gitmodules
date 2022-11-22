@@ -7,3 +7,6 @@
 [submodule "rorm/rorm-sql"]
 	path = rorm/rorm-sql
 	url = git@github.com:rorm-orm/rorm-sql.git
+[submodule "rorm/rorm-db"]
+	path = rorm/rorm-db
+	url = git@github.com:rorm-orm/rorm-db.git
