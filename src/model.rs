@@ -1,5 +1,5 @@
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
-use crate::internal::field::Field;
+use crate::internal::field::{Field, RawField};
 use crate::internal::relation_path::Path;
 use rorm_db::row::FromRow;
 use rorm_declaration::imr;
@@ -28,7 +28,7 @@ pub trait Patch: FromRow + 'static {
     /// This method defaults to using the primary key.
     /// If the patch does not store the models primary key, this method will return `None`.
     fn as_condition(&self) -> Option<PatchAsCondition<Self>> {
-        self.get(<<Self::Model as Model>::Primary as Field>::INDEX)
+        self.get(<<Self::Model as Model>::Primary as RawField>::INDEX)
             .map(|value| Binary {
                 operator: BinaryOperator::Equals,
                 fst_arg: Column::new(),

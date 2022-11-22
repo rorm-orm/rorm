@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use ouroboros::self_referencing;
 
 use crate::conditional::{BinaryCondition, Condition};
-use crate::internal::field::{Field, FieldProxy};
+use crate::internal::field::{Field, FieldProxy, RawField};
 use crate::internal::relation_path::{JoinAlias, Path, PathStep};
 use crate::value::Value;
 use crate::{ForeignModel, Model};
@@ -110,6 +110,7 @@ enum TempJoinData {
 
         fields: [[&'static str; 2]; 2],
     },
+    #[allow(dead_code)]
     Dynamic {
         alias: usize,
 
@@ -126,6 +127,7 @@ enum Join {
         join_alias: &'static str,
         join_condition: Condition<'static>,
     },
+    #[allow(dead_code)]
     Dynamic(DynamicJoin),
 }
 

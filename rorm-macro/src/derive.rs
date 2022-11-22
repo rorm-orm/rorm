@@ -155,7 +155,7 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
         impl<Path> ::rorm::model::ConstNew for #fields_struct<Path> {
             const NEW: Self = Self {
                 #(
-                    #fields_ident: ::rorm::internal::field::FieldProxy::new(#fields_type),
+                    #fields_ident: ::rorm::internal::field::FieldProxy::new(),
                 )*
             };
         }
@@ -170,9 +170,9 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
             fn get_imr() -> ::rorm::imr::Model {
                 ::rorm::imr::Model {
                     name: #table_name.to_string(),
-                    fields: vec![#(
-                        ::rorm::internal::field::as_imr::<#fields_type>(),
-                    )*],
+                    fields: [#(
+                        <#fields_type as ::rorm::internal::field::AbstractField<_>>::imr(),
+                    )*].into_iter().flatten().collect(),
                     source_defined_at: #model_source,
                 }
             }
@@ -183,10 +183,10 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
             // Cross field checks
             let mut count_auto_increment = 0;
             #(
-                let field = <#model as ::rorm::model::Model>::FIELDS.#fields_ident;
-                let annos = &field.annotations();
-                if annos.auto_increment.is_some() {
-                    count_auto_increment += 1;
+                if let Some(annos) = <#fields_type as ::rorm::internal::field::AbstractField>::DB_ANNOTATIONS {
+                    if annos.auto_increment.is_some() {
+                        count_auto_increment += 1;
+                    }
                 }
             )*
             if count_auto_increment > 1 {
@@ -320,7 +320,7 @@ fn parse_field(
     let db_type = if annotations.choices.is_some() {
         quote! { ::rorm::internal::hmr::db_type::Choices }
     } else {
-        quote! { <#value_type as ::rorm::internal::as_db_type::AsDbType>::DbType }
+        quote! { () }
     };
 
     let is_primary = annotations.primary_key || annotations.id;
@@ -336,9 +336,10 @@ fn parse_field(
     let annotations = annotations.into_tokens();
     let definition = quote! {
         #vis struct #type_ident;
-        impl ::rorm::internal::field::Field for #type_ident {
-            type Type = #value_type;
-            type DbType = #db_type;
+        impl ::rorm::internal::field::RawField for #type_ident {
+            type Kind = <#value_type as ::rorm::internal::field::FieldType>::Kind;
+            type RawType = #value_type;
+            type ExplicitDbType = #db_type;
             type Model = #model_type;
             const INDEX: usize = #index;
             const NAME: &'static str = #db_name;

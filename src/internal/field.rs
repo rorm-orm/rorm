@@ -1,35 +1,76 @@
-//! defines the [Field] struct which is stored under `Model::F`.
+//! the various field traits and their proxy.
 
 use std::marker::PhantomData;
 
+use rorm_db::row::RowIndex;
 use rorm_db::{Error, Row};
 use rorm_declaration::imr;
 
 use crate::annotations::Annotations;
+use crate::conditions::Value;
+use crate::const_panic;
 use crate::internal::as_db_type::AsDbType;
 use crate::internal::hmr::annotations::AsImr;
 use crate::internal::hmr::db_type::{DbType, OptionDbType};
 use crate::internal::hmr::Source;
 use crate::internal::relation_path::{Path, PathStep};
-use crate::model::{ConstNew, Model};
-use crate::{const_panic, ForeignModel};
+use crate::model::{ConstNew, ForeignModel, Model};
 
-/// All information about a model's field stored in the type system.
+/// Little hack to constraint [RawField::RawType] to be the same as [Field::Type] while adding additional constraints.
 ///
+/// **Remember `Self` is always the identical type as `T`!**
+pub trait Identical<T>: Into<T> + From<T> {
+    /// "Convert" a reference of `Self` into `T`
+    fn as_t_ref(&self) -> &T;
+
+    /// "Convert" a reference of `T` into `Self`
+    fn as_self_ref(t: &T) -> &Self;
+}
+impl<T> Identical<T> for T {
+    fn as_t_ref(&self) -> &T {
+        self
+    }
+
+    fn as_self_ref(t: &T) -> &Self {
+        t
+    }
+}
+
+/// Marker for some field which is part of and interacts with this orm, but isn't actually present in the database
+pub struct Pseudo;
+/// Marker for some field which corresponds to a column in the database
+pub struct Column;
+
+/// Marker trait for the two kinds of fields:
+/// - A [Column] field is corresponds to a column in the database.
+/// - A [Pseudo] field is something which is part of and interacts with this orm, but isn't actually present in the database.
+pub trait FieldKind {}
+impl FieldKind for Pseudo {}
+impl FieldKind for Column {}
+
+/// The type of field allowed on models
+pub trait FieldType {
+    /// The kind of field this type declares
+    type Kind: FieldKind;
+}
+impl<T: AsDbType> FieldType for T {
+    type Kind = Column;
+}
+
 /// This trait is implemented by the `#[derive(Model)]` macro on unique unit struct for each of a model's fields.
 ///
-/// ## Motivation
-/// Having this is a trait instead of a generic struct (as it used to be),
-/// writing generic code is way cleaner.
-/// Also thanks to the [FieldProxy] all a field's information is accessible both via types as well as values.
-pub trait Field: 'static {
-    /// The rust data type stored in this field
-    type Type: AsDbType;
+/// It contains all the information a model's author provides on the field.
+///
+/// This trait itself doesn't do much, but it forms the basis to implement the other traits.
+pub trait RawField: 'static {
+    /// The field's kind which is determined by its [type](RawField::RawType)
+    type Kind: FieldKind;
 
-    /// The data type as which this field is stored in the db
-    ///
-    /// It might differ from [AsDbType::DbType], when certain attributes (namely `#[rorm(choices)]`) are set.
-    type DbType: DbType;
+    /// The type stored in the model's field
+    type RawType: FieldType<Kind = Self::Kind>;
+
+    /// An optionally set explicit db type
+    type ExplicitDbType: OptionDbType;
 
     /// The model this field is part of
     type Model: Model;
@@ -37,11 +78,25 @@ pub trait Field: 'static {
     /// This field's position in the model
     const INDEX: usize;
 
-    /// Name of this field
+    /// A db safe name of this field
     const NAME: &'static str;
 
     /// List of annotations which were set by the user
     const EXPLICIT_ANNOTATIONS: Annotations;
+
+    /// Optional definition of the location of field in the source code
+    const SOURCE: Option<Source>;
+}
+
+/// A [RawField] of kind [Column]
+pub trait Field: RawField<Kind = Column> {
+    /// The rust data type stored in this field
+    type Type: AsDbType + Identical<Self::RawType>;
+
+    /// The data type as which this field is stored in the db
+    ///
+    /// It might differ from [AsDbType::DbType], when certain attributes (namely `#[rorm(choices)]`) are set.
+    type DbType: DbType;
 
     /// List of the actual annotations
     const ANNOTATIONS: Annotations = {
@@ -65,9 +120,6 @@ pub trait Field: 'static {
         }
     };
 
-    /// Optional definition of the location of field in the source code
-    const SOURCE: Option<Source>;
-
     /// Entry point for compile time checks on a single field
     ///
     /// It is "used" in [FieldProxy::new] to force the compiler to evaluate it.
@@ -88,26 +140,70 @@ pub trait Field: 'static {
         Self::INDEX
     };
 }
+impl<T: AsDbType, F: RawField<RawType = T, Kind = Column>> Field for F {
+    type Type = T;
+    type DbType = <F::ExplicitDbType as OptionDbType>::UnwrapOr<<T as AsDbType>::DbType>;
+}
 
-/// Get a [NewField] as imr
-pub fn as_imr<F: Field>() -> imr::Field {
-    let mut annotations = F::ANNOTATIONS.as_imr();
-    if !F::Type::IS_NULLABLE && !F::ANNOTATIONS.implicit_not_null() {
-        annotations.push(imr::Annotation::NotNull);
+/// A common interface unifying the [RawFields](RawField) of various [FieldKinds](FieldKind)
+pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
+    /// Get the field in the intermediate model representation
+    ///
+    /// Since pseudo field need the same interface this method might return nothing.
+    fn imr() -> Option<imr::Field> {
+        None
     }
-    if let Some((table, column)) = F::Type::IS_FOREIGN {
-        annotations.push(imr::Annotation::ForeignKey(imr::ForeignKey {
-            table_name: table.to_string(),
-            column_name: column.to_string(),
-            on_delete: F::ANNOTATIONS.on_delete.unwrap_or_default(),
-            on_update: F::ANNOTATIONS.on_update.unwrap_or_default(),
-        }))
+
+    /// Get an instance of the field's type from a row
+    fn get_from_row(row: &Row, index: impl RowIndex) -> Result<Self::RawType, Error>;
+
+    /// Convert a reference to a raw value into a db value
+    fn get_value(_value: &Self::RawType) -> Option<Value> {
+        None
     }
-    imr::Field {
-        name: F::NAME.to_string(),
-        db_type: F::DbType::IMR,
-        annotations,
-        source_defined_at: F::SOURCE.map(Into::into),
+
+    /// The list of annotations, if this field is relevant to the database.
+    const DB_ANNOTATIONS: Option<Annotations> = None;
+}
+impl<F: Field> AbstractField<Column> for F {
+    fn imr() -> Option<imr::Field> {
+        let mut annotations = F::ANNOTATIONS.as_imr();
+        if !F::Type::IS_NULLABLE && !F::ANNOTATIONS.implicit_not_null() {
+            annotations.push(imr::Annotation::NotNull);
+        }
+        if let Some((table, column)) = F::Type::IS_FOREIGN {
+            annotations.push(imr::Annotation::ForeignKey(imr::ForeignKey {
+                table_name: table.to_string(),
+                column_name: column.to_string(),
+                on_delete: F::ANNOTATIONS.on_delete.unwrap_or_default(),
+                on_update: F::ANNOTATIONS.on_update.unwrap_or_default(),
+            }))
+        }
+        Some(imr::Field {
+            name: F::NAME.to_string(),
+            db_type: F::DbType::IMR,
+            annotations,
+            source_defined_at: F::SOURCE.map(Into::into),
+        })
+    }
+
+    fn get_from_row(row: &Row, index: impl RowIndex) -> Result<Self::RawType, Error> {
+        Ok(<Self as Field>::Type::from_primitive(row.get(index)?).into())
+    }
+
+    fn get_value(value: &Self::RawType) -> Option<Value> {
+        Some(<<Self as Field>::Type as Identical<Self::RawType>>::as_self_ref(value).as_primitive())
+    }
+
+    const DB_ANNOTATIONS: Option<Annotations> = {
+        // "Use" the CHECK constant to force the compiler to evaluate it.
+        let _check: usize = F::CHECK;
+        Some(F::ANNOTATIONS)
+    };
+}
+impl<T: Default, F: RawField<Kind = Pseudo, RawType = T>> AbstractField<Pseudo> for F {
+    fn get_from_row(_row: &Row, _index: impl RowIndex) -> Result<Self::RawType, Error> {
+        Ok(T::default())
     }
 }
 
@@ -153,20 +249,11 @@ pub fn as_imr<F: Field>() -> imr::Field {
 /// Id::Index ~ User::F.id.index()
 /// Id::Type::from_primitive ~ User::F.id.convert_primitive
 /// ```
-pub struct FieldProxy<Field, Path>(Field, PhantomData<Path>);
-impl<F: Field, P> FieldProxy<F, P> {
+pub struct FieldProxy<Field, Path>(PhantomData<(Field, Path)>);
+impl<F: RawField, P> FieldProxy<F, P> {
     /// Create a new instance
-    pub const fn new(field: F) -> Self {
-        // "Use" the CHECK constant to force the compiler to evaluate it.
-        let _check: usize = F::CHECK;
-        Self(field, PhantomData)
-    }
-
-    /// Convert this field's db primitive value into the actual rust value
-    ///
-    /// See [AsDbType::from_primitive] for more details.
-    pub fn convert_primitive(&self, primitive: <F::Type as AsDbType>::Primitive) -> F::Type {
-        F::Type::from_primitive(primitive)
+    pub const fn new() -> Self {
+        Self(PhantomData)
     }
 
     /// Get the field's database i.e. column name
@@ -178,10 +265,22 @@ impl<F: Field, P> FieldProxy<F, P> {
     pub const fn index(&self) -> usize {
         F::INDEX
     }
-
+}
+impl<F: Field, P> FieldProxy<F, P> {
     /// Get the field's annotations
     pub const fn annotations(&self) -> Annotations {
         F::ANNOTATIONS
+    }
+}
+impl<F: AbstractField, P> FieldProxy<F, P> {
+    /// Get an instance of the field's type from a row
+    pub fn get_from_row(&self, row: &Row, index: impl RowIndex) -> Result<F::RawType, Error> {
+        F::get_from_row(row, index)
+    }
+
+    /// Get a condition value from a reference
+    pub fn get_value<'a>(&self, value: &'a F::RawType) -> Option<Value<'a>> {
+        F::get_value(value)
     }
 }
 

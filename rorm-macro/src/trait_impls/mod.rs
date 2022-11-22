@@ -18,7 +18,7 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
                 use ::rorm::internal::as_db_type::AsDbType;
                 #(
                     if index == <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.index() {
-                        Some(self.#fields.as_primitive())
+                        <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.get_value(&self.#fields)
                     } else
                 )* {
                     None
@@ -39,9 +39,10 @@ pub fn try_from_row(
             fn from_row(row: ::rorm::row::Row) -> Result<Self, ::rorm::Error> {
                 Ok(#strct {
                     #(
-                        #fields: <#model as ::rorm::model::Model>::FIELDS.#fields.convert_primitive(
-                            row.get(<#model as ::rorm::model::Model>::FIELDS.#fields.name())?
-                        ),
+                        #fields: <#model as ::rorm::model::Model>::FIELDS.#fields.get_from_row(
+                            &row,
+                            <#model as ::rorm::model::Model>::FIELDS.#fields.name()
+                        )?,
                     )*
                     #(
                         #ignored: Default::default(),

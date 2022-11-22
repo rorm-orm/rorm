@@ -4,7 +4,7 @@ use rorm_db::row::DecodeOwned;
 
 use crate::annotations::Annotations;
 use crate::conditions::Value;
-use crate::internal::field::Field;
+use crate::internal::field::{Field, RawField};
 use crate::internal::hmr;
 use crate::model::{ForeignModel, Model};
 
@@ -117,7 +117,7 @@ impl<M: Model> AsDbType for ForeignModel<M> {
         match self {
             ForeignModel::Key(value) => value.as_primitive(),
             ForeignModel::Instance(model) => {
-                if let Some(value) = model.get(<M::Primary as Field>::INDEX) {
+                if let Some(value) = model.get(<M::Primary as RawField>::INDEX) {
                     value
                 } else {
                     unreachable!("A model should contain its primary key");
@@ -129,7 +129,7 @@ impl<M: Model> AsDbType for ForeignModel<M> {
     const IS_NULLABLE: bool = <<M::Primary as Field>::Type as AsDbType>::IS_NULLABLE;
 
     const IS_FOREIGN: Option<(&'static str, &'static str)> =
-        Some((M::TABLE, <M::Primary as Field>::NAME));
+        Some((M::TABLE, <M::Primary as RawField>::NAME));
 }
 
 /// Map a rust enum, whose variant don't hold any data, and can be stored as strings in a database.
