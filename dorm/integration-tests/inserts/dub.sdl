@@ -1,4 +1,0 @@
-name "inserts"
-
-dependency "dorm" path="../.."
-dependency "dorm:build-models" path="../.."
