@@ -162,7 +162,7 @@ impl Annotations {
         let choices = choices.map(|Choices(choices)| quote! { Choices(&[#(#choices),*]) });
         let default = default.map(|Default { variant, literal }| {
             let variant = Ident::new(variant, literal.span());
-            quote! {DefaultValue(::rorm::hmr::annotations::DefaultValueData::#variant(#literal))}
+            quote! {DefaultValue(::rorm::internal::hmr::annotations::DefaultValueData::#variant(#literal))}
         });
         let index = index.map(|Index(index)| {
             match index {
@@ -174,14 +174,14 @@ impl Annotations {
                     name,
                     priority: None,
                 }) => {
-                    quote! { Index(Some(::rorm::hmr::annotations::IndexData { name: #name, priority: None })) }
+                    quote! { Index(Some(::rorm::internal::hmr::annotations::IndexData { name: #name, priority: None })) }
                 }
 
                 Some(NamedIndex {
                     name,
                     priority: Some(priority),
                 }) => {
-                    quote! { Index(Some(::rorm::hmr::annotations::IndexData { name: #name, priority: Some(#priority) })) }
+                    quote! { Index(Some(::rorm::internal::hmr::annotations::IndexData { name: #name, priority: Some(#priority) })) }
                 }
             }
         });
@@ -192,7 +192,7 @@ impl Annotations {
         // Add absolute path
         let finalize = |token: Option<TokenStream>| {
             if let Some(token) = token {
-                quote! {Some(::rorm::hmr::annotations::#token)}
+                quote! {Some(::rorm::internal::hmr::annotations::#token)}
             } else {
                 quote! {None}
             }

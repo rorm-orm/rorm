@@ -62,7 +62,6 @@ pub use rorm_macro::*;
 use std::io::Write;
 
 // Reexports to be used by macro
-pub use rorm_declaration::hmr;
 pub use rorm_declaration::imr;
 
 // Reexported for use in parser structs of user

@@ -5,6 +5,7 @@
 
 pub mod as_db_type;
 pub mod field;
+pub mod hmr;
 pub mod query_context;
 pub mod relation_path;
 

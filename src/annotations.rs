@@ -1,6 +1,6 @@
 //! This module implements a struct to store annotations
 
-use rorm_declaration::hmr::annotations::{
+use crate::internal::hmr::annotations::{
     AsImr, AutoCreateTime, AutoIncrement, AutoUpdateTime, Choices, DefaultValue, Index, MaxLength,
     OnDelete, OnUpdate, PrimaryKey, Unique,
 };

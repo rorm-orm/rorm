@@ -1,11 +1,11 @@
 //! defines and implements the [AsDbType] trait.
 
 use rorm_db::row::DecodeOwned;
-use rorm_declaration::hmr;
 
 use crate::annotations::Annotations;
 use crate::conditions::Value;
 use crate::internal::field::Field;
+use crate::internal::hmr;
 use crate::model::{ForeignModel, Model};
 
 /// This trait maps rust types to database types

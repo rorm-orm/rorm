@@ -36,11 +36,11 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
 
             impl ::rorm::internal::as_db_type::AsDbType for #db_enum {
                 type Primitive = String;
-                type DbType = ::rorm::hmr::db_type::Choices;
+                type DbType = ::rorm::internal::hmr::db_type::Choices;
 
                 const IMPLICIT: Option<::rorm::annotations::Annotations> = Some({
                     let mut annos = ::rorm::annotations::Annotations::empty();
-                    annos.choices = Some(::rorm::hmr::annotations::Choices(CHOICES));
+                    annos.choices = Some(::rorm::internal::hmr::annotations::Choices(CHOICES));
                     annos
                 });
 
@@ -318,7 +318,7 @@ fn parse_field(
     let index = syn::LitInt::new(&index.to_string(), ident.span());
 
     let db_type = if annotations.choices.is_some() {
-        quote! { ::rorm::hmr::db_type::Choices }
+        quote! { ::rorm::internal::hmr::db_type::Choices }
     } else {
         quote! { <#value_type as ::rorm::internal::as_db_type::AsDbType>::DbType }
     };
@@ -343,7 +343,7 @@ fn parse_field(
             const INDEX: usize = #index;
             const NAME: &'static str = #db_name;
             const EXPLICIT_ANNOTATIONS: ::rorm::annotations::Annotations = #annotations;
-            const SOURCE: Option<::rorm::hmr::Source> = #source;
+            const SOURCE: Option<::rorm::internal::hmr::Source> = #source;
         }
     };
     Ok(StructField::Db(ParsedField {

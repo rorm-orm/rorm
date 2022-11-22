@@ -2,13 +2,14 @@
 
 use std::marker::PhantomData;
 
-use rorm_declaration::hmr::annotations::AsImr;
-use rorm_declaration::hmr::db_type::DbType;
-use rorm_declaration::hmr::Source;
+use rorm_db::{Error, Row};
 use rorm_declaration::imr;
 
 use crate::annotations::Annotations;
 use crate::internal::as_db_type::AsDbType;
+use crate::internal::hmr::annotations::AsImr;
+use crate::internal::hmr::db_type::{DbType, OptionDbType};
+use crate::internal::hmr::Source;
 use crate::internal::relation_path::{Path, PathStep};
 use crate::model::{ConstNew, Model};
 use crate::{const_panic, ForeignModel};

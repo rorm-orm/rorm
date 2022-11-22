@@ -6,16 +6,16 @@ use std::marker::PhantomData;
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use rorm_db::{conditional, value};
-use rorm_declaration::hmr::db_type::{
+
+use crate::internal::field::{Field, FieldProxy};
+use crate::internal::hmr::db_type::{
     Boolean, Choices, Date, DateTime, DbType, Double, Float, Int16, Int32, Int64, Time, VarBinary,
     VarChar,
 };
-
-use crate::internal::field::{Field, FieldProxy};
+use crate::internal::query_context::{QueryContext, QueryContextBuilder};
 use crate::internal::relation_path::Path;
 
 pub mod collections;
-use crate::internal::query_context::{QueryContext, QueryContextBuilder};
 pub use collections::{DynamicCollection, StaticCollection};
 
 /// A [Condition] in a box.
