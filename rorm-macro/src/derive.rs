@@ -38,8 +38,8 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
                 type Primitive = String;
                 type DbType = ::rorm::internal::hmr::db_type::Choices;
 
-                const IMPLICIT: Option<::rorm::annotations::Annotations> = Some({
-                    let mut annos = ::rorm::annotations::Annotations::empty();
+                const IMPLICIT: Option<::rorm::internal::hmr::annotations::Annotations> = Some({
+                    let mut annos = ::rorm::internal::hmr::annotations::Annotations::empty();
                     annos.choices = Some(::rorm::internal::hmr::annotations::Choices(CHOICES));
                     annos
                 });
@@ -343,7 +343,7 @@ fn parse_field(
             type Model = #model_type;
             const INDEX: usize = #index;
             const NAME: &'static str = #db_name;
-            const EXPLICIT_ANNOTATIONS: ::rorm::annotations::Annotations = #annotations;
+            const EXPLICIT_ANNOTATIONS: ::rorm::internal::hmr::annotations::Annotations = #annotations;
             const SOURCE: Option<::rorm::internal::hmr::Source> = #source;
         }
     };

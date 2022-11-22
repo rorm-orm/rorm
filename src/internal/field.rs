@@ -6,13 +6,12 @@ use rorm_db::row::RowIndex;
 use rorm_db::{Error, Row};
 use rorm_declaration::imr;
 
-use crate::annotations::Annotations;
 use crate::conditions::Value;
 use crate::const_panic;
 use crate::internal::as_db_type::AsDbType;
-use crate::internal::hmr::annotations::AsImr;
+use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::{DbType, OptionDbType};
-use crate::internal::hmr::Source;
+use crate::internal::hmr::{AsImr, Source};
 use crate::internal::relation_path::{Path, PathStep};
 use crate::model::{ConstNew, ForeignModel, Model};
 
@@ -183,7 +182,7 @@ impl<F: Field> AbstractField<Column> for F {
             name: F::NAME.to_string(),
             db_type: F::DbType::IMR,
             annotations,
-            source_defined_at: F::SOURCE.map(Into::into),
+            source_defined_at: F::SOURCE.map(|s| s.as_imr()),
         })
     }
 

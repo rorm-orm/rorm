@@ -2,10 +2,10 @@
 
 use rorm_db::row::DecodeOwned;
 
-use crate::annotations::Annotations;
 use crate::conditions::Value;
 use crate::internal::field::{Field, RawField};
 use crate::internal::hmr;
+use crate::internal::hmr::annotations::Annotations;
 use crate::model::{ForeignModel, Model};
 
 /// This trait maps rust types to database types

@@ -67,7 +67,6 @@ pub use rorm_declaration::imr;
 // Reexported for use in parser structs of user
 pub use rorm_declaration::config;
 
-pub mod annotations;
 /// Module implementing methods to [`Condition`](rorm_db::conditional::Condition)
 /// based on [`Field<T>`](crate::internal::field::Field)
 pub mod conditions;

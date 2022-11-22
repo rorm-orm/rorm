@@ -211,7 +211,7 @@ impl Annotations {
 
         // Combine into final struct
         quote! {
-            ::rorm::annotations::Annotations {
+            ::rorm::internal::hmr::annotations::Annotations {
                 auto_create_time: #auto_create_time,
                 auto_update_time: #auto_update_time,
                 auto_increment: #auto_increment,
