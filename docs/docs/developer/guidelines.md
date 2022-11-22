@@ -1,5 +1,0 @@
-# Style guidelines
-
-## D
-
-## Rust

@@ -1,5 +1,0 @@
-# Make migrations
-
-## Make migrations
-
-
