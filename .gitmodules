@@ -10,3 +10,6 @@
 [submodule "rorm/rorm-db"]
 	path = rorm/rorm-db
 	url = git@github.com:rorm-orm/rorm-db.git
+[submodule "rorm/rorm-lib"]
+	path = rorm/rorm-lib
+	url = git@github.com:rorm-orm/rorm-lib.git
