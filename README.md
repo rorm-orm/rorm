@@ -1,10 +1,10 @@
 # rorm
 
-![License](https://img.shields.io/github/license/myOmikron/drorm?label=License)
+![License](https://img.shields.io/github/license/rorm-orm/rorm?label=License)
 ![Crates.io](https://img.shields.io/crates/v/rorm?label=Crates.io)
 ![Docs](https://img.shields.io/docsrs/rorm?label=Docs)
-![Linux Build](https://img.shields.io/github/workflow/status/myOmikron/drorm/Build%20&%20Test%20for%20Linux?label=Linux%20Build)
-![Windows Build](https://img.shields.io/github/workflow/status/myOmikron/drorm/Build%20&%20Test%20for%20Windows?label=Windows%20Build)
+![Linux Build](https://img.shields.io/github/workflow/status/rorm-orm/rorm/Build%20&%20Test%20for%20Linux?label=Linux%20Build)
+![Windows Build](https://img.shields.io/github/workflow/status/rorm-orm/rorm/Build%20&%20Test%20for%20Windows?label=Windows%20Build)
 
 `rorm` is an ORM (Object Relation Mapper) written in Rust.
 
