@@ -8,12 +8,7 @@
 
 `rorm` is an ORM (Object Relation Mapper) written in Rust.
 
-It exposes a low level C binding for other languages.
-
-This repository also holds the implementation of rorm in the
-D programming language with the name `dorm`.
-
-`rorm` supports the following databases:
+The following databases are currently supported:
 - SQLite 3
 - MariaDB 10.5 - 10.9
 - Postgres 11 - 15
