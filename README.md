@@ -22,3 +22,7 @@ deployed documentation: [rorm.rs](https://rorm.rs).
 
 Before contribution, see the [development guidelines](https://rorm.rs/developer/guidelines).
 
+## Contact
+
+You want to discuss something? Get in touch with us in our Matrix
+room [#rorm](https://matrix.to/#/#rorm:matrix.hopfenspace.org).
