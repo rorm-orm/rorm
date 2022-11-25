@@ -515,6 +515,7 @@ impl<P: Patch> SelectPatch<P> {
                     table_name: Some(P::Model::TABLE),
                     column_name: x,
                     select_alias: None,
+                    aggregation: None,
                 })
                 .collect(),
         }
@@ -557,6 +558,7 @@ macro_rules! impl_select_tuple {
                             table_name: Some($P::ALIAS),
                             column_name: $F::NAME,
                             select_alias: None,
+                            aggregation: None,
                         }
                     ),+],
                 }
