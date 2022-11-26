@@ -1,9 +1,10 @@
 use darling::{Error, FromAttributes, FromMeta};
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::LitStr;
 
+use crate::annotations::FieldPath;
 use crate::utils::{get_source, to_db_name};
 use crate::{annotations, trait_impls};
 
@@ -140,6 +141,7 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
     let fields_vis = fields.iter().map(|field| &field.vis);
     let fields_type: Vec<_> = fields.iter().map(|field| &field.type_ident).collect();
     let fields_definition = fields.iter().map(|field| &field.definition);
+    let fields_index = (0..fields.len()).map(proc_macro2::Literal::usize_unsuffixed);
 
     errors.finish()?;
     Ok(quote! {
@@ -177,6 +179,12 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
                 }
             }
         }
+
+        #(
+            impl ::rorm::model::GetField<{ #fields_index }> for #model {
+                type Field = #fields_type;
+            }
+        )*
 
         #[allow(non_upper_case_globals)]
         const #compile_check: () = {
@@ -283,7 +291,7 @@ enum StructField {
 fn parse_field(
     index: usize,
     field: syn::Field,
-    model_type: &Ident,
+    model: &Ident,
     model_vis: &syn::Visibility,
 ) -> darling::Result<StructField> {
     let mut errors = Error::accumulator();
@@ -313,12 +321,18 @@ fn parse_field(
 
     errors.finish()?;
 
-    let value_type = field.ty;
+    let raw_type = field.ty;
 
     let index = syn::LitInt::new(&index.to_string(), ident.span());
 
     let db_type = if annotations.choices.is_some() {
         quote! { ::rorm::internal::hmr::db_type::Choices }
+    } else {
+        quote! { () }
+    };
+
+    let related_field = if let Some(FieldPath { model, field, span }) = annotations.field.take() {
+        quote_spanned! {span=> <#model as ::rorm::model::GetField<{<#model as ::rorm::model::Model>::F.#field.index()}>>::Field}
     } else {
         quote! { () }
     };
@@ -332,15 +346,16 @@ fn parse_field(
 
     let source = get_source(&ident);
 
-    let type_ident = format_ident!("__{}_{}", model_type, ident);
+    let type_ident = format_ident!("__{}_{}", model, ident);
     let annotations = annotations.into_tokens();
     let definition = quote! {
-        #vis struct #type_ident;
+        #model_vis struct #type_ident;
         impl ::rorm::internal::field::RawField for #type_ident {
-            type Kind = <#value_type as ::rorm::internal::field::FieldType>::Kind;
-            type RawType = #value_type;
+            type Kind = <#raw_type as ::rorm::internal::field::FieldType>::Kind;
+            type RawType = #raw_type;
             type ExplicitDbType = #db_type;
-            type Model = #model_type;
+            type RelatedField = #related_field;
+            type Model = #model;
             const INDEX: usize = #index;
             const NAME: &'static str = #db_name;
             const EXPLICIT_ANNOTATIONS: ::rorm::internal::hmr::annotations::Annotations = #annotations;

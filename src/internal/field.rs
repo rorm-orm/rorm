@@ -13,7 +13,7 @@ use crate::internal::hmr::db_type::{DbType, OptionDbType};
 use crate::internal::hmr::{AsImr, Source};
 use crate::internal::relation_path::{Path, PathStep};
 use crate::model::{ConstNew, ForeignModel, Model};
-use crate::{const_panic, sealed};
+use crate::{const_panic, declare_type_option, sealed};
 
 /// Little hack to constraint [RawField::RawType] to be the same as [Field::Type] while adding additional constraints.
 ///
@@ -75,6 +75,9 @@ pub trait RawField: 'static {
     /// An optionally set explicit db type
     type ExplicitDbType: OptionDbType;
 
+    /// An optionally set related field
+    type RelatedField: OptionRawField;
+
     /// The model this field is part of
     type Model: Model;
 
@@ -90,6 +93,8 @@ pub trait RawField: 'static {
     /// Optional definition of the location of field in the source code
     const SOURCE: Option<Source>;
 }
+
+declare_type_option!(OptionRawField, RawField);
 
 /// A [RawField] of kind [Column]
 pub trait Field: RawField<Kind = Column> {

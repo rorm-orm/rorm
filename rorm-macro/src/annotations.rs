@@ -1,8 +1,7 @@
 use darling::{Error, FromAttributes, FromMeta};
-
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use syn::{Lit, LitInt, LitStr, NestedMeta};
+use syn::{Lit, LitInt, LitStr, NestedMeta, Path};
 
 #[derive(FromAttributes, Debug, Default)]
 #[darling(attributes(rorm), default)]
@@ -17,6 +16,9 @@ pub struct Annotations {
     pub on_update: Option<OnAction>,
     pub rename: Option<LitStr>,
     pub ignore: bool,
+
+    /// Parse the `#[rorm(field = "<model_path>::F.<field_name>")]` annotation.
+    pub field: Option<FieldPath>,
 
     /// Parse the `#[rorm(default = ..)]` annotation.
     ///
@@ -127,6 +129,39 @@ pub struct NamedIndex {
     priority: Option<LitInt>,
 }
 
+#[derive(Debug)]
+pub struct FieldPath {
+    pub model: Path,
+    pub field: Ident,
+    pub span: Span,
+}
+impl FromMeta for FieldPath {
+    fn from_value(value: &Lit) -> darling::Result<Self> {
+        let Lit::Str(value) = value else {
+            return Err(Error::unexpected_lit_type(value).with_span(value));
+        };
+        let string = value.value();
+
+        let Some((model, field)) = string
+            .split_once("::F.")
+            .or_else(|| string.split_once("::FIELDS.")) else {
+            return Err(Error::custom(
+                "Not a valid field, should be something like \"<model>::F.<field>\".",
+            )
+                .with_span(value))
+        };
+
+        let model = Path::from_string(model).map_err(|e| e.with_span(value))?;
+        let field = Ident::from_string(field).map_err(|e| e.with_span(value))?;
+
+        Ok(FieldPath {
+            model,
+            field,
+            span: value.span(),
+        })
+    }
+}
+
 impl Annotations {
     pub fn into_tokens(mut self) -> TokenStream {
         if self.id {
@@ -144,8 +179,9 @@ impl Annotations {
             id: _, // Handled above
             on_delete,
             on_update,
-            rename: _, // Not a db annotation
-            ignore: _, // Not a db annotation
+            rename: _, //
+            ignore: _, // Not db annotations
+            field: _,  //
             default,
             max_length,
             choices,

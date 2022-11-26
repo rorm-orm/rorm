@@ -9,6 +9,30 @@ pub mod hmr;
 pub mod query_context;
 pub mod relation_path;
 
+/// Declare a type level equivalent of `Option<T>` for a concrete `T`
+#[doc(hidden)]
+#[macro_export]
+macro_rules! declare_type_option {
+    ($option:ident, $trait:ident) => {
+        /// A type-level [Option],
+        #[doc = concat!("ether some [", stringify!($trait) ,"] or none i.e. `()`")]
+        pub trait $option {
+            $crate::sealed!();
+
+            /// [Option::unwrap_or]
+            ///
+            /// `Self`, if it is "some" i.e. not `()` and `Default` otherwise
+            type UnwrapOr<Default: $trait>: $trait;
+        }
+        impl<T: $trait> $option for T {
+            type UnwrapOr<Default: $trait> = Self;
+        }
+        impl $option for () {
+            type UnwrapOr<Default: $trait> = Default;
+        }
+    };
+}
+
 #[doc(hidden)]
 #[macro_export]
 macro_rules! const_panic {

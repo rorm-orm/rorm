@@ -1,7 +1,7 @@
 //! A type level version of [`imr::DbType`](crate::imr::DbType) to be used in generic type bound checks
 
 use super::AsImr;
-use crate::{imr, sealed};
+use crate::{declare_type_option, imr, sealed};
 
 /// Trait to associate the type-level db types with their runtime db types
 pub trait DbType: 'static {
@@ -62,18 +62,4 @@ impl_db_types!(
     Choices,
 );
 
-/// A type-level [Option], ether some [DbType] or none i.e. `()`
-pub trait OptionDbType {
-    sealed!();
-
-    /// [Option::unwrap_or]
-    ///
-    /// `Self`, if it is "some" i.e. not `()` and `Default` otherwise
-    type UnwrapOr<Default: DbType>: DbType;
-}
-impl<T: DbType> OptionDbType for T {
-    type UnwrapOr<Default: DbType> = Self;
-}
-impl OptionDbType for () {
-    type UnwrapOr<Default: DbType> = Default;
-}
+declare_type_option!(OptionDbType, DbType);

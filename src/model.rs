@@ -4,7 +4,6 @@ use crate::internal::relation_path::Path;
 use rorm_db::row::FromRow;
 use rorm_declaration::imr;
 
-
 /// Trait implemented on Patches i.e. a subset of a model's fields.
 ///
 /// Implemented by [`derive(Patch)`] as well as [`derive(Model)`].
@@ -90,6 +89,12 @@ pub trait Model: Patch<Model = Self> {
     ///
     /// [`write_models`]: crate::write_models
     fn get_imr() -> imr::Model;
+}
+
+/// Expose a models' fields on the type level using indexes
+pub trait GetField<const INDEX: usize>: Model {
+    /// The model's field at `INDEX`
+    type Field: RawField<Model = Self>;
 }
 
 /// exposes a `NEW` constant, which act like [Default::default] but constant.
