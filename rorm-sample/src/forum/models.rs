@@ -41,8 +41,10 @@ pub struct Comment {
     #[rorm(auto_create_time)]
     pub created: NaiveDateTime,
 
+    #[rorm(on_delete = "Cascade")]
     pub user: ForeignModel<User>,
 
+    #[rorm(on_delete = "Cascade")]
     pub thread: ForeignModel<Thread>,
 }
 
@@ -58,4 +60,7 @@ pub struct Thread {
 
     #[rorm(ignore)]
     pub fred: Option<std::thread::Thread>,
+
+    #[rorm(field = "Comment::F.thread")]
+    pub comments: rorm::internal::field::back_ref::BackRef<Comment>,
 }

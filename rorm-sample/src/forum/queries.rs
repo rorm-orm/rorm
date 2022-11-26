@@ -1,4 +1,5 @@
 use super::models::Comment;
+use crate::forum::models::Thread;
 use chrono::NaiveDateTime;
 use rorm::Model;
 use rorm::{and, query, Database};
@@ -43,4 +44,15 @@ pub async fn get_support_messages(db: &Database) -> Vec<Comment> {
         .all()
         .await
         .unwrap()
+}
+
+/// Get a single thread and populate its comments
+pub async fn get_thread_back_refs(db: &Database, id: i32) -> Thread {
+    let mut thread = query!(db, Thread)
+        .condition(Thread::F.id.equals(id))
+        .one()
+        .await
+        .unwrap();
+    Thread::F.comments.populate(db, &mut thread).await.unwrap();
+    thread
 }
