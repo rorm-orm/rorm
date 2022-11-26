@@ -1,20 +1,31 @@
 //! defines and implements the [AsDbType] trait.
 
 use rorm_db::row::DecodeOwned;
+use rorm_declaration::imr;
 
 use crate::conditions::Value;
+use crate::internal::field::Field;
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
 
 /// This trait maps rust types to database types
 ///
 /// I.e. it specifies which datatypes are allowed on model's fields.
+///
+/// The mysterious generic `F` which appears in some places, is a workaround.
+/// [ForeignModel] requires the [Field] it is the type of, in order to access its [RelatedField].
+/// Instead of creating a whole new process to define a [Field] which has a [RawType] of [ForeignModel],
+/// the places which require the [RelatedField] forward the [Field] via this generic `F`.
+///
+/// [RawType]: crate::internal::field::RawField::RawType
+/// [ForeignModel]: crate::internal::field::foreign_model::ForeignModel
+/// [RelatedField]: crate::internal::field::RawField::RelatedField
 pub trait AsDbType {
     /// A type which can be retrieved from the db and then converted into Self.
     type Primitive: DecodeOwned;
 
     /// The database type as defined in the Intermediate Model Representation
-    type DbType: hmr::db_type::DbType;
+    type DbType<F: Field>: hmr::db_type::DbType;
 
     /// Annotations implied by this type
     const IMPLICIT: Option<Annotations> = None;
@@ -26,19 +37,23 @@ pub trait AsDbType {
     fn from_primitive(primitive: Self::Primitive) -> Self;
 
     /// Convert a reference to `Self` into the primitive [`Value`] used by our db implementation.
-    fn as_primitive(&self) -> Value;
+    fn as_primitive<F: Field>(&self) -> Value;
 
     /// Whether this type supports null.
     ///
     /// This will be mapped to NotNull in the imr.
     const IS_NULLABLE: bool = false;
 
-    /// Whether this type is a foreign key.
+    /// Add type specific imr annotations.
     ///
-    /// This will be mapped to ForeignKey in the imr.
+    /// Currently only used by [ForeignModel](super::foreign_model::ForeignModel).
+    fn custom_annotations<F: Field>(_annotations: &mut Vec<imr::Annotation>) {}
+
+    /// Whether this type is a [ForeignModel](super::foreign_model::ForeignModel).
     ///
-    /// The two strings are table name and column name
-    const IS_FOREIGN: Option<(&'static str, &'static str)> = None;
+    /// This is only required when creating the linters annotations struct.
+    /// [custom_annotations](AsDbType::custom_annotations) is used when generating the imr annotations.
+    const IS_FOREIGN: bool = false;
 }
 
 macro_rules! impl_as_db_type {
@@ -46,7 +61,7 @@ macro_rules! impl_as_db_type {
         impl AsDbType for $type {
             type Primitive = Self;
 
-            type DbType = hmr::db_type::$db_type;
+            type DbType<F: Field> = hmr::db_type::$db_type;
 
             #[inline(always)]
             fn from_primitive(primitive: Self::Primitive) -> Self {
@@ -58,13 +73,13 @@ macro_rules! impl_as_db_type {
     };
     (impl_as_primitive, $type:ty, $db_type:ident, $value_variant:ident) => {
         #[inline(always)]
-        fn as_primitive(&self) -> Value {
+        fn as_primitive<F: Field>(&self) -> Value {
             Value::$value_variant(*self)
         }
     };
     (impl_as_primitive, $type:ty, $db_type:ident, $value_variant:ident using $method:ident) => {
         #[inline(always)]
-        fn as_primitive(&self) -> Value {
+        fn as_primitive<F: Field>(&self) -> Value {
             Value::$value_variant(self.$method())
         }
     };
@@ -83,7 +98,7 @@ impl_as_db_type!(String, VarChar, String using as_str);
 
 impl<T: AsDbType> AsDbType for Option<T> {
     type Primitive = Option<T::Primitive>;
-    type DbType = T::DbType;
+    type DbType<F: Field> = T::DbType<F>;
 
     const IMPLICIT: Option<Annotations> = T::IMPLICIT;
 
@@ -91,25 +106,18 @@ impl<T: AsDbType> AsDbType for Option<T> {
         primitive.map(T::from_primitive)
     }
 
-    fn as_primitive(&self) -> Value {
+    fn as_primitive<F: Field>(&self) -> Value {
         match self {
-            Some(value) => value.as_primitive(),
+            Some(value) => value.as_primitive::<F>(),
             None => Value::Null,
         }
     }
 
     const IS_NULLABLE: bool = true;
-}
 
-/// Map a rust enum, whose variant don't hold any data, and can be stored as strings in a database.
-///
-/// Use the derive macro to implement a db enum:
-/// ```rust
-/// #[derive(Copy, Clone, rorm::DbEnum)]
-/// pub enum Gender {
-///     Male,
-///     Female,
-///     Other,
-/// }
-/// ```
-pub trait DbEnum: AsDbType<DbType = hmr::db_type::Choices, Primitive = String> {}
+    fn custom_annotations<F: Field>(annotations: &mut Vec<imr::Annotation>) {
+        T::custom_annotations::<F>(annotations);
+    }
+
+    const IS_FOREIGN: bool = T::IS_FOREIGN;
+}

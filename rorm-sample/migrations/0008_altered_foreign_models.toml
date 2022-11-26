@@ -1,0 +1,55 @@
+[Migration]
+Hash = '7417045264120078121'
+Initial = false
+Dependency = 7
+Replaces = []
+
+[[Migration.Operations]]
+Type = 'DeleteField'
+Model = 'comment'
+Name = 'user'
+
+[[Migration.Operations]]
+Type = 'CreateField'
+Model = 'comment'
+
+[Migration.Operations.Field]
+Name = 'user'
+Type = 'varchar'
+
+[[Migration.Operations.Field.Annotations]]
+Type = 'not_null'
+
+[[Migration.Operations.Field.Annotations]]
+Type = 'foreign_key'
+
+[Migration.Operations.Field.Annotations.Value]
+TableName = 'account'
+ColumnName = 'username'
+OnDelete = 'Cascade'
+OnUpdate = 'Restrict'
+
+[[Migration.Operations]]
+Type = 'DeleteField'
+Model = 'comment'
+Name = 'thread'
+
+[[Migration.Operations]]
+Type = 'CreateField'
+Model = 'comment'
+
+[Migration.Operations.Field]
+Name = 'thread'
+Type = 'int32'
+
+[[Migration.Operations.Field.Annotations]]
+Type = 'not_null'
+
+[[Migration.Operations.Field.Annotations]]
+Type = 'foreign_key'
+
+[Migration.Operations.Field.Annotations.Value]
+TableName = 'thread'
+ColumnName = 'id'
+OnDelete = 'Cascade'
+OnUpdate = 'Restrict'

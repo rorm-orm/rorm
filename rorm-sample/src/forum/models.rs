@@ -42,7 +42,8 @@ pub struct Comment {
     pub created: NaiveDateTime,
 
     #[rorm(on_delete = "Cascade")]
-    pub user: ForeignModel<User>,
+    #[rorm(field = "User::F.username")]
+    pub user: ForeignModel<User, String>,
 
     #[rorm(on_delete = "Cascade")]
     pub thread: ForeignModel<Thread>,

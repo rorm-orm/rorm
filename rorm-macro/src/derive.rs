@@ -37,7 +37,7 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
 
             impl ::rorm::internal::field::as_db_type::AsDbType for #db_enum {
                 type Primitive = String;
-                type DbType = ::rorm::internal::hmr::db_type::Choices;
+                type DbType<F: ::rorm::internal::field::Field> = ::rorm::internal::hmr::db_type::Choices;
 
                 const IMPLICIT: Option<::rorm::internal::hmr::annotations::Annotations> = Some({
                     let mut annos = ::rorm::internal::hmr::annotations::Annotations::empty();
@@ -53,12 +53,10 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
                     }
                 }
 
-                fn as_primitive(&self) -> ::rorm::conditions::Value {
+                fn as_primitive<F>(&self) -> ::rorm::conditions::Value {
                     ::rorm::conditions::Value::String(CHOICES[*self as usize])
                 }
             }
-
-            impl ::rorm::internal::field::as_db_type::DbEnum for #db_enum {}
         };
     })
 }

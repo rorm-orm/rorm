@@ -1,5 +1,5 @@
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
-use crate::internal::field::{AbstractField, Field, RawField};
+use crate::internal::field::{Field, RawField};
 use crate::internal::relation_path::Path;
 use rorm_db::row::FromRow;
 use rorm_declaration::imr;
@@ -98,7 +98,7 @@ pub trait GetField<const INDEX: usize>: Model {
 }
 
 /// Update a model's field based on the model's primary key
-pub trait UpdateField<F: AbstractField<Model = Self>>: Model {
+pub trait UpdateField<F: RawField<Model = Self>>: Model {
     /// Update a model's field based on the model's primary key
     fn update_field<'m, T>(
         &'m mut self,

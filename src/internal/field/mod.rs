@@ -12,11 +12,12 @@ use crate::internal::hmr::db_type::{DbType, OptionDbType};
 use crate::internal::hmr::{AsImr, Source};
 use crate::internal::relation_path::{Path, PathStep};
 use crate::model::{ConstNew, Model};
-use crate::{const_panic, declare_type_option, sealed, ForeignModel};
+use crate::{const_panic, declare_type_option, sealed};
 
 pub mod as_db_type;
 pub mod back_ref;
 pub mod foreign_model;
+use crate::internal::field::foreign_model::ForeignModelByField;
 use as_db_type::AsDbType;
 
 /// Little hack to constraint [RawField::RawType] to be the same as [Field::Type] while adding additional constraints.
@@ -80,7 +81,7 @@ pub trait RawField: 'static {
     type ExplicitDbType: OptionDbType;
 
     /// An optionally set related field
-    type RelatedField: OptionRawField;
+    type RelatedField: OptionField;
 
     /// The model this field is part of
     type Model: Model;
@@ -98,7 +99,7 @@ pub trait RawField: 'static {
     const SOURCE: Option<Source>;
 }
 
-declare_type_option!(OptionRawField, RawField);
+declare_type_option!(OptionField, Field);
 
 /// A [RawField] of kind [Column]
 pub trait Field: RawField<Kind = Column> {
@@ -141,7 +142,7 @@ pub trait Field: RawField<Kind = Column> {
         // Annotations
         let mut annotations = Self::ANNOTATIONS.as_lint();
         annotations.not_null = !Self::Type::IS_NULLABLE && !Self::ANNOTATIONS.implicit_not_null();
-        annotations.foreign_key = Self::Type::IS_FOREIGN.is_some();
+        annotations.foreign_key = Self::Type::IS_FOREIGN;
         if let Err(err) = annotations.check() {
             const_panic!(&[
                 Self::Model::TABLE,
@@ -156,7 +157,7 @@ pub trait Field: RawField<Kind = Column> {
 }
 impl<T: AsDbType, F: RawField<RawType = T, Kind = Column>> Field for F {
     type Type = T;
-    type DbType = <F::ExplicitDbType as OptionDbType>::UnwrapOr<<T as AsDbType>::DbType>;
+    type DbType = <F::ExplicitDbType as OptionDbType>::UnwrapOr<<T as AsDbType>::DbType<F>>;
 }
 
 /// A common interface unifying the [RawFields](RawField) of various [FieldKinds](FieldKind)
@@ -190,14 +191,7 @@ impl<F: Field> AbstractField<Column> for F {
         if !F::Type::IS_NULLABLE && !F::ANNOTATIONS.implicit_not_null() {
             annotations.push(imr::Annotation::NotNull);
         }
-        if let Some((table, column)) = F::Type::IS_FOREIGN {
-            annotations.push(imr::Annotation::ForeignKey(imr::ForeignKey {
-                table_name: table.to_string(),
-                column_name: column.to_string(),
-                on_delete: F::ANNOTATIONS.on_delete.unwrap_or_default(),
-                on_update: F::ANNOTATIONS.on_update.unwrap_or_default(),
-            }))
-        }
+        F::Type::custom_annotations::<F>(&mut annotations);
         Some(imr::Field {
             name: F::NAME.to_string(),
             db_type: F::DbType::IMR,
@@ -211,7 +205,10 @@ impl<F: Field> AbstractField<Column> for F {
     }
 
     fn get_value(value: &Self::RawType) -> Option<Value> {
-        Some(<<Self as Field>::Type as Identical<Self::RawType>>::as_self_ref(value).as_primitive())
+        Some(
+            <<Self as Field>::Type as Identical<Self::RawType>>::as_self_ref(value)
+                .as_primitive::<F>(),
+        )
     }
 
     const DB_NAME: Option<&'static str> = Some(F::NAME);
@@ -308,7 +305,7 @@ impl<F: AbstractField, P> FieldProxy<F, P> {
     }
 }
 
-impl<M: Model, F: Field<Type = ForeignModel<M>>, P: Path> FieldProxy<F, P> {
+impl<T, M: Model, F: Field<Type = ForeignModelByField<M, T>>, P: Path> FieldProxy<F, P> {
     /// Get the foreign model's fields keeping track where you came from
     pub const fn fields(&self) -> M::Fields<PathStep<F, P>> {
         M::Fields::NEW

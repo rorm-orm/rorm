@@ -5,10 +5,11 @@ use std::collections::HashMap;
 use ouroboros::self_referencing;
 
 use crate::conditional::{BinaryCondition, Condition};
+use crate::internal::field::foreign_model::ForeignModelByField;
 use crate::internal::field::{Field, FieldProxy, RawField};
 use crate::internal::relation_path::{JoinAlias, Path, PathStep};
 use crate::value::Value;
-use crate::{ForeignModel, Model};
+use crate::Model;
 
 /// A [Path]'s hashable representation
 type PathId = std::any::TypeId;
@@ -31,10 +32,10 @@ impl QueryContextBuilder {
     /// Recursively add a relation path to the builder
     ///
     /// The generic parameters are the parameters defining the outer most [PathStep].
-    pub(crate) fn add_relation_path<M, F, P>(&mut self)
+    pub(crate) fn add_relation_path<M, F, P, T>(&mut self)
     where
         M: Model,
-        F: Field<Type = ForeignModel<M>>,
+        F: Field<Type = ForeignModelByField<M, T>>,
         P: Path,
     {
         let new_table = PathId::of::<PathStep<F, P>>();

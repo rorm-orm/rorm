@@ -2,9 +2,10 @@
 
 use std::marker::PhantomData;
 
+use crate::internal::field::foreign_model::ForeignModelByField;
 use crate::internal::field::Field;
 use crate::internal::query_context::QueryContextBuilder;
-use crate::{const_concat, sealed, ForeignModel, Model};
+use crate::{const_concat, sealed, Model};
 
 /// Trait to store a relation path in generics
 ///
@@ -46,16 +47,16 @@ impl<M: Model> Path for M {
 #[derive(Copy, Clone)]
 pub struct PathStep<F, P: Path>(PhantomData<(F, P)>);
 
-impl<M, F, P> Path for PathStep<F, P>
+impl<T, M, F, P> Path for PathStep<F, P>
 where
     M: Model,
-    F: Field<Type = ForeignModel<M>> + 'static,
+    F: Field<Type = ForeignModelByField<M, T>> + 'static,
     P: Path,
 {
     type Origin = P::Origin;
 
     fn add_to_join_builder(builder: &mut QueryContextBuilder) {
-        builder.add_relation_path::<M, F, P>()
+        builder.add_relation_path::<M, F, P, T>()
     }
 }
 
