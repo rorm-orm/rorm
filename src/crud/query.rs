@@ -511,6 +511,7 @@ impl<P: Patch> SelectPatch<P> {
             patch: PhantomData,
             columns: P::COLUMNS
                 .iter()
+                .flatten()
                 .map(|x| ColumnSelector {
                     table_name: Some(P::Model::TABLE),
                     column_name: x,

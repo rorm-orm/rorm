@@ -307,7 +307,7 @@ impl<'a, F: Field, P: Path> IntoSingleValue<'a, F::DbType> for &'static FieldPro
         Column::new()
     }
     fn into_value(self) -> value::Value<'a> {
-        value::Value::Ident(self.name())
+        value::Value::Ident(F::NAME)
     }
 }
 

@@ -6,7 +6,7 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
         impl ::rorm::model::Patch for #strct {
             type Model = #model;
 
-            const COLUMNS: &'static [&'static str] = &[#(
+            const COLUMNS: &'static [Option<&'static str>] = &[#(
                 <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.name(),
             )*];
 
@@ -39,10 +39,7 @@ pub fn try_from_row(
             fn from_row(row: ::rorm::row::Row) -> Result<Self, ::rorm::Error> {
                 Ok(#strct {
                     #(
-                        #fields: <#model as ::rorm::model::Model>::FIELDS.#fields.get_from_row(
-                            &row,
-                            <#model as ::rorm::model::Model>::FIELDS.#fields.name()
-                        )?,
+                        #fields: <#model as ::rorm::model::Model>::FIELDS.#fields.get_from_row(&row, Option::<usize>::None)?,
                     )*
                     #(
                         #ignored: Default::default(),

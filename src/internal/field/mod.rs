@@ -177,6 +177,9 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
         None
     }
 
+    /// The column name which stores this field
+    const DB_NAME: Option<&'static str> = None;
+
     /// The list of annotations, if this field is relevant to the database.
     const DB_ANNOTATIONS: Option<Annotations> = None;
 }
@@ -209,6 +212,8 @@ impl<F: Field> AbstractField<Column> for F {
     fn get_value(value: &Self::RawType) -> Option<Value> {
         Some(<<Self as Field>::Type as Identical<Self::RawType>>::as_self_ref(value).as_primitive())
     }
+
+    const DB_NAME: Option<&'static str> = Some(F::NAME);
 
     const DB_ANNOTATIONS: Option<Annotations> = {
         // "Use" the CHECK constant to force the compiler to evaluate it.
@@ -271,11 +276,6 @@ impl<F: RawField, P> FieldProxy<F, P> {
         Self(PhantomData)
     }
 
-    /// Get the field's database i.e. column name
-    pub const fn name(&self) -> &'static str {
-        F::NAME
-    }
-
     /// Get the field's position in the Model
     pub const fn index(&self) -> usize {
         F::INDEX
@@ -288,9 +288,22 @@ impl<F: Field, P> FieldProxy<F, P> {
     }
 }
 impl<F: AbstractField, P> FieldProxy<F, P> {
+    /// Get the field's database i.e. column name
+    pub const fn name(&self) -> Option<&'static str> {
+        F::DB_NAME
+    }
+
     /// Get an instance of the field's type from a row
-    pub fn get_from_row(&self, row: &Row, index: impl RowIndex) -> Result<F::RawType, Error> {
-        F::get_from_row(row, index)
+    pub fn get_from_row(
+        &self,
+        row: &Row,
+        index: Option<impl RowIndex>,
+    ) -> Result<F::RawType, Error> {
+        if let Some(index) = index {
+            F::get_from_row(row, index)
+        } else {
+            F::get_from_row(row, F::NAME)
+        }
     }
 
     /// Get a condition value from a reference

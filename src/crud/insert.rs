@@ -50,10 +50,11 @@ impl<'db: 'rf, 'rf, P: Patch, T: TransactionMarker<'rf, 'db>> InsertBuilder<'db,
     /// Insert a single patch into the db
     pub async fn single(self, patch: &'rf P) -> Result<(), Error> {
         let values = Vec::from_iter(iter_columns(patch).map(Value::into_sql));
+        let columns = Vec::from_iter(P::COLUMNS.iter().flatten().cloned());
         self.db
             .insert(
                 P::Model::TABLE,
-                P::COLUMNS,
+                &columns,
                 &values,
                 self.transaction.into_option(),
             )
@@ -67,10 +68,11 @@ impl<'db: 'rf, 'rf, P: Patch, T: TransactionMarker<'rf, 'db>> InsertBuilder<'db,
             values.push(Vec::from_iter(iter_columns(patch).map(Value::into_sql)));
         }
         let values_slices = Vec::from_iter(values.iter().map(Vec::as_slice));
+        let columns = Vec::from_iter(P::COLUMNS.iter().flatten().cloned());
         self.db
             .insert_bulk(
                 P::Model::TABLE,
-                P::COLUMNS,
+                &columns,
                 &values_slices,
                 self.transaction.into_option(),
             )
