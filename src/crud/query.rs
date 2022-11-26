@@ -10,7 +10,7 @@ use rorm_db::transaction::Transaction;
 use rorm_db::{error::Error, row::Row, Database};
 
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
-use crate::internal::as_db_type::AsDbType;
+use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::{Field, FieldProxy};
 use crate::internal::query_context::{QueryContext, QueryContextBuilder};
 use crate::internal::relation_path::Path;

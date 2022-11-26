@@ -54,8 +54,9 @@ compile_error!(
 pub use linkme;
 
 pub use crud::query::QueryBuilder;
-pub use internal::as_db_type::DbEnum;
-pub use model::{ForeignModel, Model, Patch};
+pub use internal::field::as_db_type::DbEnum;
+pub use internal::field::foreign_model::ForeignModel;
+pub use model::{Model, Patch};
 pub use rorm_db::*;
 pub use rorm_macro::*;
 

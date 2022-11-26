@@ -104,25 +104,3 @@ pub trait ConstNew {
     /// A new or default instance
     const NEW: Self;
 }
-
-/// Stores a link to another model in a field.
-///
-/// In database language, this is a many to one relation.
-pub enum ForeignModel<M: Model> {
-    /// The other model's primary key which can be used to query it later.
-    Key(<M::Primary as Field>::Type),
-    /// The other model's queried instance.
-    Instance(Box<M>),
-}
-impl<M: Model> Clone for ForeignModel<M>
-where
-    M: Clone,
-    <M::Primary as Field>::Type: Clone,
-{
-    fn clone(&self) -> Self {
-        match self {
-            ForeignModel::Key(primary) => ForeignModel::Key(primary.clone()),
-            ForeignModel::Instance(model) => ForeignModel::Instance(model.clone()),
-        }
-    }
-}

@@ -15,7 +15,7 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
             )*];
 
             fn get(&self, index: usize) -> Option<::rorm::conditions::Value> {
-                use ::rorm::internal::as_db_type::AsDbType;
+                use ::rorm::internal::field::as_db_type::AsDbType;
                 #(
                     if index == <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.index() {
                         <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.get_value(&self.#fields)

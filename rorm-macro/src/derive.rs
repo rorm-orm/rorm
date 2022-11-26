@@ -35,7 +35,7 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
                 #(stringify!(#identifiers)),*
             ];
 
-            impl ::rorm::internal::as_db_type::AsDbType for #db_enum {
+            impl ::rorm::internal::field::as_db_type::AsDbType for #db_enum {
                 type Primitive = String;
                 type DbType = ::rorm::internal::hmr::db_type::Choices;
 
@@ -58,7 +58,7 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
                 }
             }
 
-            impl ::rorm::internal::as_db_type::DbEnum for #db_enum {}
+            impl ::rorm::internal::field::as_db_type::DbEnum for #db_enum {}
         };
     })
 }

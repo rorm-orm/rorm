@@ -7,13 +7,16 @@ use rorm_db::{Error, Row};
 use rorm_declaration::imr;
 
 use crate::conditions::Value;
-use crate::internal::as_db_type::AsDbType;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::{DbType, OptionDbType};
 use crate::internal::hmr::{AsImr, Source};
 use crate::internal::relation_path::{Path, PathStep};
-use crate::model::{ConstNew, ForeignModel, Model};
-use crate::{const_panic, declare_type_option, sealed};
+use crate::model::{ConstNew, Model};
+use crate::{const_panic, declare_type_option, sealed, ForeignModel};
+
+pub mod as_db_type;
+pub mod foreign_model;
+use as_db_type::AsDbType;
 
 /// Little hack to constraint [RawField::RawType] to be the same as [Field::Type] while adding additional constraints.
 ///
