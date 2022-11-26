@@ -1,5 +1,5 @@
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
-use crate::internal::field::{Field, RawField};
+use crate::internal::field::{AbstractField, Field, RawField};
 use crate::internal::relation_path::Path;
 use rorm_db::row::FromRow;
 use rorm_declaration::imr;
@@ -95,6 +95,15 @@ pub trait Model: Patch<Model = Self> {
 pub trait GetField<const INDEX: usize>: Model {
     /// The model's field at `INDEX`
     type Field: RawField<Model = Self>;
+}
+
+/// Update a model's field based on the model's primary key
+pub trait UpdateField<F: AbstractField<Model = Self>>: Model {
+    /// Update a model's field based on the model's primary key
+    fn update_field<'m, T>(
+        &'m mut self,
+        update: impl FnOnce(&'m <<Self as Model>::Primary as Field>::Type, &'m mut F::RawType) -> T,
+    ) -> T;
 }
 
 /// exposes a `NEW` constant, which act like [Default::default] but constant.

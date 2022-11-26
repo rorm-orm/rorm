@@ -15,6 +15,7 @@ use crate::model::{ConstNew, Model};
 use crate::{const_panic, declare_type_option, sealed, ForeignModel};
 
 pub mod as_db_type;
+pub mod back_ref;
 pub mod foreign_model;
 use as_db_type::AsDbType;
 
@@ -220,11 +221,6 @@ impl<F: Field> AbstractField<Column> for F {
         let _check: usize = F::CHECK;
         Some(F::ANNOTATIONS)
     };
-}
-impl<T: Default, F: RawField<Kind = Pseudo, RawType = T>> AbstractField<Pseudo> for F {
-    fn get_from_row(_row: &Row, _index: impl RowIndex) -> Result<Self::RawType, Error> {
-        Ok(T::default())
-    }
 }
 
 /// This struct acts as a proxy exposing type level information from the [Field] trait on the value level.

@@ -103,14 +103,17 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
             _ => {}
         }
     }
-    let primary_key = if let Some(primary_field) = primary_field {
-        primary_field.type_ident.clone()
+    let (primary_struct, primary_ident) = if let Some(primary_field) = primary_field {
+        (
+            primary_field.type_ident.clone(),
+            primary_field.ident.clone(),
+        )
     } else {
         errors.push(
             Error::custom("Missing primary key. Please annotate a field with ether `#[rorm(id)]` or `#[rorm(primary_key)]`")
                 .with_span(&Span::call_site()),
         );
-        Ident::new("_", span)
+        (Ident::new("_", span), Ident::new("_", span))
     };
 
     // Static struct containing all model's fields
@@ -143,6 +146,19 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
     let fields_definition = fields.iter().map(|field| &field.definition);
     let fields_index = (0..fields.len()).map(proc_macro2::Literal::usize_unsuffixed);
 
+    let non_primary_raw_type = fields
+        .iter()
+        .filter(|field| !field.is_primary)
+        .map(|field| &field.raw_type);
+    let non_primary_type = fields
+        .iter()
+        .filter(|field| !field.is_primary)
+        .map(|field| &field.type_ident);
+    let non_primary_ident = fields
+        .iter()
+        .filter(|field| !field.is_primary)
+        .map(|field| &field.ident);
+
     errors.finish()?;
     Ok(quote! {
         #(
@@ -163,7 +179,7 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
         }
 
         impl ::rorm::model::Model for #model {
-            type Primary = #primary_key;
+            type Primary = #primary_struct;
 
             type Fields<P: ::rorm::internal::relation_path::Path> = #fields_struct<P>;
 
@@ -183,6 +199,18 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
         #(
             impl ::rorm::model::GetField<{ #fields_index }> for #model {
                 type Field = #fields_type;
+            }
+        )*
+
+        #(
+
+            impl ::rorm::model::UpdateField<#non_primary_type> for #model {
+                fn update_field<'m, T>(
+                    &'m mut self,
+                    update: impl FnOnce(&'m <#primary_struct as ::rorm::internal::field::Field>::Type, &'m mut #non_primary_raw_type) -> T,
+                ) -> T {
+                    update(&self.#primary_ident, &mut self.#non_primary_ident)
+                }
             }
         )*
 
@@ -281,6 +309,7 @@ struct ParsedField {
     is_primary: bool,
     vis: syn::Visibility,
     ident: Ident,
+    raw_type: syn::Type,
     type_ident: Ident,
     definition: TokenStream,
 }
@@ -366,6 +395,7 @@ fn parse_field(
         is_primary,
         vis,
         ident,
+        raw_type,
         type_ident,
         definition,
     }))
