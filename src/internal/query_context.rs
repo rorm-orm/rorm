@@ -6,7 +6,7 @@ use ouroboros::self_referencing;
 
 use crate::conditional::{BinaryCondition, Condition};
 use crate::internal::field::foreign_model::ForeignModelByField;
-use crate::internal::field::{Field, FieldProxy, RawField};
+use crate::internal::field::{foreign_model, Field, FieldProxy, RawField};
 use crate::internal::relation_path::{JoinAlias, Path, PathStep};
 use crate::value::Value;
 use crate::Model;
@@ -51,7 +51,10 @@ impl QueryContextBuilder {
                 alias: PathStep::<F, P>::ALIAS,
                 table_name: M::TABLE,
                 fields: [
-                    [PathStep::<F, P>::ALIAS, M::Primary::NAME],
+                    [
+                        PathStep::<F, P>::ALIAS,
+                        foreign_model::RelatedField::<M, F>::NAME,
+                    ],
                     [P::ALIAS, F::NAME],
                 ],
             },

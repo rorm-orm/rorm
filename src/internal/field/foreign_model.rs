@@ -36,7 +36,7 @@ where
     }
 }
 
-type RelatedField<M, F> =
+pub(crate) type RelatedField<M, F> =
     <<F as RawField>::RelatedField as OptionField>::UnwrapOr<<M as Model>::Primary>;
 
 impl<M: Model, T: AsDbType> AsDbType for ForeignModelByField<M, T> {
