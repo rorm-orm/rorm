@@ -99,7 +99,9 @@ pub trait RawField: 'static {
     const SOURCE: Option<Source>;
 }
 
-declare_type_option!(OptionField, Field);
+declare_type_option!(OptionField, Field, MissingRelatedField);
+/// None type of [OptionField] whose name provides a hint in error messages.
+pub struct MissingRelatedField;
 
 /// A [RawField] of kind [Column]
 pub trait Field: RawField<Kind = Column> {

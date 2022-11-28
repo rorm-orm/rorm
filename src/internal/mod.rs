@@ -13,20 +13,23 @@ pub mod relation_path;
 #[macro_export]
 macro_rules! declare_type_option {
     ($option:ident, $trait:ident) => {
+        $crate::declare_type_option!($option, $trait, ());
+    };
+    ($option:ident, $trait:ident, $none:ty) => {
         /// A type-level [Option],
-        #[doc = concat!("ether some [", stringify!($trait) ,"] or none i.e. `()`")]
+        #[doc = concat!("ether some [", stringify!($trait) ,"] or none i.e. `", stringify!($none), "`")]
         pub trait $option {
             $crate::sealed!();
 
             /// [Option::unwrap_or]
             ///
-            /// `Self`, if it is "some" i.e. not `()` and `Default` otherwise
+            #[doc = concat!("`Self`, if it is \"some\" i.e. not `", stringify!($none), "` and `Default` otherwise")]
             type UnwrapOr<Default: $trait>: $trait;
         }
         impl<T: $trait> $option for T {
             type UnwrapOr<Default: $trait> = Self;
         }
-        impl $option for () {
+        impl $option for $none {
             type UnwrapOr<Default: $trait> = Default;
         }
     };

@@ -361,7 +361,7 @@ fn parse_field(
     let related_field = if let Some(FieldPath { model, field, span }) = annotations.field.take() {
         quote_spanned! {span=> <#model as ::rorm::model::GetField<{<#model as ::rorm::model::Model>::F.#field.index()}>>::Field}
     } else {
-        quote! { () }
+        quote! { ::rorm::internal::field::MissingRelatedField }
     };
 
     let is_primary = annotations.primary_key || annotations.id;
