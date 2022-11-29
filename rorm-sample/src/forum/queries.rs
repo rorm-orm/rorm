@@ -3,6 +3,7 @@ use crate::forum::models::Thread;
 use chrono::NaiveDateTime;
 use rorm::Model;
 use rorm::{and, query, Database};
+use std::collections::HashMap;
 
 const PAGE_SIZE: u64 = 20;
 
@@ -55,4 +56,21 @@ pub async fn get_thread_back_refs(db: &Database, id: i32) -> Thread {
         .unwrap();
     Thread::F.comments.populate(db, &mut thread).await.unwrap();
     thread
+}
+
+/// Get a list of threads in which an admin commented
+pub async fn get_threads_with_admins(db: &Database) -> Vec<Thread> {
+    let threads = query!(db, Thread)
+        .condition(Thread::F.comments.fields().user.fields().admin.equals(true))
+        .all()
+        .await
+        .unwrap();
+
+    // Manually deduplicate threads
+    // TODO provide the sql DISTINCT keyword
+    let threads: HashMap<_, _> =
+        HashMap::from_iter(threads.into_iter().map(|thread| (thread.id, thread)));
+    let threads = Vec::from_iter(threads.into_values());
+
+    threads
 }

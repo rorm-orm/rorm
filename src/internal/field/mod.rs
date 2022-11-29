@@ -10,14 +10,13 @@ use crate::conditions::Value;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::{DbType, OptionDbType};
 use crate::internal::hmr::{AsImr, Source};
-use crate::internal::relation_path::{Path, PathStep};
+use crate::internal::relation_path::{Path, PathImpl, PathStep, ResolvedRelatedField};
 use crate::model::{ConstNew, Model};
 use crate::{const_panic, declare_type_option, sealed};
 
 pub mod as_db_type;
 pub mod back_ref;
 pub mod foreign_model;
-use crate::internal::field::foreign_model::ForeignModelByField;
 use as_db_type::AsDbType;
 
 /// Little hack to constraint [RawField::RawType] to be the same as [Field::Type] while adding additional constraints.
@@ -307,9 +306,21 @@ impl<F: AbstractField, P> FieldProxy<F, P> {
     }
 }
 
-impl<T, M: Model, F: Field<Type = ForeignModelByField<M, T>>, P: Path> FieldProxy<F, P> {
-    /// Get the foreign model's fields keeping track where you came from
-    pub const fn fields(&self) -> M::Fields<PathStep<F, P>> {
-        M::Fields::NEW
+impl<F: RawField, P: Path> FieldProxy<F, P>
+where
+    PathStep<F, P>: PathImpl<F::RawType>,
+{
+    /// Get the related model's fields keeping track where you came from
+    pub const fn fields(
+        &self,
+    ) -> <<ResolvedRelatedField<F, P> as RawField>::Model as Model>::Fields<PathStep<F, P>> {
+        ConstNew::NEW
+    }
+
+    /// Get the related model's fields keeping track where you came from
+    pub const fn f(
+        &self,
+    ) -> <<ResolvedRelatedField<F, P> as RawField>::Model as Model>::Fields<PathStep<F, P>> {
+        ConstNew::NEW
     }
 }

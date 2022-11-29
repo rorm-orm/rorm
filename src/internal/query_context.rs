@@ -5,9 +5,8 @@ use std::collections::HashMap;
 use ouroboros::self_referencing;
 
 use crate::conditional::{BinaryCondition, Condition};
-use crate::internal::field::foreign_model::ForeignModelByField;
-use crate::internal::field::{foreign_model, Field, FieldProxy, RawField};
-use crate::internal::relation_path::{JoinAlias, Path, PathStep};
+use crate::internal::field::{Field, FieldProxy, RawField};
+use crate::internal::relation_path::{JoinAlias, Path, PathImpl, PathStep};
 use crate::value::Value;
 use crate::Model;
 
@@ -32,11 +31,12 @@ impl QueryContextBuilder {
     /// Recursively add a relation path to the builder
     ///
     /// The generic parameters are the parameters defining the outer most [PathStep].
-    pub(crate) fn add_relation_path<M, F, P, T>(&mut self)
+    pub(crate) fn add_relation_path<M, F, P>(&mut self)
     where
         M: Model,
-        F: Field<Type = ForeignModelByField<M, T>>,
+        F: RawField,
         P: Path,
+        PathStep<F, P>: PathImpl<F::RawType>,
     {
         let new_table = PathId::of::<PathStep<F, P>>();
 
@@ -50,13 +50,7 @@ impl QueryContextBuilder {
             TempJoinData::Static {
                 alias: PathStep::<F, P>::ALIAS,
                 table_name: M::TABLE,
-                fields: [
-                    [
-                        PathStep::<F, P>::ALIAS,
-                        foreign_model::RelatedField::<M, F>::NAME,
-                    ],
-                    [P::ALIAS, F::NAME],
-                ],
+                fields: PathStep::<F, P>::JOIN_FIELDS,
             },
         );
     }
