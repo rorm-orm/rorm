@@ -6,13 +6,14 @@ use crate::conditions::Condition;
 use futures::{Stream, StreamExt};
 use rorm_db::database::ColumnSelector;
 use rorm_db::limit_clause::LimitClause;
+use rorm_db::ordering::{OrderByEntry, Ordering};
 use rorm_db::transaction::Transaction;
 use rorm_db::{error::Error, row::Row, Database};
 
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
 use crate::internal::field::as_db_type::AsDbType;
-use crate::internal::field::{Field, FieldProxy};
-use crate::internal::query_context::{QueryContext, QueryContextBuilder};
+use crate::internal::field::{Field, FieldProxy, RawField};
+use crate::internal::query_context::QueryContextBuilder;
 use crate::internal::relation_path::Path;
 use crate::model::{Model, Patch};
 use crate::sealed;
@@ -33,13 +34,14 @@ pub struct QueryBuilder<
     LO: LimOffMarker,
 > {
     db: &'db Database,
+    ctx: QueryContextBuilder,
     selector: S,
     _phantom: PhantomData<&'rf M>,
 
     condition: C,
     transaction: T,
-
     lim_off: LO,
+    ordering: Vec<OrderByEntry<'static>>,
 }
 
 /// Specifies which columns to query and how to decode the rows into what.
@@ -59,13 +61,14 @@ impl<'db, 'rf, M: Model, S: Selector<M>> QueryBuilder<'db, 'rf, M, S, (), (), ()
     pub fn new(db: &'db Database, selector: S) -> Self {
         QueryBuilder {
             db,
+            ctx: QueryContextBuilder::new(),
             selector,
             _phantom: PhantomData,
 
             condition: (),
             transaction: (),
-
             lim_off: (),
+            ordering: Vec::new(),
         }
     }
 }
@@ -79,9 +82,9 @@ impl<'db, 'a, M: Model, S: Selector<M>, T: TransactionMarker<'a, 'db>, LO: LimOf
         condition: C,
     ) -> QueryBuilder<'db, 'a, M, S, C, T, LO> {
         #[rustfmt::skip]
-        let QueryBuilder { db, selector, _phantom, transaction, lim_off, .. } = self;
+        let QueryBuilder { db, ctx, selector, _phantom, transaction, lim_off, ordering, .. } = self;
         #[rustfmt::skip]
-        return QueryBuilder { db, selector, _phantom, condition, transaction, lim_off, };
+        return QueryBuilder { db, ctx, selector, _phantom, condition, transaction, lim_off, ordering, };
     }
 }
 
@@ -94,9 +97,9 @@ impl<'db, 'a, M: Model, S: Selector<M>, C: ConditionMarker<'a>, LO: LimOffMarker
         transaction: &'a mut Transaction<'db>,
     ) -> QueryBuilder<'db, 'a, M, S, C, &'a mut Transaction<'db>, LO> {
         #[rustfmt::skip]
-        let QueryBuilder { db, selector, _phantom, condition, lim_off,  .. } = self;
+        let QueryBuilder { db, ctx, selector, _phantom, condition, lim_off, ordering, .. } = self;
         #[rustfmt::skip]
-        return QueryBuilder { db, selector, _phantom, condition, transaction, lim_off, };
+        return QueryBuilder { db, ctx, selector, _phantom, condition, transaction, lim_off, ordering, };
     }
 }
 
@@ -113,9 +116,9 @@ impl<
     /// Add a limit to the query
     pub fn limit(self, limit: u64) -> QueryBuilder<'db, 'a, M, S, C, T, Limit<O>> {
         #[rustfmt::skip]
-        let QueryBuilder { db, selector, _phantom, condition, transaction,  lim_off } = self;
+        let QueryBuilder { db, ctx, selector, _phantom, condition, transaction,  lim_off, ordering, } = self;
         #[rustfmt::skip]
-        return QueryBuilder { db, selector, _phantom, condition, transaction, lim_off: Limit { limit, offset: lim_off }, };
+        return QueryBuilder { db, ctx, selector, _phantom, condition, transaction, lim_off: Limit { limit, offset: lim_off }, ordering, };
     }
 }
 
@@ -132,10 +135,10 @@ impl<
     /// Add a offset to the query
     pub fn offset(self, offset: u64) -> QueryBuilder<'db, 'a, M, S, C, T, LO::Result> {
         #[rustfmt::skip]
-        let QueryBuilder { db, selector, _phantom, condition, transaction, lim_off,  .. } = self;
+        let QueryBuilder { db, ctx, selector, _phantom, condition, transaction, lim_off, ordering, .. } = self;
         let lim_off = lim_off.add_offset(offset);
         #[rustfmt::skip]
-        return QueryBuilder { db, selector, _phantom, condition, transaction, lim_off};
+        return QueryBuilder { db, ctx, selector, _phantom, condition, transaction, lim_off, ordering, };
     }
 }
 
@@ -148,13 +151,63 @@ impl<'db, 'a, M: Model, S: Selector<M>, C: ConditionMarker<'a>, T: TransactionMa
         range: impl FiniteRange<u64>,
     ) -> QueryBuilder<'db, 'a, M, S, C, T, Limit<u64>> {
         #[rustfmt::skip]
-        let QueryBuilder { db, selector, _phantom, condition, transaction,  .. } = self;
+        let QueryBuilder { db, ctx, selector, _phantom, condition, transaction, ordering,  .. } = self;
         let limit = Limit {
             limit: range.len(),
             offset: range.start(),
         };
         #[rustfmt::skip]
-        return QueryBuilder { db, selector, _phantom, condition, transaction, lim_off: limit, };
+        return QueryBuilder { db, ctx, selector, _phantom, condition, transaction, lim_off: limit, ordering, };
+    }
+}
+
+impl<
+        'db,
+        'a,
+        M: Model,
+        S: Selector<M>,
+        C: ConditionMarker<'a>,
+        T: TransactionMarker<'a, 'db>,
+        LO: LimOffMarker,
+    > QueryBuilder<'db, 'a, M, S, C, T, LO>
+{
+    /// Order the query by a field
+    ///
+    /// You can add multiple orderings from most to least significant.
+    pub fn order_by<F, P>(mut self, _field: FieldProxy<F, P>, order: Ordering) -> Self
+    where
+        F: RawField,
+        P: Path<Origin = M>,
+    {
+        P::add_to_join_builder(&mut self.ctx);
+        self.ordering.push(OrderByEntry {
+            ordering: order,
+            table_name: Some(P::ALIAS),
+            column_name: F::NAME,
+        });
+        self
+    }
+
+    /// Order the query ascending by a field
+    ///
+    /// You can add multiple orderings from most to least significant.
+    pub fn order_asc<F, P>(self, field: FieldProxy<F, P>) -> Self
+    where
+        F: RawField,
+        P: Path<Origin = M>,
+    {
+        self.order_by(field, Ordering::Asc)
+    }
+
+    /// Order the query descending by a field
+    ///
+    /// You can add multiple orderings from most to least significant.
+    pub fn order_desc<F, P>(self, field: FieldProxy<F, P>) -> Self
+    where
+        F: RawField,
+        P: Path<Origin = M>,
+    {
+        self.order_by(field, Ordering::Desc)
     }
 }
 
@@ -169,11 +222,10 @@ impl<
     > QueryBuilder<'db, 'rf, M, S, C, T, L>
 {
     /// Retrieve and decode all matching rows
-    pub async fn all(self) -> Result<Vec<S::Result>, Error> {
-        let mut builder = QueryContextBuilder::new();
-        let columns = self.selector.columns(&mut builder);
-        self.condition.add_to_builder(&mut builder);
-        let context = builder.finish();
+    pub async fn all(mut self) -> Result<Vec<S::Result>, Error> {
+        let columns = self.selector.columns(&mut self.ctx);
+        self.condition.add_to_builder(&mut self.ctx);
+        let context = self.ctx.finish();
         let joins = context.get_joins();
         self.db
             .query_all(
@@ -181,7 +233,7 @@ impl<
                 columns,
                 &joins,
                 self.condition.into_option(&context).as_ref(),
-                &[],
+                self.ordering.as_slice(),
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
             )
@@ -195,31 +247,11 @@ impl<
 
     /// Retrieve and decode the query as a stream
     ///
-    /// In order to resolve joins a [QueryContext] is needed, which has to survive the query.
-    /// So as temporary solution it has to be provided in order to stream a query.
-    /// This is **WIP**!
-    pub fn stream(
-        self,
-        context: &'rf mut QueryContext, // TODO
-    ) -> impl Stream<Item = Result<S::Result, Error>> + 'rf {
-        let mut builder = QueryContextBuilder::new();
-        let columns = self.selector.columns(&mut builder);
-        self.condition.add_to_builder(&mut builder);
-        *context = builder.finish();
-        let joins = context.get_joins();
-        self.db
-            .query_stream(
-                M::TABLE,
-                columns,
-                &joins,
-                self.condition.into_option(context).as_ref(),
-                &[],
-                self.lim_off.into_option(),
-                self.transaction.into_option(),
-            )
-            .map(|row| {
-                S::decode(row?).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
-            })
+    /// **Not implemented anymore!**
+    pub fn stream(mut self) -> impl Stream<Item = Result<S::Result, Error>> + 'rf {
+        todo!();
+        let iter: Vec<Result<S::Result, Error>> = Vec::new();
+        futures::stream::iter(iter)
     }
 }
 
@@ -236,11 +268,10 @@ impl<
     /// Retrieve and decode exactly one matching row
     ///
     /// An error is returned if no value could be retrieved.
-    pub async fn one(self) -> Result<S::Result, Error> {
-        let mut builder = QueryContextBuilder::new();
-        let columns = self.selector.columns(&mut builder);
-        self.condition.add_to_builder(&mut builder);
-        let context = builder.finish();
+    pub async fn one(mut self) -> Result<S::Result, Error> {
+        let columns = self.selector.columns(&mut self.ctx);
+        self.condition.add_to_builder(&mut self.ctx);
+        let context = self.ctx.finish();
         let joins = context.get_joins();
         let row = self
             .db
@@ -249,7 +280,7 @@ impl<
                 columns,
                 &joins,
                 self.condition.into_option(&context).as_ref(),
-                &[],
+                self.ordering.as_slice(),
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
             )
@@ -258,11 +289,10 @@ impl<
     }
 
     /// Try to retrieve and decode a matching row
-    pub async fn optional(self) -> Result<Option<S::Result>, Error> {
-        let mut builder = QueryContextBuilder::new();
-        let columns = self.selector.columns(&mut builder);
-        self.condition.add_to_builder(&mut builder);
-        let context = builder.finish();
+    pub async fn optional(mut self) -> Result<Option<S::Result>, Error> {
+        let columns = self.selector.columns(&mut self.ctx);
+        self.condition.add_to_builder(&mut self.ctx);
+        let context = self.ctx.finish();
         let joins = context.get_joins();
         let row = self
             .db
@@ -271,7 +301,7 @@ impl<
                 columns,
                 &joins,
                 self.condition.into_option(&context).as_ref(),
-                &[],
+                self.ordering.as_slice(),
                 self.lim_off.into_option(),
                 self.transaction.into_option(),
             )

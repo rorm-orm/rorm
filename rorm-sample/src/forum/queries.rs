@@ -27,7 +27,7 @@ pub async fn get_posts(
         )
     )
     .condition(Comment::F.thread.equals(thread))
-    // TODO order by newest posts
+    .order_desc(Comment::F.created)
     .limit(PAGE_SIZE)
     .offset(page as u64 * PAGE_SIZE)
     .all()
