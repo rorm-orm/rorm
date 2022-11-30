@@ -25,18 +25,37 @@ impl ColumnsMarker for () {}
 
 /// Builder for update queries
 ///
-/// Is is recommended to start a builder using [update!].
+/// Is is recommended to start a builder using [update!](macro@crate::update).
 ///
-/// [update!]: macro@crate::update
+/// ## Generics
+/// - `'rf`
+///
+///     Lifetime of external values (eg: condition values and transaction reference).
+///
+/// - `'db: 'rf`
+///
+///     The database reference's lifetime.
+///     Since `'rf` also applies to a transaction reference, `'db` must outlive `'rf`.
+///
+/// - `M`: [Model](Model)
+///
+///     The model from whose table to update rows.
+///
+/// - `L`: [ColumnsMarker](ColumnsMarker)
+///
+///     List of columns and values to set.
+///     This is a generic instead of just being a `Vec` in order to prevent the list from being empty.
+///
+/// - `C`: [ConditionMarker<'rf>](ConditionMarker)
+///
+///     An optional condition to filter the query by.
+///
+/// - `T`: [TransactionMarker<'rf,' db>](TransactionMarker)
+///
+///     An optional transaction to execute this query in.
+///
 #[must_use]
-pub struct UpdateBuilder<
-    'db: 'rf,
-    'rf,
-    M: Model,
-    L: ColumnsMarker,
-    C: ConditionMarker<'rf>,
-    T: TransactionMarker<'rf, 'db>,
-> {
+pub struct UpdateBuilder<'db, 'rf, M, L, C, T> {
     db: &'db Database,
     columns: L,
     condition: C,
@@ -45,7 +64,10 @@ pub struct UpdateBuilder<
     _phantom: PhantomData<&'rf M>,
 }
 
-impl<'db, 'rf, M: Model> UpdateBuilder<'db, 'rf, M, (), (), ()> {
+impl<'db, 'rf, M> UpdateBuilder<'db, 'rf, M, (), (), ()>
+where
+    M: Model,
+{
     /// Start building a delete query
     pub fn new(db: &'db Database) -> Self {
         Self {
@@ -59,9 +81,7 @@ impl<'db, 'rf, M: Model> UpdateBuilder<'db, 'rf, M, (), (), ()> {
     }
 }
 
-impl<'db, 'rf, M: Model, L: ColumnsMarker, T: TransactionMarker<'rf, 'db>>
-    UpdateBuilder<'db, 'rf, M, L, (), T>
-{
+impl<'db, 'rf, M, L, T> UpdateBuilder<'db, 'rf, M, L, (), T> {
     /// Add a condition to the query
     pub fn condition<C: Condition<'rf>>(self, condition: C) -> UpdateBuilder<'db, 'rf, M, L, C, T> {
         #[rustfmt::skip]
@@ -71,9 +91,7 @@ impl<'db, 'rf, M: Model, L: ColumnsMarker, T: TransactionMarker<'rf, 'db>>
     }
 }
 
-impl<'db: 'rf, 'rf, M: Model, L: ColumnsMarker, C: ConditionMarker<'rf>>
-    UpdateBuilder<'db, 'rf, M, L, C, ()>
-{
+impl<'db: 'rf, 'rf, M, L, C> UpdateBuilder<'db, 'rf, M, L, C, ()> {
     /// Add a transaction to the query
     pub fn transaction(
         self,
@@ -86,8 +104,9 @@ impl<'db: 'rf, 'rf, M: Model, L: ColumnsMarker, C: ConditionMarker<'rf>>
     }
 }
 
-impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf, 'db>>
-    UpdateBuilder<'db, 'rf, M, (), C, T>
+impl<'db: 'rf, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, (), C, T>
+where
+    M: Model,
 {
     /// Add a column to update.
     ///
@@ -104,8 +123,9 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
     }
 }
 
-impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf, 'db>>
-    UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T>
+impl<'db: 'rf, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T>
+where
+    M: Model,
 {
     /// Add a column to update.
     ///
@@ -119,7 +139,15 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
         builder.columns.push((F::NAME, value.into_value()));
         builder
     }
+}
 
+impl<'db: 'rf, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T>
+where
+    'db: 'rf,
+    M: Model,
+    C: ConditionMarker<'rf>,
+    T: TransactionMarker<'rf, 'db>,
+{
     /// Perform the update operation
     pub async fn exec(self) -> Result<u64, Error> {
         let context = QueryContext::new();
@@ -134,8 +162,13 @@ impl<'db: 'rf, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf,
     }
 }
 
-impl<'db, 'rf, M: Model + 'rf, C: ConditionMarker<'rf>, T: TransactionMarker<'rf, 'db>> IntoFuture
+impl<'db, 'rf, M, C, T> IntoFuture
     for UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T>
+where
+    'db: 'rf,
+    M: Model,
+    C: ConditionMarker<'rf>,
+    T: TransactionMarker<'rf, 'db>,
 {
     type Output = Result<u64, Error>;
     type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + 'rf>>;

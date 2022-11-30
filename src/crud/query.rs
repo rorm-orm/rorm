@@ -22,19 +22,39 @@ use crate::sealed;
 
 /// Builder for select queries
 ///
-/// Is is recommended to start a builder using [query!].
+/// Is is recommended to start a builder using [query!](macro@crate::query).
 ///
-/// [query!]: macro@crate::query
+/// ## Generics
+/// - `'rf`
+///
+///     Lifetime of external values (eg: condition values and transaction reference).
+///
+/// - `'db: 'rf`
+///
+///     The database reference's lifetime.
+///     Since `'rf` also applies to a transaction reference, `'db` must outlive `'rf`.
+///
+/// - `M`: [Model](Model),
+///
+///     The model from whose table to select.
+///
+/// - `S`: [Selector<M>](Selector)
+///
+///     The columns to be selected and a type to convert the rows into.
+///
+/// - `C`: [ConditionMarker<'rf>](ConditionMarker)
+///
+///     An optional condition to filter the query by.
+///
+/// - `T`: [TransactionMarker<'rf,' db>](TransactionMarker)
+///
+///     An optional transaction to execute this query in.
+///
+/// - `LO`: [LimOffMarker](LimOffMarker)
+///
+///     An optional limit and or offset to control the amount of queried rows.
 #[must_use]
-pub struct QueryBuilder<
-    'db,
-    'rf,
-    M: Model,
-    S: Selector<M>,
-    C: ConditionMarker<'rf>,
-    T: TransactionMarker<'rf, 'db>,
-    LO: LimOffMarker,
-> {
+pub struct QueryBuilder<'db, 'rf, M, S, C, T, LO> {
     db: &'db Database,
     ctx: QueryContextBuilder,
     selector: S,
@@ -58,7 +78,11 @@ pub trait Selector<M: Model> {
     fn columns(&self, builder: &mut QueryContextBuilder) -> &[ColumnSelector<'static>];
 }
 
-impl<'db, 'rf, M: Model, S: Selector<M>> QueryBuilder<'db, 'rf, M, S, (), (), ()> {
+impl<'db, 'rf, M, S> QueryBuilder<'db, 'rf, M, S, (), (), ()>
+where
+    M: Model,
+    S: Selector<M>,
+{
     /// Start building a query using a generic [Selector]
     pub fn new(db: &'db Database, selector: S) -> Self {
         QueryBuilder {
@@ -75,9 +99,7 @@ impl<'db, 'rf, M: Model, S: Selector<M>> QueryBuilder<'db, 'rf, M, S, (), (), ()
     }
 }
 
-impl<'db, 'a, M: Model, S: Selector<M>, T: TransactionMarker<'a, 'db>, LO: LimOffMarker>
-    QueryBuilder<'db, 'a, M, S, (), T, LO>
-{
+impl<'db, 'a, M, S, T, LO> QueryBuilder<'db, 'a, M, S, (), T, LO> {
     /// Add a condition to the query
     pub fn condition<C: Condition<'a>>(
         self,
@@ -90,9 +112,7 @@ impl<'db, 'a, M: Model, S: Selector<M>, T: TransactionMarker<'a, 'db>, LO: LimOf
     }
 }
 
-impl<'db, 'a, M: Model, S: Selector<M>, C: ConditionMarker<'a>, LO: LimOffMarker>
-    QueryBuilder<'db, 'a, M, S, C, (), LO>
-{
+impl<'db, 'a, M, S, C, LO> QueryBuilder<'db, 'a, M, S, C, (), LO> {
     /// Add a transaction to the query
     pub fn transaction(
         self,
@@ -105,15 +125,9 @@ impl<'db, 'a, M: Model, S: Selector<M>, C: ConditionMarker<'a>, LO: LimOffMarker
     }
 }
 
-impl<
-        'db,
-        'a,
-        M: Model,
-        S: Selector<M>,
-        C: ConditionMarker<'a>,
-        T: TransactionMarker<'a, 'db>,
-        O: OffsetMarker,
-    > QueryBuilder<'db, 'a, M, S, C, T, O>
+impl<'db, 'a, M, S, C, T, O> QueryBuilder<'db, 'a, M, S, C, T, O>
+where
+    O: OffsetMarker,
 {
     /// Add a limit to the query
     pub fn limit(self, limit: u64) -> QueryBuilder<'db, 'a, M, S, C, T, Limit<O>> {
@@ -124,15 +138,9 @@ impl<
     }
 }
 
-impl<
-        'db,
-        'a,
-        M: Model,
-        S: Selector<M>,
-        C: ConditionMarker<'a>,
-        T: TransactionMarker<'a, 'db>,
-        LO: AcceptsOffset,
-    > QueryBuilder<'db, 'a, M, S, C, T, LO>
+impl<'db, 'a, M, S, C, T, LO> QueryBuilder<'db, 'a, M, S, C, T, LO>
+where
+    LO: AcceptsOffset,
 {
     /// Add a offset to the query
     pub fn offset(self, offset: u64) -> QueryBuilder<'db, 'a, M, S, C, T, LO::Result> {
@@ -144,9 +152,7 @@ impl<
     }
 }
 
-impl<'db, 'a, M: Model, S: Selector<M>, C: ConditionMarker<'a>, T: TransactionMarker<'a, 'db>>
-    QueryBuilder<'db, 'a, M, S, C, T, ()>
-{
+impl<'db, 'a, M, S, C, T> QueryBuilder<'db, 'a, M, S, C, T, ()> {
     /// Add a offset to the query
     pub fn range(
         self,
@@ -163,16 +169,7 @@ impl<'db, 'a, M: Model, S: Selector<M>, C: ConditionMarker<'a>, T: TransactionMa
     }
 }
 
-impl<
-        'db,
-        'a,
-        M: Model,
-        S: Selector<M>,
-        C: ConditionMarker<'a>,
-        T: TransactionMarker<'a, 'db>,
-        LO: LimOffMarker,
-    > QueryBuilder<'db, 'a, M, S, C, T, LO>
-{
+impl<'db, 'a, M, S, C, T, LO> QueryBuilder<'db, 'a, M, S, C, T, LO> {
     /// Order the query by a field
     ///
     /// You can add multiple orderings from most to least significant.
@@ -213,18 +210,19 @@ impl<
     }
 }
 
-impl<
-        'rf,
-        'db: 'rf,
-        M: Model,
-        S: Selector<M>,
-        C: ConditionMarker<'rf>,
-        T: TransactionMarker<'rf, 'db>,
-        L: LimitMarker,
-    > QueryBuilder<'db, 'rf, M, S, C, T, L>
+impl<'rf, 'db, M, S, C, T, LO> QueryBuilder<'db, 'rf, M, S, C, T, LO>
+where
+    'db: 'rf,
+    M: Model,
+    S: Selector<M>,
+    C: ConditionMarker<'rf>,
+    T: TransactionMarker<'rf, 'db>,
 {
     /// Retrieve and decode all matching rows
-    pub async fn all(mut self) -> Result<Vec<S::Result>, Error> {
+    pub async fn all(mut self) -> Result<Vec<S::Result>, Error>
+    where
+        LO: LimitMarker,
+    {
         let columns = self.selector.columns(&mut self.ctx);
         self.condition.add_to_builder(&mut self.ctx);
         let context = self.ctx.finish();
@@ -251,6 +249,7 @@ impl<
     pub fn stream(mut self) -> impl Stream<Item = Result<S::Result, Error>> + 'rf
     where
         S: 'rf,
+        LO: LimitMarker,
     {
         let columns = self.selector.columns(&mut self.ctx);
         self.condition.add_to_builder(&mut self.ctx);
@@ -262,7 +261,7 @@ impl<
                 self.db.query_stream(
                     M::TABLE,
                     columns,
-                    &joins,
+                    joins,
                     conditions.as_ref(),
                     self.ordering.as_slice(),
                     self.lim_off.into_option(),
@@ -272,22 +271,14 @@ impl<
         )
         .map(|result| result.and_then(S::decode))
     }
-}
 
-impl<
-        'rf,
-        'db: 'rf,
-        M: Model,
-        S: Selector<M>,
-        C: ConditionMarker<'rf>,
-        T: TransactionMarker<'rf, 'db>,
-        O: OffsetMarker,
-    > QueryBuilder<'db, 'rf, M, S, C, T, O>
-{
     /// Retrieve and decode exactly one matching row
     ///
     /// An error is returned if no value could be retrieved.
-    pub async fn one(mut self) -> Result<S::Result, Error> {
+    pub async fn one(mut self) -> Result<S::Result, Error>
+    where
+        LO: OffsetMarker,
+    {
         let columns = self.selector.columns(&mut self.ctx);
         self.condition.add_to_builder(&mut self.ctx);
         let context = self.ctx.finish();
@@ -308,7 +299,10 @@ impl<
     }
 
     /// Try to retrieve and decode a matching row
-    pub async fn optional(mut self) -> Result<Option<S::Result>, Error> {
+    pub async fn optional(mut self) -> Result<Option<S::Result>, Error>
+    where
+        LO: OffsetMarker,
+    {
         let columns = self.selector.columns(&mut self.ctx);
         self.condition.add_to_builder(&mut self.ctx);
         let context = self.ctx.finish();

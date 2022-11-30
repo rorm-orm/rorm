@@ -10,18 +10,38 @@ use crate::model::{iter_columns, Model, Patch};
 
 /// Builder for insert queries
 ///
-/// Is is recommended to start a builder using [insert!].
+/// Is is recommended to start a builder using [insert!](macro@crate::insert).
 ///
-/// [insert!]: macro@crate::insert
+/// ## Generics
+/// - `'rf`
+///
+///     Lifetime of the transaction reference.
+///
+/// - `'db: 'rf`
+///
+///     The database reference's lifetime.
+///     Since `'rf` applies to a transaction reference, `'db` must outlive `'rf`.
+///
+/// - `P`: [Patch](Patch)
+///
+///     The patches to insert.
+///
+/// - `T`: [TransactionMarker<'rf,' db>](TransactionMarker)
+///
+///     An optional transaction to execute this query in.
+///
 #[must_use]
-pub struct InsertBuilder<'db: 'rf, 'rf, P: Patch, T: TransactionMarker<'rf, 'db>> {
+pub struct InsertBuilder<'db, 'rf, P, T> {
     db: &'db Database,
     transaction: T,
 
     _phantom: PhantomData<&'rf P>,
 }
 
-impl<'db: 'rf, 'rf, P: Patch> InsertBuilder<'db, 'rf, P, ()> {
+impl<'db, 'rf, P> InsertBuilder<'db, 'rf, P, ()>
+where
+    P: Patch,
+{
     /// Start building a insert query
     pub fn new(db: &'db Database) -> Self {
         InsertBuilder {
@@ -33,7 +53,7 @@ impl<'db: 'rf, 'rf, P: Patch> InsertBuilder<'db, 'rf, P, ()> {
     }
 }
 
-impl<'db: 'rf, 'rf, P: Patch> InsertBuilder<'db, 'rf, P, ()> {
+impl<'db, 'rf, P> InsertBuilder<'db, 'rf, P, ()> {
     /// Add a transaction to the insert query
     pub fn transaction(
         self,
@@ -46,7 +66,12 @@ impl<'db: 'rf, 'rf, P: Patch> InsertBuilder<'db, 'rf, P, ()> {
     }
 }
 
-impl<'db: 'rf, 'rf, P: Patch, T: TransactionMarker<'rf, 'db>> InsertBuilder<'db, 'rf, P, T> {
+impl<'db, 'rf, P, T> InsertBuilder<'db, 'rf, P, T>
+where
+    'db: 'rf,
+    P: Patch,
+    T: TransactionMarker<'rf, 'db>,
+{
     /// Insert a single patch into the db
     pub async fn single(self, patch: &'rf P) -> Result<(), Error> {
         let values = Vec::from_iter(iter_columns(patch).map(Value::into_sql));

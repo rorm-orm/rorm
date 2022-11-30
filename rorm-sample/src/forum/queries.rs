@@ -59,6 +59,7 @@ pub async fn get_thread_back_refs(db: &Database, id: i32) -> Thread {
 }
 
 /// Get a list of threads in which an admin commented
+#[allow(clippy::let_and_return)] // Currently the code is nicer sectioned this way and it will change in the future
 pub async fn get_threads_with_admins(db: &Database) -> Vec<Thread> {
     let threads = query!(db, Thread)
         .condition(Thread::F.comments.fields().user.fields().admin.equals(true))

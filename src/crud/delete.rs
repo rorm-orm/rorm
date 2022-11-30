@@ -15,17 +15,32 @@ use crate::model::{Model, PatchAsCondition};
 
 /// Builder for delete queries
 ///
-/// Is is recommended to start a builder using [delete!].
+/// Is is recommended to start a builder using [delete!](macro@crate::delete).
 ///
-/// [delete!]: macro@crate::delete
+/// ## Generics
+/// - `'rf`
+///
+///     Lifetime of external values (eg: condition values and transaction reference).
+///
+/// - `'db: 'rf`
+///
+///     The database reference's lifetime.
+///     Since `'rf` also applies to a transaction reference, `'db` must outlive `'rf`.
+///
+/// - `M`: [Model](Model)
+///
+///     The model from whose table to delete rows.
+///
+/// - `C`: [ConditionMarker<'rf>](ConditionMarker)
+///
+///     An optional condition to filter the query by.
+///
+/// - `T`: [TransactionMarker<'rf,' db>](TransactionMarker)
+///
+///     An optional transaction to execute this query in.
+///
 #[must_use]
-pub struct DeleteBuilder<
-    'db: 'rf,
-    'rf,
-    M: Model,
-    C: ConditionMarker<'rf>,
-    T: TransactionMarker<'rf, 'db>,
-> {
+pub struct DeleteBuilder<'db, 'rf, M, C, T> {
     db: &'db Database,
     condition: C,
     transaction: T,
@@ -33,7 +48,10 @@ pub struct DeleteBuilder<
     _phantom: PhantomData<&'rf M>,
 }
 
-impl<'db, 'rf, M: Model> DeleteBuilder<'db, 'rf, M, (), ()> {
+impl<'db, 'rf, M> DeleteBuilder<'db, 'rf, M, (), ()>
+where
+    M: Model,
+{
     /// Start building a delete query
     pub fn new(db: &'db Database) -> Self {
         DeleteBuilder {
@@ -46,7 +64,10 @@ impl<'db, 'rf, M: Model> DeleteBuilder<'db, 'rf, M, (), ()> {
     }
 }
 
-impl<'db, 'rf, M: Model, T: TransactionMarker<'rf, 'db>> DeleteBuilder<'db, 'rf, M, (), T> {
+impl<'db, 'rf, M, T> DeleteBuilder<'db, 'rf, M, (), T>
+where
+    M: Model,
+{
     /// Set the condition to delete a single model instance
     pub fn single(self, model: &'rf M) -> DeleteBuilder<'db, 'rf, M, PatchAsCondition<'rf, M>, T> {
         self.condition(
@@ -82,7 +103,7 @@ impl<'db, 'rf, M: Model, T: TransactionMarker<'rf, 'db>> DeleteBuilder<'db, 'rf,
     }
 }
 
-impl<'db, 'rf, M: Model, C: ConditionMarker<'rf>> DeleteBuilder<'db, 'rf, M, C, ()> {
+impl<'db, 'rf, M, C> DeleteBuilder<'db, 'rf, M, C, ()> {
     /// Add a transaction to the delete query
     pub fn transaction(
         self,
@@ -95,7 +116,12 @@ impl<'db, 'rf, M: Model, C: ConditionMarker<'rf>> DeleteBuilder<'db, 'rf, M, C, 
     }
 }
 
-impl<'db, 'rf, M: Model, T: TransactionMarker<'rf, 'db>> DeleteBuilder<'db, 'rf, M, (), T> {
+impl<'db, 'rf, M, T> DeleteBuilder<'db, 'rf, M, (), T>
+where
+    'db: 'rf,
+    M: Model,
+    T: TransactionMarker<'rf, 'db>,
+{
     /// Delete all columns
     pub async fn all(self) -> Result<u64, Error> {
         self.db
@@ -104,8 +130,12 @@ impl<'db, 'rf, M: Model, T: TransactionMarker<'rf, 'db>> DeleteBuilder<'db, 'rf,
     }
 }
 
-impl<'db, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf, 'db>>
-    DeleteBuilder<'db, 'rf, M, C, T>
+impl<'db, 'rf, M, C, T> DeleteBuilder<'db, 'rf, M, C, T>
+where
+    'db: 'rf,
+    M: Model,
+    C: ConditionMarker<'rf>,
+    T: TransactionMarker<'rf, 'db>,
 {
     /// Perform the delete operation
     async fn exec(self) -> Result<u64, Error> {
@@ -120,8 +150,12 @@ impl<'db, 'rf, M: Model, C: ConditionMarker<'rf>, T: TransactionMarker<'rf, 'db>
     }
 }
 
-impl<'db, 'rf, M: Model + 'rf, T: TransactionMarker<'rf, 'db>, C: Condition<'rf>> IntoFuture
-    for DeleteBuilder<'db, 'rf, M, C, T>
+impl<'db, 'rf, M, C, T> IntoFuture for DeleteBuilder<'db, 'rf, M, C, T>
+where
+    'db: 'rf,
+    M: Model,
+    C: Condition<'rf>,
+    T: TransactionMarker<'rf, 'db>,
 {
     type Output = Result<u64, Error>;
     type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + 'rf>>;
