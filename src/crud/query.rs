@@ -1,15 +1,17 @@
 //! Query builder and macro
+
 use std::marker::PhantomData;
 use std::ops::{Range, RangeInclusive, Sub};
 
-use crate::conditions::Condition;
-use futures::{Stream, StreamExt};
+use futures::Stream;
+use futures::StreamExt;
 use rorm_db::database::ColumnSelector;
 use rorm_db::limit_clause::LimitClause;
 use rorm_db::ordering::{OrderByEntry, Ordering};
 use rorm_db::transaction::Transaction;
 use rorm_db::{error::Error, row::Row, Database};
 
+use crate::conditions::Condition;
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::{Field, FieldProxy, RawField};
@@ -246,12 +248,29 @@ impl<
     }
 
     /// Retrieve and decode the query as a stream
-    ///
-    /// **Not implemented anymore!**
-    pub fn stream(mut self) -> impl Stream<Item = Result<S::Result, Error>> + 'rf {
-        todo!();
-        let iter: Vec<Result<S::Result, Error>> = Vec::new();
-        futures::stream::iter(iter)
+    pub fn stream(mut self) -> impl Stream<Item = Result<S::Result, Error>> + 'rf
+    where
+        S: 'rf,
+    {
+        let columns = self.selector.columns(&mut self.ctx);
+        self.condition.add_to_builder(&mut self.ctx);
+        QueryStream::new(
+            self.ctx.finish(),
+            |ctx| ctx.get_joins(),
+            |ctx| self.condition.into_option(ctx),
+            |conditions, joins| {
+                self.db.query_stream(
+                    M::TABLE,
+                    columns,
+                    &joins,
+                    conditions.as_ref(),
+                    self.ordering.as_slice(),
+                    self.lim_off.into_option(),
+                    self.transaction.into_option(),
+                )
+            },
+        )
+        .map(|result| result.and_then(S::decode))
     }
 }
 
@@ -408,6 +427,82 @@ macro_rules! query {
     };
 }
 
+/// Sadly ouroboros doesn't handle the lifetime bounds required for the QueryStream very well.
+/// This module's code is copied from ouroboros' expanded macro and the tailored to fit the lifetime bounds.
+mod query_stream {
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+
+    use futures::stream::BoxStream;
+    use futures::Stream;
+    use ouroboros::macro_help::{aliasable_boxed, change_lifetime, AliasableBox};
+    use rorm_db::conditional::Condition;
+    use rorm_db::database::JoinTable;
+    use rorm_db::{Error, Row};
+
+    use crate::internal::query_context::QueryContext;
+
+    #[allow(dead_code)] // The field's are never "read" because they are aliased before being assigned to the struct
+    pub struct QueryStream<'rf> {
+        ctx: AliasableBox<QueryContext>,
+
+        condition: AliasableBox<Option<Condition<'rf>>>,
+        joins: AliasableBox<Vec<JoinTable<'rf, 'rf>>>,
+
+        stream: BoxStream<'rf, Result<Row, Error>>,
+    }
+
+    impl<'stream> QueryStream<'stream> {
+        pub(crate) fn new<'until_build>(
+            ctx: QueryContext,
+            joins_builder: impl FnOnce(&'stream QueryContext) -> Vec<JoinTable<'stream, 'stream>>
+                + 'until_build,
+            condition_builder: impl FnOnce(&'stream QueryContext) -> Option<Condition<'stream>>
+                + 'until_build,
+            stream_builder: impl FnOnce(
+                    &'stream Option<Condition<'stream>>,
+                    &'stream Vec<JoinTable<'stream, 'stream>>,
+                ) -> BoxStream<'stream, Result<Row, Error>>
+                + 'until_build,
+        ) -> Self
+        where
+            'stream: 'until_build,
+        {
+            let ctx = aliasable_boxed(ctx);
+            let ctx_illegal_static_reference = unsafe { change_lifetime(&*ctx) };
+
+            let joins = joins_builder(ctx_illegal_static_reference);
+            let joins = aliasable_boxed(joins);
+            let joins_illegal_static_reference = unsafe { change_lifetime(&*joins) };
+
+            let condition = condition_builder(ctx_illegal_static_reference);
+            let condition = aliasable_boxed(condition);
+            let condition_illegal_static_reference = unsafe { change_lifetime(&*condition) };
+
+            let stream = stream_builder(
+                condition_illegal_static_reference,
+                joins_illegal_static_reference,
+            );
+
+            Self {
+                ctx,
+                joins,
+                condition,
+                stream,
+            }
+        }
+    }
+
+    impl<'stream> Stream for QueryStream<'stream> {
+        type Item = Result<Row, Error>;
+
+        fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            self.stream.as_mut().poll_next(cx)
+        }
+    }
+}
+use query_stream::QueryStream;
+
 /// Finite alternative to [RangeBounds](std::ops::RangeBounds)
 ///
 /// It unifies [Range] and [RangeInclusive]
@@ -448,7 +543,7 @@ impl FiniteRange<u64> for RangeInclusive<u64> {
 }
 
 /// Unification of [LimitMarker] and [OffsetMarker]
-pub trait LimOffMarker {
+pub trait LimOffMarker: 'static {
     sealed!();
 }
 impl LimOffMarker for () {}
