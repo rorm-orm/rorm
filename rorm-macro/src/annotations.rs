@@ -1,6 +1,6 @@
 use darling::{Error, FromAttributes, FromMeta};
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
+use quote::{quote, quote_token, ToTokens};
 use syn::{Lit, LitInt, LitStr, NestedMeta, Path};
 
 #[derive(FromAttributes, Debug, Default)]
@@ -162,21 +162,16 @@ impl FromMeta for FieldPath {
     }
 }
 
-impl Annotations {
-    pub fn into_tokens(mut self) -> TokenStream {
-        if self.id {
-            self.auto_increment = true;
-            self.primary_key = true;
-        }
-
+impl ToTokens for Annotations {
+    fn to_tokens(&self, mut tokens: &mut TokenStream) {
         // Ensure every field is handled
         let Annotations {
             auto_create_time,
             auto_update_time,
-            auto_increment,
-            primary_key,
+            mut auto_increment,
+            mut primary_key,
             unique,
-            id: _, // Handled above
+            id, // Handled above
             on_delete,
             on_update,
             rename: _, //
@@ -188,19 +183,26 @@ impl Annotations {
             index,
         } = self;
 
+        if *id {
+            auto_increment = true;
+            primary_key = true;
+        }
+
         // Convert every field into its "creation" expression
         let auto_create_time = auto_create_time.then(|| quote! {AutoCreateTime});
         let auto_update_time = auto_update_time.then(|| quote! {AutoUpdateTime});
         let auto_increment = auto_increment.then(|| quote! {AutoIncrement});
         let primary_key = primary_key.then(|| quote! {PrimaryKey});
         let unique = unique.then(|| quote! {Unique});
-        let max_length = max_length.map(|len| quote! {MaxLength(#len)});
-        let choices = choices.map(|Choices(choices)| quote! { Choices(&[#(#choices),*]) });
-        let default = default.map(|Default { variant, literal }| {
+        let max_length = max_length.as_ref().map(|len| quote! {MaxLength(#len)});
+        let choices = choices
+            .as_ref()
+            .map(|Choices(choices)| quote! { Choices(&[#(#choices),*]) });
+        let default = default.as_ref().map(|Default { variant, literal }| {
             let variant = Ident::new(variant, literal.span());
             quote! {DefaultValue(::rorm::internal::hmr::annotations::DefaultValueData::#variant(#literal))}
         });
-        let index = index.map(|Index(index)| {
+        let index = index.as_ref().map(|Index(index)| {
             match index {
                 None => {
                     quote! {Index(None)}
@@ -221,8 +223,12 @@ impl Annotations {
                 }
             }
         });
-        let on_delete = on_delete.map(|OnAction(token)| quote! {OnDelete::#token});
-        let on_update = on_update.map(|OnAction(token)| quote! {OnUpdate::#token});
+        let on_delete = on_delete
+            .as_ref()
+            .map(|OnAction(token)| quote! {OnDelete::#token});
+        let on_update = on_update
+            .as_ref()
+            .map(|OnAction(token)| quote! {OnUpdate::#token});
 
         // Unwrap all options
         // Add absolute path
@@ -246,7 +252,7 @@ impl Annotations {
         let unique = finalize(unique);
 
         // Combine into final struct
-        quote! {
+        quote_token! {{
             ::rorm::internal::hmr::annotations::Annotations {
                 auto_create_time: #auto_create_time,
                 auto_update_time: #auto_update_time,
@@ -260,6 +266,6 @@ impl Annotations {
                 primary_key: #primary_key,
                 unique: #unique,
             }
-        }
+        }tokens};
     }
 }

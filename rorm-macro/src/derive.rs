@@ -1,10 +1,10 @@
 use darling::{Error, FromAttributes, FromMeta};
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote, quote_spanned};
+use proc_macro2::{Ident, Literal, Span, TokenStream};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use syn::spanned::Spanned;
-use syn::LitStr;
+use syn::{LitStr, Type, Visibility};
 
-use crate::annotations::FieldPath;
+use crate::annotations::{Annotations, FieldPath};
 use crate::utils::{get_source, to_db_name};
 use crate::{annotations, trait_impls};
 
@@ -84,13 +84,13 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
     for (index, field) in strct.fields.into_iter().enumerate() {
         if let Some(field) = errors.handle(parse_field(index, field, &strct.ident, &strct.vis)) {
             match field {
-                StructField::Db(field) => fields.push(field),
-                StructField::Ignored(name) => ignored_fields.push(name),
+                ParsedField::Db(field) => fields.push(field),
+                ParsedField::Ignored(name) => ignored_fields.push(name),
             }
         }
     }
 
-    let mut primary_field: Option<&ParsedField> = None;
+    let mut primary_field: Option<&Field> = None;
     for field in fields.iter() {
         match (field.is_primary, primary_field) {
             (true, None) => primary_field = Some(field),
@@ -141,8 +141,7 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
 
     let fields_vis = fields.iter().map(|field| &field.vis);
     let fields_type: Vec<_> = fields.iter().map(|field| &field.type_ident).collect();
-    let fields_definition = fields.iter().map(|field| &field.definition);
-    let fields_index = (0..fields.len()).map(proc_macro2::Literal::usize_unsuffixed);
+    let fields_index = fields.iter().map(|field| &field.index);
 
     let non_primary_raw_type = fields
         .iter()
@@ -160,8 +159,7 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
     errors.finish()?;
     Ok(quote! {
         #(
-            #[allow(non_camel_case_types)]
-            #fields_definition
+            #fields
         )*
 
         #[allow(non_camel_case_types)]
@@ -303,24 +301,16 @@ pub fn patch(strct: TokenStream) -> darling::Result<TokenStream> {
     })
 }
 
-struct ParsedField {
-    is_primary: bool,
-    vis: syn::Visibility,
-    ident: Ident,
-    raw_type: syn::Type,
-    type_ident: Ident,
-    definition: TokenStream,
-}
-enum StructField {
-    Db(ParsedField),
+enum ParsedField {
+    Db(Field),
     Ignored(Ident),
 }
 fn parse_field(
     index: usize,
     field: syn::Field,
     model: &Ident,
-    model_vis: &syn::Visibility,
-) -> darling::Result<StructField> {
+    model_vis: &Visibility,
+) -> darling::Result<ParsedField> {
     let mut errors = Error::accumulator();
 
     let ident = if let Some(ident) = field.ident {
@@ -335,7 +325,7 @@ fn parse_field(
         .unwrap_or_default();
 
     if annotations.ignore {
-        return errors.finish_with(StructField::Ignored(ident));
+        return errors.finish_with(ParsedField::Ignored(ident));
     }
 
     let db_name = annotations
@@ -348,53 +338,86 @@ fn parse_field(
 
     errors.finish()?;
 
-    let raw_type = field.ty;
-
-    let index = syn::LitInt::new(&index.to_string(), ident.span());
-
-    let db_type = if annotations.choices.is_some() {
-        quote! { ::rorm::internal::hmr::db_type::Choices }
-    } else {
-        quote! { () }
-    };
-
-    let related_field = if let Some(FieldPath { model, field, span }) = annotations.field.take() {
-        quote_spanned! {span=> <#model as ::rorm::model::GetField<{<#model as ::rorm::model::Model>::F.#field.index()}>>::Field}
-    } else {
-        quote! { ::rorm::internal::field::MissingRelatedField }
-    };
-
     let is_primary = annotations.primary_key || annotations.id;
-    let vis = if is_primary {
-        model_vis.clone()
-    } else {
-        field.vis
-    };
 
-    let source = get_source(&ident);
+    Ok(ParsedField::Db(Field {
+        model_vis: model_vis.clone(),
+        type_ident: format_ident!("__{}_{}", model, ident),
+        raw_type: field.ty,
+        related_field: annotations.field.take(),
+        model: model.clone(),
+        index: Literal::usize_unsuffixed(index),
+        db_name: db_name.clone(),
+        annotations,
 
-    let type_ident = format_ident!("__{}_{}", model, ident);
-    let annotations = annotations.into_tokens();
-    let definition = quote! {
-        #model_vis struct #type_ident;
-        impl ::rorm::internal::field::RawField for #type_ident {
-            type Kind = <#raw_type as ::rorm::internal::field::FieldType>::Kind;
-            type RawType = #raw_type;
-            type ExplicitDbType = #db_type;
-            type RelatedField = #related_field;
-            type Model = #model;
-            const INDEX: usize = #index;
-            const NAME: &'static str = #db_name;
-            const EXPLICIT_ANNOTATIONS: ::rorm::internal::hmr::annotations::Annotations = #annotations;
-            const SOURCE: Option<::rorm::internal::hmr::Source> = #source;
-        }
-    };
-    Ok(StructField::Db(ParsedField {
         is_primary,
-        vis,
         ident,
-        raw_type,
-        type_ident,
-        definition,
+        vis: if is_primary {
+            model_vis.clone()
+        } else {
+            field.vis
+        },
     }))
+}
+
+struct Field {
+    model_vis: Visibility,
+    type_ident: Ident,
+    raw_type: Type,
+    related_field: Option<FieldPath>,
+    model: Ident,
+    index: Literal,
+    db_name: LitStr,
+    annotations: Annotations,
+
+    is_primary: bool,
+    ident: Ident,
+    vis: Visibility,
+}
+impl ToTokens for Field {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self {
+            model_vis,
+            type_ident,
+            raw_type,
+            related_field,
+            model,
+            index,
+            db_name,
+            annotations,
+            ident,
+            ..
+        } = self;
+
+        let db_type = if annotations.choices.is_some() {
+            quote! { ::rorm::internal::hmr::db_type::Choices }
+        } else {
+            quote! { () }
+        };
+
+        let related_field = if let Some(FieldPath { model, field, span }) = related_field.as_ref() {
+            quote_spanned! {*span=> <#model as ::rorm::model::GetField<{<#model as ::rorm::model::Model>::F.#field.index()}>>::Field}
+        } else {
+            quote! { ::rorm::internal::field::MissingRelatedField }
+        };
+
+        let source = get_source(&ident);
+
+        let temp = quote! {
+            #[allow(non_camel_case_types)]
+            #model_vis struct #type_ident;
+            impl ::rorm::internal::field::RawField for #type_ident {
+                type Kind = <#raw_type as ::rorm::internal::field::FieldType>::Kind;
+                type RawType = #raw_type;
+                type ExplicitDbType = #db_type;
+                type RelatedField = #related_field;
+                type Model = #model;
+                const INDEX: usize = #index;
+                const NAME: &'static str = #db_name;
+                const EXPLICIT_ANNOTATIONS: ::rorm::internal::hmr::annotations::Annotations = #annotations;
+                const SOURCE: Option<::rorm::internal::hmr::Source> = #source;
+            }
+        };
+        tokens.extend(temp);
+    }
 }
