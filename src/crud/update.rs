@@ -13,15 +13,10 @@ use crate::conditions::{Condition, IntoSingleValue};
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
 use crate::internal::field::{Field, FieldProxy};
 use crate::internal::query_context::QueryContext;
-use crate::{sealed, Model};
+use crate::Model;
 
-/// Marker for the generic parameter storing a list of columns.
-pub trait ColumnsMarker {
-    sealed!();
-}
-
-impl<'a> ColumnsMarker for Vec<(&'static str, Value<'a>)> {}
-impl ColumnsMarker for () {}
+/// Wrapper around `Vec` to indicate on type level, that possible no column has been set yet.
+pub struct OptionalColumns<'a>(Vec<(&'static str, Value<'a>)>);
 
 /// Builder for update queries
 ///
@@ -41,7 +36,7 @@ impl ColumnsMarker for () {}
 ///
 ///     The model from whose table to update rows.
 ///
-/// - `L`: [ColumnsMarker](ColumnsMarker)
+/// - `L`
 ///
 ///     List of columns and values to set.
 ///     This is a generic instead of just being a `Vec` in order to prevent the list from being empty.
@@ -101,6 +96,58 @@ impl<'db: 'rf, 'rf, M, L, C> UpdateBuilder<'db, 'rf, M, L, C, ()> {
         let UpdateBuilder { db, columns, _phantom, condition, .. } = self;
         #[rustfmt::skip]
         return UpdateBuilder { db, columns, _phantom, condition, transaction, };
+    }
+}
+
+impl<'db, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, (), C, T> {
+    /// Prepare the builder to accept a dynamic (possibly zero) amount of set calls.
+    ///
+    /// Call [finish_dyn_set](UpdateBuilder::finish_dyn_set) to go back to normal operation.
+    ///
+    /// Normally `set` would use the type system to ensure that it has been called at least once
+    /// before executing the query.
+    /// This can be troublesome, when you want to call it dynamically
+    /// and can't ensure that at least one such call will happen.
+    pub fn begin_dyn_set(self) -> UpdateBuilder<'db, 'rf, M, OptionalColumns<'rf>, C, T> {
+        #[rustfmt::skip]
+        let UpdateBuilder { db, _phantom, condition, transaction, .. } = self;
+        #[rustfmt::skip]
+        return UpdateBuilder { db, columns: OptionalColumns(Vec::new()), _phantom, condition, transaction, };
+    }
+}
+
+impl<'db, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, OptionalColumns<'rf>, C, T> {
+    /// Add a column to update.
+    ///
+    /// Can be called multiple times.
+    pub fn set<F: Field>(
+        self,
+        _field: FieldProxy<F, M>,
+        value: impl IntoSingleValue<'rf, F::DbType>,
+    ) -> Self {
+        let mut builder = self;
+        builder.columns.0.push((F::NAME, value.into_value()));
+        builder
+    }
+
+    /// Go back to a "normal" builder after calling [begin_dyn_set](UpdateBuilder::begin_dyn_set).
+    ///
+    /// This will check if `set` has been called at least once.
+    /// If it hasn't, the "unset" builder will be returned as `Err`.
+    pub fn finish_dyn_set(
+        self,
+    ) -> Result<
+        UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T>,
+        UpdateBuilder<'db, 'rf, M, (), C, T>,
+    > {
+        #[rustfmt::skip]
+        let UpdateBuilder { db, _phantom, condition, transaction, columns } = self;
+        #[rustfmt::skip]
+        return if columns.0.is_empty() {
+            Err(UpdateBuilder { db, columns: (), _phantom, condition, transaction, })
+        } else {
+            Ok(UpdateBuilder { db, columns: columns.0, _phantom, condition, transaction, })
+        };
     }
 }
 
