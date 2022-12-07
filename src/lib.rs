@@ -53,7 +53,7 @@ compile_error!(
 #[doc(hidden)]
 pub use linkme;
 
-pub use crud::query::QueryBuilder;
+pub use internal::field::back_ref::BackRef;
 pub use internal::field::foreign_model::ForeignModel;
 pub use model::{Model, Patch};
 pub use rorm_db::*;

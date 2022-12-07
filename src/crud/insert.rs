@@ -2,6 +2,7 @@
 
 use crate::conditions::Value;
 use crate::crud::builder::TransactionMarker;
+use crate::internal::field::{AbstractField, Field, RawField};
 use rorm_db::transaction::Transaction;
 use rorm_db::{error::Error, Database};
 use std::marker::PhantomData;
@@ -73,21 +74,31 @@ where
     T: TransactionMarker<'rf, 'db>,
 {
     /// Insert a single patch into the db
-    pub async fn single(self, patch: &'rf P) -> Result<(), Error> {
+    pub async fn single(
+        self,
+        patch: &'rf P,
+    ) -> Result<<<<P as Patch>::Model as Model>::Primary as Field>::Type, Error> {
         let values = Vec::from_iter(iter_columns(patch).map(Value::into_sql));
         let columns = Vec::from_iter(P::COLUMNS.iter().flatten().cloned());
         self.db
-            .insert(
+            .insert_returning(
                 P::Model::TABLE,
                 &columns,
                 &values,
                 self.transaction.into_option(),
+                &[<<P as Patch>::Model as Model>::Primary::NAME],
             )
             .await
+            .and_then(|row| {
+                <<P as Patch>::Model as Model>::Primary::get_from_row(&row, 0).map(Into::into)
+            })
     }
 
     /// Insert a bulk of patches into the db
-    pub async fn bulk(self, patches: impl IntoIterator<Item = &'rf P>) -> Result<(), Error> {
+    pub async fn bulk(
+        self,
+        patches: impl IntoIterator<Item = &'rf P>,
+    ) -> Result<Vec<<<<P as Patch>::Model as Model>::Primary as Field>::Type>, Error> {
         let mut values = Vec::new();
         for patch in patches {
             values.push(Vec::from_iter(iter_columns(patch).map(Value::into_sql)));
@@ -95,13 +106,22 @@ where
         let values_slices = Vec::from_iter(values.iter().map(Vec::as_slice));
         let columns = Vec::from_iter(P::COLUMNS.iter().flatten().cloned());
         self.db
-            .insert_bulk(
+            .insert_bulk_returning_all(
                 P::Model::TABLE,
                 &columns,
                 &values_slices,
                 self.transaction.into_option(),
+                &[<<P as Patch>::Model as Model>::Primary::NAME],
             )
             .await
+            .and_then(|rows| {
+                rows.into_iter()
+                    .map(|row| {
+                        <<P as Patch>::Model as Model>::Primary::get_from_row(&row, 0)
+                            .map(Into::into)
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            })
     }
 }
 
