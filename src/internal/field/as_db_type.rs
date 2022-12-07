@@ -32,7 +32,7 @@ pub trait AsDbType {
 
     /// Convert the associated primitive type into `Self`.
     ///
-    /// This function allows "non-primitive" types like any [DbEnum] to implement
+    /// This function allows "non-primitive" types like any [DbEnum](rorm_macro::DbEnum) to implement
     /// their decoding without access to the underlying db details (namely `sqlx::Decode`)
     fn from_primitive(primitive: Self::Primitive) -> Self;
 

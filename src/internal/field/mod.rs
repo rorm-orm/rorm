@@ -1,4 +1,72 @@
-//! the various field traits and their proxy.
+//! The various field traits and their proxy.
+//!
+//! # Introduction
+//! Rorm's main entry point is the [`Model`] trait and its derive macro.
+//! It takes a struct and generates the code to represent this struct as a database table.
+//! To do so each of the struct's fields need to be represented in some way.
+//!
+//! For each field the derive macro declares a unit struct (i.e. an empty struct) to represent it.
+//! This empty struct is then "populated" with the field's information using various traits defined in this module.
+//!
+//! # Trait Implementation Flow
+//! As stated in the introduction, the derive macro generates an unit struct per field.
+//! It the proceeds to implement then [`RawField`] trait on this empty struct.
+//! Therefore, [`RawField`] encapsulates all information the macro can gather.
+//! This includes:
+//! - the name (a db safe version of it, to be precise)
+//! - its "raw type" ("raw" because the macro can't make any deductions about the type)
+//! - the various annotations inside a `#[rorm(...)]` attribute
+//!
+//! #### Small illustration
+//! ```text
+//! #[derive(Model)]
+//! struct User {
+//!     id: i32,
+//!     ...
+//! }
+//! ```
+//! will produce something like
+//! ```text
+//! struct __User_id;
+//! impl RawField for __User_id {
+//!     type RawType = i32;
+//!     const NAME: &'static str = "id";
+//!     ...
+//! }
+//! ```
+//!
+//! ---
+//!
+//! From there on, further traits are implemented using generic `impl`s defined in this module.
+//!
+//! At this point the implementation branches into mutually exclusive traits.
+//! This creates the distinction between fields which are mapped to actual columns in the database
+//! and fields which are pure orm abstractions (for example: [`BackRef`](back_ref::BackRef)).
+//! (Fields which are marked with `#[rorm(skip)]` don't even get a unit struct.)
+//! This branching behaviour is controlled be the field's "kind" which is determined by the field's type
+//! which has to implement [`FieldType`] and provide the [`FieldType::Kind`](FieldType::Kind).
+//!
+//! After the fields have been provided with implementations specific to their type and its kind,
+//! their implementations are merged again into a common interface named [`AbstractField`].
+//!
+//! ---
+//!
+//! Currently there exist two branches:
+//! - If the raw type implements [`AsDbType`], the [`Field`] trait will be implemented on the field's unit struct.
+//! - If the raw type is a [`BackRef`](back_ref::BackRef), [`AbstractField`] will be implemented directly without any trait in between.
+//!
+//! **The concrete branches are experimental and might change any time!**
+//!
+//! The [`Field`] implementation does further processing of [`RawField`].
+//! For example it merges the annotations set by the user with annotations implied by the raw type
+//! and runs a linter shared with `rorm-cli` on them.
+//! It also introduces the new [`Field::Type`], which is bound to be identical to [`RawField::RawType`],
+//! but contains the additional type constraint [`AsDbType`].
+//!
+//! [`ForeignModel`](foreign_model) could be considered its own branch.
+//! Its implementation is pretty close to the other [`AsDbType`] types,
+//! but requires access to the [`RawField`] it is part of.
+//! For now this is resolved using some odd generics in [`AsDbType`].
 
 use std::marker::PhantomData;
 
