@@ -16,6 +16,7 @@ use crate::internal::query_context::{QueryContext, QueryContextBuilder};
 use crate::internal::relation_path::Path;
 
 pub mod collections;
+use crate::internal::field::as_db_type::AsDbType;
 pub use collections::{DynamicCollection, StaticCollection};
 
 /// A [Condition] in a box.
@@ -222,7 +223,7 @@ pub struct Ternary<A, B, C> {
 pub enum TernaryOperator {
     /// Between represents "{} BETWEEN {} AND {}" from SQL
     Between,
-    /// Between represents "{} NOT BETWEEN {} AND {}" from SQL
+    /// NotBetween represents "{} NOT BETWEEN {} AND {}" from SQL
     NotBetween,
 }
 impl<'a, A: Condition<'a>, B: Condition<'a>, C: Condition<'a>> Condition<'a> for Ternary<A, B, C> {
@@ -247,10 +248,49 @@ impl<'a, A: Condition<'a>, B: Condition<'a>, C: Condition<'a>> Condition<'a> for
     }
 }
 
+/// A unary expression
+#[derive(Copy, Clone)]
+pub struct Unary<A> {
+    pub(crate) operator: UnaryOperator,
+    pub(crate) fst_arg: A,
+}
+/// A unary operator
+#[derive(Copy, Clone)]
+pub enum UnaryOperator {
+    /// Representation of SQL's "{} IS NULL"
+    IsNull,
+    /// Representation of SQL's "{} IS NOT NULL"
+    IsNotNull,
+    /// Representation of SQL's "EXISTS {}"
+    Exists,
+    /// Representation of SQL's "NOT EXISTS {}"
+    NotExists,
+    /// Representation of SQL's "NOT {}"
+    Not,
+}
+impl<'a, A: Condition<'a>> Condition<'a> for Unary<A> {
+    fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
+        self.fst_arg.add_to_builder(builder);
+    }
+
+    fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
+    where
+        'a: 'c,
+    {
+        conditional::Condition::UnaryCondition((match self.operator {
+            UnaryOperator::IsNull => conditional::UnaryCondition::IsNull,
+            UnaryOperator::IsNotNull => conditional::UnaryCondition::IsNotNull,
+            UnaryOperator::Exists => conditional::UnaryCondition::Exists,
+            UnaryOperator::NotExists => conditional::UnaryCondition::NotExists,
+            UnaryOperator::Not => conditional::UnaryCondition::Not,
+        })(Box::new(self.fst_arg.as_sql(context))))
+    }
+}
+
 /// Mark common rust types as convertable into certain condition values.
 ///
 /// This trait is used to simplify rorm's api and not internally.
-pub trait IntoSingleValue<'a, D: DbType>: 'a {
+pub trait IntoSingleValue<'a, D: DbType, F: Field>: 'a {
     /// The condition tree node type
     ///
     /// Either [Value] or [Column]
@@ -271,37 +311,64 @@ pub trait IntoSingleValue<'a, D: DbType>: 'a {
     fn into_value(self) -> value::Value<'a>;
 }
 
-impl<'a, S: AsRef<str> + ?Sized> IntoSingleValue<'a, VarChar> for &'a S {
+trait StringLike: DbType {}
+impl StringLike for VarChar {}
+impl StringLike for Choices {}
+
+impl<'a, F, T, D, S> IntoSingleValue<'a, D, F> for &'a S
+where
+    F: Field<Type = T>,
+    T: AsDbType<DbType<F> = D>,
+    D: StringLike,
+    S: AsRef<str> + ?Sized,
+{
     type Condition = Value<'a>;
     fn into_condition(self) -> Self::Condition {
         Value::String(self.as_ref())
     }
     fn into_value(self) -> value::Value<'a> {
-        IntoSingleValue::<'a, VarChar>::into_condition(self).into_sql()
+        <Self as IntoSingleValue<'a, D, F>>::into_condition(self).into_sql()
     }
 }
 
-impl<'a, S: AsRef<str> + ?Sized> IntoSingleValue<'a, Choices> for &'a S {
-    type Condition = Value<'a>;
-    fn into_condition(self) -> Self::Condition {
-        Value::String(self.as_ref())
-    }
-    fn into_value(self) -> value::Value<'a> {
-        IntoSingleValue::<'a, Choices>::into_condition(self).into_sql()
-    }
-}
-
-impl<'a, S: AsRef<[u8]> + ?Sized> IntoSingleValue<'a, VarBinary> for &'a S {
+impl<'a, F, T, S> IntoSingleValue<'a, VarBinary, F> for &'a S
+where
+    F: Field<Type = T>,
+    T: AsDbType<DbType<F> = VarBinary>,
+    S: AsRef<[u8]> + ?Sized,
+{
     type Condition = Value<'a>;
     fn into_condition(self) -> Self::Condition {
         Value::Binary(self.as_ref())
     }
     fn into_value(self) -> value::Value<'a> {
-        self.into_condition().into_sql()
+        <Self as IntoSingleValue<'a, VarBinary, F>>::into_condition(self).into_sql()
     }
 }
 
-impl<'a, F: Field, P: Path> IntoSingleValue<'a, F::DbType> for &'static FieldProxy<F, P> {
+impl<'a, F, T, I> IntoSingleValue<'a, T::DbType<F>, F> for Option<I>
+where
+    F: Field<Type = Option<T>>,
+    T: AsDbType,
+    I: IntoSingleValue<'a, T::DbType<F>, F, Condition = Value<'a>>,
+{
+    type Condition = Value<'a>;
+
+    fn into_condition(self) -> Self::Condition {
+        match self {
+            Some(i) => I::into_condition(i),
+            None => Value::Null,
+        }
+    }
+
+    fn into_value(self) -> value::Value<'a> {
+        <Self as IntoSingleValue<'a, T::DbType<F>, F>>::into_condition(self).into_sql()
+    }
+}
+
+impl<'a, F: Field, P: Path> IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>
+    for &'static FieldProxy<F, P>
+{
     type Condition = Column<F, P>;
     fn into_condition(self) -> Self::Condition {
         Column::new()
@@ -313,13 +380,15 @@ impl<'a, F: Field, P: Path> IntoSingleValue<'a, F::DbType> for &'static FieldPro
 
 macro_rules! impl_numeric {
     ($type:ty, $value_variant:ident, $db_type:ident) => {
-        impl<'a> IntoSingleValue<'a, $db_type> for $type {
+        impl<'a, F: Field<Type = T>, T: AsDbType<DbType<F> = $db_type>>
+            IntoSingleValue<'a, $db_type, F> for $type
+        {
             type Condition = Value<'a>;
             fn into_condition(self) -> Self::Condition {
                 Value::$value_variant(self)
             }
             fn into_value(self) -> value::Value<'a> {
-                self.into_condition().into_sql()
+                <Self as IntoSingleValue<'a, $db_type, F>>::into_condition(self).into_sql()
             }
         }
     };
@@ -344,14 +413,12 @@ mod impl_proxy {
             Column::new()
         }
 
-        /*
-        fn __unary<'a>(
-            &self,
-            variant: impl Fn(Box<Condition<'a>>) -> UnaryCondition<'a>,
-        ) -> Condition<'a> {
-            Condition::UnaryCondition(variant(Box::new(self.__column())))
+        fn __unary<'a>(&self, operator: UnaryOperator) -> Unary<Column<F, P>> {
+            Unary {
+                operator,
+                fst_arg: self.__column(),
+            }
         }
-        */
 
         fn __binary<'a, B: Condition<'a>>(
             &self,
@@ -382,8 +449,8 @@ mod impl_proxy {
         /// Check if this field's value lies between two other values
         pub fn between<
             'a,
-            T1: IntoSingleValue<'a, F::DbType>,
-            T2: IntoSingleValue<'a, F::DbType>,
+            T1: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+            T2: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
         >(
             &self,
             lower: T1,
@@ -399,8 +466,8 @@ mod impl_proxy {
         /// Check if this field's value does not lie between two other values
         pub fn not_between<
             'a,
-            T1: IntoSingleValue<'a, F::DbType>,
-            T2: IntoSingleValue<'a, F::DbType>,
+            T1: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+            T2: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
         >(
             &self,
             lower: T1,
@@ -414,7 +481,10 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is equal to another value
-        pub fn equals<'a, T: IntoSingleValue<'a, F::DbType>>(
+        pub fn equals<
+            'a,
+            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+        >(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -422,7 +492,10 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is not equal to another value
-        pub fn not_equals<'a, T: IntoSingleValue<'a, F::DbType>>(
+        pub fn not_equals<
+            'a,
+            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+        >(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -430,7 +503,10 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is greater than another value
-        pub fn greater<'a, T: IntoSingleValue<'a, F::DbType>>(
+        pub fn greater<
+            'a,
+            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+        >(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -438,7 +514,10 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is greater than or equal to another value
-        pub fn greater_or_equals<'a, T: IntoSingleValue<'a, F::DbType>>(
+        pub fn greater_or_equals<
+            'a,
+            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+        >(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -446,7 +525,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is less than another value
-        pub fn less<'a, T: IntoSingleValue<'a, F::DbType>>(
+        pub fn less<'a, T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -454,7 +533,10 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is less than or equal to another value
-        pub fn less_or_equals<'a, T: IntoSingleValue<'a, F::DbType>>(
+        pub fn less_or_equals<
+            'a,
+            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+        >(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -462,7 +544,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is similar to another value
-        pub fn like<'a, T: IntoSingleValue<'a, F::DbType>>(
+        pub fn like<'a, T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -470,7 +552,10 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is not similar to another value
-        pub fn not_like<'a, T: IntoSingleValue<'a, F::DbType>>(
+        pub fn not_like<
+            'a,
+            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+        >(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -478,7 +563,10 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is matched by a regex
-        pub fn regexp<'a, T: IntoSingleValue<'a, F::DbType>>(
+        pub fn regexp<
+            'a,
+            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+        >(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -486,14 +574,32 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is not matched by a regex
-        pub fn not_regexp<'a, T: IntoSingleValue<'a, F::DbType>>(
+        pub fn not_regexp<
+            'a,
+            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+        >(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
             self.__binary(BinaryOperator::NotRegexp, arg.into_condition())
         }
 
+        /// Check if this field's value is NULL
+        pub fn is_null<'a, T>(&self) -> Unary<Column<F, P>>
+        where
+            F: Field<Type = Option<T>>,
+        {
+            self.__unary(UnaryOperator::IsNull)
+        }
+
+        /// Check if this field's value is not NULL
+        pub fn is_not_null<'a, T>(&self) -> Unary<Column<F, P>>
+        where
+            F: Field<Type = Option<T>>,
+        {
+            self.__unary(UnaryOperator::IsNotNull)
+        }
+
         // TODO in, not_in: requires different trait than IntoCondValue
-        // TODO is_null, is_not_null: check AsDbType::NULLABLE in type constraint, new Nullable trait?
     }
 }

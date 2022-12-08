@@ -11,6 +11,7 @@ use rorm_db::Database;
 
 use crate::conditions::{Condition, IntoSingleValue};
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
+use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::{Field, FieldProxy};
 use crate::internal::query_context::QueryContext;
 use crate::Model;
@@ -123,7 +124,7 @@ impl<'db, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, OptionalColumns<'rf>, C, T> {
     pub fn set<F: Field>(
         self,
         _field: FieldProxy<F, M>,
-        value: impl IntoSingleValue<'rf, F::DbType>,
+        value: impl IntoSingleValue<'rf, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
     ) -> Self {
         let mut builder = self;
         builder.columns.0.push((F::NAME, value.into_value()));
@@ -161,7 +162,7 @@ where
     pub fn set<F: Field>(
         self,
         _field: FieldProxy<F, M>,
-        value: impl IntoSingleValue<'rf, F::DbType>,
+        value: impl IntoSingleValue<'rf, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
     ) -> UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T> {
         #[rustfmt::skip]
         let UpdateBuilder { db, _phantom, condition, transaction, .. } = self;
@@ -180,7 +181,7 @@ where
     pub fn set<F: Field>(
         self,
         _field: FieldProxy<F, M>,
-        value: impl IntoSingleValue<'rf, F::DbType>,
+        value: impl IntoSingleValue<'rf, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
     ) -> Self {
         let mut builder = self;
         builder.columns.push((F::NAME, value.into_value()));
