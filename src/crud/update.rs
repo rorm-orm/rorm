@@ -137,10 +137,8 @@ impl<'db, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, OptionalColumns<'rf>, C, T> {
     /// If it hasn't, the "unset" builder will be returned as `Err`.
     pub fn finish_dyn_set(
         self,
-    ) -> Result<
-        UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T>,
-        UpdateBuilder<'db, 'rf, M, (), C, T>,
-    > {
+    ) -> Result<UpdateBuilderWithSet<'db, 'rf, M, C, T>, UpdateBuilderWithoutSet<'db, 'rf, M, C, T>>
+    {
         #[rustfmt::skip]
         let UpdateBuilder { db, _phantom, condition, transaction, columns } = self;
         #[rustfmt::skip]
@@ -151,6 +149,9 @@ impl<'db, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, OptionalColumns<'rf>, C, T> {
         };
     }
 }
+type UpdateBuilderWithoutSet<'db, 'rf, M, C, T> = UpdateBuilder<'db, 'rf, M, (), C, T>;
+type UpdateBuilderWithSet<'db, 'rf, M, C, T> =
+    UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T>;
 
 impl<'db: 'rf, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, (), C, T>
 where

@@ -347,7 +347,7 @@ fn parse_field(
         related_field: annotations.field.take(),
         model: model.clone(),
         index: Literal::usize_unsuffixed(index),
-        db_name: db_name.clone(),
+        db_name,
         annotations,
 
         is_primary,

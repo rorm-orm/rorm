@@ -413,7 +413,7 @@ mod impl_proxy {
             Column::new()
         }
 
-        fn __unary<'a>(&self, operator: UnaryOperator) -> Unary<Column<F, P>> {
+        fn __unary(&self, operator: UnaryOperator) -> Unary<Column<F, P>> {
             Unary {
                 operator,
                 fst_arg: self.__column(),
@@ -585,7 +585,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is NULL
-        pub fn is_null<'a, T>(&self) -> Unary<Column<F, P>>
+        pub fn is_null<T>(&self) -> Unary<Column<F, P>>
         where
             F: Field<Type = Option<T>>,
         {
@@ -593,7 +593,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is not NULL
-        pub fn is_not_null<'a, T>(&self) -> Unary<Column<F, P>>
+        pub fn is_not_null<T>(&self) -> Unary<Column<F, P>>
         where
             F: Field<Type = Option<T>>,
         {
