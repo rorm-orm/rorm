@@ -116,6 +116,13 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
 
     // Static struct containing all model's fields
     let fields_struct = format_ident!("__{}_Fields_Struct", strct.ident);
+    let fields_struct_doc = LitStr::new(
+        &format!(
+            "[`{}`]'s [`Fields`](::rorm::model::Model::Fields) struct.",
+            strct.ident
+        ),
+        span,
+    );
     // Static reference pointing to Model::get_imr
     let static_get_imr = format_ident!("__{}_get_imr", strct.ident);
     // Const name for compile time checks
@@ -162,6 +169,7 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
             #fields
         )*
 
+        #[doc = #fields_struct_doc]
         #[allow(non_camel_case_types)]
         #vis struct #fields_struct<Path> {
             #(#fields_vis #fields_ident: ::rorm::internal::field::FieldProxy<#fields_type, Path>),*
@@ -403,7 +411,13 @@ impl ToTokens for Field {
 
         let source = get_source(&ident);
 
+        let doc = LitStr::new(
+            &format!("rorm's representation of [`{}`]'s `{}` field", model, ident),
+            ident.span(),
+        );
+
         let temp = quote! {
+            #[doc = #doc]
             #[allow(non_camel_case_types)]
             #model_vis struct #type_ident;
             impl ::rorm::internal::field::RawField for #type_ident {
