@@ -35,10 +35,10 @@ linkme = { version = "~0.3" }
 # Time and date library
 chrono = { version = "~0.4" }
 # self referencing struct (currently JoinBuilder)
-ouroboros = "0.15.5"
+ouroboros = { version = "~0.15" }
 
 rorm-db = { version = "~0.4", path = "./rorm-db" }
-rorm-macro = { version = "~0.2", path = "./rorm-macro" }
+rorm-macro = { version = "~0.3", path = "./rorm-macro" }
 rorm-declaration = { version = "~0.3", path = "./rorm-declaration" }
 
 [package.metadata.docs.rs]
