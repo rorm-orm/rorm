@@ -37,19 +37,6 @@
 ))]
 compile_error!("Using multiple runtime / tls configurations at the same time is not allowed");
 
-#[cfg(not(any(
-    feature = "async-std-native-tls",
-    feature = "async-std-rustls",
-    feature = "tokio-native-tls",
-    feature = "tokio-rustls",
-    feature = "actix-native-tls",
-    feature = "actix-rustls"
-)))]
-compile_error!(
-    r#"One of async-std-native-tls, async-std-rustls, tokio-native-tls, tokio-rustls, 
-    actix-native-tls, actix-rustls is required"#
-);
-
 #[doc(hidden)]
 pub use linkme;
 

@@ -106,7 +106,7 @@ where
         let values_slices = Vec::from_iter(values.iter().map(Vec::as_slice));
         let columns = Vec::from_iter(P::COLUMNS.iter().flatten().cloned());
         self.db
-            .insert_bulk_returning_all(
+            .insert_bulk_returning(
                 P::Model::TABLE,
                 &columns,
                 &values_slices,

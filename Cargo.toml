@@ -10,7 +10,7 @@ members = [
 
 [package]
 name = "rorm"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 repository = "https://github.com/myOmikron/drorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
@@ -37,7 +37,7 @@ chrono = { version = "~0.4" }
 # self referencing struct (currently JoinBuilder)
 ouroboros = "0.15.5"
 
-rorm-db = { version = "~0.3", path = "./rorm-db" }
+rorm-db = { version = "~0.4", path = "./rorm-db" }
 rorm-macro = { version = "~0.2", path = "./rorm-macro" }
 rorm-declaration = { version = "~0.3", path = "./rorm-declaration" }
 
