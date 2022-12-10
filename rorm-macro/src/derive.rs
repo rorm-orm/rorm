@@ -149,6 +149,12 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
     let fields_vis = fields.iter().map(|field| &field.vis);
     let fields_type: Vec<_> = fields.iter().map(|field| &field.type_ident).collect();
     let fields_index = fields.iter().map(|field| &field.index);
+    let fields_doc = fields.iter().map(|field| {
+        LitStr::new(
+            &format!("[`{}`]'s `{}` field", model, field.ident),
+            field.ident.span(),
+        )
+    });
 
     let non_primary_raw_type = fields
         .iter()
@@ -172,7 +178,10 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
         #[doc = #fields_struct_doc]
         #[allow(non_camel_case_types)]
         #vis struct #fields_struct<Path> {
-            #(#fields_vis #fields_ident: ::rorm::internal::field::FieldProxy<#fields_type, Path>),*
+            #(
+                #[doc = #fields_doc]
+                #fields_vis #fields_ident: ::rorm::internal::field::FieldProxy<#fields_type, Path>,
+            )*
         }
         impl<Path> ::rorm::model::ConstNew for #fields_struct<Path> {
             const NEW: Self = Self {
