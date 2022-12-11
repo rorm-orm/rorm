@@ -22,6 +22,24 @@ pub trait Patch: FromRow + 'static {
 
     /// Get a field's db value by its index
     fn get_value(&self, index: usize) -> Option<Value>;
+
+    /// Get a reference to a field
+    fn field<F>(&self) -> &F::RawType
+    where
+        F: RawField,
+        Self: GetField<F>,
+    {
+        <Self as GetField<F>>::get_field(self)
+    }
+
+    /// Get a mutable reference to a field
+    fn field_mut<F>(&mut self) -> &mut F::RawType
+    where
+        F: RawField,
+        Self: GetField<F>,
+    {
+        <Self as GetField<F>>::get_field_mut(self)
+    }
 }
 
 /// The [Condition](crate::conditions::Condition) type returned by [Patch::as_condition]
@@ -93,10 +111,7 @@ pub trait FieldByIndex<const INDEX: usize>: Model {
 /// This enables generic code to check if a patch contains a certain field
 /// (for example the model's primary key, see [Identifiable])
 /// and gain access to it.
-pub trait GetField<F>: Patch
-where
-    F: RawField<Model = Self::Model>,
-{
+pub trait GetField<F: RawField>: Patch {
     /// Get reference to the field
     fn get_field(&self) -> &F::RawType;
 

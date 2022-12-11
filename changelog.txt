@@ -4,3 +4,4 @@ Since 0.3.0
 - Added GetField<F> api
   -> Identifiable trait
   -> delete accepts certain patches
+  -> fixed and extended BackRef's FieldProxy::populate
