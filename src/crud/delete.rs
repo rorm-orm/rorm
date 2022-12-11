@@ -11,7 +11,8 @@ use rorm_db::Database;
 use crate::conditions::{Condition, DynamicCollection};
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
 use crate::internal::query_context::QueryContext;
-use crate::model::{Model, PatchAsCondition};
+use crate::model::{Identifiable, Model, PatchAsCondition};
+use crate::Patch;
 
 /// Builder for delete queries
 ///
@@ -69,27 +70,25 @@ where
     M: Model,
 {
     /// Set the condition to delete a single model instance
-    pub fn single(self, model: &'rf M) -> DeleteBuilder<'db, 'rf, M, PatchAsCondition<'rf, M>, T> {
-        self.condition(
-            model
-                .as_condition()
-                .expect("Model should always have a primary key"),
-        )
+    pub fn single<P>(self, patch: &'rf P) -> DeleteBuilder<'db, 'rf, M, PatchAsCondition<'rf, M>, T>
+    where
+        P: Patch<Model = M> + Identifiable,
+    {
+        self.condition(patch.as_condition())
     }
 
     /// Set the condition to delete a bulk of model instances
-    pub fn bulk(
+    pub fn bulk<P>(
         self,
-        models: impl IntoIterator<Item = &'rf M>,
-    ) -> DeleteBuilder<'db, 'rf, M, DynamicCollection<PatchAsCondition<'rf, M>>, T> {
+        patches: impl IntoIterator<Item = &'rf P>,
+    ) -> DeleteBuilder<'db, 'rf, M, DynamicCollection<PatchAsCondition<'rf, M>>, T>
+    where
+        P: Patch<Model = M> + Identifiable,
+    {
         self.condition(DynamicCollection::or(
-            models
+            patches
                 .into_iter()
-                .map(|model| {
-                    model
-                        .as_condition()
-                        .expect("Model should always have a primary key")
-                })
+                .map(|patch| patch.as_condition())
                 .collect(),
         ))
     }

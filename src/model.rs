@@ -89,6 +89,10 @@ pub trait FieldByIndex<const INDEX: usize>: Model {
 }
 
 /// Generic access to a patch's fields
+///
+/// This enables generic code to check if a patch contains a certain field
+/// (for example the model's primary key, see [Identifiable])
+/// and gain access to it.
 pub trait GetField<F>: Patch
 where
     F: RawField<Model = Self::Model>,
@@ -101,12 +105,42 @@ where
 }
 
 /// Update a model's field based on the model's primary key
+///
+/// This trait is similar to [GetField::get_field_mut].
+/// But [GetField::get_field_mut] only allows access to one field at a time,
+/// because the method hides the fact, that the mutual borrow only applies to a single field.
+/// This trait provides a solution to this problem, for a common scenario:
+/// The need for an additional immutable borrow to the primary key.
 pub trait UpdateField<F: RawField<Model = Self>>: Model {
     /// Update a model's field based on the model's primary key
     fn update_field<'m, T>(
         &'m mut self,
         update: impl FnOnce(&'m <<Self as Model>::Primary as Field>::Type, &'m mut F::RawType) -> T,
     ) -> T;
+}
+
+/// A patch which contains its model's primary key.
+pub trait Identifiable: Patch {
+    /// Get a reference to the primary key
+    fn get_primary_key(&self) -> &<<Self::Model as Model>::Primary as Field>::Type;
+
+    /// Build a [Condition](crate::conditions::Condition)
+    /// which only applies to this instance by comparing the primary key.
+    fn as_condition(&self) -> PatchAsCondition<Self> {
+        Binary {
+            operator: BinaryOperator::Equals,
+            fst_arg: Column::new(),
+            snd_arg: self
+                .get_primary_key()
+                .as_primitive::<<Self::Model as Model>::Primary>(),
+        }
+    }
+}
+impl<M: Model, P: Patch<Model = M> + GetField<M::Primary>> Identifiable for P {
+    fn get_primary_key(&self) -> &<M::Primary as Field>::Type {
+        let raw_type = <Self as GetField<M::Primary>>::get_field(self);
+        <<M::Primary as Field>::Type as Identical<_>>::as_self_ref(raw_type)
+    }
 }
 
 /// exposes a `NEW` constant, which act like [Default::default] but constant.
