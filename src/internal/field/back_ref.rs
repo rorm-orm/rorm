@@ -1,6 +1,6 @@
 //! is the other direction to a [foreign model](foreign_model::ForeignModel)
 
-use crate::conditions::collections::CollectionOperator::And;
+use crate::conditions::collections::CollectionOperator::Or;
 use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection};
 use futures::stream::TryStreamExt;
 use rorm_db::row::RowIndex;
@@ -112,7 +112,7 @@ where
         {
             let mut stream = query!(db, FMM)
                 .condition(DynamicCollection {
-                    operator: And,
+                    operator: Or,
                     vector: models.iter().map(Self::model_as_condition).collect(),
                 })
                 .stream();
@@ -128,9 +128,10 @@ where
                         }
                         .clone(),
                     )
-                    .or_default()
+                    .or_insert_with(|| Some(Vec::new()))
                     .as_mut()
-                    .map(|vec| vec.push(instance));
+                    .expect("the line 2 above should init missing keys with Some, never None")
+                    .push(instance);
             }
         }
 
