@@ -210,7 +210,7 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
         }
 
         #(
-            impl ::rorm::model::GetField<{ #fields_index }> for #model {
+            impl ::rorm::model::FieldByIndex<{ #fields_index }> for #model {
                 type Field = #fields_type;
             }
         )*
@@ -413,7 +413,7 @@ impl ToTokens for Field {
         };
 
         let related_field = if let Some(FieldPath { model, field, span }) = related_field.as_ref() {
-            quote_spanned! {*span=> <#model as ::rorm::model::GetField<{<#model as ::rorm::model::Model>::F.#field.index()}>>::Field}
+            quote_spanned! {*span=> <#model as ::rorm::model::FieldByIndex<{<#model as ::rorm::model::Model>::F.#field.index()}>>::Field}
         } else {
             quote! { ::rorm::internal::field::MissingRelatedField }
         };

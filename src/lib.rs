@@ -100,3 +100,13 @@ macro_rules! sealed {
         fn _not_implementable<P: $crate::private::Private>() {}
     };
 }
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! get_field {
+    ($patch:ty, $field:ident) => {
+        <<$patch as ::rorm::model::Patch>::Model as ::rorm::model::FieldByIndex<
+            { <Self as ::rorm::model::Patch>::Model::FIELDS.$field.index() },
+        >>::Field
+    };
+}

@@ -54,7 +54,7 @@ impl<M: Model, T: AsDbType> AsDbType for ForeignModelByField<M, T> {
         match self {
             ForeignModelByField::Key(value) => value.as_primitive::<F>(),
             ForeignModelByField::Instance(model) => {
-                if let Some(value) = model.get(RelatedField::<M, F>::INDEX) {
+                if let Some(value) = model.get_value(RelatedField::<M, F>::INDEX) {
                     value
                 } else {
                     unreachable!("A model should contain its primary key");

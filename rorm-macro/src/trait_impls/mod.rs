@@ -14,7 +14,7 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
                 <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.index(),
             )*];
 
-            fn get(&self, index: usize) -> Option<::rorm::conditions::Value> {
+            fn get_value(&self, index: usize) -> Option<::rorm::conditions::Value> {
                 use ::rorm::internal::field::as_db_type::AsDbType;
                 #(
                     if index == <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.index() {
@@ -25,6 +25,17 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
                 }
             }
         }
+
+        #(
+            impl ::rorm::model::GetField<::rorm::get_field!(#strct, #fields)> for #strct {
+                fn get_field(&self) -> &<::rorm::get_field!(#strct, #fields) as ::rorm::internal::field::RawField>::RawType {
+                    &self.#fields
+                }
+                fn get_field_mut(&mut self) -> &mut <::rorm::get_field!(#strct, #fields) as ::rorm::internal::field::RawField>::RawType {
+                    &mut self.#fields
+                }
+            }
+        )*
     }
 }
 

@@ -1,5 +1,6 @@
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
-use crate::internal::field::{Field, RawField};
+use crate::internal::field::as_db_type::AsDbType;
+use crate::internal::field::{Field, Identical, RawField};
 use crate::internal::relation_path::Path;
 use rorm_db::row::FromRow;
 use rorm_declaration::imr;
@@ -20,21 +21,9 @@ pub trait Patch: FromRow + 'static {
     const INDEXES: &'static [usize];
 
     /// Get a field's db value by its index
-    fn get(&self, index: usize) -> Option<Value>;
-
-    /// Build a [Condition](crate::conditions::Condition) which only matches on this instance.
-    ///
-    /// This method defaults to using the primary key.
-    /// If the patch does not store the models primary key, this method will return `None`.
-    fn as_condition(&self) -> Option<PatchAsCondition<Self>> {
-        self.get(<<Self::Model as Model>::Primary as RawField>::INDEX)
-            .map(|value| Binary {
-                operator: BinaryOperator::Equals,
-                fst_arg: Column::new(),
-                snd_arg: value,
-            })
-    }
+    fn get_value(&self, index: usize) -> Option<Value>;
 }
+
 /// The [Condition](crate::conditions::Condition) type returned by [Patch::as_condition]
 pub type PatchAsCondition<'a, P> =
     Binary<Column<<<P as Patch>::Model as Model>::Primary, <P as Patch>::Model>, Value<'a>>;
@@ -57,7 +46,9 @@ pub const fn contains_index<P: Patch>(field: usize) -> bool {
 ///
 /// This method can't be part of the [`Patch`] trait, since `impl Trait` is not allowed in traits.
 pub fn iter_columns<P: Patch>(patch: &P) -> impl Iterator<Item = Value> {
-    P::INDEXES.iter().filter_map(|&index| patch.get(index))
+    P::INDEXES
+        .iter()
+        .filter_map(|&index| patch.get_value(index))
 }
 
 /// Trait implementing most database interactions for a struct.
@@ -65,7 +56,7 @@ pub fn iter_columns<P: Patch>(patch: &P) -> impl Iterator<Item = Value> {
 /// It should only ever be generated using [`derive(Model)`](rorm_macro::Model).
 pub trait Model: Patch<Model = Self> {
     /// The primary key
-    type Primary: Field;
+    type Primary: Field<Model = Self>;
 
     /// A struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`](crate::internal::field::Field)).
     ///
@@ -92,9 +83,21 @@ pub trait Model: Patch<Model = Self> {
 }
 
 /// Expose a models' fields on the type level using indexes
-pub trait GetField<const INDEX: usize>: Model {
+pub trait FieldByIndex<const INDEX: usize>: Model {
     /// The model's field at `INDEX`
     type Field: RawField<Model = Self>;
+}
+
+/// Generic access to a patch's fields
+pub trait GetField<F>: Patch
+where
+    F: RawField<Model = Self::Model>,
+{
+    /// Get reference to the field
+    fn get_field(&self) -> &F::RawType;
+
+    /// Get mutable reference to the field
+    fn get_field_mut(&mut self) -> &mut F::RawType;
 }
 
 /// Update a model's field based on the model's primary key
