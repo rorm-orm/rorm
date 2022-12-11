@@ -13,8 +13,8 @@ use rorm_db::{error::Error, row::Row, Database};
 
 use crate::conditions::Condition;
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
-use crate::internal::field::as_db_type::AsDbType;
-use crate::internal::field::{Field, FieldProxy, RawField};
+use crate::crud::selectable::Selectable;
+use crate::internal::field::{FieldProxy, RawField};
 use crate::internal::query_context::QueryContextBuilder;
 use crate::internal::relation_path::Path;
 use crate::model::{Model, Patch};
@@ -667,44 +667,44 @@ pub struct SelectTuple<T, const C: usize> {
     columns: [ColumnSelector<'static>; C],
 }
 macro_rules! impl_select_tuple {
-    ($C:literal, ($($index:tt: <$F:ident, $P:ident>,)+)) => {
-        impl<$($F: Field, $P: Path),+> SelectTuple<($(FieldProxy<$F, $P>,)+), $C> {
+    ($C:literal, ($($S:ident,)+)) => {
+        impl<$($S: Selectable),+> SelectTuple<($($S,)+), $C> {
             /// Create a SelectTuple
-            pub const fn new(tuple: ($(FieldProxy<$F, $P>,)+)) -> Self {
+            pub const fn new(tuple: ($($S,)+)) -> Self {
                 Self {
                     tuple,
                     columns: [$(
-                        ColumnSelector {
-                            table_name: Some($P::ALIAS),
-                            column_name: $F::NAME,
-                            select_alias: None,
-                            aggregation: None,
-                        }
-                    ),+],
+                        $S::SQL,
+                    )+],
                 }
             }
         }
-        impl<M: Model, $($F: Field, $P: Path<Origin = M>),+> Selector<M>
-            for SelectTuple<($(FieldProxy<$F, $P>,)+), $C>
+        impl<M: Model, $($S: Selectable<Table = M>),+> Selector<M> for SelectTuple<($($S,)+), $C>
         {
-            type Result = ($($F::Type,)+);
+            type Result = ($(
+                $S::Result,
+            )+);
 
             fn decode(row: Row) -> Result<Self::Result, Error> {
-                Ok(($($F::Type::from_primitive(row.get::<<<$F as Field>::Type as AsDbType>::Primitive, usize>($index)?),)+))
+                Ok(($(
+                    $S::decode(&row)?,
+                )+))
             }
 
             fn columns(&self, builder: &mut QueryContextBuilder) -> &[ColumnSelector<'static>] {
-                $($P::add_to_join_builder(builder);)+
+                $(
+                    $S::prepare(builder);
+                )+
                 &self.columns
             }
         }
     };
 }
-impl_select_tuple!(1, (0: <F0, P0>,));
-impl_select_tuple!(2, (0: <F0, P0>, 1: <F1, P1>,));
-impl_select_tuple!(3, (0: <F0, P0>, 1: <F1, P1>, 2: <F2, P2>,));
-impl_select_tuple!(4, (0: <F0, P0>, 1: <F1, P1>, 2: <F2, P2>, 3: <F3, P3>,));
-impl_select_tuple!(5, (0: <F0, P0>, 1: <F1, P1>, 2: <F2, P2>, 3: <F3, P3>, 4: <F4, P4>,));
-impl_select_tuple!(6, (0: <F0, P0>, 1: <F1, P1>, 2: <F2, P2>, 3: <F3, P3>, 4: <F4, P4>, 5: <F5, P5>,));
-impl_select_tuple!(7, (0: <F0, P0>, 1: <F1, P1>, 2: <F2, P2>, 3: <F3, P3>, 4: <F4, P4>, 5: <F5, P5>, 6: <F6, P6>,));
-impl_select_tuple!(8, (0: <F0, P0>, 1: <F1, P1>, 2: <F2, P2>, 3: <F3, P3>, 4: <F4, P4>, 5: <F5, P5>, 6: <F6, P6>, 7: <F7, P7>,));
+impl_select_tuple!(1, (S0,));
+impl_select_tuple!(2, (S0, S1,));
+impl_select_tuple!(3, (S0, S1, S2,));
+impl_select_tuple!(4, (S0, S1, S2, S3,));
+impl_select_tuple!(5, (S0, S1, S2, S3, S4,));
+impl_select_tuple!(6, (S0, S1, S2, S3, S4, S5,));
+impl_select_tuple!(7, (S0, S1, S2, S3, S4, S5, S6,));
+impl_select_tuple!(8, (S0, S1, S2, S3, S4, S5, S6, S7,));

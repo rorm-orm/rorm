@@ -54,6 +54,7 @@ pub use rorm_declaration::imr;
 // Reexported for use in parser structs of user
 pub use rorm_declaration::config;
 
+pub mod aggregate;
 pub mod conditions;
 pub mod crud;
 pub mod internal;

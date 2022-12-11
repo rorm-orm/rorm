@@ -19,4 +19,5 @@ pub mod builder;
 pub mod delete;
 pub mod insert;
 pub mod query;
+pub mod selectable;
 pub mod update;
