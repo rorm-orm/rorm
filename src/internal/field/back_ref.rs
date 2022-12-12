@@ -1,12 +1,12 @@
 //! is the other direction to a [foreign model](foreign_model::ForeignModel)
 
-use crate::conditions::collections::CollectionOperator::Or;
-use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection};
 use futures::stream::TryStreamExt;
 use rorm_db::row::RowIndex;
 use rorm_db::{Database, Error, Row};
 use std::collections::HashMap;
 
+use crate::conditions::collections::CollectionOperator::Or;
+use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection};
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::foreign_model::ForeignModelByField;
 use crate::internal::field::{
@@ -18,12 +18,23 @@ use crate::query;
 use crate::Patch;
 
 /// A back reference is the other direction to a [foreign model](foreign_model::ForeignModel)
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BackRef<M: Model> {
     /// Cached list of models referencing this one.
     ///
     /// If there wasn't any query yet this field will be `None` instead of an empty vector.
     pub cached: Option<Vec<M>>,
+}
+impl<M: Model> BackRef<M> {
+    /// Access the cached instances or `None` if the cache wasn't populated yet.
+    pub fn get(&self) -> Option<&Vec<M>> {
+        self.cached.as_ref()
+    }
+
+    /// Access the cached instances or `None` if the cache wasn't populated yet.
+    pub fn get_mut(&mut self) -> Option<&mut Vec<M>> {
+        self.cached.as_mut()
+    }
 }
 
 impl<M: Model> FieldType for BackRef<M> {

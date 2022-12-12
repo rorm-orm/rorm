@@ -5,3 +5,5 @@ Since 0.3.0
   -> Identifiable trait
   -> delete accepts certain patches
   -> fixed and extended BackRef's FieldProxy::populate
+- Aggregations
+- Quality of life features

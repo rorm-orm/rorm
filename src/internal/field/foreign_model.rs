@@ -1,11 +1,12 @@
 //! The [ForeignModel] field type
 
+use rorm_declaration::imr;
+
 use crate::conditions::Value;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::{Field, OptionField, RawField};
 use crate::internal::hmr::annotations::Annotations;
-use crate::Model;
-use rorm_declaration::imr;
+use crate::model::Model;
 
 /// Alias for [ForeignModelByField] which defaults the second generic parameter to use the primary key.
 ///
@@ -17,22 +18,25 @@ pub type ForeignModel<M, T = <<M as Model>::Primary as Field>::Type> = ForeignMo
 /// Stores a link to another model in a field.
 ///
 /// In database language, this is a many to one relation.
+#[derive(Clone, Debug)]
 pub enum ForeignModelByField<M: Model, T> {
     /// The other model's primary key which can be used to query it later.
     Key(T),
     /// The other model's queried instance.
     Instance(Box<M>),
 }
-impl<M: Model, T: AsDbType> Clone for ForeignModelByField<M, T>
-where
-    M: Clone,
-    T: Clone,
-{
-    fn clone(&self) -> Self {
+impl<M: Model, T> ForeignModelByField<M, T> {
+    /// Get the instance, if it is available
+    pub fn instance(&self) -> Option<&M> {
         match self {
-            ForeignModelByField::Key(primary) => ForeignModelByField::Key(primary.clone()),
-            ForeignModelByField::Instance(model) => ForeignModelByField::Instance(model.clone()),
+            Self::Key(_) => None,
+            Self::Instance(instance) => Some(instance.as_ref()),
         }
+    }
+}
+impl<M: Model, T> From<T> for ForeignModelByField<M, T> {
+    fn from(key: T) -> Self {
+        Self::Key(key)
     }
 }
 
