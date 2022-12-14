@@ -9,6 +9,11 @@ pub mod query_context;
 pub mod relation_path;
 
 /// Declare a type level equivalent of `Option<T>` for a concrete `T`
+///
+/// ## Parameters
+/// - `$option:ident`: name for the new trait (an alias for `Option<T>`)
+/// - `$trait:ident`: the trait to wrap (`T`)
+/// - `$none:ty = ()`: unit type to symbolize none (an alias for `Option::None`)
 #[doc(hidden)]
 #[macro_export]
 macro_rules! declare_type_option {
