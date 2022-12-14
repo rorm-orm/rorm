@@ -269,7 +269,7 @@ impl<P: Patch> ReturnPatch<P> {
     pub fn new() -> Self {
         Self {
             patch: PhantomData,
-            columns: P::COLUMNS.iter().flatten().map(|column| *column).collect(),
+            columns: P::COLUMNS.iter().flatten().copied().collect(),
         }
     }
 }

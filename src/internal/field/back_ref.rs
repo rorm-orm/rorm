@@ -80,14 +80,16 @@ where
 
     // obvious access to the models' fields
     FMM: GetField<FM>,
-    BRM: GetField<BR>,
-    BRM: GetField<foreign_model::RelatedField<BRM, FM>>,
 {
-    fn model_as_condition(model: &BRM) -> impl Condition {
+    fn model_as_condition<BRP>(patch: &BRP) -> impl Condition
+    where
+        BRP: Patch<Model = BRM>,
+        BRP: GetField<foreign_model::RelatedField<BRM, FM>>,
+    {
         Binary {
             operator: BinaryOperator::Equals,
             fst_arg: Column::<FM, FMM>::new(),
-            snd_arg: model
+            snd_arg: patch
                 .field::<foreign_model::RelatedField<BRM, FM>>()
                 .as_primitive::<foreign_model::RelatedField<BRM, FM>>(),
         }
@@ -97,14 +99,19 @@ where
     ///
     /// This method doesn't check whether it already has been populated.
     /// If it has, then it will be updated i.e. the cache overwritten.
-    pub async fn populate(&self, db: &Database, model: &mut BRM) -> Result<(), Error> {
+    pub async fn populate<BRP>(&self, db: &Database, patch: &mut BRP) -> Result<(), Error>
+    where
+        BRP: Patch<Model = BRM>,
+        BRP: GetField<BR>,
+        BRP: GetField<foreign_model::RelatedField<BRM, FM>>,
+    {
         let cached = Some(
             query!(db, FMM)
-                .condition(Self::model_as_condition(model))
+                .condition(Self::model_as_condition(patch))
                 .all()
                 .await?,
         );
-        model.field_mut::<BR>().cached = cached;
+        patch.field_mut::<BR>().cached = cached;
         Ok(())
     }
 
@@ -115,16 +122,19 @@ where
     ///
     /// This method doesn't check whether the slice contains a model twice.
     /// To avoid allocations only the first instance actually gets populated.
-    pub async fn populate_bulk(&self, db: &Database, models: &mut [BRM]) -> Result<(), Error>
+    pub async fn populate_bulk<BRP>(&self, db: &Database, patches: &mut [BRP]) -> Result<(), Error>
     where
         T: std::hash::Hash + Eq + Clone,
+        BRP: Patch<Model = BRM>,
+        BRP: GetField<BR>,
+        BRP: GetField<foreign_model::RelatedField<BRM, FM>>,
     {
         let mut cache: HashMap<T, Option<Vec<FMM>>> = HashMap::new();
         {
             let mut stream = query!(db, FMM)
                 .condition(DynamicCollection {
                     operator: Or,
-                    vector: models.iter().map(Self::model_as_condition).collect(),
+                    vector: patches.iter().map(Self::model_as_condition).collect(),
                 })
                 .stream();
 
@@ -133,9 +143,7 @@ where
                     .entry(
                         match instance.get_field() {
                             ForeignModelByField::Key(t) => t,
-                            ForeignModelByField::Instance(brm) => {
-                                brm.field::<foreign_model::RelatedField<BRM, FM>>()
-                            }
+                            ForeignModelByField::Instance(_) => unreachable!("The instances were queried above and should only contain the foreign key"),
                         }
                         .clone(),
                     )
@@ -146,7 +154,7 @@ where
             }
         }
 
-        for model in models {
+        for model in patches {
             let cached = cache.get_mut(model.field::<foreign_model::RelatedField<BRM, FM>>());
             model.field_mut::<BR>().cached = cached.map(Option::take).unwrap_or(Some(Vec::new()));
         }

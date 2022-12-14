@@ -7,3 +7,4 @@ Since 0.3.0
   -> fixed and extended BackRef's FieldProxy::populate
 - Aggregations
 - Quality of life features
+- Returning in insert builder
