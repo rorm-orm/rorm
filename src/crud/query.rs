@@ -3,9 +3,8 @@
 use std::marker::PhantomData;
 use std::ops::{Range, RangeInclusive, Sub};
 
-use futures::Stream;
-use futures::StreamExt;
 use rorm_db::database::ColumnSelector;
+use rorm_db::executor::{All, One, Optional, Stream};
 use rorm_db::limit_clause::LimitClause;
 use rorm_db::ordering::{OrderByEntry, Ordering};
 use rorm_db::transaction::Transaction;
@@ -228,7 +227,7 @@ where
         let context = self.ctx.finish();
         let joins = context.get_joins();
         self.db
-            .query_all(
+            .query::<All>(
                 M::TABLE,
                 columns,
                 &joins,
@@ -246,7 +245,7 @@ where
     }
 
     /// Retrieve and decode the query as a stream
-    pub fn stream(mut self) -> impl Stream<Item = Result<S::Result, Error>> + 'rf
+    pub fn stream(mut self) -> QueryStream<'rf, M, S>
     where
         S: 'rf,
         LO: LimitMarker,
@@ -258,7 +257,7 @@ where
             |ctx| ctx.get_joins(),
             |ctx| self.condition.into_option(ctx),
             |conditions, joins| {
-                self.db.query_stream(
+                self.db.query::<Stream>(
                     M::TABLE,
                     columns,
                     joins,
@@ -269,7 +268,6 @@ where
                 )
             },
         )
-        .map(|result| result.and_then(S::decode))
     }
 
     /// Retrieve and decode exactly one matching row
@@ -285,7 +283,7 @@ where
         let joins = context.get_joins();
         let row = self
             .db
-            .query_one(
+            .query::<One>(
                 M::TABLE,
                 columns,
                 &joins,
@@ -309,7 +307,7 @@ where
         let joins = context.get_joins();
         let row = self
             .db
-            .query_optional(
+            .query::<Optional>(
                 M::TABLE,
                 columns,
                 &joins,
@@ -424,29 +422,35 @@ macro_rules! query {
 /// Sadly ouroboros doesn't handle the lifetime bounds required for the QueryStream very well.
 /// This module's code is copied from ouroboros' expanded macro and the tailored to fit the lifetime bounds.
 mod query_stream {
+    use std::marker::PhantomData;
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
-    use futures::stream::BoxStream;
-    use futures::Stream;
+    use crate::crud::query::Selector;
     use ouroboros::macro_help::{aliasable_boxed, change_lifetime, AliasableBox};
     use rorm_db::conditional::Condition;
     use rorm_db::database::JoinTable;
-    use rorm_db::{Error, Row};
+    use rorm_db::executor::{QueryStrategyResult, Stream};
+    use rorm_db::Error;
 
     use crate::internal::query_context::QueryContext;
+    use crate::Model;
 
+    #[pin_project::pin_project]
     #[allow(dead_code)] // The field's are never "read" because they are aliased before being assigned to the struct
-    pub struct QueryStream<'rf> {
+    pub struct QueryStream<'rf, M, S> {
         ctx: AliasableBox<QueryContext>,
 
         condition: AliasableBox<Option<Condition<'rf>>>,
         joins: AliasableBox<Vec<JoinTable<'rf, 'rf>>>,
 
-        stream: BoxStream<'rf, Result<Row, Error>>,
+        selector: PhantomData<(M, S)>,
+
+        #[pin]
+        stream: <Stream as QueryStrategyResult>::Result<'rf>,
     }
 
-    impl<'stream> QueryStream<'stream> {
+    impl<'stream, M, S> QueryStream<'stream, M, S> {
         pub(crate) fn new<'until_build>(
             ctx: QueryContext,
             joins_builder: impl FnOnce(&'stream QueryContext) -> Vec<JoinTable<'stream, 'stream>>
@@ -456,7 +460,7 @@ mod query_stream {
             stream_builder: impl FnOnce(
                     &'stream Option<Condition<'stream>>,
                     &'stream Vec<JoinTable<'stream, 'stream>>,
-                ) -> BoxStream<'stream, Result<Row, Error>>
+                ) -> <Stream as QueryStrategyResult>::Result<'stream>
                 + 'until_build,
         ) -> Self
         where
@@ -482,16 +486,21 @@ mod query_stream {
                 ctx,
                 joins,
                 condition,
+                selector: PhantomData,
                 stream,
             }
         }
     }
 
-    impl<'stream> Stream for QueryStream<'stream> {
-        type Item = Result<Row, Error>;
+    impl<'stream, M: Model, S: Selector<M>> futures::stream::Stream for QueryStream<'stream, M, S> {
+        type Item = Result<S::Result, Error>;
 
-        fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-            self.stream.as_mut().poll_next(cx)
+        fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            self.project()
+                .stream
+                .as_mut()
+                .poll_next(cx)
+                .map(|option| option.map(|result| result.and_then(S::decode)))
         }
     }
 }

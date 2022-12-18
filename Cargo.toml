@@ -28,14 +28,22 @@ path = "src/lib.rs"
 [dependencies]
 # Abstractions for asynchronous programming.
 futures = { version = "~0.3" }
+
 # json serialization to communicate with the migrator
 serde_json = { version = "~1.0" }
+
 # linker magic to create a slice containing all models defined by crates
 linkme = { version = "~0.3" }
+
 # Time and date library
 chrono = { version = "~0.4" }
+
 # self referencing struct (currently JoinBuilder)
 ouroboros = { version = "~0.15" }
+
+# Allow wrapping futures and streams
+pin-project = { version = "~1.0" }
+
 
 rorm-db = { version = "~0.4", path = "./rorm-db" }
 rorm-macro = { version = "~0.3", path = "./rorm-macro" }
