@@ -18,6 +18,7 @@ use crate::internal::relation_path::Path;
 pub mod collections;
 use crate::internal::field::as_db_type::AsDbType;
 pub use collections::{DynamicCollection, StaticCollection};
+use rorm_db::value::NullType;
 
 /// A [Condition] in a box.
 pub type BoxedCondition<'a> = Box<dyn Condition<'a>>;
@@ -66,7 +67,7 @@ impl<'a> Condition<'a> for BoxedCondition<'a> {
 #[derive(Copy, Clone)]
 pub enum Value<'a> {
     /// null representation
-    Null,
+    Null(NullType),
     /// String representation
     String(&'a str),
     /// i64 representation
@@ -94,7 +95,7 @@ impl<'a> Value<'a> {
     /// Convert into an [sql::Value](value::Value) instead of an [sql::Condition](conditional::Condition) directly.
     pub fn into_sql(self) -> value::Value<'a> {
         match self {
-            Value::Null => value::Value::Null,
+            Value::Null(null_type) => value::Value::Null(null_type),
             Value::String(v) => value::Value::String(v),
             Value::I64(v) => value::Value::I64(v),
             Value::I32(v) => value::Value::I32(v),
@@ -357,7 +358,7 @@ where
     fn into_condition(self) -> Self::Condition {
         match self {
             Some(i) => I::into_condition(i),
-            None => Value::Null,
+            None => Value::Null(T::NULL_TYPE),
         }
     }
 

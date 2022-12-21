@@ -39,6 +39,8 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
                 type Primitive = String;
                 type DbType<F: ::rorm::internal::field::Field> = ::rorm::internal::hmr::db_type::Choices;
 
+                const NULL_TYPE: ::rorm::value::NullType = ::rorm::value::NullType::String;
+
                 const IMPLICIT: Option<::rorm::internal::hmr::annotations::Annotations> = Some({
                     let mut annos = ::rorm::internal::hmr::annotations::Annotations::empty();
                     annos.choices = Some(::rorm::internal::hmr::annotations::Choices(CHOICES));

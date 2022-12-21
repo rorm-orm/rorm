@@ -7,6 +7,7 @@ use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::{Field, OptionField, RawField};
 use crate::internal::hmr::annotations::Annotations;
 use crate::model::Model;
+use crate::value::NullType;
 
 /// Alias for [ForeignModelByField] which defaults the second generic parameter to use the primary key.
 ///
@@ -47,6 +48,8 @@ impl<M: Model, T: AsDbType> AsDbType for ForeignModelByField<M, T> {
     type Primitive = T::Primitive;
     type DbType<F: Field> =
         <<RelatedField<M, F> as Field>::Type as AsDbType>::DbType<RelatedField<M, F>>;
+
+    const NULL_TYPE: NullType = T::NULL_TYPE;
 
     const IMPLICIT: Option<Annotations> = T::IMPLICIT;
 

@@ -10,7 +10,7 @@ members = [
 
 [package]
 name = "rorm"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 repository = "https://github.com/myOmikron/drorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
@@ -45,7 +45,7 @@ ouroboros = { version = "~0.15" }
 pin-project = { version = "~1.0" }
 
 
-rorm-db = { version = "~0.4", path = "./rorm-db" }
+rorm-db = { version = "~0.5", path = "./rorm-db" }
 rorm-macro = { version = "~0.3", path = "./rorm-macro" }
 rorm-declaration = { version = "~0.3", path = "./rorm-declaration" }
 
