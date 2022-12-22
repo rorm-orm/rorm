@@ -1,5 +1,5 @@
 [Migration]
-Hash = '7417045264120078121'
+Hash = '8344013964462293652'
 Initial = false
 Dependency = 6
 Replaces = []
@@ -160,6 +160,10 @@ Model = 'comment'
 [Migration.Operations.Field]
 Name = 'user'
 Type = 'varchar'
+
+[[Migration.Operations.Field.Annotations]]
+Type = 'max_length'
+Value = 255
 
 [[Migration.Operations.Field.Annotations]]
 Type = 'not_null'
