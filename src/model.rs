@@ -82,12 +82,12 @@ pub trait Model: Patch<Model = Self> {
     type Fields<P: Path>: ConstNew;
 
     /// A constant struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`](crate::internal::field::Field)).
-    const FIELDS: Self::Fields<Self> = Self::Fields::NEW;
+    const FIELDS: Self::Fields<Self>;
 
     /// Shorthand version of [`FIELDS`]
     ///
     /// [`FIELDS`]: Model::FIELDS
-    const F: Self::Fields<Self> = Self::Fields::NEW;
+    const F: Self::Fields<Self>;
 
     /// The model's table name
     const TABLE: &'static str;

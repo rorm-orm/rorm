@@ -125,6 +125,7 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
         ),
         span,
     );
+
     // Static reference pointing to Model::get_imr
     let static_get_imr = format_ident!("__{}_get_imr", strct.ident);
     // Const name for compile time checks
@@ -197,6 +198,8 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
             type Primary = #primary_struct;
 
             type Fields<P: ::rorm::internal::relation_path::Path> = #fields_struct<P>;
+            const F: #fields_struct<#model> = ::rorm::model::ConstNew::NEW;
+            const FIELDS: #fields_struct<#model> = ::rorm::model::ConstNew::NEW;
 
             const TABLE: &'static str = #table_name;
 

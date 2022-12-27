@@ -1,3 +1,10 @@
 Since 0.4.1
 -----------
 
+- Fixed jetbrains completions for `::F.`
+
+
+
+Notes for publishing
+--------------------
+- don't forget to bump and publish rorm-macro!
