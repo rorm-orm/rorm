@@ -41,7 +41,6 @@ pub struct Comment {
     #[rorm(auto_create_time)]
     pub created: NaiveDateTime,
 
-    #[rorm(max_length = 255)]
     #[rorm(on_delete = "Cascade")]
     #[rorm(field = "User::F.username")]
     pub user: ForeignModel<User, String>,

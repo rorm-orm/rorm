@@ -73,6 +73,15 @@ impl<M: Model, T: AsDbType> AsDbType for ForeignModelByField<M, T> {
     const IS_NULLABLE: bool = <T as AsDbType>::IS_NULLABLE;
 
     fn custom_annotations<F: Field>(annotations: &mut Vec<imr::Annotation>) {
+        let related_annotations = RelatedField::<M, F>::ANNOTATIONS;
+        if let Some(max_length) = related_annotations.max_length {
+            if !annotations
+                .iter()
+                .any(|anno| matches!(anno, imr::Annotation::MaxLength(_)))
+            {
+                annotations.push(imr::Annotation::MaxLength(max_length.0));
+            }
+        }
         annotations.push(imr::Annotation::ForeignKey(imr::ForeignKey {
             table_name: M::TABLE.to_string(),
             column_name: RelatedField::<M, F>::NAME.to_string(),
