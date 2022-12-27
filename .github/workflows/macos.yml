@@ -49,8 +49,5 @@ jobs:
           echo Config: ${CONFIG_FILE}
           rm -rvf .models.json
           rorm-cli migrate --database-config "${CONFIG_FILE}" --log-sql
-          cargo run -F rorm-main
-          rorm-cli make-migrations
-          rorm-cli migrate --database-config "${CONFIG_FILE}" --log-sql
           RUST_BACKTRACE=full RUST_LOG=rorm=debug cargo run -- "${CONFIG_FILE}"
         working-directory: ./rorm-sample
