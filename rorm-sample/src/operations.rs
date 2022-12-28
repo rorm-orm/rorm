@@ -48,37 +48,33 @@ pub struct Counter {
 }
 
 async fn create_users(db: &Database) {
-    for (birthday, username) in [
-        (
-            NaiveDate::from_ymd_opt(1999, 2, 19).unwrap(),
-            "Alice".to_string(),
-        ),
-        (
-            NaiveDate::from_ymd_opt(2022, 1, 31).unwrap(),
-            "Bob".to_string(),
-        ),
-        (
-            NaiveDate::from_ymd_opt(1964, 12, 7).unwrap(),
-            "Charlie".to_string(),
-        ),
-        (
-            NaiveDate::from_ymd_opt(1987, 6, 22).unwrap(),
-            "David".to_string(),
-        ),
-        (
-            NaiveDate::from_ymd_opt(2000, 1, 11).unwrap(),
-            "Eve".to_string(),
-        ),
-        (
-            NaiveDate::from_ymd_opt(1973, 10, 3).unwrap(),
-            "Francis".to_string(),
-        ),
-    ] {
-        insert!(db, UserNew)
-            .single(&UserNew { username, birthday })
-            .await
-            .unwrap();
-    }
+    let users = [
+        UserNew {
+            birthday: NaiveDate::from_ymd_opt(1999, 2, 19).unwrap(),
+            username: "Alice".to_string(),
+        },
+        UserNew {
+            birthday: NaiveDate::from_ymd_opt(2022, 1, 31).unwrap(),
+            username: "Bob".to_string(),
+        },
+        UserNew {
+            birthday: NaiveDate::from_ymd_opt(1964, 12, 7).unwrap(),
+            username: "Charlie".to_string(),
+        },
+        UserNew {
+            birthday: NaiveDate::from_ymd_opt(1987, 6, 22).unwrap(),
+            username: "David".to_string(),
+        },
+        UserNew {
+            birthday: NaiveDate::from_ymd_opt(2000, 1, 11).unwrap(),
+            username: "Eve".to_string(),
+        },
+        UserNew {
+            birthday: NaiveDate::from_ymd_opt(1973, 10, 3).unwrap(),
+            username: "Francis".to_string(),
+        },
+    ];
+    insert!(db, UserNew).bulk(&users).await.unwrap();
 }
 
 async fn create_cars(db: &Database) {
@@ -104,25 +100,20 @@ async fn create_cars(db: &Database) {
 
 pub(crate) async fn operate(db: Database, driver: DatabaseVariant) -> anyhow::Result<()> {
     // Ensure that there are no users, cars or counters in the database
-    assert_eq!(0, query!(&db, User).all().await.unwrap().len());
-    assert_eq!(0, query!(&db, Car).all().await.unwrap().len());
-    assert_eq!(0, query!(&db, Counter).all().await.unwrap().len());
+    delete!(&db, User).all().await?;
+    delete!(&db, Car).all().await?;
+    delete!(&db, Counter).all().await?;
 
     // Create a few new user accounts and a bunch of cars
     create_users(&db).await;
     create_cars(&db).await;
 
     // Get the sum of all users' IDs
-    let mut sum = 0;
+    let mut _sum = 0;
     let mut s = query!(&db, (User::F.id,)).stream();
     while let Some((id,)) = s.try_next().await? {
-        sum += id;
+        _sum += id;
     }
-    assert_eq!(
-        42,
-        2 * sum,
-        "double it to get the answer to life, universe and everything"
-    );
 
     // Delete the user Eve for being very evil
     delete!(&db, User)
