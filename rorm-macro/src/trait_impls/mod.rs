@@ -57,6 +57,24 @@ pub fn try_from_row(
                     )*
                 })
             }
+            fn from_row_using_position(row: ::rorm::row::Row) -> Result<Self, ::rorm::Error> {
+                let mut i: isize = -1;
+                Ok(#strct {
+                    #(
+                        #fields: {
+                            if <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.name().is_some() {
+                                i += 1;
+                                <#model as ::rorm::model::Model>::FIELDS.#fields.get_from_row(&row, Some(i as usize))?
+                            } else {
+                                <#model as ::rorm::model::Model>::FIELDS.#fields.get_from_row(&row, Option::<usize>::None)?
+                            }
+                        },
+                    )*
+                    #(
+                        #ignored: Default::default(),
+                    )*
+                })
+            }
         }
     }
 }

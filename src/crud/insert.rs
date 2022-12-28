@@ -249,9 +249,7 @@ impl<M: Model> Returning<M> for PrimaryKey<M> {
     type Result = <M::Primary as Field>::Type;
 
     fn decode(row: Row) -> Result<Self::Result, Error> {
-        Ok(<M::Primary as Field>::Type::from_primitive(
-            row.get(M::Primary::NAME)?,
-        ))
+        Ok(<M::Primary as Field>::Type::from_primitive(row.get(0)?))
     }
 
     fn columns(&self) -> &[&'static str] {
@@ -282,7 +280,7 @@ impl<M: Model, P: Patch<Model = M>> Returning<M> for ReturnPatch<P> {
     type Result = P;
 
     fn decode(row: Row) -> Result<Self::Result, Error> {
-        P::from_row(row)
+        P::from_row_using_position(row)
     }
 
     fn columns(&self) -> &[&'static str] {
@@ -299,7 +297,7 @@ pub struct ReturnTuple<T, const C: usize> {
     columns: [&'static str; C],
 }
 macro_rules! impl_select_tuple {
-    ($C:literal, ($($F:ident,)+)) => {
+    ($C:literal, ($($F:ident @ $i:literal),+)) => {
         impl<$($F: Field),+> From<($(FieldProxy<$F, $F::Model>,)+)> for ReturnTuple<($(FieldProxy<$F, $F::Model>,)+), $C> {
             fn from(tuple: ($(FieldProxy<$F, $F::Model>,)+)) -> Self {
                 Self {
@@ -318,7 +316,7 @@ macro_rules! impl_select_tuple {
 
             fn decode(row: Row) -> Result<Self::Result, Error> {
                 Ok(($(
-                    $F::Type::from_primitive(row.get($F::NAME)?),
+                    $F::Type::from_primitive(row.get($i)?),
                 )+))
             }
 
@@ -328,11 +326,11 @@ macro_rules! impl_select_tuple {
         }
     };
 }
-impl_select_tuple!(1, (S0,));
-impl_select_tuple!(2, (S0, S1,));
-impl_select_tuple!(3, (S0, S1, S2,));
-impl_select_tuple!(4, (S0, S1, S2, S3,));
-impl_select_tuple!(5, (S0, S1, S2, S3, S4,));
-impl_select_tuple!(6, (S0, S1, S2, S3, S4, S5,));
-impl_select_tuple!(7, (S0, S1, S2, S3, S4, S5, S6,));
-impl_select_tuple!(8, (S0, S1, S2, S3, S4, S5, S6, S7,));
+impl_select_tuple!(1, (A @ 0));
+impl_select_tuple!(2, (A @ 0, B @ 1));
+impl_select_tuple!(3, (A @ 0, B @ 1, C @ 2));
+impl_select_tuple!(4, (A @ 0, B @ 1, C @ 2, D @ 3));
+impl_select_tuple!(5, (A @ 0, B @ 1, C @ 2, D @ 3, E @ 4));
+impl_select_tuple!(6, (A @ 0, B @ 1, C @ 2, D @ 3, E @ 4, F @ 5));
+impl_select_tuple!(7, (A @ 0, B @ 1, C @ 2, D @ 3, E @ 4, F @ 5, G @ 6));
+impl_select_tuple!(8, (A @ 0, B @ 1, C @ 2, D @ 3, E @ 4, F @ 5, G @ 6, H @ 7));
