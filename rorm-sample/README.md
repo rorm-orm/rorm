@@ -1,1 +1,3 @@
-# `rorm-sample`, a sample project utilizing `rorm`
+# `rorm-sample`
+
+a sample project utilizing `rorm`
