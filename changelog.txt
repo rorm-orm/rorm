@@ -1,10 +1,5 @@
-Since 0.4.1
+Since 0.4.2
 -----------
-
-- Fixed jetbrains completions for `::F.`
-- Made max_length on `ForeignModelByField<_, String>` implicit
-- Mitigate bug in mariadb's API. See issue #33
-
 
 Notes for publishing
 --------------------
