@@ -197,6 +197,14 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Verify MariaDB connection
+        run: |
+          while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
+            echo "Waiting for MariaDB...";
+            sleep 1;
+          done
+        if: ${{ matrix.config == 'mysql.toml' }}
+
       - name: Run the project for ${{ matrix.config }}
         run: |
           set -x
