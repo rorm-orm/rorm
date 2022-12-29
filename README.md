@@ -1,6 +1,6 @@
 # rorm
 
-![License](https://img.shields.io/github/license/rorm-orm/rorm?label=License&color=blue)
+[![License](https://img.shields.io/github/license/rorm-orm/rorm?label=License&color=blue)](https://github.com/rorm-orm/rorm/blob/dev/LICENSE)
 [![Crates.io](https://img.shields.io/crates/v/rorm?label=Crates.io)](https://crates.io/crates/rorm)
 [![Docs](https://img.shields.io/docsrs/rorm?label=Docs)](https://docs.rs/rorm/latest/rorm/)
 [![Linux Build](https://img.shields.io/github/actions/workflow/status/rorm-orm/rorm/linux.yml?branch=dev&label=Linux%20CI)](https://github.com/rorm-orm/rorm/actions/workflows/linux.yml)
