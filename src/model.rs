@@ -42,7 +42,7 @@ pub trait Patch: FromRow + 'static {
     }
 }
 
-/// The [Condition](crate::conditions::Condition) type returned by [Patch::as_condition]
+/// The [Condition](crate::conditions::Condition) type returned by [Identifiable::as_condition]
 pub type PatchAsCondition<'a, P> =
     Binary<Column<<<P as Patch>::Model as Model>::Primary, <P as Patch>::Model>, Value<'a>>;
 
