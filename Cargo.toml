@@ -36,7 +36,7 @@ serde_json = { version = "~1.0" }
 linkme = { version = "~0.3" }
 
 # Time and date library
-chrono = { version = "~0.4" }
+chrono = { version = ">=0.4.20" }
 
 # self referencing struct (currently JoinBuilder)
 ouroboros = { version = "~0.15" }

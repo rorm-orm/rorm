@@ -1,5 +1,6 @@
 Since 0.4.2
 -----------
+- Pinned chrono to >= 0.4.20. See [RUSTSEC](https://rustsec.org/advisories/RUSTSEC-2020-0159.html) for further information
 
 Notes for publishing
 --------------------
