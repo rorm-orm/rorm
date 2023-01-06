@@ -51,7 +51,15 @@ impl<M: Model, T: AsDbType> AsDbType for ForeignModelByField<M, T> {
 
     const NULL_TYPE: NullType = T::NULL_TYPE;
 
-    const IMPLICIT: Option<Annotations> = T::IMPLICIT;
+    const IMPLICIT: Option<Annotations> = {
+        let mut annos = if let Some(annos) = T::IMPLICIT {
+            annos
+        } else {
+            Annotations::empty()
+        };
+        annos.foreign = true;
+        Some(annos)
+    };
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         Self::Key(T::from_primitive(primitive))
@@ -70,8 +78,6 @@ impl<M: Model, T: AsDbType> AsDbType for ForeignModelByField<M, T> {
         }
     }
 
-    const IS_NULLABLE: bool = <T as AsDbType>::IS_NULLABLE;
-
     fn custom_annotations<F: Field>(annotations: &mut Vec<imr::Annotation>) {
         let related_annotations = RelatedField::<M, F>::ANNOTATIONS;
         if let Some(max_length) = related_annotations.max_length {
@@ -89,6 +95,4 @@ impl<M: Model, T: AsDbType> AsDbType for ForeignModelByField<M, T> {
             on_update: F::ANNOTATIONS.on_update.unwrap_or_default(),
         }))
     }
-
-    const IS_FOREIGN: bool = true;
 }

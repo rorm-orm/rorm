@@ -209,9 +209,7 @@ pub trait Field: RawField<Kind = Column> {
     /// It is "used" in [FieldProxy::new] to force the compiler to evaluate it.
     const CHECK: usize = {
         // Annotations
-        let mut annotations = Self::ANNOTATIONS.as_lint();
-        annotations.not_null = !Self::Type::IS_NULLABLE && !Self::ANNOTATIONS.implicit_not_null();
-        annotations.foreign_key = Self::Type::IS_FOREIGN;
+        let annotations = Self::ANNOTATIONS.as_lint();
         if let Err(err) = annotations.check() {
             const_panic!(&[
                 Self::Model::TABLE,
@@ -257,9 +255,6 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
 impl<F: Field> AbstractField<Column> for F {
     fn imr() -> Option<imr::Field> {
         let mut annotations = F::ANNOTATIONS.as_imr();
-        if !F::Type::IS_NULLABLE && !F::ANNOTATIONS.implicit_not_null() {
-            annotations.push(imr::Annotation::NotNull);
-        }
         F::Type::custom_annotations::<F>(&mut annotations);
         Some(imr::Field {
             name: F::NAME.to_string(),

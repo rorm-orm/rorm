@@ -265,6 +265,8 @@ impl ToTokens for Annotations {
                 on_update: #on_update,
                 primary_key: #primary_key,
                 unique: #unique,
+                nullable: false, // Set implicitly by type
+                foreign: false,  //
             }
         }tokens};
     }

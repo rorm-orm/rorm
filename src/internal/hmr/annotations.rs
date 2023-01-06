@@ -154,6 +154,12 @@ pub struct Annotations {
 
     /// The `#[rorm(unique)]` annotation
     pub unique: Option<Unique>,
+
+    /// Set implicitly if type is `Option<T>`
+    pub nullable: bool,
+
+    /// Set implicitly if type is `ForeignModel<M>`
+    pub foreign: bool,
 }
 
 impl AsImr for Annotations {
@@ -171,10 +177,12 @@ impl AsImr for Annotations {
             default,
             index,
             max_length,
-            on_delete: _, // Has to be set by field
+            foreign: _,   // Has to be set by field
+            on_delete: _, //
             on_update: _, //
             primary_key,
             unique,
+            nullable: _, // Set via not_null()
         } = self;
         let mut annotations = Vec::new();
         if let Some(_) = auto_create_time {
@@ -204,6 +212,9 @@ impl AsImr for Annotations {
         if let Some(_) = unique {
             annotations.push(imr::Annotation::Unique);
         }
+        if self.not_null() {
+            annotations.push(imr::Annotation::NotNull);
+        }
         annotations
     }
 }
@@ -223,12 +234,15 @@ impl Annotations {
             on_update: None,
             primary_key: None,
             unique: None,
+            nullable: false,
+            foreign: false,
         }
     }
 
-    /// Does any annotations imply not null such that setting it in sql would be an error?
-    pub const fn implicit_not_null(&self) -> bool {
-        self.primary_key.is_some()
+    /// Is SQL's not null annotation set?
+    pub const fn not_null(&self) -> bool {
+        let implicit = self.primary_key.is_some();
+        !self.nullable && !implicit
     }
 
     /// Convert to the representation used by the shared lints.
@@ -241,10 +255,10 @@ impl Annotations {
             default: self.default.is_some(),
             index: self.index.is_some(),
             max_length: self.max_length.is_some(),
-            not_null: false, // Has to be set by field
+            not_null: self.not_null(),
             primary_key: self.primary_key.is_some(),
             unique: self.unique.is_some(),
-            foreign_key: false, // Has to be set by field
+            foreign_key: self.foreign,
         }
     }
 
@@ -256,7 +270,9 @@ impl Annotations {
         macro_rules! merge {
             ($self:expr, let Self {$($field:ident,)+} = $other:expr;) => {{
                 let Self {
-                    $($field),+
+                    $($field,)+
+                    nullable,
+                    foreign,
                 } = other;
 
                 $(
@@ -266,6 +282,18 @@ impl Annotations {
                         return Err(stringify!($field));
                     }
                 )+
+
+                if !self.nullable {
+                    self.nullable = nullable;
+                } else {
+                    return Err("nullable");
+                }
+
+                if !self.foreign {
+                    self.foreign = foreign;
+                } else {
+                    return Err("foreign");
+                }
             }};
         }
         merge!(self, let Self {

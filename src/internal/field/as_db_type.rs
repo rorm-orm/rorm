@@ -43,21 +43,10 @@ pub trait AsDbType {
     /// Convert a reference to `Self` into the primitive [`Value`] used by our db implementation.
     fn as_primitive<F: Field>(&self) -> Value;
 
-    /// Whether this type supports null.
-    ///
-    /// This will be mapped to NotNull in the imr.
-    const IS_NULLABLE: bool = false;
-
     /// Add type specific imr annotations.
     ///
     /// Currently only used by [ForeignModel](super::foreign_model::ForeignModel).
     fn custom_annotations<F: Field>(_annotations: &mut Vec<imr::Annotation>) {}
-
-    /// Whether this type is a [ForeignModel](super::foreign_model::ForeignModel).
-    ///
-    /// This is only required when creating the linters annotations struct.
-    /// [custom_annotations](AsDbType::custom_annotations) is used when generating the imr annotations.
-    const IS_FOREIGN: bool = false;
 }
 
 macro_rules! impl_as_db_type {
@@ -108,7 +97,15 @@ impl<T: AsDbType> AsDbType for Option<T> {
 
     const NULL_TYPE: NullType = T::NULL_TYPE;
 
-    const IMPLICIT: Option<Annotations> = T::IMPLICIT;
+    const IMPLICIT: Option<Annotations> = {
+        let mut annos = if let Some(annos) = T::IMPLICIT {
+            annos
+        } else {
+            Annotations::empty()
+        };
+        annos.nullable = true;
+        Some(annos)
+    };
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         primitive.map(T::from_primitive)
@@ -121,11 +118,7 @@ impl<T: AsDbType> AsDbType for Option<T> {
         }
     }
 
-    const IS_NULLABLE: bool = true;
-
     fn custom_annotations<F: Field>(annotations: &mut Vec<imr::Annotation>) {
         T::custom_annotations::<F>(annotations);
     }
-
-    const IS_FOREIGN: bool = T::IS_FOREIGN;
 }
