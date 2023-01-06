@@ -7,6 +7,7 @@ Since 0.4.2
   - Defaults to returning whole model instead of primary key
   - Updated `insert!`'s docs
 - Refactored annotations
+- Error when max_length is missing
 
 Notes for publishing
 --------------------

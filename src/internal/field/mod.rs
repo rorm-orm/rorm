@@ -208,7 +208,27 @@ pub trait Field: RawField<Kind = Column> {
     ///
     /// It is "used" in [FieldProxy::new] to force the compiler to evaluate it.
     const CHECK: usize = {
-        // Annotations
+        // ForeignModel uses [AsDbType::custom_annotations] to copy required but missing annotations
+        // from its related field. So we don't need to check those here.
+        if !Self::ANNOTATIONS.foreign {
+            // Are required annotations set?
+            let mut required = Self::Type::REQUIRED;
+            while let [head, tail @ ..] = required {
+                required = tail;
+                if !Self::ANNOTATIONS.is_set(head) {
+                    const_panic!(&[
+                        Self::Model::TABLE,
+                        ".",
+                        Self::NAME,
+                        " requires the annotation `",
+                        head.as_str(),
+                        "` but it's missing",
+                    ]);
+                }
+            }
+        }
+
+        // Run the annotations lint shared with rorm-cli
         let annotations = Self::ANNOTATIONS.as_lint();
         if let Err(err) = annotations.check() {
             const_panic!(&[
@@ -216,9 +236,10 @@ pub trait Field: RawField<Kind = Column> {
                 ".",
                 Self::NAME,
                 " has invalid annotations: ",
-                err
+                err,
             ]);
         }
+
         Self::INDEX
     };
 }

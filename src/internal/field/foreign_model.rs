@@ -5,7 +5,7 @@ use rorm_declaration::imr;
 use crate::conditions::Value;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::{Field, OptionField, RawField};
-use crate::internal::hmr::annotations::Annotations;
+use crate::internal::hmr::annotations::{AnnotationIndex, Annotations};
 use crate::model::Model;
 use crate::value::NullType;
 
@@ -60,6 +60,8 @@ impl<M: Model, T: AsDbType> AsDbType for ForeignModelByField<M, T> {
         annos.foreign = true;
         Some(annos)
     };
+
+    const REQUIRED: &'static [AnnotationIndex] = T::REQUIRED;
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         Self::Key(T::from_primitive(primitive))

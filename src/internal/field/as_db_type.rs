@@ -7,7 +7,7 @@ use rorm_declaration::imr;
 use crate::conditions::Value;
 use crate::internal::field::Field;
 use crate::internal::hmr;
-use crate::internal::hmr::annotations::Annotations;
+use crate::internal::hmr::annotations::{AnnotationIndex, Annotations};
 
 /// This trait maps rust types to database types
 ///
@@ -34,6 +34,9 @@ pub trait AsDbType {
     /// Annotations implied by this type
     const IMPLICIT: Option<Annotations> = None;
 
+    /// Annotations required by this type
+    const REQUIRED: &'static [AnnotationIndex] = &[];
+
     /// Convert the associated primitive type into `Self`.
     ///
     /// This function allows "non-primitive" types like any [DbEnum](rorm_macro::DbEnum) to implement
@@ -50,13 +53,15 @@ pub trait AsDbType {
 }
 
 macro_rules! impl_as_db_type {
-    ($type:ty, $db_type:ident, $value_variant:ident $(using $method:ident)?) => {
+    ($type:ty, $db_type:ident, $value_variant:ident $(using $method:ident)? $(, requires $required:expr)?) => {
         impl AsDbType for $type {
             type Primitive = Self;
 
             type DbType<F: Field> = hmr::db_type::$db_type;
 
             const NULL_TYPE: NullType = NullType::$value_variant;
+
+            $(const REQUIRED: &'static [AnnotationIndex] = &$required;)?
 
             #[inline(always)]
             fn from_primitive(primitive: Self::Primitive) -> Self {
@@ -88,8 +93,8 @@ impl_as_db_type!(i64, Int64, I64);
 impl_as_db_type!(f32, Float, F32);
 impl_as_db_type!(f64, Double, F64);
 impl_as_db_type!(bool, Boolean, Bool);
-impl_as_db_type!(Vec<u8>, VarBinary, Binary using as_slice);
-impl_as_db_type!(String, VarChar, String using as_str);
+impl_as_db_type!(Vec<u8>, VarBinary, Binary using as_slice, requires [AnnotationIndex::MaxLength]);
+impl_as_db_type!(String, VarChar, String using as_str, requires [AnnotationIndex::MaxLength]);
 
 impl<T: AsDbType> AsDbType for Option<T> {
     type Primitive = Option<T::Primitive>;
@@ -106,6 +111,8 @@ impl<T: AsDbType> AsDbType for Option<T> {
         annos.nullable = true;
         Some(annos)
     };
+
+    const REQUIRED: &'static [AnnotationIndex] = T::REQUIRED;
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         primitive.map(T::from_primitive)

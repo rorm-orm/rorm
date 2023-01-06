@@ -44,7 +44,7 @@ macro_rules! declare_type_option {
 #[macro_export]
 macro_rules! const_panic {
     ($strings:expr) => {
-        $crate::const_panic!($strings, 1024);
+        $crate::const_panic!($strings, 1024)
     };
     ($strings:expr, $MAX_LEN:literal) => {{
         let (len, buffer) = $crate::internal::concat_into([0u8; $MAX_LEN], $strings);

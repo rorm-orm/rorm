@@ -262,6 +262,13 @@ impl Annotations {
         }
     }
 
+    /// Is the annotation `index` set?
+    pub const fn is_set(&self, index: &AnnotationIndex) -> bool {
+        match index {
+            AnnotationIndex::MaxLength => self.max_length.is_some(),
+        }
+    }
+
     /// Merge with another annotations instance
     ///
     /// This method is used to merge a field's explicitly set annotations with its type's implicit ones.
@@ -310,5 +317,20 @@ impl Annotations {
             unique,
         } = other;);
         Ok(self)
+    }
+}
+
+/// Enum used in [`Annotations::is_set`] as index
+pub enum AnnotationIndex {
+    /// [`Annotations`]'s `max_length` field
+    MaxLength,
+}
+
+impl AnnotationIndex {
+    /// Get the index as string to print it
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            AnnotationIndex::MaxLength => "max_length",
+        }
     }
 }
