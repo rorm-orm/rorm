@@ -259,6 +259,7 @@ where
 /// #     #[rorm(id)]
 /// #     id: i64,
 /// #
+/// #     #[rorm(max_length = 255)]
 /// #     password: String,
 /// # }
 /// #
