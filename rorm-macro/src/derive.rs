@@ -56,7 +56,11 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
                 }
 
                 fn as_primitive<F>(&self) -> ::rorm::conditions::Value {
-                    ::rorm::conditions::Value::String(CHOICES[*self as usize])
+                    ::rorm::conditions::Value::String(match self {
+                        #(
+                            Self::#identifiers => stringify!(#identifiers),
+                        )*
+                    })
                 }
             }
         };

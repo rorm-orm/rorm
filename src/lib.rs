@@ -44,7 +44,6 @@ pub use internal::field::back_ref::BackRef;
 pub use internal::field::foreign_model::ForeignModel;
 pub use model::{Model, Patch};
 pub use rorm_db::*;
-pub use rorm_macro::*;
 
 use std::io::Write;
 
@@ -83,8 +82,6 @@ pub fn write_models(writer: &mut impl Write) -> Result<(), String> {
 /// This should be used as a main function to produce the file for the migrator.
 ///
 /// See also [`rorm_main`]
-///
-/// [`rorm_main`]: rorm_macro::rorm_main
 pub fn print_models() -> Result<(), String> {
     write_models(&mut std::io::stdout())
 }
@@ -111,3 +108,103 @@ macro_rules! get_field {
         >>::Field
     };
 }
+
+#[doc(hidden)]
+pub use rorm_macro::rename_linkme;
+
+/// This attribute is put on your main function.
+///
+/// When you build with the `rorm-main` feature enabled this attribute will replace your main function.
+/// The new main function will simply write all your defined models to `./.models.json`
+/// to be further process by the migrator.
+///
+/// Make sure you have added the feature `rorm-main` to your crate i.e. put the following in your `Cargo.toml`:
+/// ```toml
+/// [features]
+/// rorm-main = []
+/// ```
+///
+/// If you don't like this feature name you can pass the attribute any other name to use instead:
+/// ```
+/// use rorm::rorm_main;
+///
+/// #[rorm_main("other-name")]
+/// fn main() {}
+/// ```
+pub use rorm_macro::rorm_main;
+
+/// ```no_run
+/// use rorm::DbEnum;
+///
+/// #[derive(DbEnum)]
+/// pub enum Gender {
+///     Male,
+///     Female,
+///     Other,
+/// }
+/// ```
+pub use rorm_macro::DbEnum;
+
+/// ```no_run
+/// use rorm::Model;
+///
+/// #[derive(Model)]
+/// struct User {
+///
+///     #[rorm(id)]
+///     id: i32,
+///
+///     #[rorm(max_length = 255, unique)]
+///     username: String,
+///
+///     #[rorm(max_length = 255)]
+///     password: String,
+///
+///     #[rorm(default = false)]
+///     admin: bool,
+///
+///     age: i16,
+///
+///     // Currently broken :(
+///     // #[rorm(choices("m", "f", "d"))]
+///     // gender: String,
+/// }
+/// ```
+pub use rorm_macro::Model;
+
+/// ```no_run
+/// use rorm::{Model, Patch};
+///
+/// #[derive(Model)]
+/// struct User {
+///
+///     #[rorm(id)]
+///     id: i32,
+///
+///     #[rorm(max_length = 255, unique)]
+///     username: String,
+///
+///     #[rorm(max_length = 255)]
+///     password: String,
+///
+///     #[rorm(default = false)]
+///     admin: bool,
+///
+///     age: i16,
+/// }
+///
+/// #[derive(Patch)]
+/// #[rorm(model = "User")]
+/// struct InsertNormalUser {
+///     // id set by database
+///
+///     username: String,
+///
+///     password: String,
+///
+///     // admin defaults to false
+///
+///     age: i16,
+/// }
+/// ```
+pub use rorm_macro::Patch;

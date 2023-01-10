@@ -1,4 +1,3 @@
-//! Implementation of the Model attribute used to implement database things for structs
 #![cfg_attr(feature = "unstable", feature(proc_macro_span))]
 extern crate proc_macro;
 use proc_macro::TokenStream;
@@ -21,26 +20,6 @@ pub fn derive_db_enum(input: TokenStream) -> TokenStream {
     .into()
 }
 
-/// This attribute is used to turn a struct into a database model.
-///
-/// ```ignore
-/// use rorm::Model;
-///
-/// #[derive(Model)]
-/// struct User {
-///     #[rorm(id)]
-///     id: i32,
-///     #[rorm(max_length = 255, unique)]
-///     username: String,
-///     #[rorm(max_length = 255)]
-///     password: String,
-///     #[rorm(default = false)]
-///     admin: bool,
-///     age: u8,
-///     #[rorm(choices("m", "f", "d"))]
-///     gender: String,
-/// }
-/// ```
 #[proc_macro_derive(Model, attributes(rorm))]
 pub fn derive_model(input: TokenStream) -> TokenStream {
     match derive::model(input.into()) {
@@ -59,7 +38,6 @@ pub fn derive_patch(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[doc(hidden)]
 #[proc_macro_attribute]
 pub fn rename_linkme(_args: TokenStream, item: TokenStream) -> TokenStream {
     let mut item = syn::parse_macro_input!(item as syn::ItemStatic);
@@ -67,25 +45,6 @@ pub fn rename_linkme(_args: TokenStream, item: TokenStream) -> TokenStream {
     item.into_token_stream().into()
 }
 
-/// This attribute is put on your main function.
-///
-/// When you build with the `rorm-main` feature enabled this attribute will replace your main function.
-/// The new main function will simply write all your defined models to `./.models.json`
-/// to be further process by the migrator.
-///
-/// Make sure you have added the feature `rorm-main` to your crate i.e. put the following in your `Cargo.toml`:
-/// ```toml
-/// [features]
-/// rorm-main = []
-/// ```
-///
-/// If you don't like this feature name you can pass the attribute any other name to use instead:
-/// ```ignore
-/// use rorm::rorm_main;
-///
-/// #[rorm_main("other-name")]
-/// fn main() {}
-/// ```
 #[proc_macro_attribute]
 pub fn rorm_main(args: TokenStream, item: TokenStream) -> TokenStream {
     let main = syn::parse_macro_input!(item as syn::ItemFn);
