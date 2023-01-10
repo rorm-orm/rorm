@@ -210,35 +210,10 @@ where
 
 /// Create a UPDATE query.
 ///
-/// 1. Give a reference to your db and the patch type you want to update instances of
-///
-///     `update!(&db, MyModelType)`
-///
-/// 2. Set some columns to update
-///
-///     `.set(MyModelType::F.some_field, 3)`
-///
-///     `.set(MyModelType::F.some_other_field, "hi")`
-///
-/// 3. Restrict what rows to update with a condition
-///
-///     `.condition(MyModelType::F.id.greater(0))`
-///
-/// 5. Execute. After step 2 you could already `.await`ed your query.
-///
-/// Example:
+/// # Basic usage
 /// ```no_run
 /// # use rorm::{Model, Database, update};
-/// #
-/// # #[derive(Model)]
-/// # struct User {
-/// #     #[rorm(id)]
-/// #     id: i64,
-/// #
-/// #     #[rorm(max_length = 255)]
-/// #     password: String,
-/// # }
-/// #
+/// # #[derive(Model)] struct User { #[rorm(id)] id: i64, #[rorm(max_length = 255)] password: String, }
 /// pub async fn set_good_password(db: &Database) {
 ///     update!(db, User)
 ///         .set(User::F.password, "I am way more secure™")
@@ -247,6 +222,48 @@ where
 ///         .unwrap();
 /// }
 /// ```
+///
+/// Like every crud macro `update!` starts a [builder](UpdateBuilder) which is consumed to execute the query.
+///
+/// `update!`'s first argument is a reference to the [`Database`](crate::Database).
+/// Its second is the [`Model`] type you want to update rows of.
+///
+/// # Dynamic number of [`set`](UpdateBuilder::set)
+/// ```no_run
+/// # use std::collections::HashMap;
+/// # use rorm::{Model, Database, update};
+/// # #[derive(Model)] struct User { #[rorm(id)] id: i64, #[rorm(max_length = 255)] nickname: String, #[rorm(max_length = 255)] password: String, }
+/// /// POST endpoint allowing a user to change its nickname or password
+/// pub async fn update_user(db: &Database, id: i64, post_params: HashMap<String, String>) {
+///     let mut builder = update!(db, User).begin_dyn_set();
+///
+///     if let Some(password) = post_params.get("password") {
+///         builder = builder.set(User::F.password, password);
+///     }
+///     if let Some(nickname) = post_params.get("nickname") {
+///         builder = builder.set(User::F.nickname, nickname)
+///     }
+///
+///     if let Ok(builder) = builder.finish_dyn_set() {
+///         builder.condition(User::F.id.equals(id)).await.unwrap();
+///     } else {
+///         panic!("Invalid POST request: missing fields to update")
+///     }
+/// }
+/// ```
+///
+/// Before executing the query [`set`](UpdateBuilder::set) has to be called at least once
+/// to set a value to set for a column (The first call changes the builders type).
+/// Otherwise the query wouldn't do anything.
+///
+/// This can be limiting when your calls are made conditionally.
+///
+/// To support this, the builder can be put into a "dynamic" mode by calling [begin_dyn_set](UpdateBuilder::begin_dyn_set).
+/// Then calls to [`set`](UpdateBuilder::set) won't change the type.
+/// When you're done use [finish_dyn_set](UpdateBuilder::finish_dyn_set) to go back to "normal" mode.
+/// It will check the number of "sets" and return `Result` which is `Ok` for at least one and an
+/// `Err` for zero.
+/// Both variants contain the builder in "normal" mode to continue.
 #[macro_export]
 macro_rules! update {
     ($db:expr, $model:path) => {
