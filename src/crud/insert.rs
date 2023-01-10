@@ -14,34 +14,30 @@ use crate::model::{iter_columns, Model, Patch};
 /// Is is recommended to start a builder using [insert!](macro@crate::insert).
 ///
 /// ## Generics
-/// - `'rf`
-///
-///     Lifetime of external values (eg: condition values).
-///
 /// - `E`: [`Executor`]
 ///
 ///     The executor to query with.
 ///
-/// - `P`: [`Patch`](Patch)
+/// - `M`: [Model](Model)
 ///
-///     The patches to insert.
+///     The model into whose table to insert rows.
 ///
-/// - `T`: [`TransactionMarker<'rf,' db>`](TransactionMarker)
+/// - `R`: [`Returning<P::Model>`](returning::Returning)
 ///
-///     An optional transaction to execute this query in.
+///     What to return after the insert.
 ///
 #[must_use]
-pub struct InsertBuilder<'rf, E, P, R> {
+pub struct InsertBuilder<E, M, R> {
     executor: E,
     returning: R,
 
-    _phantom: PhantomData<&'rf P>,
+    _phantom: PhantomData<M>,
 }
 
-impl<'ex, 'rf, E, P> InsertBuilder<'rf, E, P, returning::Patch<P::Model>>
+impl<'ex, E, M> InsertBuilder<E, M, returning::Patch<M>>
 where
     E: Executor<'ex>,
-    P: Patch,
+    M: Model,
 {
     /// Start building a insert query
     pub fn new(executor: E) -> Self {
@@ -54,67 +50,61 @@ where
     }
 }
 
-impl<'rf, E, P, M> InsertBuilder<'rf, E, P, returning::Patch<M>>
+impl<E, M> InsertBuilder<E, M, returning::Patch<M>>
 where
     M: Model,
-    P: Patch<Model = M>,
 {
-    /// Remove the return value from the insert query reducing query time.
-    pub fn return_nothing(self) -> InsertBuilder<'rf, E, P, returning::Nothing> {
+    fn set_return<R>(self, returning: R) -> InsertBuilder<E, M, R> {
         #[rustfmt::skip]
         let InsertBuilder { executor, _phantom, .. } = self;
         #[rustfmt::skip]
-        return InsertBuilder { executor, returning: returning::Nothing, _phantom };
+        return InsertBuilder { executor, returning, _phantom };
     }
 
     /// Remove the return value from the insert query reducing query time.
-    pub fn return_primary_key(self) -> InsertBuilder<'rf, E, P, returning::PrimaryKey<M>> {
-        #[rustfmt::skip]
-        let InsertBuilder { executor, _phantom, .. } = self;
-        #[rustfmt::skip]
-        return InsertBuilder { executor, returning: returning::PrimaryKey::new(), _phantom };
+    pub fn return_nothing(self) -> InsertBuilder<E, M, returning::Nothing> {
+        self.set_return(returning::Nothing)
+    }
+
+    /// Remove the return value from the insert query reducing query time.
+    pub fn return_primary_key(self) -> InsertBuilder<E, M, returning::PrimaryKey<M>> {
+        self.set_return(returning::PrimaryKey::new())
     }
 
     /// Set a tuple of fields to be returned after performing the insert
     pub fn return_tuple<Return, const C: usize>(
         self,
         tuple: Return,
-    ) -> InsertBuilder<'rf, E, P, returning::Tuple<Return, C>>
+    ) -> InsertBuilder<E, M, returning::Tuple<Return, C>>
     where
         returning::Tuple<Return, C>: returning::Returning<M> + From<Return>,
     {
-        #[rustfmt::skip]
-        let InsertBuilder { executor, _phantom, .. } = self;
-        #[rustfmt::skip]
-        return InsertBuilder { executor, returning: tuple.into(), _phantom };
+        self.set_return(tuple.into())
     }
 
     /// Set a patch to be returned after performing the insert
-    pub fn return_patch<Return>(self) -> InsertBuilder<'rf, E, P, returning::Patch<Return>>
+    pub fn return_patch<Return>(self) -> InsertBuilder<E, M, returning::Patch<Return>>
     where
         Return: Patch<Model = M>,
     {
-        #[rustfmt::skip]
-        let InsertBuilder { executor, _phantom, .. } = self;
-        #[rustfmt::skip]
-        return InsertBuilder { executor, returning: returning::Patch::new(), _phantom };
+        self.set_return(returning::Patch::new())
     }
 }
 
-impl<'ex, 'rf, E, P, R> InsertBuilder<'rf, E, P, R>
+impl<'ex, E, M, R> InsertBuilder<E, M, R>
 where
     E: Executor<'ex>,
-    P: Patch,
-    R: returning::Returning<P::Model>,
+    M: Model,
+    R: returning::Returning<M>,
 {
     /// Insert a single patch into the db
-    pub async fn single(self, patch: &'rf P) -> Result<R::Result, Error> {
+    pub async fn single<P: Patch<Model = M>>(self, patch: &P) -> Result<R::Result, Error> {
         let values = Vec::from_iter(iter_columns(patch).map(Value::into_sql));
         let inserting = Vec::from_iter(P::COLUMNS.iter().flatten().cloned());
         let returning = self.returning.columns();
 
         if returning.is_empty() {
-            database::insert(self.executor, P::Model::TABLE, &inserting, &values).await?;
+            database::insert(self.executor, M::TABLE, &inserting, &values).await?;
             R::produce_result()
         } else {
             database::insert_returning(
@@ -130,9 +120,9 @@ where
     }
 
     /// Insert a bulk of patches into the db
-    pub async fn bulk(
+    pub async fn bulk<P: Patch<Model = M>>(
         self,
-        patches: impl IntoIterator<Item = &'rf P>,
+        patches: impl IntoIterator<Item = &P>,
     ) -> Result<R::BulkResult, Error> {
         let mut values = Vec::new();
         for patch in patches {
@@ -143,13 +133,12 @@ where
         let returning = self.returning.columns();
 
         if returning.is_empty() {
-            database::insert_bulk(self.executor, P::Model::TABLE, &inserting, &values_slices)
-                .await?;
+            database::insert_bulk(self.executor, M::TABLE, &inserting, &values_slices).await?;
             R::produce_result_bulk()
         } else {
             database::insert_bulk_returning(
                 self.executor,
-                P::Model::TABLE,
+                M::TABLE,
                 &inserting,
                 &values_slices,
                 returning,
@@ -234,7 +223,9 @@ where
 #[macro_export]
 macro_rules! insert {
     ($db:expr, $patch:path) => {
-        $crate::crud::insert::InsertBuilder::<_, $patch, _>::new($db)
+        $crate::crud::insert::InsertBuilder::<_, <$patch as $crate::model::Patch>::Model, _>::new(
+            $db,
+        )
     };
 }
 
