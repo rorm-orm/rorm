@@ -1,6 +1,7 @@
 //! A type level version of [`imr::DbType`](crate::imr::DbType) to be used in generic type bound checks
 
 use super::AsImr;
+use crate::internal::hmr::annotations::AnnotationIndex;
 use crate::{declare_type_option, imr, sealed};
 
 /// Trait to associate the type-level db types with their runtime db types
@@ -9,6 +10,9 @@ pub trait DbType: 'static {
 
     /// Equivalent runtime db type
     const IMR: imr::DbType;
+
+    /// Annotations required by this type
+    const REQUIRED: &'static [AnnotationIndex] = &[];
 }
 
 impl<T: DbType> AsImr for T {
@@ -20,12 +24,14 @@ impl<T: DbType> AsImr for T {
 }
 
 macro_rules! impl_db_types {
-        ($(#[doc = $doc:literal] $type:ident,)*) => {
+        ($(#[doc = $doc:literal] $type:ident $(requires $required:expr)?,)*) => {
             $(
                 #[doc = $doc]
                 pub struct $type;
                 impl DbType for $type {
                     const IMR: imr::DbType = imr::DbType::$type;
+
+                    $(const REQUIRED: &'static [AnnotationIndex] = &$required;)?
                 }
             )*
         };
@@ -33,7 +39,7 @@ macro_rules! impl_db_types {
 
 impl_db_types!(
     /// Type level version of [`imr::DbType::VarChar`]
-    VarChar,
+    VarChar requires [AnnotationIndex::MaxLength],
     /// Type level version of [`imr::DbType::VarBinary`]
     VarBinary,
     /// Type level version of [`imr::DbType::Int8`]

@@ -212,7 +212,7 @@ pub trait Field: RawField<Kind = Column> {
         // from its related field. So we don't need to check those here.
         if !Self::ANNOTATIONS.foreign {
             // Are required annotations set?
-            let mut required = Self::Type::REQUIRED;
+            let mut required = Self::DbType::REQUIRED;
             while let [head, tail @ ..] = required {
                 required = tail;
                 if !Self::ANNOTATIONS.is_set(head) {

@@ -165,9 +165,8 @@ pub use rorm_macro::DbEnum;
 ///
 ///     age: i16,
 ///
-///     // Currently broken :(
-///     // #[rorm(choices("m", "f", "d"))]
-///     // gender: String,
+///     #[rorm(choices("m", "f", "d"))]
+///     gender: String,
 /// }
 /// ```
 pub use rorm_macro::Model;
