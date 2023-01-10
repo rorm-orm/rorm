@@ -22,7 +22,7 @@ use crate::sealed;
 
 /// Builder for select queries
 ///
-/// Is is recommended to start a builder using [query!](macro@crate::query).
+/// Is is recommended to start a builder using [`query!`](macro@crate::query).
 ///
 /// ## Generics
 /// - `'rf`
@@ -33,23 +33,19 @@ use crate::sealed;
 ///
 ///     The executor to query with.
 ///
-/// - `M`: [Model](Model),
+/// - `M`: [`Model`]
 ///
 ///     The model from whose table to select.
 ///
-/// - `S`: [Selector<M>](Selector)
+/// - `S`: [`Selector<M>`]
 ///
 ///     The columns to be selected and a type to convert the rows into.
 ///
-/// - `C`: [ConditionMarker<'rf>](ConditionMarker)
+/// - `C`: [`ConditionMarker<'rf>`](ConditionMarker)
 ///
 ///     An optional condition to filter the query by.
 ///
-/// - `T`: [TransactionMarker<'rf,' db>](TransactionMarker)
-///
-///     An optional transaction to execute this query in.
-///
-/// - `LO`: [LimOffMarker](LimOffMarker)
+/// - `LO`: [`LimOffMarker`](LimOffMarker)
 ///
 ///     An optional limit and or offset to control the amount of queried rows.
 #[must_use]
@@ -82,7 +78,7 @@ where
     M: Model,
     S: Selector<M>,
 {
-    /// Start building a query using a generic [Selector]
+    /// Start building a query using a generic [`Selector`]
     pub fn new(executor: E, selector: S) -> Self {
         QueryBuilder {
             executor,
@@ -479,9 +475,9 @@ mod query_stream {
 }
 use query_stream::QueryStream;
 
-/// Finite alternative to [RangeBounds](std::ops::RangeBounds)
+/// Finite alternative to [`RangeBounds`](std::ops::RangeBounds)
 ///
-/// It unifies [Range] and [RangeInclusive]
+/// It unifies [`Range`] and [`RangeInclusive`]
 #[allow(clippy::len_without_is_empty)] // Since it is generic, there is no trivial way to compare with zero
 pub trait FiniteRange<T> {
     // and I don't see why I should use an "IsZero" trait, just to satisfy clippy.
@@ -518,7 +514,7 @@ impl FiniteRange<u64> for RangeInclusive<u64> {
     }
 }
 
-/// Unification of [LimitMarker] and [OffsetMarker]
+/// Unification of [`LimitMarker`] and [`OffsetMarker`]
 pub trait LimOffMarker: 'static {
     sealed!();
 }
@@ -532,7 +528,7 @@ impl LimOffMarker for u64 {}
 pub trait LimitMarker: LimOffMarker {
     sealed!();
 
-    /// Convert the generic limit into [Option<LimitClause>]
+    /// Convert the generic limit into [`Option<LimitClause>`]
     fn into_option(self) -> Option<LimitClause>;
 }
 impl LimitMarker for () {
@@ -586,7 +582,7 @@ impl AcceptsOffset for Limit<()> {
 pub trait OffsetMarker: LimOffMarker {
     sealed!();
 
-    /// Convert the generic offset into [Option<u64>]
+    /// Convert the generic offset into [`Option<u64>`]
     fn into_option(self) -> Option<u64>;
 }
 impl OffsetMarker for () {
@@ -600,7 +596,7 @@ impl OffsetMarker for u64 {
     }
 }
 
-/// The [Selector] for patches.
+/// The [`Selector`] for patches.
 pub struct SelectPatch<P: Patch> {
     patch: PhantomData<P>,
     columns: Vec<ColumnSelector<'static>>,
@@ -640,7 +636,7 @@ impl<M: Model, P: Patch<Model = M>> Selector<M> for SelectPatch<P> {
     }
 }
 
-/// The [Selector] for tuple
+/// The [`Selector`] for tuple
 ///
 /// Implemented for tuple of size 8 or less.
 pub struct SelectTuple<T, const C: usize> {

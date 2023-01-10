@@ -1,4 +1,4 @@
-//! Trait for the items inside [SelectTuple](crate::crud::query::SelectTuple)
+//! Trait for the items inside [`SelectTuple`](crate::crud::query::SelectTuple)
 
 use rorm_db::database::ColumnSelector;
 use rorm_db::{Error, Row};

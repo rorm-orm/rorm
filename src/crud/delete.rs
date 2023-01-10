@@ -13,14 +13,14 @@ use crate::Patch;
 
 /// Builder for delete queries
 ///
-/// Is is recommended to start a builder using [delete!](macro@crate::delete).
+/// Is is recommended to start a builder using [`delete!`](macro@crate::delete).
 ///
 /// ## Generics
 /// - `E`: [`Executor`]
 ///
 ///     The executor to query with.
 ///
-/// - `M`: [Model](Model)
+/// - `M`: [`Model`]
 ///
 ///     The model from whose table to delete rows.
 ///
@@ -117,7 +117,7 @@ where
 ///
 /// Like every crud macro `delete!` starts a [builder](DeleteBuilder) which is consumed to execute the query.
 ///
-/// `delete!`'s first argument is a reference to the [`Database`].
+/// `delete!`'s first argument is a reference to the [`Database`](crate::Database).
 /// Its second is the [`Model`] type of whose table you want to delete columns from.
 ///
 /// To specify what rows to delete use the following methods,

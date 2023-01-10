@@ -21,7 +21,7 @@ pub struct OptionalColumns<'a>(Vec<(&'static str, Value<'a>)>);
 
 /// Builder for update queries
 ///
-/// Is is recommended to start a builder using [update!](macro@crate::update).
+/// Is is recommended to start a builder using [`update!`](macro@crate::update).
 ///
 /// ## Generics
 /// - `'rf`
@@ -32,7 +32,7 @@ pub struct OptionalColumns<'a>(Vec<(&'static str, Value<'a>)>);
 ///
 ///     The executor to query with.
 ///
-/// - `M`: [Model](Model)
+/// - `M`: [`Model`](Model)
 ///
 ///     The model from whose table to update rows.
 ///
@@ -41,13 +41,9 @@ pub struct OptionalColumns<'a>(Vec<(&'static str, Value<'a>)>);
 ///     List of columns and values to set.
 ///     This is a generic instead of just being a `Vec` in order to prevent the list from being empty.
 ///
-/// - `C`: [ConditionMarker<'rf>](ConditionMarker)
+/// - `C`: [`ConditionMarker<'rf>`](ConditionMarker)
 ///
 ///     An optional condition to filter the query by.
-///
-/// - `T`: [TransactionMarker<'rf,' db>](TransactionMarker)
-///
-///     An optional transaction to execute this query in.
 ///
 #[must_use]
 pub struct UpdateBuilder<'rf, E, M, L, C> {
@@ -88,7 +84,7 @@ impl<'rf, E, M, L> UpdateBuilder<'rf, E, M, L, ()> {
 impl<'rf, E, M, C> UpdateBuilder<'rf, E, M, (), C> {
     /// Prepare the builder to accept a dynamic (possibly zero) amount of set calls.
     ///
-    /// Call [finish_dyn_set](UpdateBuilder::finish_dyn_set) to go back to normal operation.
+    /// Call [`finish_dyn_set`](UpdateBuilder::finish_dyn_set) to go back to normal operation.
     ///
     /// Normally `set` would use the type system to ensure that it has been called at least once
     /// before executing the query.
@@ -116,7 +112,7 @@ impl<'rf, E, M, C> UpdateBuilder<'rf, E, M, OptionalColumns<'rf>, C> {
         builder
     }
 
-    /// Go back to a "normal" builder after calling [begin_dyn_set](UpdateBuilder::begin_dyn_set).
+    /// Go back to a "normal" builder after calling [`begin_dyn_set`](UpdateBuilder::begin_dyn_set).
     ///
     /// This will check if `set` has been called at least once.
     /// If it hasn't, the "unset" builder will be returned as `Err`.
@@ -206,7 +202,7 @@ where
     type Output = Result<u64, Error>;
     type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + 'rf>>;
 
-    /// Convert a [UpdateBuilder] with columns into a [Future] implicitly
+    /// Convert a [`UpdateBuilder`] with columns into a [`Future`] implicitly
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(self.exec())
     }

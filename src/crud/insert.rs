@@ -11,14 +11,14 @@ use crate::model::{iter_columns, Model, Patch};
 
 /// Builder for insert queries
 ///
-/// Is is recommended to start a builder using [insert!](macro@crate::insert).
+/// Is is recommended to start a builder using [`insert!`](macro@crate::insert).
 ///
 /// ## Generics
 /// - `E`: [`Executor`]
 ///
 ///     The executor to query with.
 ///
-/// - `M`: [Model](Model)
+/// - `M`: [`Model`]
 ///
 ///     The model into whose table to insert rows.
 ///
@@ -172,7 +172,7 @@ where
 ///
 /// Like every crud macro `insert!` starts a [builder](InsertBuilder) which is consumed to execute the query.
 ///
-/// `insert!`'s first argument is a reference to the [`Database`].
+/// `insert!`'s first argument is a reference to the [`Database`](crate::Database).
 /// Its second is the [`Patch`] type you want to insert instances of.
 ///
 /// Since your [`Model`] type will probably contain a primary key which is set by the database,
@@ -249,12 +249,12 @@ pub mod returning {
         /// This defaults to `Vec<Self::Result>`.
         type BulkResult;
 
-        /// Produce a result when [Self::columns] returns an empty slice and no actual row could be retrieved.
+        /// Produce a result when [`Self::columns`] returns an empty slice and no actual row could be retrieved.
         fn produce_result() -> Result<Self::Result, Error> {
             Err(Error::DecodeError("No columns where specified".to_string()))
         }
 
-        /// Produce a bulk result when [Self::columns] returns an empty slice and no actual rows could be retrieved.
+        /// Produce a bulk result when [`Self::columns`] returns an empty slice and no actual rows could be retrieved.
         fn produce_result_bulk() -> Result<Self::BulkResult, Error> {
             Err(Error::DecodeError("No columns where specified".to_string()))
         }
@@ -271,8 +271,8 @@ pub mod returning {
         fn columns(&self) -> &[&'static str];
     }
 
-    /// Add the default implementation for the bulk members of [Returning]
-    /// i.e. just apply the single impl to a [Vec].
+    /// Add the default implementation for the bulk members of [`Returning`]
+    /// i.e. just apply the single impl to a [`Vec`].
     macro_rules! default_bulk_impl {
         () => {
             type BulkResult = Vec<Self::Result>;
@@ -283,7 +283,7 @@ pub mod returning {
         };
     }
 
-    /// The [Returning] for nothing.
+    /// The [`Returning`] for nothing.
     pub struct Nothing;
 
     impl<M: Model> Returning<M> for Nothing {
@@ -311,7 +311,7 @@ pub mod returning {
         }
     }
 
-    /// The default [Returning] behaviour: return the primary key
+    /// The default [`Returning`] behaviour: return the primary key
     pub struct PrimaryKey<M> {
         columns: [&'static str; 1],
         model: PhantomData<M>,
@@ -340,7 +340,7 @@ pub mod returning {
         }
     }
 
-    /// The [Returning] for patches.
+    /// The [`Returning`] for patches.
     pub struct Patch<P: ModelPatch> {
         patch: PhantomData<P>,
         columns: Vec<&'static str>,
@@ -369,7 +369,7 @@ pub mod returning {
         }
     }
 
-    /// The [Returning] for tuple
+    /// The [`Returning`] for tuple
     ///
     /// Implemented for tuple of size 8 or less.
     pub struct Tuple<T, const C: usize> {
