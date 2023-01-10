@@ -4,13 +4,13 @@ use std::future::{Future, IntoFuture};
 use std::marker::PhantomData;
 use std::pin::Pin;
 
+use rorm_db::database;
 use rorm_db::error::Error;
-use rorm_db::transaction::Transaction;
+use rorm_db::executor::Executor;
 use rorm_db::value::Value;
-use rorm_db::Database;
 
 use crate::conditions::{Condition, IntoSingleValue};
-use crate::crud::builder::{ConditionMarker, TransactionMarker};
+use crate::crud::builder::ConditionMarker;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::{Field, FieldProxy};
 use crate::internal::query_context::QueryContext;
@@ -26,12 +26,11 @@ pub struct OptionalColumns<'a>(Vec<(&'static str, Value<'a>)>);
 /// ## Generics
 /// - `'rf`
 ///
-///     Lifetime of external values (eg: condition values and transaction reference).
+///     Lifetime of external values (eg: condition values).
 ///
-/// - `'db: 'rf`
+/// - `E`: [`Executor`]
 ///
-///     The database reference's lifetime.
-///     Since `'rf` also applies to a transaction reference, `'db` must outlive `'rf`.
+///     The executor to query with.
 ///
 /// - `M`: [Model](Model)
 ///
@@ -51,56 +50,42 @@ pub struct OptionalColumns<'a>(Vec<(&'static str, Value<'a>)>);
 ///     An optional transaction to execute this query in.
 ///
 #[must_use]
-pub struct UpdateBuilder<'db, 'rf, M, L, C, T> {
-    db: &'db Database,
+pub struct UpdateBuilder<'rf, E, M, L, C> {
+    executor: E,
     columns: L,
     condition: C,
-    transaction: T,
 
     _phantom: PhantomData<&'rf M>,
 }
 
-impl<'db, 'rf, M> UpdateBuilder<'db, 'rf, M, (), (), ()>
+impl<'rf, 'e, E, M> UpdateBuilder<'rf, E, M, (), ()>
 where
+    E: Executor<'e>,
     M: Model,
 {
     /// Start building a delete query
-    pub fn new(db: &'db Database) -> Self {
+    pub fn new(executor: E) -> Self {
         Self {
-            db,
+            executor,
             columns: (),
             condition: (),
-            transaction: (),
 
             _phantom: PhantomData,
         }
     }
 }
 
-impl<'db, 'rf, M, L, T> UpdateBuilder<'db, 'rf, M, L, (), T> {
+impl<'rf, E, M, L> UpdateBuilder<'rf, E, M, L, ()> {
     /// Add a condition to the query
-    pub fn condition<C: Condition<'rf>>(self, condition: C) -> UpdateBuilder<'db, 'rf, M, L, C, T> {
+    pub fn condition<C: Condition<'rf>>(self, condition: C) -> UpdateBuilder<'rf, E, M, L, C> {
         #[rustfmt::skip]
-        let UpdateBuilder { db, columns, _phantom, transaction, .. } = self;
+        let UpdateBuilder { executor, columns, _phantom, .. } = self;
         #[rustfmt::skip]
-        return UpdateBuilder { db, columns, _phantom, condition, transaction, };
+        return UpdateBuilder { executor, columns, _phantom, condition, };
     }
 }
 
-impl<'db: 'rf, 'rf, M, L, C> UpdateBuilder<'db, 'rf, M, L, C, ()> {
-    /// Add a transaction to the query
-    pub fn transaction(
-        self,
-        transaction: &'rf mut Transaction<'db>,
-    ) -> UpdateBuilder<'db, 'rf, M, L, C, &'rf mut Transaction<'db>> {
-        #[rustfmt::skip]
-        let UpdateBuilder { db, columns, _phantom, condition, .. } = self;
-        #[rustfmt::skip]
-        return UpdateBuilder { db, columns, _phantom, condition, transaction, };
-    }
-}
-
-impl<'db, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, (), C, T> {
+impl<'rf, E, M, C> UpdateBuilder<'rf, E, M, (), C> {
     /// Prepare the builder to accept a dynamic (possibly zero) amount of set calls.
     ///
     /// Call [finish_dyn_set](UpdateBuilder::finish_dyn_set) to go back to normal operation.
@@ -109,15 +94,15 @@ impl<'db, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, (), C, T> {
     /// before executing the query.
     /// This can be troublesome, when you want to call it dynamically
     /// and can't ensure that at least one such call will happen.
-    pub fn begin_dyn_set(self) -> UpdateBuilder<'db, 'rf, M, OptionalColumns<'rf>, C, T> {
+    pub fn begin_dyn_set(self) -> UpdateBuilder<'rf, E, M, OptionalColumns<'rf>, C> {
         #[rustfmt::skip]
-        let UpdateBuilder { db, _phantom, condition, transaction, .. } = self;
+        let UpdateBuilder { executor, _phantom, condition, .. } = self;
         #[rustfmt::skip]
-        return UpdateBuilder { db, columns: OptionalColumns(Vec::new()), _phantom, condition, transaction, };
+        return UpdateBuilder { executor, columns: OptionalColumns(Vec::new()), _phantom, condition, };
     }
 }
 
-impl<'db, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, OptionalColumns<'rf>, C, T> {
+impl<'rf, E, M, C> UpdateBuilder<'rf, E, M, OptionalColumns<'rf>, C> {
     /// Add a column to update.
     ///
     /// Can be called multiple times.
@@ -137,23 +122,22 @@ impl<'db, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, OptionalColumns<'rf>, C, T> {
     /// If it hasn't, the "unset" builder will be returned as `Err`.
     pub fn finish_dyn_set(
         self,
-    ) -> Result<UpdateBuilderWithSet<'db, 'rf, M, C, T>, UpdateBuilderWithoutSet<'db, 'rf, M, C, T>>
-    {
+    ) -> Result<UpdateBuilderWithSet<'rf, E, M, C>, UpdateBuilderWithoutSet<'rf, E, M, C>> {
         #[rustfmt::skip]
-        let UpdateBuilder { db, _phantom, condition, transaction, columns } = self;
+        let UpdateBuilder { executor, _phantom, condition, columns } = self;
         #[rustfmt::skip]
         return if columns.0.is_empty() {
-            Err(UpdateBuilder { db, columns: (), _phantom, condition, transaction, })
+            Err(UpdateBuilder { executor, columns: (), _phantom, condition, })
         } else {
-            Ok(UpdateBuilder { db, columns: columns.0, _phantom, condition, transaction, })
+            Ok(UpdateBuilder { executor, columns: columns.0, _phantom, condition, })
         };
     }
 }
-type UpdateBuilderWithoutSet<'db, 'rf, M, C, T> = UpdateBuilder<'db, 'rf, M, (), C, T>;
-type UpdateBuilderWithSet<'db, 'rf, M, C, T> =
-    UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T>;
+type UpdateBuilderWithoutSet<'rf, E, M, C> = UpdateBuilder<'rf, E, M, (), C>;
+type UpdateBuilderWithSet<'rf, E, M, C> =
+    UpdateBuilder<'rf, E, M, Vec<(&'static str, Value<'rf>)>, C>;
 
-impl<'db: 'rf, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, (), C, T>
+impl<'rf, E, M, C> UpdateBuilder<'rf, E, M, (), C>
 where
     M: Model,
 {
@@ -164,15 +148,15 @@ where
         self,
         _field: FieldProxy<F, M>,
         value: impl IntoSingleValue<'rf, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
-    ) -> UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T> {
+    ) -> UpdateBuilder<'rf, E, M, Vec<(&'static str, Value<'rf>)>, C> {
         #[rustfmt::skip]
-        let UpdateBuilder { db, _phantom, condition, transaction, .. } = self;
+        let UpdateBuilder { executor, _phantom, condition, .. } = self;
         #[rustfmt::skip]
-        return UpdateBuilder { db, columns: vec![(F::NAME, value.into_value())], _phantom, condition, transaction, };
+        return UpdateBuilder { executor, columns: vec![(F::NAME, value.into_value())], _phantom, condition, };
     }
 }
 
-impl<'db: 'rf, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T>
+impl<'rf, E, M, C> UpdateBuilder<'rf, E, M, Vec<(&'static str, Value<'rf>)>, C>
 where
     M: Model,
 {
@@ -190,34 +174,34 @@ where
     }
 }
 
-impl<'db: 'rf, 'rf, M, C, T> UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T>
+impl<'ex, 'rf, E, M, C> UpdateBuilder<'rf, E, M, Vec<(&'static str, Value<'rf>)>, C>
 where
-    'db: 'rf,
+    E: Executor<'ex> + 'ex,
     M: Model,
     C: ConditionMarker<'rf>,
-    T: TransactionMarker<'rf, 'db>,
 {
     /// Perform the update operation
-    pub async fn exec(self) -> Result<u64, Error> {
+    pub async fn exec<'fut>(self) -> Result<u64, Error>
+    where
+        'ex: 'fut,
+        'rf: 'fut,
+    {
         let context = QueryContext::new();
-        self.db
-            .update(
-                M::TABLE,
-                &self.columns,
-                self.condition.into_option(&context).as_ref(),
-                self.transaction.into_option(),
-            )
-            .await
+        database::update(
+            self.executor,
+            M::TABLE,
+            &self.columns,
+            self.condition.into_option(&context).as_ref(),
+        )
+        .await
     }
 }
 
-impl<'db, 'rf, M, C, T> IntoFuture
-    for UpdateBuilder<'db, 'rf, M, Vec<(&'static str, Value<'rf>)>, C, T>
+impl<'rf, E, M, C> IntoFuture for UpdateBuilder<'rf, E, M, Vec<(&'static str, Value<'rf>)>, C>
 where
-    'db: 'rf,
+    E: Executor<'rf> + 'rf,
     M: Model,
     C: ConditionMarker<'rf>,
-    T: TransactionMarker<'rf, 'db>,
 {
     type Output = Result<u64, Error>;
     type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + 'rf>>;
@@ -243,10 +227,6 @@ where
 /// 3. Restrict what rows to update with a condition
 ///
 ///     `.condition(MyModelType::F.id.greater(0))`
-///
-/// 4. *Optionally* add this query to a transaction
-///
-///     `.transaction(&mut tr)`
 ///
 /// 5. Execute. After step 2 you could already `.await`ed your query.
 ///
@@ -274,6 +254,6 @@ where
 #[macro_export]
 macro_rules! update {
     ($db:expr, $model:path) => {
-        $crate::crud::update::UpdateBuilder::<$model, _, _, _>::new($db)
+        $crate::crud::update::UpdateBuilder::<_, $model, _, _>::new($db)
     };
 }

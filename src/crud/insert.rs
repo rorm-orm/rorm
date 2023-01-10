@@ -2,11 +2,11 @@
 
 use std::marker::PhantomData;
 
-use rorm_db::transaction::Transaction;
-use rorm_db::{error::Error, Database};
+use rorm_db::database;
+use rorm_db::error::Error;
+use rorm_db::executor::Executor;
 
 use crate::conditions::Value;
-use crate::crud::builder::TransactionMarker;
 use crate::model::{iter_columns, Model, Patch};
 
 /// Builder for insert queries
@@ -16,12 +16,11 @@ use crate::model::{iter_columns, Model, Patch};
 /// ## Generics
 /// - `'rf`
 ///
-///     Lifetime of the transaction reference.
+///     Lifetime of external values (eg: condition values).
 ///
-/// - `'db: 'rf`
+/// - `E`: [`Executor`]
 ///
-///     The database reference's lifetime.
-///     Since `'rf` applies to a transaction reference, `'db` must outlive `'rf`.
+///     The executor to query with.
 ///
 /// - `P`: [`Patch`](Patch)
 ///
@@ -32,23 +31,22 @@ use crate::model::{iter_columns, Model, Patch};
 ///     An optional transaction to execute this query in.
 ///
 #[must_use]
-pub struct InsertBuilder<'db, 'rf, P, T, R> {
-    db: &'db Database,
-    transaction: T,
+pub struct InsertBuilder<'rf, E, P, R> {
+    executor: E,
     returning: R,
 
     _phantom: PhantomData<&'rf P>,
 }
 
-impl<'db, 'rf, P> InsertBuilder<'db, 'rf, P, (), returning::Patch<P::Model>>
+impl<'ex, 'rf, E, P> InsertBuilder<'rf, E, P, returning::Patch<P::Model>>
 where
+    E: Executor<'ex>,
     P: Patch,
 {
     /// Start building a insert query
-    pub fn new(db: &'db Database) -> Self {
+    pub fn new(executor: E) -> Self {
         InsertBuilder {
-            db,
-            transaction: (),
+            executor,
             returning: returning::Patch::new(),
 
             _phantom: PhantomData,
@@ -56,71 +54,57 @@ where
     }
 }
 
-impl<'db, 'rf, P, R> InsertBuilder<'db, 'rf, P, (), R> {
-    /// Add a transaction to the insert query
-    pub fn transaction(
-        self,
-        transaction: &'rf mut Transaction<'db>,
-    ) -> InsertBuilder<'db, 'rf, P, &'rf mut Transaction<'db>, R> {
-        #[rustfmt::skip]
-        let InsertBuilder { db, returning, _phantom, .. } = self;
-        #[rustfmt::skip]
-        return InsertBuilder { db, transaction, _phantom, returning };
-    }
-}
-
-impl<'db, 'rf, P, T, M> InsertBuilder<'db, 'rf, P, T, returning::Patch<M>>
+impl<'rf, E, P, M> InsertBuilder<'rf, E, P, returning::Patch<M>>
 where
     M: Model,
     P: Patch<Model = M>,
 {
     /// Remove the return value from the insert query reducing query time.
-    pub fn return_nothing(self) -> InsertBuilder<'db, 'rf, P, T, returning::Nothing> {
+    pub fn return_nothing(self) -> InsertBuilder<'rf, E, P, returning::Nothing> {
         #[rustfmt::skip]
-        let InsertBuilder { db, transaction, _phantom, .. } = self;
+        let InsertBuilder { executor, _phantom, .. } = self;
         #[rustfmt::skip]
-        return InsertBuilder { db, transaction, returning: returning::Nothing, _phantom };
+        return InsertBuilder { executor, returning: returning::Nothing, _phantom };
     }
 
     /// Remove the return value from the insert query reducing query time.
-    pub fn return_primary_key(self) -> InsertBuilder<'db, 'rf, P, T, returning::PrimaryKey<M>> {
+    pub fn return_primary_key(self) -> InsertBuilder<'rf, E, P, returning::PrimaryKey<M>> {
         #[rustfmt::skip]
-        let InsertBuilder { db, transaction, _phantom, .. } = self;
+        let InsertBuilder { executor, _phantom, .. } = self;
         #[rustfmt::skip]
-        return InsertBuilder { db, transaction, returning: returning::PrimaryKey::new(), _phantom };
+        return InsertBuilder { executor, returning: returning::PrimaryKey::new(), _phantom };
     }
 
     /// Set a tuple of fields to be returned after performing the insert
     pub fn return_tuple<Return, const C: usize>(
         self,
         tuple: Return,
-    ) -> InsertBuilder<'db, 'rf, P, T, returning::Tuple<Return, C>>
+    ) -> InsertBuilder<'rf, E, P, returning::Tuple<Return, C>>
     where
         returning::Tuple<Return, C>: returning::Returning<M> + From<Return>,
     {
         #[rustfmt::skip]
-        let InsertBuilder { db, transaction, _phantom, .. } = self;
+        let InsertBuilder { executor, _phantom, .. } = self;
         #[rustfmt::skip]
-        return InsertBuilder { db, transaction, returning: tuple.into(), _phantom };
+        return InsertBuilder { executor, returning: tuple.into(), _phantom };
     }
 
     /// Set a patch to be returned after performing the insert
-    pub fn return_patch<Return>(self) -> InsertBuilder<'db, 'rf, P, T, returning::Patch<Return>>
+    pub fn return_patch<Return>(self) -> InsertBuilder<'rf, E, P, returning::Patch<Return>>
     where
         Return: Patch<Model = M>,
     {
         #[rustfmt::skip]
-        let InsertBuilder { db, transaction, _phantom, .. } = self;
+        let InsertBuilder { executor, _phantom, .. } = self;
         #[rustfmt::skip]
-        return InsertBuilder { db, transaction, returning: returning::Patch::new(), _phantom };
+        return InsertBuilder { executor, returning: returning::Patch::new(), _phantom };
     }
 }
 
-impl<'db, 'rf, P, T, R> InsertBuilder<'db, 'rf, P, T, R>
+impl<'ex, 'rf, E, P, R> InsertBuilder<'rf, E, P, R>
 where
-    'db: 'rf,
+    E: Executor<'ex>,
     P: Patch,
-    T: TransactionMarker<'rf, 'db>,
     R: returning::Returning<P::Model>,
 {
     /// Insert a single patch into the db
@@ -130,26 +114,18 @@ where
         let returning = self.returning.columns();
 
         if returning.is_empty() {
-            self.db
-                .insert(
-                    P::Model::TABLE,
-                    &inserting,
-                    &values,
-                    self.transaction.into_option(),
-                )
-                .await?;
+            database::insert(self.executor, P::Model::TABLE, &inserting, &values).await?;
             R::produce_result()
         } else {
-            self.db
-                .insert_returning(
-                    P::Model::TABLE,
-                    &inserting,
-                    &values,
-                    self.transaction.into_option(),
-                    returning,
-                )
-                .await
-                .and_then(R::decode)
+            database::insert_returning(
+                self.executor,
+                P::Model::TABLE,
+                &inserting,
+                &values,
+                returning,
+            )
+            .await
+            .and_then(R::decode)
         }
     }
 
@@ -167,26 +143,19 @@ where
         let returning = self.returning.columns();
 
         if returning.is_empty() {
-            self.db
-                .insert_bulk(
-                    P::Model::TABLE,
-                    &inserting,
-                    &values_slices,
-                    self.transaction.into_option(),
-                )
+            database::insert_bulk(self.executor, P::Model::TABLE, &inserting, &values_slices)
                 .await?;
             R::produce_result_bulk()
         } else {
-            self.db
-                .insert_bulk_returning(
-                    P::Model::TABLE,
-                    &inserting,
-                    &values_slices,
-                    self.transaction.into_option(),
-                    returning,
-                )
-                .await
-                .and_then(R::decode_bulk)
+            database::insert_bulk_returning(
+                self.executor,
+                P::Model::TABLE,
+                &inserting,
+                &values_slices,
+                returning,
+            )
+            .await
+            .and_then(R::decode_bulk)
         }
     }
 }
@@ -262,24 +231,10 @@ where
 ///     Ok(())
 /// }
 ///```
-///
-/// # Run inside a transaction
-/// ```no_run
-/// # use rorm::{Model, Patch, Database, transaction::Transaction, insert};
-/// # #[derive(Model)] pub struct User { #[rorm(id)] id: i64, #[rorm(max_length = 255)] name: String, }
-/// # #[derive(Patch)] #[rorm(model = "User")] pub struct NewUser { name: String, }
-/// pub async fn create_single_user<'db>(db: &'db Database, transaction: &mut Transaction<'db>, name: String) {
-///     insert!(db, NewUser)
-///         .transaction(transaction) // <-
-///         .single(&NewUser { name })
-///         .await
-///         .unwrap();
-/// }
-///```
 #[macro_export]
 macro_rules! insert {
     ($db:expr, $patch:path) => {
-        $crate::crud::insert::InsertBuilder::<$patch, _, _>::new($db)
+        $crate::crud::insert::InsertBuilder::<_, $patch, _>::new($db)
     };
 }
 

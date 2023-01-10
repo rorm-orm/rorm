@@ -3,15 +3,16 @@
 use std::marker::PhantomData;
 use std::ops::{Range, RangeInclusive, Sub};
 
+use rorm_db::database;
 use rorm_db::database::ColumnSelector;
-use rorm_db::executor::{All, One, Optional, Stream};
+use rorm_db::error::Error;
+use rorm_db::executor::{All, Executor, One, Optional, Stream};
 use rorm_db::limit_clause::LimitClause;
 use rorm_db::ordering::{OrderByEntry, Ordering};
-use rorm_db::transaction::Transaction;
-use rorm_db::{error::Error, row::Row, Database};
+use rorm_db::row::Row;
 
 use crate::conditions::Condition;
-use crate::crud::builder::{ConditionMarker, TransactionMarker};
+use crate::crud::builder::ConditionMarker;
 use crate::crud::selectable::Selectable;
 use crate::internal::field::{FieldProxy, RawField};
 use crate::internal::query_context::QueryContextBuilder;
@@ -26,12 +27,11 @@ use crate::sealed;
 /// ## Generics
 /// - `'rf`
 ///
-///     Lifetime of external values (eg: condition values and transaction reference).
+///     Lifetime of external values (eg: condition values).
 ///
-/// - `'db: 'rf`
+/// - `E`: [`Executor`]
 ///
-///     The database reference's lifetime.
-///     Since `'rf` also applies to a transaction reference, `'db` must outlive `'rf`.
+///     The executor to query with.
 ///
 /// - `M`: [Model](Model),
 ///
@@ -53,14 +53,13 @@ use crate::sealed;
 ///
 ///     An optional limit and or offset to control the amount of queried rows.
 #[must_use]
-pub struct QueryBuilder<'db, 'rf, M, S, C, T, LO> {
-    db: &'db Database,
+pub struct QueryBuilder<'rf, E, M, S, C, LO> {
+    executor: E,
     ctx: QueryContextBuilder,
     selector: S,
     _phantom: PhantomData<&'rf M>,
 
     condition: C,
-    transaction: T,
     lim_off: LO,
     ordering: Vec<OrderByEntry<'static>>,
 }
@@ -77,98 +76,79 @@ pub trait Selector<M: Model> {
     fn columns(&self, builder: &mut QueryContextBuilder) -> &[ColumnSelector<'static>];
 }
 
-impl<'db, 'rf, M, S> QueryBuilder<'db, 'rf, M, S, (), (), ()>
+impl<'ex, 'rf, E, M, S> QueryBuilder<'rf, E, M, S, (), ()>
 where
+    E: Executor<'ex>,
     M: Model,
     S: Selector<M>,
 {
     /// Start building a query using a generic [Selector]
-    pub fn new(db: &'db Database, selector: S) -> Self {
+    pub fn new(executor: E, selector: S) -> Self {
         QueryBuilder {
-            db,
+            executor,
             ctx: QueryContextBuilder::new(),
             selector,
             _phantom: PhantomData,
 
             condition: (),
-            transaction: (),
             lim_off: (),
             ordering: Vec::new(),
         }
     }
 }
 
-impl<'db, 'a, M, S, T, LO> QueryBuilder<'db, 'a, M, S, (), T, LO> {
+impl<'rf, E, M, S, LO> QueryBuilder<'rf, E, M, S, (), LO> {
     /// Add a condition to the query
-    pub fn condition<C: Condition<'a>>(
-        self,
-        condition: C,
-    ) -> QueryBuilder<'db, 'a, M, S, C, T, LO> {
+    pub fn condition<C: Condition<'rf>>(self, condition: C) -> QueryBuilder<'rf, E, M, S, C, LO> {
         #[rustfmt::skip]
-        let QueryBuilder { db, ctx, selector, _phantom, transaction, lim_off, ordering, .. } = self;
+        let QueryBuilder { executor, ctx, selector, _phantom, lim_off, ordering, .. } = self;
         #[rustfmt::skip]
-        return QueryBuilder { db, ctx, selector, _phantom, condition, transaction, lim_off, ordering, };
+        return QueryBuilder { executor, ctx, selector, _phantom, condition, lim_off, ordering, };
     }
 }
 
-impl<'db, 'a, M, S, C, LO> QueryBuilder<'db, 'a, M, S, C, (), LO> {
-    /// Add a transaction to the query
-    pub fn transaction(
-        self,
-        transaction: &'a mut Transaction<'db>,
-    ) -> QueryBuilder<'db, 'a, M, S, C, &'a mut Transaction<'db>, LO> {
-        #[rustfmt::skip]
-        let QueryBuilder { db, ctx, selector, _phantom, condition, lim_off, ordering, .. } = self;
-        #[rustfmt::skip]
-        return QueryBuilder { db, ctx, selector, _phantom, condition, transaction, lim_off, ordering, };
-    }
-}
-
-impl<'db, 'a, M, S, C, T, O> QueryBuilder<'db, 'a, M, S, C, T, O>
+impl<'rf, E, M, S, C, O> QueryBuilder<'rf, E, M, S, C, O>
 where
     O: OffsetMarker,
 {
     /// Add a limit to the query
-    pub fn limit(self, limit: u64) -> QueryBuilder<'db, 'a, M, S, C, T, Limit<O>> {
+    pub fn limit(self, limit: u64) -> QueryBuilder<'rf, E, M, S, C, Limit<O>> {
         #[rustfmt::skip]
-        let QueryBuilder { db, ctx, selector, _phantom, condition, transaction,  lim_off, ordering, } = self;
+        let QueryBuilder { executor, ctx, selector, _phantom, condition,  lim_off, ordering, } = self;
         #[rustfmt::skip]
-        return QueryBuilder { db, ctx, selector, _phantom, condition, transaction, lim_off: Limit { limit, offset: lim_off }, ordering, };
+        return QueryBuilder { executor, ctx, selector, _phantom, condition, lim_off: Limit { limit, offset: lim_off }, ordering, };
     }
 }
 
-impl<'db, 'a, M, S, C, T, LO> QueryBuilder<'db, 'a, M, S, C, T, LO>
+impl<'rf, E, M, S, C, LO> QueryBuilder<'rf, E, M, S, C, LO>
 where
     LO: AcceptsOffset,
 {
     /// Add a offset to the query
-    pub fn offset(self, offset: u64) -> QueryBuilder<'db, 'a, M, S, C, T, LO::Result> {
+    pub fn offset(self, offset: u64) -> QueryBuilder<'rf, E, M, S, C, LO::Result> {
         #[rustfmt::skip]
-        let QueryBuilder { db, ctx, selector, _phantom, condition, transaction, lim_off, ordering, .. } = self;
+        let QueryBuilder { executor, ctx, selector, _phantom, condition, lim_off, ordering, .. } = self;
         let lim_off = lim_off.add_offset(offset);
         #[rustfmt::skip]
-        return QueryBuilder { db, ctx, selector, _phantom, condition, transaction, lim_off, ordering, };
+        return QueryBuilder { executor, ctx, selector, _phantom, condition, lim_off, ordering, };
     }
 }
 
-impl<'db, 'a, M, S, C, T> QueryBuilder<'db, 'a, M, S, C, T, ()> {
+impl<'rf, E, M, S, C> QueryBuilder<'rf, E, M, S, C, ()> {
     /// Add a offset to the query
-    pub fn range(
-        self,
-        range: impl FiniteRange<u64>,
-    ) -> QueryBuilder<'db, 'a, M, S, C, T, Limit<u64>> {
+    pub fn range(self, range: impl FiniteRange<u64>) -> QueryBuilder<'rf, E, M, S, C, Limit<u64>> {
         #[rustfmt::skip]
-        let QueryBuilder { db, ctx, selector, _phantom, condition, transaction, ordering,  .. } = self;
+        let QueryBuilder { executor, ctx, selector, _phantom, condition, ordering,  .. } = self;
         let limit = Limit {
             limit: range.len(),
             offset: range.start(),
         };
         #[rustfmt::skip]
-        return QueryBuilder { db, ctx, selector, _phantom, condition, transaction, lim_off: limit, ordering, };
+        return QueryBuilder { executor, ctx, selector, _phantom, condition, lim_off: limit, ordering, };
     }
 }
 
-impl<'db, 'a, M, S, C, T, LO> QueryBuilder<'db, 'a, M, S, C, T, LO> {
+impl<'rf, E, M, S, C, LO> QueryBuilder<'rf, E, M, S, C, LO> {
     /// Order the query by a field
     ///
     /// You can add multiple orderings from most to least significant.
@@ -209,13 +189,13 @@ impl<'db, 'a, M, S, C, T, LO> QueryBuilder<'db, 'a, M, S, C, T, LO> {
     }
 }
 
-impl<'rf, 'db, M, S, C, T, LO> QueryBuilder<'db, 'rf, M, S, C, T, LO>
+impl<'ex, 'rf, E, M, S, C, LO> QueryBuilder<'rf, E, M, S, C, LO>
 where
-    'db: 'rf,
+    'ex: 'rf,
+    E: Executor<'ex>,
     M: Model,
     S: Selector<M>,
     C: ConditionMarker<'rf>,
-    T: TransactionMarker<'rf, 'db>,
 {
     /// Retrieve and decode all matching rows
     pub async fn all(mut self) -> Result<Vec<S::Result>, Error>
@@ -226,22 +206,19 @@ where
         self.condition.add_to_builder(&mut self.ctx);
         let context = self.ctx.finish();
         let joins = context.get_joins();
-        self.db
-            .query::<All>(
-                M::TABLE,
-                columns,
-                &joins,
-                self.condition.into_option(&context).as_ref(),
-                self.ordering.as_slice(),
-                self.lim_off.into_option(),
-                self.transaction.into_option(),
-            )
-            .await?
-            .into_iter()
-            .map(|x| {
-                S::decode(x).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
-            })
-            .collect::<Result<Vec<_>, _>>()
+        database::query::<All>(
+            self.executor,
+            M::TABLE,
+            columns,
+            &joins,
+            self.condition.into_option(&context).as_ref(),
+            self.ordering.as_slice(),
+            self.lim_off.into_option(),
+        )
+        .await?
+        .into_iter()
+        .map(|x| S::decode(x).map_err(|_| Error::DecodeError("Could not decode row".to_string())))
+        .collect::<Result<Vec<_>, _>>()
     }
 
     /// Retrieve and decode the query as a stream
@@ -257,14 +234,14 @@ where
             |ctx| ctx.get_joins(),
             |ctx| self.condition.into_option(ctx),
             |conditions, joins| {
-                self.db.query::<Stream>(
+                database::query::<Stream>(
+                    self.executor,
                     M::TABLE,
                     columns,
                     joins,
                     conditions.as_ref(),
                     self.ordering.as_slice(),
                     self.lim_off.into_option(),
-                    self.transaction.into_option(),
                 )
             },
         )
@@ -281,18 +258,16 @@ where
         self.condition.add_to_builder(&mut self.ctx);
         let context = self.ctx.finish();
         let joins = context.get_joins();
-        let row = self
-            .db
-            .query::<One>(
-                M::TABLE,
-                columns,
-                &joins,
-                self.condition.into_option(&context).as_ref(),
-                self.ordering.as_slice(),
-                self.lim_off.into_option(),
-                self.transaction.into_option(),
-            )
-            .await?;
+        let row = database::query::<One>(
+            self.executor,
+            M::TABLE,
+            columns,
+            &joins,
+            self.condition.into_option(&context).as_ref(),
+            self.ordering.as_slice(),
+            self.lim_off.into_option(),
+        )
+        .await?;
         S::decode(row).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
     }
 
@@ -305,18 +280,16 @@ where
         self.condition.add_to_builder(&mut self.ctx);
         let context = self.ctx.finish();
         let joins = context.get_joins();
-        let row = self
-            .db
-            .query::<Optional>(
-                M::TABLE,
-                columns,
-                &joins,
-                self.condition.into_option(&context).as_ref(),
-                self.ordering.as_slice(),
-                self.lim_off.into_option(),
-                self.transaction.into_option(),
-            )
-            .await?;
+        let row = database::query::<Optional>(
+            self.executor,
+            M::TABLE,
+            columns,
+            &joins,
+            self.condition.into_option(&context).as_ref(),
+            self.ordering.as_slice(),
+            self.lim_off.into_option(),
+        )
+        .await?;
         match row {
             None => Ok(None),
             Some(row) => {
@@ -349,10 +322,6 @@ where
 ///     `.offset(2)`
 ///
 ///     `.range(2..7)`
-///
-/// 4. *Optionally* add this query to a transaction
-///
-///     `.transaction(&mut tr)`
 ///
 /// 5. Finally specify how to get the queries results. This will also execute the query.
 ///     - Get [`all`](QueryBuilder::all) matching rows in a vector.

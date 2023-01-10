@@ -6,6 +6,9 @@ Since 0.4.2
   - Added `.return_nothing()` and `.return_primary_key()`
   - Defaults to returning whole model instead of primary key
   - Updated `insert!`'s docs
+- Removed `.transaction(...)` methods
+  The transaction reference is now passed directly to the macro instead of a
+  database reference.
 - Refactored annotations
 - Error when max_length is missing
 
