@@ -52,7 +52,7 @@ impl<F, P> Path for PathStep<F, P>
 where
     F: RawField + 'static,
     P: Path,
-    Self: PathImpl<F::RawType>,
+    Self: PathImpl<F::Type>,
 {
     type Origin = P::Origin;
 
@@ -63,7 +63,7 @@ where
 impl<T, M, F, P> PathImpl<ForeignModelByField<M, T>> for PathStep<F, P>
 where
     M: Model,
-    F: RawField<RawType = ForeignModelByField<M, T>> + 'static,
+    F: RawField<Type = ForeignModelByField<M, T>> + 'static,
     P: Path,
 {
     type ResolvedRelatedField = foreign_model::RelatedField<M, F>;
@@ -80,8 +80,8 @@ where
 impl<T, M, F, RF, P> PathImpl<BackRef<M>> for PathStep<F, P>
 where
     M: Model,
-    F: RawField<RawType = BackRef<M>, RelatedField = RF> + 'static,
-    RF: RawField<RawType = ForeignModelByField<F::Model, T>>,
+    F: RawField<Type = BackRef<M>, RelatedField = RF> + 'static,
+    RF: RawField<Type = ForeignModelByField<F::Model, T>>,
     P: Path,
 {
     type ResolvedRelatedField = RF;
@@ -117,7 +117,7 @@ pub trait PathImpl<RawType> {
 }
 /// Shorthand for accessing [PathImpl::ResolvedRelatedField](PathImpl::ResolvedRelatedField).
 pub type ResolvedRelatedField<F, P> =
-    <PathStep<F, P> as PathImpl<<F as RawField>::RawType>>::ResolvedRelatedField;
+    <PathStep<F, P> as PathImpl<<F as RawField>::Type>>::ResolvedRelatedField;
 
 /// Trait shared by [Path] and [FieldProxy](super::field::FieldProxy) which provides a unique join alias at compile time.s
 pub trait JoinAlias {

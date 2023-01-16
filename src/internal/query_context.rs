@@ -36,7 +36,7 @@ impl QueryContextBuilder {
         M: Model,
         F: RawField,
         P: Path,
-        PathStep<F, P>: PathImpl<F::RawType>,
+        PathStep<F, P>: PathImpl<F::Type>,
     {
         let new_table = PathId::of::<PathStep<F, P>>();
 

@@ -1,6 +1,5 @@
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
-use crate::internal::field::as_db_type::AsDbType;
-use crate::internal::field::{Field, Identical, RawField};
+use crate::internal::field::{Field, RawField};
 use crate::internal::relation_path::Path;
 use rorm_db::row::FromRow;
 use rorm_declaration::imr;
@@ -24,7 +23,7 @@ pub trait Patch: FromRow + 'static {
     fn get_value(&self, index: usize) -> Option<Value>;
 
     /// Get a reference to a field
-    fn field<F>(&self) -> &F::RawType
+    fn field<F>(&self) -> &F::Type
     where
         F: RawField,
         Self: GetField<F>,
@@ -33,7 +32,7 @@ pub trait Patch: FromRow + 'static {
     }
 
     /// Get a mutable reference to a field
-    fn field_mut<F>(&mut self) -> &mut F::RawType
+    fn field_mut<F>(&mut self) -> &mut F::Type
     where
         F: RawField,
         Self: GetField<F>,
@@ -113,10 +112,10 @@ pub trait FieldByIndex<const INDEX: usize>: Model {
 /// and gain access to it.
 pub trait GetField<F: RawField>: Patch {
     /// Get reference to the field
-    fn get_field(&self) -> &F::RawType;
+    fn get_field(&self) -> &F::Type;
 
     /// Get mutable reference to the field
-    fn get_field_mut(&mut self) -> &mut F::RawType;
+    fn get_field_mut(&mut self) -> &mut F::Type;
 }
 
 /// Update a model's field based on the model's primary key
@@ -130,14 +129,14 @@ pub trait UpdateField<F: RawField<Model = Self>>: Model {
     /// Update a model's field based on the model's primary key
     fn update_field<'m, T>(
         &'m mut self,
-        update: impl FnOnce(&'m <<Self as Model>::Primary as Field>::Type, &'m mut F::RawType) -> T,
+        update: impl FnOnce(&'m <<Self as Model>::Primary as RawField>::Type, &'m mut F::Type) -> T,
     ) -> T;
 }
 
 /// A patch which contains its model's primary key.
 pub trait Identifiable: Patch {
     /// Get a reference to the primary key
-    fn get_primary_key(&self) -> &<<Self::Model as Model>::Primary as Field>::Type;
+    fn get_primary_key(&self) -> &<<Self::Model as Model>::Primary as RawField>::Type;
 
     /// Build a [Condition](crate::conditions::Condition)
     /// which only applies to this instance by comparing the primary key.
@@ -145,16 +144,15 @@ pub trait Identifiable: Patch {
         Binary {
             operator: BinaryOperator::Equals,
             fst_arg: Column::new(),
-            snd_arg: self
-                .get_primary_key()
-                .as_primitive::<<Self::Model as Model>::Primary>(),
+            snd_arg: <<Self::Model as Model>::Primary as Field>::as_condition_value(
+                self.get_primary_key(),
+            ),
         }
     }
 }
 impl<M: Model, P: Patch<Model = M> + GetField<M::Primary>> Identifiable for P {
-    fn get_primary_key(&self) -> &<M::Primary as Field>::Type {
-        let raw_type = <Self as GetField<M::Primary>>::get_field(self);
-        <<M::Primary as Field>::Type as Identical<_>>::as_self_ref(raw_type)
+    fn get_primary_key(&self) -> &<M::Primary as RawField>::Type {
+        <Self as GetField<M::Primary>>::get_field(self)
     }
 }
 

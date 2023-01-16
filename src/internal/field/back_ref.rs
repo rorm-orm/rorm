@@ -49,7 +49,7 @@ where
 
     // `BR` is a pseudo field on the model `BRM`.
     // It has the type of `BackRef<FMM>` and points to the related field `FM`
-    BR: RawField<Kind = kind::BackRef, Model = BRM, RawType = BackRef<FMM>, RelatedField = FM>,
+    BR: RawField<Kind = kind::BackRef, Model = BRM, Type = BackRef<FMM>, RelatedField = FM>,
 
     // `FM` is a field on the model `FMM`.
     // It has the type of `ForeignModelByField<BRM, _>`.
@@ -59,7 +59,7 @@ where
     // Its type `T` matches the type `FM` stores.
     foreign_model::RelatedField<BRM, FM>: Field<Model = BRM, Type = T>,
 {
-    fn get_from_row(_row: &Row, _index: impl RowIndex) -> Result<Self::RawType, Error> {
+    fn get_from_row(_row: &Row, _index: impl RowIndex) -> Result<Self::Type, Error> {
         Ok(BackRef { cached: None })
     }
 }
@@ -71,9 +71,9 @@ where
     BRM: Model,
     FMM: Model,
 
-    BR: AbstractField<Model = BRM, RawType = BackRef<FMM>, RelatedField = FM>,
-    FM: RawField<RawType = ForeignModelByField<BRM, T>>,
-    foreign_model::RelatedField<BRM, FM>: RawField<RawType = T>,
+    BR: AbstractField<Model = BRM, Type = BackRef<FMM>, RelatedField = FM>,
+    FM: RawField<Type = ForeignModelByField<BRM, T>>,
+    foreign_model::RelatedField<BRM, FM>: RawField<Type = T>,
 
     // needs to be a field to be able to be used as column in condition
     FM: Field,
@@ -89,9 +89,9 @@ where
         Binary {
             operator: BinaryOperator::Equals,
             fst_arg: Column::<FM, FMM>::new(),
-            snd_arg: patch
-                .field::<foreign_model::RelatedField<BRM, FM>>()
-                .as_primitive::<foreign_model::RelatedField<BRM, FM>>(),
+            snd_arg: foreign_model::RelatedField::<BRM, FM>::as_condition_value(
+                patch.field::<foreign_model::RelatedField<BRM, FM>>(),
+            ),
         }
     }
 

@@ -5,7 +5,6 @@ use std::marker::PhantomData;
 use rorm_db::aggregation::SelectAggregator;
 use rorm_db::row::DecodeOwned;
 
-use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::{Field, FieldProxy};
 use crate::internal::relation_path::Path;
 
@@ -14,7 +13,7 @@ use crate::internal::relation_path::Path;
 /// Since an aggregation's "return type" depends on the used function, it has to be implemented using a trait.
 pub trait AggregationFunc {
     /// The function's "return type" depending on the column type it is used over;
-    type Result<Input: AsDbType>: DecodeOwned;
+    type Result<Input: DecodeOwned>: DecodeOwned;
 
     /// A name to generate an join alias.
     const NAME: &'static str;
@@ -28,7 +27,7 @@ pub trait AggregationFunc {
 /// result will also be null.
 pub struct Avg;
 impl AggregationFunc for Avg {
-    type Result<Input: AsDbType> = Option<f64>;
+    type Result<Input: DecodeOwned> = Option<f64>;
     const NAME: &'static str = "avg";
     const SQL: SelectAggregator = SelectAggregator::Avg;
 }
@@ -36,7 +35,7 @@ impl AggregationFunc for Avg {
 /// Returns the count of the number of times that the column is not null.
 pub struct Count;
 impl AggregationFunc for Count {
-    type Result<Input: AsDbType> = Option<i64>;
+    type Result<Input: DecodeOwned> = Option<i64>;
     const NAME: &'static str = "count";
     const SQL: SelectAggregator = SelectAggregator::Count;
 }
@@ -45,7 +44,7 @@ impl AggregationFunc for Count {
 /// If there are only null values in the group, this function will return null.
 pub struct Sum;
 impl AggregationFunc for Sum {
-    type Result<Input: AsDbType> = Option<Input::Primitive>;
+    type Result<Input: DecodeOwned> = Option<Input>;
     const NAME: &'static str = "sum";
     const SQL: SelectAggregator = SelectAggregator::Sum;
 }
@@ -54,7 +53,7 @@ impl AggregationFunc for Sum {
 /// If there are only null values in the group, this function will return null.
 pub struct Max;
 impl AggregationFunc for Max {
-    type Result<Input: AsDbType> = Option<Input::Primitive>;
+    type Result<Input: DecodeOwned> = Option<Input>;
     const NAME: &'static str = "max";
     const SQL: SelectAggregator = SelectAggregator::Max;
 }
@@ -63,7 +62,7 @@ impl AggregationFunc for Max {
 /// If there are only null values in the group, this function will return null.
 pub struct Min;
 impl AggregationFunc for Min {
-    type Result<Input: AsDbType> = Option<Input::Primitive>;
+    type Result<Input: DecodeOwned> = Option<Input>;
     const NAME: &'static str = "min";
     const SQL: SelectAggregator = SelectAggregator::Min;
 }

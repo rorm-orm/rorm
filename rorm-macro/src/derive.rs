@@ -35,9 +35,12 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
                 #(stringify!(#identifiers)),*
             ];
 
+            impl ::rorm::internal::field::FieldType for #db_enum {
+                type Kind = ::rorm::internal::field::kind::AsDbType;
+            }
             impl ::rorm::internal::field::as_db_type::AsDbType for #db_enum {
                 type Primitive = String;
-                type DbType<F: ::rorm::internal::field::Field> = ::rorm::internal::hmr::db_type::Choices;
+                type DbType = ::rorm::internal::hmr::db_type::Choices;
 
                 const NULL_TYPE: ::rorm::value::NullType = ::rorm::value::NullType::String;
 
@@ -55,7 +58,7 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
                     }
                 }
 
-                fn as_primitive<F>(&self) -> ::rorm::conditions::Value {
+                fn as_primitive(&self) -> ::rorm::conditions::Value {
                     ::rorm::conditions::Value::String(match self {
                         #(
                             Self::#identifiers => stringify!(#identifiers),
@@ -229,7 +232,7 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
             impl ::rorm::model::UpdateField<#non_primary_type> for #model {
                 fn update_field<'m, T>(
                     &'m mut self,
-                    update: impl FnOnce(&'m <#primary_struct as ::rorm::internal::field::Field>::Type, &'m mut #non_primary_raw_type) -> T,
+                    update: impl FnOnce(&'m <#primary_struct as ::rorm::internal::field::RawField>::Type, &'m mut #non_primary_raw_type) -> T,
                 ) -> T {
                     update(&self.#primary_ident, &mut self.#non_primary_ident)
                 }
@@ -440,7 +443,7 @@ impl ToTokens for Field {
             #model_vis struct #type_ident;
             impl ::rorm::internal::field::RawField for #type_ident {
                 type Kind = <#raw_type as ::rorm::internal::field::FieldType>::Kind;
-                type RawType = #raw_type;
+                type Type = #raw_type;
                 type ExplicitDbType = #db_type;
                 type RelatedField = #related_field;
                 type Model = #model;

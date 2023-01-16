@@ -2,10 +2,9 @@
 
 use rorm_db::row::DecodeOwned;
 use rorm_db::value::NullType;
-use rorm_declaration::imr;
 
 use crate::conditions::Value;
-use crate::internal::field::{kind, Field, FieldType};
+use crate::internal::field::{kind, FieldType};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
 
@@ -18,7 +17,7 @@ use crate::internal::hmr::annotations::Annotations;
 /// Instead of creating a whole new process to define a [Field] which has a [RawType] of [ForeignModel],
 /// the places which require the [RelatedField] forward the [Field] via this generic `F`.
 ///
-/// [RawType]: crate::internal::field::RawField::RawType
+/// [RawType]: crate::internal::field::RawField::Type
 /// [ForeignModel]: crate::internal::field::foreign_model::ForeignModel
 /// [RelatedField]: crate::internal::field::RawField::RelatedField
 pub trait AsDbType: FieldType<Kind = kind::AsDbType> {
@@ -26,7 +25,7 @@ pub trait AsDbType: FieldType<Kind = kind::AsDbType> {
     type Primitive: DecodeOwned;
 
     /// The database type as defined in the Intermediate Model Representation
-    type DbType<F: Field>: hmr::db_type::DbType;
+    type DbType: hmr::db_type::DbType;
 
     /// Type to pass to rorm-sql for null
     const NULL_TYPE: NullType;
@@ -41,12 +40,7 @@ pub trait AsDbType: FieldType<Kind = kind::AsDbType> {
     fn from_primitive(primitive: Self::Primitive) -> Self;
 
     /// Convert a reference to `Self` into the primitive [`Value`] used by our db implementation.
-    fn as_primitive<F: Field>(&self) -> Value;
-
-    /// Add type specific imr annotations.
-    ///
-    /// Currently only used by [ForeignModel](super::foreign_model::ForeignModel).
-    fn custom_annotations<F: Field>(_annotations: &mut Vec<imr::Annotation>) {}
+    fn as_primitive(&self) -> Value;
 }
 
 macro_rules! impl_as_db_type {
@@ -57,7 +51,7 @@ macro_rules! impl_as_db_type {
         impl AsDbType for $type {
             type Primitive = Self;
 
-            type DbType<F: Field> = hmr::db_type::$db_type;
+            type DbType = hmr::db_type::$db_type;
 
             const NULL_TYPE: NullType = NullType::$value_variant;
 
@@ -71,13 +65,13 @@ macro_rules! impl_as_db_type {
     };
     (impl_as_primitive, $type:ty, $db_type:ident, $value_variant:ident) => {
         #[inline(always)]
-        fn as_primitive<F: Field>(&self) -> Value {
+        fn as_primitive(&self) -> Value {
             Value::$value_variant(*self)
         }
     };
     (impl_as_primitive, $type:ty, $db_type:ident, $value_variant:ident using $method:ident) => {
         #[inline(always)]
-        fn as_primitive<F: Field>(&self) -> Value {
+        fn as_primitive(&self) -> Value {
             Value::$value_variant(self.$method())
         }
     };
@@ -99,7 +93,7 @@ impl<T: AsDbType> FieldType for Option<T> {
 }
 impl<T: AsDbType> AsDbType for Option<T> {
     type Primitive = Option<T::Primitive>;
-    type DbType<F: Field> = T::DbType<F>;
+    type DbType = T::DbType;
 
     const NULL_TYPE: NullType = T::NULL_TYPE;
 
@@ -117,14 +111,10 @@ impl<T: AsDbType> AsDbType for Option<T> {
         primitive.map(T::from_primitive)
     }
 
-    fn as_primitive<F: Field>(&self) -> Value {
+    fn as_primitive(&self) -> Value {
         match self {
-            Some(value) => value.as_primitive::<F>(),
+            Some(value) => value.as_primitive(),
             None => Value::Null(T::NULL_TYPE),
         }
-    }
-
-    fn custom_annotations<F: Field>(annotations: &mut Vec<imr::Annotation>) {
-        T::custom_annotations::<F>(annotations);
     }
 }

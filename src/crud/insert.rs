@@ -234,7 +234,6 @@ pub mod returning {
     use std::marker::PhantomData;
 
     use crate::error::Error;
-    use crate::internal::field::as_db_type::AsDbType;
     use crate::internal::field::{Field, FieldProxy, RawField};
     use crate::model::{Model, Patch as ModelPatch};
     use crate::row::Row;
@@ -329,10 +328,10 @@ pub mod returning {
     impl<M: Model> Returning<M> for PrimaryKey<M> {
         default_bulk_impl!();
 
-        type Result = <M::Primary as Field>::Type;
+        type Result = <M::Primary as RawField>::Type;
 
         fn decode(row: Row) -> Result<Self::Result, Error> {
-            Ok(<M::Primary as Field>::Type::from_primitive(row.get(0)?))
+            Ok(<M::Primary as Field>::from_primitive(row.get(0)?))
         }
 
         fn columns(&self) -> &[&'static str] {
@@ -398,7 +397,7 @@ pub mod returning {
 
                 fn decode(row: Row) -> Result<Self::Result, Error> {
                     Ok(($(
-                        $F::Type::from_primitive(row.get($i)?),
+                        $F::from_primitive(row.get($i)?),
                     )+))
                 }
 

@@ -266,8 +266,8 @@ impl ToTokens for Annotations {
                 primary_key: #primary_key,
                 unique: #unique,
                 nullable: false, // Set implicitly by type
-                foreign: false,  //
+                foreign: None,   //
             }
-        }tokens};
+        }tokens}
     }
 }

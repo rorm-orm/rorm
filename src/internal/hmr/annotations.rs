@@ -49,6 +49,14 @@ impl_annotations!(
     Unique,
 );
 
+/// Foreign key constraint
+pub struct ForeignKey {
+    /// Name of the table that should be referenced
+    pub table_name: &'static str,
+    /// Name of the column that should be referenced
+    pub column_name: &'static str,
+}
+
 /// Action to take on a foreign key in case of on delete
 pub type OnDelete = imr::ReferentialAction;
 
@@ -159,7 +167,7 @@ pub struct Annotations {
     pub nullable: bool,
 
     /// Set implicitly if type is `ForeignModel<M>`
-    pub foreign: bool,
+    pub foreign: Option<ForeignKey>,
 }
 
 impl AsImr for Annotations {
@@ -177,9 +185,9 @@ impl AsImr for Annotations {
             default,
             index,
             max_length,
-            foreign: _,   // Has to be set by field
-            on_delete: _, //
-            on_update: _, //
+            foreign,
+            on_delete,
+            on_update,
             primary_key,
             unique,
             nullable: _, // Set via not_null()
@@ -201,10 +209,18 @@ impl AsImr for Annotations {
             annotations.push(default.as_imr());
         }
         if let Some(index) = index {
-            annotations.push(index.as_imr())
+            annotations.push(index.as_imr());
         }
         if let Some(max_length) = max_length {
-            annotations.push(max_length.as_imr())
+            annotations.push(max_length.as_imr());
+        }
+        if let Some(foreign) = foreign {
+            annotations.push(imr::Annotation::ForeignKey(imr::ForeignKey {
+                table_name: foreign.table_name.to_string(),
+                column_name: foreign.column_name.to_string(),
+                on_delete: on_delete.unwrap_or_default(),
+                on_update: on_update.unwrap_or_default(),
+            }));
         }
         if let Some(_) = primary_key {
             annotations.push(imr::Annotation::PrimaryKey);
@@ -235,7 +251,7 @@ impl Annotations {
             primary_key: None,
             unique: None,
             nullable: false,
-            foreign: false,
+            foreign: None,
         }
     }
 
@@ -258,7 +274,7 @@ impl Annotations {
             not_null: self.not_null(),
             primary_key: self.primary_key.is_some(),
             unique: self.unique.is_some(),
-            foreign_key: self.foreign,
+            foreign_key: self.foreign.is_some(),
         }
     }
 
@@ -279,7 +295,6 @@ impl Annotations {
                 let Self {
                     $($field,)+
                     nullable,
-                    foreign,
                 } = other;
 
                 $(
@@ -295,12 +310,6 @@ impl Annotations {
                 } else {
                     return Err("nullable");
                 }
-
-                if !self.foreign {
-                    self.foreign = foreign;
-                } else {
-                    return Err("foreign");
-                }
             }};
         }
         merge!(self, let Self {
@@ -311,6 +320,7 @@ impl Annotations {
             default,
             index,
             max_length,
+            foreign,
             on_delete,
             on_update,
             primary_key,

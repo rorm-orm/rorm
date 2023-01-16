@@ -54,8 +54,8 @@ impl<F: Field, P: Path> Selectable for FieldProxy<F, P> {
     }
 
     fn decode(row: &Row) -> Result<Self::Result, Error> {
-        let primitive: <F::Type as AsDbType>::Primitive = row.get(Self::SELECT_ALIAS)?;
-        Ok(F::Type::from_primitive(primitive))
+        let primitive: F::Primitive = row.get(Self::SELECT_ALIAS)?;
+        Ok(F::from_primitive(primitive))
     }
 }
 
@@ -63,9 +63,10 @@ impl<A, F, P> Selectable for AggregatedColumn<A, F, P>
 where
     A: AggregationFunc,
     F: Field,
+    F::Type: AsDbType,
     P: Path,
 {
-    type Result = A::Result<F::Type>;
+    type Result = A::Result<<F::Type as AsDbType>::Primitive>;
 
     type Table = P::Origin;
 
