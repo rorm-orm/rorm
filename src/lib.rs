@@ -104,7 +104,11 @@ macro_rules! sealed {
 macro_rules! get_field {
     ($patch:ty, $field:ident) => {
         <<$patch as ::rorm::model::Patch>::Model as ::rorm::model::FieldByIndex<
-            { <Self as ::rorm::model::Patch>::Model::FIELDS.$field.index() },
+            {
+                <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS
+                    .$field
+                    .index()
+            },
         >>::Field
     };
 }

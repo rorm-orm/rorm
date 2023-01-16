@@ -7,18 +7,18 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
             type Model = #model;
 
             const COLUMNS: &'static [Option<&'static str>] = &[#(
-                <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.name(),
+                <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.name(),
             )*];
 
             const INDEXES: &'static [usize] = &[#(
-                <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.index(),
+                <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.index(),
             )*];
 
             fn get_value(&self, index: usize) -> Option<::rorm::conditions::Value> {
                 use ::rorm::internal::field::as_db_type::AsDbType;
                 #(
-                    if index == <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.index() {
-                        <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.get_value(&self.#fields)
+                    if index == <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.index() {
+                        <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.get_value(&self.#fields)
                     } else
                 )* {
                     None
@@ -62,7 +62,7 @@ pub fn try_from_row(
                 Ok(#strct {
                     #(
                         #fields: {
-                            if <Self as ::rorm::model::Patch>::Model::FIELDS.#fields.name().is_some() {
+                            if <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.name().is_some() {
                                 i += 1;
                                 <#model as ::rorm::model::Model>::FIELDS.#fields.get_from_row(&row, Some(i as usize))?
                             } else {
