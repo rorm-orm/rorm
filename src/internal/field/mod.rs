@@ -38,22 +38,27 @@
 //! ---
 //!
 //! From there on, further traits are implemented using generic `impl`s defined in this module.
+//! These implementations branch depending on the field's type.
 //!
-//! At this point the implementation branches into mutually exclusive traits.
-//! This creates the distinction between fields which are mapped to actual columns in the database
-//! and fields which are pure orm abstractions (for example: [`BackRef`](back_ref::BackRef)).
-//! (Fields which are marked with `#[rorm(skip)]` don't even get a unit struct.)
-//! This branching behaviour is controlled be the field's "kind" which is determined by the field's type
-//! which has to implement [`FieldType`] and provide the [`FieldType::Kind`](FieldType::Kind).
+//! **This hits a limitation in rust:**
+//! We need to provide different generic implementations for the same traits ([`AbstractField`] and [`Field`]).
+//! rust enforces implementations to don't overlap.
+//! To achieve this a [`FieldKind`] is introduced.
+//! Each [`FieldType`] (a type usable as a field) is of exactly one such kind.
+//! Using this kinds as constraints for the generic [`RawField]'s type,
+//! should make these implementation branches mutually exclusive.
+//! However rust doesn't quite understand this, which is due to an old bug (stated by some online sources).
 //!
-//! After the fields have been provided with implementations specific to their type and its kind,
-//! their implementations are merged again into a common interface named [`AbstractField`].
+//! As a workaround all traits after [`RawField`] carry a generic [`FieldKind`] which defaults to `<Self as RawField>::Kind`.
+//! This way
+//! - The traits (for example `Field<kind::AsDbType` and `Field<kind::ForeignModel>`)
+//! are treated as different traits, as far as the impl overlap is concerned.
+//! - You can write `F: Field` in constraint without having to state the generic every time.
+//!
+//! *(Thank you a lot to whomever's blog post I read to figure all this out.
+//! I'm sorry, I couldn't find you anymore to credit you properly.)*
 //!
 //! ---
-//!
-//! Currently there exist two branches:
-//! - If the raw type implements [`AsDbType`], the [`Field`] trait will be implemented on the field's unit struct.
-//! - If the raw type is a [`BackRef`](back_ref::BackRef), [`AbstractField`] will be implemented directly without any trait in between.
 //!
 //! **The concrete branches are experimental and might change any time!**
 //!
@@ -141,16 +146,16 @@ pub trait RawField: 'static {
 }
 
 declare_type_option!(OptionField, Field, MissingRelatedField);
-/// None type of [OptionField] whose name provides a hint in error messages.
+/// None type of [`OptionField`] whose name provides a hint in error messages.
 pub struct MissingRelatedField;
 
-/// A [RawField] of kind [Column]
+/// A [`RawField`] which represents a column in the database
 pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
     sealed!();
 
     /// The data type as which this field is stored in the db
     ///
-    /// It might differ from [AsDbType::DbType], when certain attributes (namely `#[rorm(choices)]`) are set.
+    /// It might differ from [`AsDbType::DbType`], when certain attributes (namely `#[rorm(choices)]`) are set.
     type DbType: DbType;
 
     /// List of the actual annotations
@@ -158,7 +163,7 @@ pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
 
     /// Entry point for compile time checks on a single field
     ///
-    /// It is "used" in [FieldProxy::new] to force the compiler to evaluate it.
+    /// It is "used" in [`FieldProxy::new`] to force the compiler to evaluate it.
     const CHECK: usize = {
         // Are required annotations set?
         let mut required = Self::DbType::REQUIRED;
@@ -191,10 +196,10 @@ pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
         Self::INDEX
     };
 
-    /// A type which can be retrieved from the db and then converted into [`Self::Type`].
+    /// A type which can be retrieved from the db and then converted into [`Self::Type`](RawField::Type).
     type Primitive: DecodeOwned;
 
-    /// Convert the associated primitive type into [`Self::Type`].
+    /// Convert the associated primitive type into [`Self::Type`](RawField::Type).
     fn from_primitive(primitive: Self::Primitive) -> Self::Type;
 
     /// Convert a reference to `Self` into the primitive [`Value`] used by our db implementation.
@@ -236,7 +241,7 @@ impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDb
     }
 }
 
-/// A common interface unifying the [RawFields](RawField) of various [FieldKinds](FieldKind)
+/// A common interface unifying the fields of various kinds.
 pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     sealed!();
 
@@ -273,7 +278,9 @@ impl<F: Field<kind::AsDbType>> AbstractField<kind::AsDbType> for F {
     }
 
     fn get_from_row(row: &Row, index: impl RowIndex) -> Result<Self::Type, Error> {
-        Ok(<Self as Field<kind::AsDbType>>::from_primitive(row.get(index)?).into())
+        Ok(<Self as Field<kind::AsDbType>>::from_primitive(
+            row.get(index)?,
+        ))
     }
 
     fn push_value<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
@@ -299,7 +306,9 @@ impl<F: Field<kind::ForeignModel>> AbstractField<kind::ForeignModel> for F {
     }
 
     fn get_from_row(row: &Row, index: impl RowIndex) -> Result<Self::Type, Error> {
-        Ok(<Self as Field<kind::ForeignModel>>::from_primitive(row.get(index)?).into())
+        Ok(<Self as Field<kind::ForeignModel>>::from_primitive(
+            row.get(index)?,
+        ))
     }
 
     fn push_value<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
@@ -317,12 +326,12 @@ impl<F: Field<kind::ForeignModel>> AbstractField<kind::ForeignModel> for F {
     };
 }
 
-/// This struct acts as a proxy exposing type level information from the [Field] trait on the value level.
+/// This struct acts as a proxy exposing type level information from the [`RawField`] trait on the value level.
 ///
 /// On top of that it can be used to keep track of the "path" this field is accessed through, when dealing with relations.
 ///
 /// ## Type as Value
-/// In other words [FieldProxy] allows access to things like [RawField::NAME] without access to the concrete field type.
+/// In other words [`FieldProxy`] allows access to things like [`RawField::NAME`] without access to the concrete field type.
 ///
 /// Pseudo code for illustration:
 /// ```skip

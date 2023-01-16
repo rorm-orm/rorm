@@ -1,4 +1,4 @@
-//! defines and implements the [AsDbType] trait.
+//! defines and implements the [`AsDbType`] trait.
 
 use rorm_db::row::DecodeOwned;
 
@@ -11,15 +11,6 @@ use crate::internal::hmr::db_type::DbType;
 /// This trait maps rust types to database types
 ///
 /// I.e. it specifies which datatypes are allowed on model's fields.
-///
-/// The mysterious generic `F` which appears in some places, is a workaround.
-/// [ForeignModel] requires the [Field] it is the type of, in order to access its [RelatedField].
-/// Instead of creating a whole new process to define a [Field] which has a [RawType] of [ForeignModel],
-/// the places which require the [RelatedField] forward the [Field] via this generic `F`.
-///
-/// [RawType]: crate::internal::field::RawField::Type
-/// [ForeignModel]: crate::internal::field::foreign_model::ForeignModel
-/// [RelatedField]: crate::internal::field::RawField::RelatedField
 pub trait AsDbType: FieldType<Kind = kind::AsDbType> {
     /// A type which can be retrieved from the db and then converted into Self.
     type Primitive: DecodeOwned;
@@ -32,7 +23,7 @@ pub trait AsDbType: FieldType<Kind = kind::AsDbType> {
 
     /// Convert the associated primitive type into `Self`.
     ///
-    /// This function allows "non-primitive" types like any [DbEnum](rorm_macro::DbEnum) to implement
+    /// This function allows "non-primitive" types like any [`DbEnum`](rorm_macro::DbEnum) to implement
     /// their decoding without access to the underlying db details (namely `sqlx::Decode`)
     fn from_primitive(primitive: Self::Primitive) -> Self;
 
