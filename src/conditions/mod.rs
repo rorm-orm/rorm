@@ -367,7 +367,7 @@ where
     }
 }
 
-impl<'a, F: Field, P: Path> IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>
+impl<'a, F: Field, P: Path> IntoSingleValue<'a, <F as Field>::DbType, F>
     for &'static FieldProxy<F, P>
 {
     type Condition = Column<F, P>;
@@ -450,8 +450,8 @@ mod impl_proxy {
         /// Check if this field's value lies between two other values
         pub fn between<
             'a,
-            T1: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
-            T2: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+            T1: IntoSingleValue<'a, <F as Field>::DbType, F>,
+            T2: IntoSingleValue<'a, <F as Field>::DbType, F>,
         >(
             &self,
             lower: T1,
@@ -467,8 +467,8 @@ mod impl_proxy {
         /// Check if this field's value does not lie between two other values
         pub fn not_between<
             'a,
-            T1: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
-            T2: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+            T1: IntoSingleValue<'a, <F as Field>::DbType, F>,
+            T2: IntoSingleValue<'a, <F as Field>::DbType, F>,
         >(
             &self,
             lower: T1,
@@ -482,10 +482,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is equal to another value
-        pub fn equals<
-            'a,
-            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
-        >(
+        pub fn equals<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -493,10 +490,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is not equal to another value
-        pub fn not_equals<
-            'a,
-            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
-        >(
+        pub fn not_equals<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -504,10 +498,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is greater than another value
-        pub fn greater<
-            'a,
-            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
-        >(
+        pub fn greater<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -515,10 +506,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is greater than or equal to another value
-        pub fn greater_or_equals<
-            'a,
-            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
-        >(
+        pub fn greater_or_equals<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -526,7 +514,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is less than another value
-        pub fn less<'a, T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>>(
+        pub fn less<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -534,10 +522,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is less than or equal to another value
-        pub fn less_or_equals<
-            'a,
-            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
-        >(
+        pub fn less_or_equals<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -545,7 +530,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is similar to another value
-        pub fn like<'a, T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>>(
+        pub fn like<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -553,10 +538,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is not similar to another value
-        pub fn not_like<
-            'a,
-            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
-        >(
+        pub fn not_like<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -564,10 +546,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is matched by a regex
-        pub fn regexp<
-            'a,
-            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
-        >(
+        pub fn regexp<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -575,10 +554,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is not matched by a regex
-        pub fn not_regexp<
-            'a,
-            T: IntoSingleValue<'a, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
-        >(
+        pub fn not_regexp<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {

@@ -49,8 +49,7 @@ impl<M: Model, T: AsDbType> FieldType for ForeignModelByField<M, T> {
 }
 impl<M: Model, T: AsDbType> AsDbType for ForeignModelByField<M, T> {
     type Primitive = T::Primitive;
-    type DbType<F: Field> =
-        <<RelatedField<M, F> as Field>::Type as AsDbType>::DbType<RelatedField<M, F>>;
+    type DbType<F: Field> = <RelatedField<M, F> as Field>::DbType;
 
     const NULL_TYPE: NullType = T::NULL_TYPE;
 

@@ -105,7 +105,7 @@ impl<'rf, E, M, C> UpdateBuilder<'rf, E, M, OptionalColumns<'rf>, C> {
     pub fn set<F: Field>(
         self,
         _field: FieldProxy<F, M>,
-        value: impl IntoSingleValue<'rf, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+        value: impl IntoSingleValue<'rf, <F as Field>::DbType, F>,
     ) -> Self {
         let mut builder = self;
         builder.columns.0.push((F::NAME, value.into_value()));
@@ -143,7 +143,7 @@ where
     pub fn set<F: Field>(
         self,
         _field: FieldProxy<F, M>,
-        value: impl IntoSingleValue<'rf, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+        value: impl IntoSingleValue<'rf, <F as Field>::DbType, F>,
     ) -> UpdateBuilder<'rf, E, M, Vec<(&'static str, Value<'rf>)>, C> {
         #[rustfmt::skip]
         let UpdateBuilder { executor, _phantom, condition, .. } = self;
@@ -162,7 +162,7 @@ where
     pub fn set<F: Field>(
         self,
         _field: FieldProxy<F, M>,
-        value: impl IntoSingleValue<'rf, <<F as Field>::Type as AsDbType>::DbType<F>, F>,
+        value: impl IntoSingleValue<'rf, <F as Field>::DbType, F>,
     ) -> Self {
         let mut builder = self;
         builder.columns.push((F::NAME, value.into_value()));
