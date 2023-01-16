@@ -42,8 +42,6 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
                 type Primitive = String;
                 type DbType = ::rorm::internal::hmr::db_type::Choices;
 
-                const NULL_TYPE: ::rorm::value::NullType = ::rorm::value::NullType::String;
-
                 const IMPLICIT: Option<::rorm::internal::hmr::annotations::Annotations> = Some({
                     let mut annos = ::rorm::internal::hmr::annotations::Annotations::empty();
                     annos.choices = Some(::rorm::internal::hmr::annotations::Choices(CHOICES));
@@ -211,11 +209,13 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
             const TABLE: &'static str = #table_name;
 
             fn get_imr() -> ::rorm::imr::Model {
+                let mut fields = Vec::new();
+                #(
+                    <#fields_type as ::rorm::internal::field::AbstractField<_>>::push_imr(&mut fields);
+                )*
                 ::rorm::imr::Model {
-                    name: #table_name.to_string(),
-                    fields: [#(
-                        <#fields_type as ::rorm::internal::field::AbstractField<_>>::imr(),
-                    )*].into_iter().flatten().collect(),
+                    name: Self::TABLE.to_string(),
+                    fields,
                     source_defined_at: #model_source,
                 }
             }

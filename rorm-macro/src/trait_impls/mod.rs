@@ -14,15 +14,10 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
                 <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.index(),
             )*];
 
-            fn get_value(&self, index: usize) -> Option<::rorm::conditions::Value> {
-                use ::rorm::internal::field::as_db_type::AsDbType;
+            fn push_values<'a>(&'a self, values: &mut Vec<::rorm::conditions::Value<'a>>) {
                 #(
-                    if index == <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.index() {
-                        <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.get_value(&self.#fields)
-                    } else
-                )* {
-                    None
-                }
+                    <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.push_value(&self.#fields, values);
+                )*
             }
         }
 

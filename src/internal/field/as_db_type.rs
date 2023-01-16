@@ -1,12 +1,12 @@
 //! defines and implements the [AsDbType] trait.
 
 use rorm_db::row::DecodeOwned;
-use rorm_db::value::NullType;
 
 use crate::conditions::Value;
 use crate::internal::field::{kind, FieldType};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
+use crate::internal::hmr::db_type::DbType;
 
 /// This trait maps rust types to database types
 ///
@@ -26,9 +26,6 @@ pub trait AsDbType: FieldType<Kind = kind::AsDbType> {
 
     /// The database type as defined in the Intermediate Model Representation
     type DbType: hmr::db_type::DbType;
-
-    /// Type to pass to rorm-sql for null
-    const NULL_TYPE: NullType;
 
     /// Annotations implied by this type
     const IMPLICIT: Option<Annotations> = None;
@@ -52,8 +49,6 @@ macro_rules! impl_as_db_type {
             type Primitive = Self;
 
             type DbType = hmr::db_type::$db_type;
-
-            const NULL_TYPE: NullType = NullType::$value_variant;
 
             #[inline(always)]
             fn from_primitive(primitive: Self::Primitive) -> Self {
@@ -95,8 +90,6 @@ impl<T: AsDbType> AsDbType for Option<T> {
     type Primitive = Option<T::Primitive>;
     type DbType = T::DbType;
 
-    const NULL_TYPE: NullType = T::NULL_TYPE;
-
     const IMPLICIT: Option<Annotations> = {
         let mut annos = if let Some(annos) = T::IMPLICIT {
             annos
@@ -114,7 +107,7 @@ impl<T: AsDbType> AsDbType for Option<T> {
     fn as_primitive(&self) -> Value {
         match self {
             Some(value) => value.as_primitive(),
-            None => Value::Null(T::NULL_TYPE),
+            None => Value::Null(T::DbType::NULL_TYPE),
         }
     }
 }

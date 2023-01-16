@@ -4,7 +4,7 @@ use crate::conditions::Value;
 use crate::internal::field::{kind, Field, FieldType, OptionField, RawField};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
-use crate::model::Model;
+use crate::model::{GetField, Model};
 
 /// Alias for [ForeignModelByField] which defaults the second generic parameter to use the primary key.
 ///
@@ -52,6 +52,7 @@ where
         Type = ForeignModelByField<M, <RelatedField<M, F> as RawField>::Type>,
         Kind = kind::ForeignModel,
     >,
+    M: GetField<RelatedField<M, F>>, // Always true
 {
     type DbType = <RelatedField<M, F> as Field>::DbType;
 
@@ -74,17 +75,9 @@ where
     }
 
     fn as_condition_value(value: &Self::Type) -> Value {
-        match value {
-            ForeignModelByField::Key(value) => {
-                <RelatedField<M, F> as Field>::as_condition_value(value)
-            }
-            ForeignModelByField::Instance(model) => {
-                if let Some(value) = model.get_value(RelatedField::<M, F>::INDEX) {
-                    value
-                } else {
-                    unreachable!("A model should contain its primary key");
-                }
-            }
-        }
+        <RelatedField<M, F> as Field>::as_condition_value(match value {
+            ForeignModelByField::Key(value) => value,
+            ForeignModelByField::Instance(model) => model.get_field(),
+        })
     }
 }

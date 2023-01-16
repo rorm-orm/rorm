@@ -19,8 +19,17 @@ pub trait Patch: FromRow + 'static {
     /// Used in [`contains_index`]
     const INDEXES: &'static [usize];
 
-    /// Get a field's db value by its index
-    fn get_value(&self, index: usize) -> Option<Value>;
+    /// Create a [`Vec`] containing the patch's condition values
+    ///
+    /// These can be used to insert the patch.
+    fn values(&self) -> Vec<Value> {
+        let mut values = Vec::new();
+        self.push_values(&mut values);
+        values
+    }
+
+    /// Push the patch's condition values onto a [`Vec`]
+    fn push_values<'a>(&'a self, values: &mut Vec<Value<'a>>);
 
     /// Get a reference to a field
     fn field<F>(&self) -> &F::Type
@@ -57,15 +66,6 @@ pub const fn contains_index<P: Patch>(field: usize) -> bool {
         }
     }
     false
-}
-
-/// Create an iterator from a patch which yield its fields as db values
-///
-/// This method can't be part of the [`Patch`] trait, since `impl Trait` is not allowed in traits.
-pub fn iter_columns<P: Patch>(patch: &P) -> impl Iterator<Item = Value> {
-    P::INDEXES
-        .iter()
-        .filter_map(|&index| patch.get_value(index))
 }
 
 /// Trait implementing most database interactions for a struct.

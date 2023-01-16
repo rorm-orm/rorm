@@ -6,7 +6,7 @@ use rorm_db::{Database, Error, Row};
 use std::collections::HashMap;
 
 use crate::conditions::collections::CollectionOperator::Or;
-use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection};
+use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection, Value};
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::foreign_model::ForeignModelByField;
 use crate::internal::field::{
@@ -59,9 +59,13 @@ where
     // Its type `T` matches the type `FM` stores.
     foreign_model::RelatedField<BRM, FM>: Field<Model = BRM, Type = T>,
 {
+    fn push_imr(_imr: &mut Vec<rorm_declaration::imr::Field>) {}
+
     fn get_from_row(_row: &Row, _index: impl RowIndex) -> Result<Self::Type, Error> {
         Ok(BackRef { cached: None })
     }
+
+    fn push_value<'a>(_value: &'a Self::Type, _values: &mut Vec<Value<'a>>) {}
 }
 
 impl<T, BR, BRM, FM, FMM> FieldProxy<BR, BRM>

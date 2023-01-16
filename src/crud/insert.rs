@@ -7,7 +7,7 @@ use rorm_db::error::Error;
 use rorm_db::executor::Executor;
 
 use crate::conditions::Value;
-use crate::model::{iter_columns, Model, Patch};
+use crate::model::{Model, Patch};
 
 /// Builder for insert queries
 ///
@@ -99,8 +99,8 @@ where
 {
     /// Insert a single patch into the db
     pub async fn single<P: Patch<Model = M>>(self, patch: &P) -> Result<R::Result, Error> {
-        let values = Vec::from_iter(iter_columns(patch).map(Value::into_sql));
-        let inserting = Vec::from_iter(P::COLUMNS.iter().flatten().cloned());
+        let values: Vec<_> = patch.values().into_iter().map(Value::into_sql).collect();
+        let inserting: Vec<_> = P::COLUMNS.iter().flatten().cloned().collect();
         let returning = self.returning.columns();
 
         if returning.is_empty() {
@@ -126,7 +126,7 @@ where
     ) -> Result<R::BulkResult, Error> {
         let mut values = Vec::new();
         for patch in patches {
-            values.push(Vec::from_iter(iter_columns(patch).map(Value::into_sql)));
+            values.push(patch.values().into_iter().map(Value::into_sql).collect());
         }
         let values_slices = Vec::from_iter(values.iter().map(Vec::as_slice));
         let inserting = Vec::from_iter(P::COLUMNS.iter().flatten().cloned());

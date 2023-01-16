@@ -191,8 +191,13 @@ pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
         Self::INDEX
     };
 
+    /// A type which can be retrieved from the db and then converted into [`Self::Type`].
     type Primitive: DecodeOwned;
+
+    /// Convert the associated primitive type into [`Self::Type`].
     fn from_primitive(primitive: Self::Primitive) -> Self::Type;
+
+    /// Convert a reference to `Self` into the primitive [`Value`] used by our db implementation.
     fn as_condition_value(value: &Self::Type) -> Value;
 }
 
@@ -235,20 +240,21 @@ impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDb
 pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     sealed!();
 
-    /// Get the field in the intermediate model representation
+    /// Add the field to its model's intermediate model representation
     ///
-    /// Since pseudo field need the same interface this method might return nothing.
-    fn imr() -> Option<imr::Field> {
-        None
-    }
+    /// - [`kind::BackRef`] fields don't add anything
+    /// - [`Field`] fields add their database column
+    /// - there are plans to add fields which might map to more than one database column.
+    fn push_imr(imr: &mut Vec<imr::Field>);
 
     /// Get an instance of the field's type from a row
     fn get_from_row(row: &Row, index: impl RowIndex) -> Result<Self::Type, Error>;
 
-    /// Convert a reference to a raw value into a db value
-    fn get_value(_value: &Self::Type) -> Option<Value> {
-        None
-    }
+    /// Push the field's value onto a [`Vec`]
+    ///
+    /// This method is forwarded through [`FieldProxy::push_value`]
+    /// to be used in [`Patch::values`](crate::model::Patch::values).
+    fn push_value<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>);
 
     /// The column name which stores this field
     const DB_NAME: Option<&'static str> = None;
@@ -257,21 +263,21 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     const DB_ANNOTATIONS: Option<Annotations> = None;
 }
 impl<F: Field<kind::AsDbType>> AbstractField<kind::AsDbType> for F {
-    fn imr() -> Option<imr::Field> {
-        Some(imr::Field {
+    fn push_imr(imr: &mut Vec<imr::Field>) {
+        imr.push(imr::Field {
             name: F::NAME.to_string(),
             db_type: F::DbType::IMR,
             annotations: F::ANNOTATIONS.as_imr(),
             source_defined_at: F::SOURCE.map(|s| s.as_imr()),
-        })
+        });
     }
 
     fn get_from_row(row: &Row, index: impl RowIndex) -> Result<Self::Type, Error> {
         Ok(<Self as Field<kind::AsDbType>>::from_primitive(row.get(index)?).into())
     }
 
-    fn get_value(value: &Self::Type) -> Option<Value> {
-        Some(<Self as Field<kind::AsDbType>>::as_condition_value(value))
+    fn push_value<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
+        values.push(<Self as Field<kind::AsDbType>>::as_condition_value(value))
     }
 
     const DB_NAME: Option<&'static str> = Some(F::NAME);
@@ -283,21 +289,21 @@ impl<F: Field<kind::AsDbType>> AbstractField<kind::AsDbType> for F {
     };
 }
 impl<F: Field<kind::ForeignModel>> AbstractField<kind::ForeignModel> for F {
-    fn imr() -> Option<imr::Field> {
-        Some(imr::Field {
+    fn push_imr(imr: &mut Vec<imr::Field>) {
+        imr.push(imr::Field {
             name: F::NAME.to_string(),
             db_type: F::DbType::IMR,
             annotations: F::ANNOTATIONS.as_imr(),
             source_defined_at: F::SOURCE.map(|s| s.as_imr()),
-        })
+        });
     }
 
     fn get_from_row(row: &Row, index: impl RowIndex) -> Result<Self::Type, Error> {
         Ok(<Self as Field<kind::ForeignModel>>::from_primitive(row.get(index)?).into())
     }
 
-    fn get_value(value: &Self::Type) -> Option<Value> {
-        Some(<Self as Field<kind::ForeignModel>>::as_condition_value(
+    fn push_value<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
+        values.push(<Self as Field<kind::ForeignModel>>::as_condition_value(
             value,
         ))
     }
@@ -365,12 +371,6 @@ impl<F: RawField, P> FieldProxy<F, P> {
         F::INDEX
     }
 }
-impl<F: Field, P> FieldProxy<F, P> {
-    /// Get the field's annotations
-    pub const fn annotations(&self) -> Annotations {
-        F::ANNOTATIONS
-    }
-}
 impl<F: AbstractField, P> FieldProxy<F, P> {
     /// Get the field's database i.e. column name
     pub const fn name(&self) -> Option<&'static str> {
@@ -386,9 +386,9 @@ impl<F: AbstractField, P> FieldProxy<F, P> {
         }
     }
 
-    /// Get a condition value from a reference
-    pub fn get_value<'a>(&self, value: &'a F::Type) -> Option<Value<'a>> {
-        F::get_value(value)
+    /// Push the field's value onto a [`Vec`]
+    pub fn push_value<'a>(&self, value: &'a F::Type, values: &mut Vec<Value<'a>>) {
+        F::push_value(value, values)
     }
 }
 
