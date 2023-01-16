@@ -16,7 +16,6 @@ use crate::internal::query_context::{QueryContext, QueryContextBuilder};
 use crate::internal::relation_path::Path;
 
 pub mod collections;
-use crate::internal::field::as_db_type::AsDbType;
 pub use collections::{DynamicCollection, StaticCollection};
 use rorm_db::value::NullType;
 
@@ -291,7 +290,7 @@ impl<'a, A: Condition<'a>> Condition<'a> for Unary<A> {
 /// Mark common rust types as convertable into certain condition values.
 ///
 /// This trait is used to simplify rorm's api and not internally.
-pub trait IntoSingleValue<'a, D: DbType, F: Field>: 'a {
+pub trait IntoSingleValue<'a, D: DbType>: 'a {
     /// The condition tree node type
     ///
     /// Either [Value] or [Column]
@@ -316,10 +315,8 @@ trait StringLike: DbType {}
 impl StringLike for VarChar {}
 impl StringLike for Choices {}
 
-impl<'a, F, T, D, S> IntoSingleValue<'a, D, F> for &'a S
+impl<'a, D, S> IntoSingleValue<'a, D> for &'a S
 where
-    F: Field<Type = T>,
-    T: AsDbType<DbType<F> = D>,
     D: StringLike,
     S: AsRef<str> + ?Sized,
 {
@@ -328,14 +325,12 @@ where
         Value::String(self.as_ref())
     }
     fn into_value(self) -> value::Value<'a> {
-        <Self as IntoSingleValue<'a, D, F>>::into_condition(self).into_sql()
+        <Self as IntoSingleValue<'a, D>>::into_condition(self).into_sql()
     }
 }
 
-impl<'a, F, T, S> IntoSingleValue<'a, VarBinary, F> for &'a S
+impl<'a, S> IntoSingleValue<'a, VarBinary> for &'a S
 where
-    F: Field<Type = T>,
-    T: AsDbType<DbType<F> = VarBinary>,
     S: AsRef<[u8]> + ?Sized,
 {
     type Condition = Value<'a>;
@@ -343,31 +338,30 @@ where
         Value::Binary(self.as_ref())
     }
     fn into_value(self) -> value::Value<'a> {
-        <Self as IntoSingleValue<'a, VarBinary, F>>::into_condition(self).into_sql()
+        <Self as IntoSingleValue<'a, VarBinary>>::into_condition(self).into_sql()
     }
 }
 
-impl<'a, F, T, I> IntoSingleValue<'a, T::DbType<F>, F> for Option<I>
+impl<'a, D, I> IntoSingleValue<'a, D> for Option<I>
 where
-    F: Field<Type = Option<T>>,
-    T: AsDbType,
-    I: IntoSingleValue<'a, T::DbType<F>, F, Condition = Value<'a>>,
+    D: DbType,
+    I: IntoSingleValue<'a, D, Condition = Value<'a>>,
 {
     type Condition = Value<'a>;
 
     fn into_condition(self) -> Self::Condition {
         match self {
             Some(i) => I::into_condition(i),
-            None => Value::Null(T::NULL_TYPE),
+            None => Value::Null(D::NULL_TYPE),
         }
     }
 
     fn into_value(self) -> value::Value<'a> {
-        <Self as IntoSingleValue<'a, T::DbType<F>, F>>::into_condition(self).into_sql()
+        <Self as IntoSingleValue<'a, D>>::into_condition(self).into_sql()
     }
 }
 
-impl<'a, F: Field, P: Path> IntoSingleValue<'a, <F as Field>::DbType, F>
+impl<'a, F: Field, P: Path> IntoSingleValue<'a, <F as Field>::DbType>
     for &'static FieldProxy<F, P>
 {
     type Condition = Column<F, P>;
@@ -381,15 +375,13 @@ impl<'a, F: Field, P: Path> IntoSingleValue<'a, <F as Field>::DbType, F>
 
 macro_rules! impl_numeric {
     ($type:ty, $value_variant:ident, $db_type:ident) => {
-        impl<'a, F: Field<Type = T>, T: AsDbType<DbType<F> = $db_type>>
-            IntoSingleValue<'a, $db_type, F> for $type
-        {
+        impl<'a> IntoSingleValue<'a, $db_type> for $type {
             type Condition = Value<'a>;
             fn into_condition(self) -> Self::Condition {
                 Value::$value_variant(self)
             }
             fn into_value(self) -> value::Value<'a> {
-                <Self as IntoSingleValue<'a, $db_type, F>>::into_condition(self).into_sql()
+                <Self as IntoSingleValue<'a, $db_type>>::into_condition(self).into_sql()
             }
         }
     };
@@ -450,8 +442,8 @@ mod impl_proxy {
         /// Check if this field's value lies between two other values
         pub fn between<
             'a,
-            T1: IntoSingleValue<'a, <F as Field>::DbType, F>,
-            T2: IntoSingleValue<'a, <F as Field>::DbType, F>,
+            T1: IntoSingleValue<'a, <F as Field>::DbType>,
+            T2: IntoSingleValue<'a, <F as Field>::DbType>,
         >(
             &self,
             lower: T1,
@@ -467,8 +459,8 @@ mod impl_proxy {
         /// Check if this field's value does not lie between two other values
         pub fn not_between<
             'a,
-            T1: IntoSingleValue<'a, <F as Field>::DbType, F>,
-            T2: IntoSingleValue<'a, <F as Field>::DbType, F>,
+            T1: IntoSingleValue<'a, <F as Field>::DbType>,
+            T2: IntoSingleValue<'a, <F as Field>::DbType>,
         >(
             &self,
             lower: T1,
@@ -482,7 +474,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is equal to another value
-        pub fn equals<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
+        pub fn equals<'a, T: IntoSingleValue<'a, <F as Field>::DbType>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -490,7 +482,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is not equal to another value
-        pub fn not_equals<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
+        pub fn not_equals<'a, T: IntoSingleValue<'a, <F as Field>::DbType>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -498,7 +490,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is greater than another value
-        pub fn greater<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
+        pub fn greater<'a, T: IntoSingleValue<'a, <F as Field>::DbType>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -506,7 +498,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is greater than or equal to another value
-        pub fn greater_or_equals<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
+        pub fn greater_or_equals<'a, T: IntoSingleValue<'a, <F as Field>::DbType>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -514,7 +506,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is less than another value
-        pub fn less<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
+        pub fn less<'a, T: IntoSingleValue<'a, <F as Field>::DbType>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -522,7 +514,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is less than or equal to another value
-        pub fn less_or_equals<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
+        pub fn less_or_equals<'a, T: IntoSingleValue<'a, <F as Field>::DbType>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -530,7 +522,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is similar to another value
-        pub fn like<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
+        pub fn like<'a, T: IntoSingleValue<'a, <F as Field>::DbType>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -538,7 +530,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is not similar to another value
-        pub fn not_like<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
+        pub fn not_like<'a, T: IntoSingleValue<'a, <F as Field>::DbType>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -546,7 +538,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is matched by a regex
-        pub fn regexp<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
+        pub fn regexp<'a, T: IntoSingleValue<'a, <F as Field>::DbType>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
@@ -554,7 +546,7 @@ mod impl_proxy {
         }
 
         /// Check if this field's value is not matched by a regex
-        pub fn not_regexp<'a, T: IntoSingleValue<'a, <F as Field>::DbType, F>>(
+        pub fn not_regexp<'a, T: IntoSingleValue<'a, <F as Field>::DbType>>(
             &self,
             arg: T,
         ) -> Binary<Column<F, P>, T::Condition> {
