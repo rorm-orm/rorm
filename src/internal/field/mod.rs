@@ -109,27 +109,27 @@ impl<T> Identical<T> for T {
     }
 }
 
-/// Marker for some field which is part of and interacts with this orm, but isn't actually present in the database
-pub struct Pseudo;
-/// Marker for some field which corresponds to a column in the database
-pub struct Column;
-
-/// Marker trait for the two kinds of fields:
-/// - A [Column] field is corresponds to a column in the database.
-/// - A [Pseudo] field is something which is part of and interacts with this orm, but isn't actually present in the database.
+/// Marker trait for various kinds of fields
 pub trait FieldKind {
     sealed!();
 }
-impl FieldKind for Pseudo {}
-impl FieldKind for Column {}
+/// Namespace for the different [`FieldKind`] impls.
+pub mod kind {
+    use super::FieldKind;
+
+    /// Marker for some field which is a [`BackRef`](crate::internal::field::back_ref::BackRef)
+    pub struct BackRef;
+    /// Marker for some field which is an [`AsDbType`](crate::internal::field::back_ref::BackRef)
+    pub struct AsDbType;
+
+    impl FieldKind for BackRef {}
+    impl FieldKind for AsDbType {}
+}
 
 /// The type of field allowed on models
 pub trait FieldType {
     /// The kind of field this type declares
     type Kind: FieldKind;
-}
-impl<T: AsDbType> FieldType for T {
-    type Kind = Column;
 }
 
 /// This trait is implemented by the `#[derive(Model)]` macro on unique unit struct for each of a model's fields.
@@ -171,7 +171,7 @@ declare_type_option!(OptionField, Field, MissingRelatedField);
 pub struct MissingRelatedField;
 
 /// A [RawField] of kind [Column]
-pub trait Field: RawField<Kind = Column> {
+pub trait Field: RawField<Kind = kind::AsDbType> {
     sealed!();
 
     /// The rust data type stored in this field
@@ -243,7 +243,7 @@ pub trait Field: RawField<Kind = Column> {
         Self::INDEX
     };
 }
-impl<T: AsDbType, F: RawField<RawType = T, Kind = Column>> Field for F {
+impl<T: AsDbType, F: RawField<RawType = T, Kind = kind::AsDbType>> Field for F {
     type Type = T;
     type DbType = <F::ExplicitDbType as OptionDbType>::UnwrapOr<<T as AsDbType>::DbType<F>>;
 }
@@ -273,7 +273,7 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     /// The list of annotations, if this field is relevant to the database.
     const DB_ANNOTATIONS: Option<Annotations> = None;
 }
-impl<F: Field> AbstractField<Column> for F {
+impl<F: Field> AbstractField<kind::AsDbType> for F {
     fn imr() -> Option<imr::Field> {
         let mut annotations = F::ANNOTATIONS.as_imr();
         F::Type::custom_annotations::<F>(&mut annotations);

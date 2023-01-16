@@ -10,7 +10,7 @@ use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollec
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::foreign_model::ForeignModelByField;
 use crate::internal::field::{
-    foreign_model, AbstractField, Field, FieldProxy, FieldType, Pseudo, RawField,
+    foreign_model, kind, AbstractField, Field, FieldProxy, FieldType, RawField,
 };
 use crate::model::{GetField, Model};
 use crate::query;
@@ -38,10 +38,10 @@ impl<M: Model> BackRef<M> {
 }
 
 impl<M: Model> FieldType for BackRef<M> {
-    type Kind = Pseudo;
+    type Kind = kind::BackRef;
 }
 
-impl<T, BR, BRM, FM, FMM> AbstractField<Pseudo> for BR
+impl<T, BR, BRM, FM, FMM> AbstractField<kind::BackRef> for BR
 where
     // `BRM` and `FMM` are two models
     BRM: Model,
@@ -49,7 +49,7 @@ where
 
     // `BR` is a pseudo field on the model `BRM`.
     // It has the type of `BackRef<FMM>` and points to the related field `FM`
-    BR: RawField<Kind = Pseudo, Model = BRM, RawType = BackRef<FMM>, RelatedField = FM>,
+    BR: RawField<Kind = kind::BackRef, Model = BRM, RawType = BackRef<FMM>, RelatedField = FM>,
 
     // `FM` is a field on the model `FMM`.
     // It has the type of `ForeignModelByField<BRM, _>`.

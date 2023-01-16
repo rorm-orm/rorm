@@ -4,7 +4,7 @@ use rorm_declaration::imr;
 
 use crate::conditions::Value;
 use crate::internal::field::as_db_type::AsDbType;
-use crate::internal::field::{Field, OptionField, RawField};
+use crate::internal::field::{kind, Field, FieldType, OptionField, RawField};
 use crate::internal::hmr::annotations::Annotations;
 use crate::model::Model;
 use crate::value::NullType;
@@ -44,6 +44,9 @@ impl<M: Model, T> From<T> for ForeignModelByField<M, T> {
 pub(crate) type RelatedField<M, F> =
     <<F as RawField>::RelatedField as OptionField>::UnwrapOr<<M as Model>::Primary>;
 
+impl<M: Model, T: AsDbType> FieldType for ForeignModelByField<M, T> {
+    type Kind = kind::AsDbType;
+}
 impl<M: Model, T: AsDbType> AsDbType for ForeignModelByField<M, T> {
     type Primitive = T::Primitive;
     type DbType<F: Field> =

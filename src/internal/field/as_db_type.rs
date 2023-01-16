@@ -5,7 +5,7 @@ use rorm_db::value::NullType;
 use rorm_declaration::imr;
 
 use crate::conditions::Value;
-use crate::internal::field::Field;
+use crate::internal::field::{kind, Field, FieldType};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
 
@@ -21,7 +21,7 @@ use crate::internal::hmr::annotations::Annotations;
 /// [RawType]: crate::internal::field::RawField::RawType
 /// [ForeignModel]: crate::internal::field::foreign_model::ForeignModel
 /// [RelatedField]: crate::internal::field::RawField::RelatedField
-pub trait AsDbType {
+pub trait AsDbType: FieldType<Kind = kind::AsDbType> {
     /// A type which can be retrieved from the db and then converted into Self.
     type Primitive: DecodeOwned;
 
@@ -51,6 +51,9 @@ pub trait AsDbType {
 
 macro_rules! impl_as_db_type {
     ($type:ty, $db_type:ident, $value_variant:ident $(using $method:ident)?) => {
+        impl FieldType for $type {
+            type Kind = kind::AsDbType;
+        }
         impl AsDbType for $type {
             type Primitive = Self;
 
@@ -91,6 +94,9 @@ impl_as_db_type!(bool, Boolean, Bool);
 impl_as_db_type!(Vec<u8>, VarBinary, Binary using as_slice);
 impl_as_db_type!(String, VarChar, String using as_str);
 
+impl<T: AsDbType> FieldType for Option<T> {
+    type Kind = kind::AsDbType;
+}
 impl<T: AsDbType> AsDbType for Option<T> {
     type Primitive = Option<T::Primitive>;
     type DbType<F: Field> = T::DbType<F>;
