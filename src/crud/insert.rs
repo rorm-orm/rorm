@@ -99,7 +99,8 @@ where
 {
     /// Insert a single patch into the db
     pub async fn single<P: Patch<Model = M>>(self, patch: &P) -> Result<R::Result, Error> {
-        let values: Vec<_> = patch.values().into_iter().map(Value::into_sql).collect();
+        let values = patch.values();
+        let values: Vec<_> = values.iter().map(Value::as_sql).collect();
         let inserting: Vec<_> = P::COLUMNS.iter().flatten().cloned().collect();
         let returning = self.returning.columns();
 
@@ -124,11 +125,15 @@ where
         self,
         patches: impl IntoIterator<Item = &P>,
     ) -> Result<R::BulkResult, Error> {
+        let num_cols = P::COLUMNS.iter().filter(|o| o.is_some()).count();
+
         let mut values = Vec::new();
         for patch in patches {
-            values.push(patch.values().into_iter().map(Value::into_sql).collect());
+            values.extend(patch.values());
         }
-        let values_slices = Vec::from_iter(values.iter().map(Vec::as_slice));
+
+        let values: Vec<_> = values.iter().map(Value::as_sql).collect();
+        let values_slices: Vec<_> = values.chunks(num_cols).collect();
         let inserting = Vec::from_iter(P::COLUMNS.iter().flatten().cloned());
         let returning = self.returning.columns();
 

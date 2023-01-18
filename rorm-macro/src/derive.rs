@@ -56,12 +56,12 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
                     }
                 }
 
-                fn as_primitive(&self) -> ::rorm::conditions::Value {
-                    ::rorm::conditions::Value::String(match self {
+                fn as_primitive(&self) -> ::rorm::conditions::Value<'static> {
+                    ::rorm::conditions::Value::String(::std::borrow::Cow::Borrowed(match self {
                         #(
                             Self::#identifiers => stringify!(#identifiers),
                         )*
-                    })
+                    }))
                 }
             }
         };

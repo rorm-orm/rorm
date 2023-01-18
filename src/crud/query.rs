@@ -202,12 +202,18 @@ where
         self.condition.add_to_builder(&mut self.ctx);
         let context = self.ctx.finish();
         let joins = context.get_joins();
+
+        let condition = self.condition.into_option();
+        let condition = condition
+            .as_ref()
+            .map(|condition| condition.as_sql(&context));
+
         database::query::<All>(
             self.executor,
             M::TABLE,
             columns,
             &joins,
-            self.condition.into_option(&context).as_ref(),
+            condition.as_ref(),
             self.ordering.as_slice(),
             self.lim_off.into_option(),
         )
@@ -228,14 +234,14 @@ where
         QueryStream::new(
             self.ctx.finish(),
             |ctx| ctx.get_joins(),
-            |ctx| self.condition.into_option(ctx),
+            self.condition.into_option(),
             |conditions, joins| {
                 database::query::<Stream>(
                     self.executor,
                     M::TABLE,
                     columns,
                     joins,
-                    conditions.as_ref(),
+                    conditions,
                     self.ordering.as_slice(),
                     self.lim_off.into_option(),
                 )
@@ -254,12 +260,18 @@ where
         self.condition.add_to_builder(&mut self.ctx);
         let context = self.ctx.finish();
         let joins = context.get_joins();
+
+        let condition = self.condition.into_option();
+        let condition = condition
+            .as_ref()
+            .map(|condition| condition.as_sql(&context));
+
         let row = database::query::<One>(
             self.executor,
             M::TABLE,
             columns,
             &joins,
-            self.condition.into_option(&context).as_ref(),
+            condition.as_ref(),
             self.ordering.as_slice(),
             self.lim_off.into_option(),
         )
@@ -276,12 +288,18 @@ where
         self.condition.add_to_builder(&mut self.ctx);
         let context = self.ctx.finish();
         let joins = context.get_joins();
+
+        let condition = self.condition.into_option();
+        let condition = condition
+            .as_ref()
+            .map(|condition| condition.as_sql(&context));
+
         let row = database::query::<Optional>(
             self.executor,
             M::TABLE,
             columns,
             &joins,
-            self.condition.into_option(&context).as_ref(),
+            condition.as_ref(),
             self.ordering.as_slice(),
             self.lim_off.into_option(),
         )
@@ -395,13 +413,14 @@ mod query_stream {
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
-    use crate::crud::query::Selector;
     use ouroboros::macro_help::{aliasable_boxed, change_lifetime, AliasableBox};
-    use rorm_db::conditional::Condition;
+    use rorm_db::conditional::Condition as SqlCondition;
     use rorm_db::database::JoinTable;
     use rorm_db::executor::{QueryStrategyResult, Stream};
     use rorm_db::Error;
 
+    use crate::conditions::Condition;
+    use crate::crud::query::Selector;
     use crate::internal::query_context::QueryContext;
     use crate::Model;
 
@@ -410,7 +429,8 @@ mod query_stream {
     pub struct QueryStream<'rf, M, S> {
         ctx: AliasableBox<QueryContext>,
 
-        condition: AliasableBox<Option<Condition<'rf>>>,
+        owned_condition: AliasableBox<Option<Box<dyn Condition<'rf>>>>,
+        sql_condition: AliasableBox<Option<SqlCondition<'rf>>>,
         joins: AliasableBox<Vec<JoinTable<'rf, 'rf>>>,
 
         selector: PhantomData<(M, S)>,
@@ -424,10 +444,9 @@ mod query_stream {
             ctx: QueryContext,
             joins_builder: impl FnOnce(&'stream QueryContext) -> Vec<JoinTable<'stream, 'stream>>
                 + 'until_build,
-            condition_builder: impl FnOnce(&'stream QueryContext) -> Option<Condition<'stream>>
-                + 'until_build,
+            condition: Option<Box<dyn Condition<'stream>>>,
             stream_builder: impl FnOnce(
-                    &'stream Option<Condition<'stream>>,
+                    Option<&'stream SqlCondition<'stream>>,
                     &'stream Vec<JoinTable<'stream, 'stream>>,
                 ) -> <Stream as QueryStrategyResult>::Result<'stream>
                 + 'until_build,
@@ -435,28 +454,37 @@ mod query_stream {
         where
             'stream: 'until_build,
         {
-            let ctx = aliasable_boxed(ctx);
-            let ctx_illegal_static_reference = unsafe { change_lifetime(&*ctx) };
+            unsafe {
+                let ctx = aliasable_boxed(ctx);
+                let ctx_illegal_static_reference = change_lifetime(&*ctx);
 
-            let joins = joins_builder(ctx_illegal_static_reference);
-            let joins = aliasable_boxed(joins);
-            let joins_illegal_static_reference = unsafe { change_lifetime(&*joins) };
+                let joins = joins_builder(ctx_illegal_static_reference);
+                let joins = aliasable_boxed(joins);
+                let joins_illegal_static_reference = change_lifetime(&*joins);
 
-            let condition = condition_builder(ctx_illegal_static_reference);
-            let condition = aliasable_boxed(condition);
-            let condition_illegal_static_reference = unsafe { change_lifetime(&*condition) };
+                let owned_condition = aliasable_boxed(condition);
+                let owned_condition_illegal_static_reference = change_lifetime(&*owned_condition);
 
-            let stream = stream_builder(
-                condition_illegal_static_reference,
-                joins_illegal_static_reference,
-            );
+                let sql_condition = aliasable_boxed(
+                    owned_condition_illegal_static_reference
+                        .as_ref()
+                        .map(|cond| cond.as_sql(ctx_illegal_static_reference)),
+                );
+                let sql_condition_illegal_static_reference = change_lifetime(&*sql_condition);
 
-            Self {
-                ctx,
-                joins,
-                condition,
-                selector: PhantomData,
-                stream,
+                let stream = stream_builder(
+                    sql_condition_illegal_static_reference.as_ref(),
+                    joins_illegal_static_reference,
+                );
+
+                Self {
+                    ctx,
+                    joins,
+                    owned_condition,
+                    sql_condition,
+                    selector: PhantomData,
+                    stream,
+                }
             }
         }
     }

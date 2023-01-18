@@ -1,7 +1,8 @@
 //! A high-level generic condition tree
 //!
-//! It is basically a generic version of the [rorm_db::Condition](conditional::Condition) tree.
+//! It is basically a generic version of the [`rorm_db::Condition`](conditional::Condition) tree.
 
+use std::borrow::Cow;
 use std::marker::PhantomData;
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
@@ -17,9 +18,8 @@ use crate::internal::relation_path::Path;
 
 pub mod collections;
 pub use collections::{DynamicCollection, StaticCollection};
-use rorm_db::value::NullType;
 
-/// A [Condition] in a box.
+/// A [`Condition`] in a box.
 pub type BoxedCondition<'a> = Box<dyn Condition<'a>>;
 
 /// Node in a condition tree
@@ -28,9 +28,7 @@ pub trait Condition<'a>: 'a {
     fn add_to_builder(&self, builder: &mut QueryContextBuilder);
 
     /// Convert the condition into rorm-sql's format using a query context's registered joins.
-    fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
-    where
-        'a: 'c;
+    fn as_sql(&self, context: &QueryContext) -> conditional::Condition;
 
     /// Convert the condition into a boxed trait object to erase its concrete type
     fn boxed(self) -> BoxedCondition<'a>
@@ -45,10 +43,7 @@ impl<'a> Condition<'a> for BoxedCondition<'a> {
         self.as_ref().add_to_builder(builder);
     }
 
-    fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
-    where
-        'a: 'c,
-    {
+    fn as_sql(&self, context: &QueryContext) -> conditional::Condition {
         self.as_ref().as_sql(context)
     }
 
@@ -63,12 +58,12 @@ impl<'a> Condition<'a> for BoxedCondition<'a> {
 /// A value
 ///
 /// However unlike rorm-sql's Value, this does not include an ident.
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub enum Value<'a> {
     /// null representation
-    Null(NullType),
+    Null(value::NullType),
     /// String representation
-    String(&'a str),
+    String(Cow<'a, str>),
     /// i64 representation
     I64(i64),
     /// i32 representation
@@ -82,7 +77,7 @@ pub enum Value<'a> {
     /// f32 representation
     F32(f32),
     /// binary representation
-    Binary(&'a [u8]),
+    Binary(Cow<'a, [u8]>),
     /// Naive Time representation
     NaiveTime(NaiveTime),
     /// Naive Date representation
@@ -91,32 +86,29 @@ pub enum Value<'a> {
     NaiveDateTime(NaiveDateTime),
 }
 impl<'a> Value<'a> {
-    /// Convert into an [sql::Value](value::Value) instead of an [sql::Condition](conditional::Condition) directly.
-    pub fn into_sql(self) -> value::Value<'a> {
+    /// Convert into an [`sql::Value`](value::Value) instead of an [`sql::Condition`](conditional::Condition) directly.
+    pub fn as_sql(&self) -> value::Value {
         match self {
-            Value::Null(null_type) => value::Value::Null(null_type),
-            Value::String(v) => value::Value::String(v),
-            Value::I64(v) => value::Value::I64(v),
-            Value::I32(v) => value::Value::I32(v),
-            Value::I16(v) => value::Value::I16(v),
-            Value::Bool(v) => value::Value::Bool(v),
-            Value::F64(v) => value::Value::F64(v),
-            Value::F32(v) => value::Value::F32(v),
-            Value::Binary(v) => value::Value::Binary(v),
-            Value::NaiveTime(v) => value::Value::NaiveTime(v),
-            Value::NaiveDate(v) => value::Value::NaiveDate(v),
-            Value::NaiveDateTime(v) => value::Value::NaiveDateTime(v),
+            Value::Null(null_type) => value::Value::Null(*null_type),
+            Value::String(v) => value::Value::String(v.as_ref()),
+            Value::I64(v) => value::Value::I64(*v),
+            Value::I32(v) => value::Value::I32(*v),
+            Value::I16(v) => value::Value::I16(*v),
+            Value::Bool(v) => value::Value::Bool(*v),
+            Value::F64(v) => value::Value::F64(*v),
+            Value::F32(v) => value::Value::F32(*v),
+            Value::Binary(v) => value::Value::Binary(v.as_ref()),
+            Value::NaiveTime(v) => value::Value::NaiveTime(*v),
+            Value::NaiveDate(v) => value::Value::NaiveDate(*v),
+            Value::NaiveDateTime(v) => value::Value::NaiveDateTime(*v),
         }
     }
 }
 impl<'a> Condition<'a> for Value<'a> {
     fn add_to_builder(&self, _builder: &mut QueryContextBuilder) {}
 
-    fn as_sql<'c>(&self, _context: &'c QueryContext) -> conditional::Condition<'c>
-    where
-        'a: 'c,
-    {
-        conditional::Condition::Value(self.into_sql())
+    fn as_sql(&self, _context: &QueryContext) -> conditional::Condition {
+        conditional::Condition::Value(self.as_sql())
     }
 }
 
@@ -140,10 +132,7 @@ impl<'a, F: Field, P: Path> Condition<'a> for Column<F, P> {
         builder.add_field_proxy::<F, P>();
     }
 
-    fn as_sql<'c>(&self, _context: &'c QueryContext) -> conditional::Condition<'c>
-    where
-        'a: 'c,
-    {
+    fn as_sql(&self, _context: &QueryContext) -> conditional::Condition {
         conditional::Condition::Value(value::Value::Column {
             table_name: Some(P::ALIAS),
             column_name: F::NAME,
@@ -188,10 +177,7 @@ impl<'a, A: Condition<'a>, B: Condition<'a>> Condition<'a> for Binary<A, B> {
         self.snd_arg.add_to_builder(builder);
     }
 
-    fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
-    where
-        'a: 'c,
-    {
+    fn as_sql(&self, context: &QueryContext) -> conditional::Condition {
         conditional::Condition::BinaryCondition((match self.operator {
             BinaryOperator::Equals => conditional::BinaryCondition::Equals,
             BinaryOperator::NotEquals => conditional::BinaryCondition::NotEquals,
@@ -233,10 +219,7 @@ impl<'a, A: Condition<'a>, B: Condition<'a>, C: Condition<'a>> Condition<'a> for
         self.trd_arg.add_to_builder(builder);
     }
 
-    fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
-    where
-        'a: 'c,
-    {
+    fn as_sql(&self, context: &QueryContext) -> conditional::Condition {
         conditional::Condition::TernaryCondition((match self.operator {
             TernaryOperator::Between => conditional::TernaryCondition::Between,
             TernaryOperator::NotBetween => conditional::TernaryCondition::NotBetween,
@@ -273,10 +256,7 @@ impl<'a, A: Condition<'a>> Condition<'a> for Unary<A> {
         self.fst_arg.add_to_builder(builder);
     }
 
-    fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
-    where
-        'a: 'c,
-    {
+    fn as_sql(&self, context: &QueryContext) -> conditional::Condition {
         conditional::Condition::UnaryCondition((match self.operator {
             UnaryOperator::IsNull => conditional::UnaryCondition::IsNull,
             UnaryOperator::IsNotNull => conditional::UnaryCondition::IsNotNull,
@@ -293,7 +273,7 @@ impl<'a, A: Condition<'a>> Condition<'a> for Unary<A> {
 pub trait IntoSingleValue<'a, D: DbType>: 'a {
     /// The condition tree node type
     ///
-    /// Either [Value] or [Column]
+    /// Either [`Value`] or [`Column`]
     type Condition: Condition<'a>;
 
     /// Convert into a condition tree node
@@ -301,14 +281,6 @@ pub trait IntoSingleValue<'a, D: DbType>: 'a {
     /// Call this when the result is used in the generic condition tree,
     /// i.e. when you need to preserve a column's data.
     fn into_condition(self) -> Self::Condition;
-
-    /// Convert into an sql value
-    ///
-    /// Call this when the result is passed to the db and columns don't need different treatment than values.
-    ///
-    /// This method will probably be refactored or removed.
-    // TODO it's used in update which theoretically should handle joins and therefore needs the distinction
-    fn into_value(self) -> value::Value<'a>;
 }
 
 trait StringLike: DbType {}
@@ -322,10 +294,7 @@ where
 {
     type Condition = Value<'a>;
     fn into_condition(self) -> Self::Condition {
-        Value::String(self.as_ref())
-    }
-    fn into_value(self) -> value::Value<'a> {
-        <Self as IntoSingleValue<'a, D>>::into_condition(self).into_sql()
+        Value::String(Cow::Borrowed(self.as_ref()))
     }
 }
 
@@ -335,10 +304,7 @@ where
 {
     type Condition = Value<'a>;
     fn into_condition(self) -> Self::Condition {
-        Value::Binary(self.as_ref())
-    }
-    fn into_value(self) -> value::Value<'a> {
-        <Self as IntoSingleValue<'a, VarBinary>>::into_condition(self).into_sql()
+        Value::Binary(Cow::Borrowed(self.as_ref()))
     }
 }
 
@@ -355,10 +321,6 @@ where
             None => Value::Null(D::NULL_TYPE),
         }
     }
-
-    fn into_value(self) -> value::Value<'a> {
-        <Self as IntoSingleValue<'a, D>>::into_condition(self).into_sql()
-    }
 }
 
 impl<'a, F: Field, P: Path> IntoSingleValue<'a, <F as Field>::DbType>
@@ -368,9 +330,6 @@ impl<'a, F: Field, P: Path> IntoSingleValue<'a, <F as Field>::DbType>
     fn into_condition(self) -> Self::Condition {
         Column::new()
     }
-    fn into_value(self) -> value::Value<'a> {
-        value::Value::Ident(F::NAME)
-    }
 }
 
 macro_rules! impl_numeric {
@@ -379,9 +338,6 @@ macro_rules! impl_numeric {
             type Condition = Value<'a>;
             fn into_condition(self) -> Self::Condition {
                 Value::$value_variant(self)
-            }
-            fn into_value(self) -> value::Value<'a> {
-                <Self as IntoSingleValue<'a, $db_type>>::into_condition(self).into_sql()
             }
         }
     };
@@ -396,7 +352,7 @@ impl_numeric!(chrono::NaiveDate, NaiveDate, Date);
 impl_numeric!(chrono::NaiveDateTime, NaiveDateTime, DateTime);
 impl_numeric!(chrono::NaiveTime, NaiveTime, Time);
 
-/// Implement the various condition methods on [FieldProxy]
+/// Implement the various condition methods on [`FieldProxy`]
 mod impl_proxy {
     use super::*;
 

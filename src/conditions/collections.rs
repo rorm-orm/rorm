@@ -65,10 +65,7 @@ impl<'a, A: Condition<'a>> Condition<'a> for DynamicCollection<A> {
         }
     }
 
-    fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
-    where
-        'a: 'c,
-    {
+    fn as_sql(&self, context: &QueryContext) -> conditional::Condition {
         (match self.operator {
             CollectionOperator::And => conditional::Condition::Conjunction,
             CollectionOperator::Or => conditional::Condition::Disjunction,
@@ -136,10 +133,7 @@ macro_rules! impl_static_collection {
                 $($generic.add_to_builder(builder);)+
             }
 
-            fn as_sql<'c>(&self, context: &'c QueryContext) -> conditional::Condition<'c>
-            where
-                'a: 'c
-            {
+            fn as_sql(&self, context: &QueryContext) -> conditional::Condition {
                 let ($($generic,)+) = &self.tuple;
                 (match self.operator {
                     CollectionOperator::And => conditional::Condition::Conjunction,

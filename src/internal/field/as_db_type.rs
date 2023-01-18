@@ -1,5 +1,7 @@
 //! defines and implements the [`AsDbType`] trait.
 
+use std::borrow::Cow;
+
 use rorm_db::row::DecodeOwned;
 
 use crate::conditions::Value;
@@ -58,7 +60,7 @@ macro_rules! impl_as_db_type {
     (impl_as_primitive, $type:ty, $db_type:ident, $value_variant:ident using $method:ident) => {
         #[inline(always)]
         fn as_primitive(&self) -> Value {
-            Value::$value_variant(self.$method())
+            Value::$value_variant(Cow::Borrowed(self.$method()))
         }
     };
 }

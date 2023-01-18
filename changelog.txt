@@ -15,6 +15,7 @@ Since 0.4.2
 - Refactored annotations
 - Error when max_length is missing
 - Major refactor of internals
+- Made conditions::Value take Cows
 
 Notes for publishing
 --------------------

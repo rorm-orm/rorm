@@ -7,9 +7,8 @@ use std::pin::Pin;
 use rorm_db::database;
 use rorm_db::error::Error;
 use rorm_db::executor::Executor;
-use rorm_db::value::Value;
 
-use crate::conditions::{Condition, IntoSingleValue};
+use crate::conditions::{Condition, IntoSingleValue, Value};
 use crate::crud::builder::ConditionMarker;
 use crate::internal::field::{Field, FieldProxy};
 use crate::internal::query_context::QueryContext;
@@ -104,10 +103,10 @@ impl<'rf, E, M, C> UpdateBuilder<'rf, E, M, OptionalColumns<'rf>, C> {
     pub fn set<F: Field>(
         self,
         _field: FieldProxy<F, M>,
-        value: impl IntoSingleValue<'rf, <F as Field>::DbType>,
+        value: impl IntoSingleValue<'rf, <F as Field>::DbType, Condition = Value<'rf>>,
     ) -> Self {
         let mut builder = self;
-        builder.columns.0.push((F::NAME, value.into_value()));
+        builder.columns.0.push((F::NAME, value.into_condition()));
         builder
     }
 
@@ -142,12 +141,12 @@ where
     pub fn set<F: Field>(
         self,
         _field: FieldProxy<F, M>,
-        value: impl IntoSingleValue<'rf, <F as Field>::DbType>,
+        value: impl IntoSingleValue<'rf, <F as Field>::DbType, Condition = Value<'rf>>,
     ) -> UpdateBuilder<'rf, E, M, Vec<(&'static str, Value<'rf>)>, C> {
         #[rustfmt::skip]
         let UpdateBuilder { executor, _phantom, condition, .. } = self;
         #[rustfmt::skip]
-        return UpdateBuilder { executor, columns: vec![(F::NAME, value.into_value())], _phantom, condition, };
+        return UpdateBuilder { executor, columns: vec![(F::NAME, value.into_condition())], _phantom, condition, };
     }
 }
 
@@ -161,10 +160,10 @@ where
     pub fn set<F: Field>(
         self,
         _field: FieldProxy<F, M>,
-        value: impl IntoSingleValue<'rf, <F as Field>::DbType>,
+        value: impl IntoSingleValue<'rf, <F as Field>::DbType, Condition = Value<'rf>>,
     ) -> Self {
         let mut builder = self;
-        builder.columns.push((F::NAME, value.into_value()));
+        builder.columns.push((F::NAME, value.into_condition()));
         builder
     }
 }
@@ -182,13 +181,18 @@ where
         'rf: 'fut,
     {
         let context = QueryContext::new();
-        database::update(
-            self.executor,
-            M::TABLE,
-            &self.columns,
-            self.condition.into_option(&context).as_ref(),
-        )
-        .await
+        let columns: Vec<_> = self
+            .columns
+            .iter()
+            .map(|(name, value)| (*name, value.as_sql()))
+            .collect();
+
+        let condition = self.condition.into_option();
+        let condition = condition
+            .as_ref()
+            .map(|condition| condition.as_sql(&context));
+
+        database::update(self.executor, M::TABLE, &columns, condition.as_ref()).await
     }
 }
 
