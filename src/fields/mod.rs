@@ -77,7 +77,7 @@
 //! ```
 
 mod back_ref;
-pub(crate) mod foreign_model;
+mod foreign_model;
 mod json;
 #[cfg(feature = "rmp-serde")]
 mod msgpack;

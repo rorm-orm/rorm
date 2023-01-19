@@ -2,10 +2,11 @@
 
 use std::marker::PhantomData;
 
-use crate::fields::foreign_model;
-use crate::fields::foreign_model::ForeignModelByField;
 use crate::fields::BackRef;
+use crate::fields::ForeignModelByField;
+use crate::internal::field::foreign_model::ForeignModelTrait;
 use crate::internal::field::RawField;
+use crate::internal::field::{foreign_model, kind};
 use crate::internal::query_context::QueryContextBuilder;
 use crate::{const_concat, sealed, Model};
 
@@ -64,10 +65,11 @@ where
 impl<T, M, F, P> PathImpl<ForeignModelByField<M, T>> for PathStep<F, P>
 where
     M: Model,
-    F: RawField<Type = ForeignModelByField<M, T>> + 'static,
+    F: RawField<Kind = kind::ForeignModel, Type = ForeignModelByField<M, T>> + 'static,
+    ForeignModelByField<M, T>: ForeignModelTrait<F>,
     P: Path,
 {
-    type ResolvedRelatedField = foreign_model::RelatedField<M, F>;
+    type ResolvedRelatedField = foreign_model::RelatedField<F>;
 
     const JOIN_FIELDS: [[&'static str; 2]; 2] = [
         [Self::ALIAS, Self::ResolvedRelatedField::NAME],
@@ -78,18 +80,37 @@ where
         builder.add_relation_path::<M, F, P>();
     }
 }
-impl<T, M, F, RF, P> PathImpl<BackRef<M>> for PathStep<F, P>
+impl<T, M, F, P> PathImpl<Option<ForeignModelByField<M, T>>> for PathStep<F, P>
+where
+    M: Model,
+    F: RawField<Kind = kind::ForeignModel, Type = Option<ForeignModelByField<M, T>>> + 'static,
+    Option<ForeignModelByField<M, T>>: ForeignModelTrait<F>,
+    P: Path,
+{
+    type ResolvedRelatedField = foreign_model::RelatedField<F>;
+
+    const JOIN_FIELDS: [[&'static str; 2]; 2] = [
+        [Self::ALIAS, Self::ResolvedRelatedField::NAME],
+        [P::ALIAS, F::NAME],
+    ];
+
+    fn add_to_join_builder(builder: &mut QueryContextBuilder) {
+        builder.add_relation_path::<M, F, P>();
+    }
+}
+impl<M, F, RF, P> PathImpl<BackRef<M>> for PathStep<F, P>
 where
     M: Model,
     F: RawField<Type = BackRef<M>, RelatedField = RF> + 'static,
-    RF: RawField<Type = ForeignModelByField<F::Model, T>>,
+    RF: RawField<Kind = kind::ForeignModel>,
+    RF::Type: ForeignModelTrait<RF>,
     P: Path,
 {
     type ResolvedRelatedField = RF;
 
     const JOIN_FIELDS: [[&'static str; 2]; 2] = [
         [Self::ALIAS, Self::ResolvedRelatedField::NAME],
-        [P::ALIAS, foreign_model::RelatedField::<F::Model, RF>::NAME],
+        [P::ALIAS, foreign_model::RelatedField::<RF>::NAME],
     ];
 
     fn add_to_join_builder(builder: &mut QueryContextBuilder) {

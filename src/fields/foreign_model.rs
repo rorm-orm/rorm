@@ -1,10 +1,7 @@
 //! The [ForeignModel] field type
 
-use crate::conditions::Value;
-use crate::internal::field::{kind, Field, FieldType, OptionField, RawField};
-use crate::internal::hmr;
-use crate::internal::hmr::annotations::Annotations;
-use crate::model::{GetField, Model};
+use crate::internal::field::RawField;
+use crate::model::Model;
 
 /// Alias for [ForeignModelByField] which defaults the second generic parameter to use the primary key.
 ///
@@ -35,49 +32,5 @@ impl<M: Model, T> ForeignModelByField<M, T> {
 impl<M: Model, T> From<T> for ForeignModelByField<M, T> {
     fn from(key: T) -> Self {
         Self::Key(key)
-    }
-}
-
-pub(crate) type RelatedField<M, F> =
-    <<F as RawField>::RelatedField as OptionField>::UnwrapOr<<M as Model>::Primary>;
-
-impl<M: Model, T> FieldType for ForeignModelByField<M, T> {
-    type Kind = kind::ForeignModel;
-}
-impl<M, F> Field<kind::ForeignModel> for F
-where
-    M: Model,
-    RelatedField<M, F>: Field,
-    F: RawField<
-        Type = ForeignModelByField<M, <RelatedField<M, F> as RawField>::Type>,
-        Kind = kind::ForeignModel,
-    >,
-    M: GetField<RelatedField<M, F>>, // Always true
-{
-    type DbType = <RelatedField<M, F> as Field>::DbType;
-
-    const ANNOTATIONS: Annotations = {
-        let mut annos = Self::EXPLICIT_ANNOTATIONS;
-        if annos.max_length.is_none() {
-            annos.max_length = <RelatedField<M, F> as Field>::ANNOTATIONS.max_length;
-        }
-        annos.foreign = Some(hmr::annotations::ForeignKey {
-            table_name: M::TABLE,
-            column_name: RelatedField::<M, F>::NAME,
-        });
-        annos
-    };
-
-    type Primitive = <RelatedField<M, F> as Field>::Primitive;
-
-    fn from_primitive(primitive: Self::Primitive) -> Self::Type {
-        ForeignModelByField::Key(<RelatedField<M, F> as Field>::from_primitive(primitive))
-    }
-
-    fn as_condition_value(value: &Self::Type) -> Value {
-        <RelatedField<M, F> as Field>::as_condition_value(match value {
-            ForeignModelByField::Key(value) => value,
-            ForeignModelByField::Instance(model) => model.get_field(),
-        })
     }
 }

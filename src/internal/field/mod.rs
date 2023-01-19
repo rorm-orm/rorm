@@ -81,6 +81,7 @@ use crate::model::{ConstNew, Model};
 use crate::{const_panic, declare_type_option, sealed};
 
 pub mod as_db_type;
+pub mod foreign_model;
 use as_db_type::AsDbType;
 
 /// Marker trait for various kinds of fields
