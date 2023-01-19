@@ -31,6 +31,10 @@ futures = { version = "~0.3" }
 
 # json serialization to communicate with the migrator
 serde_json = { version = "~1.0" }
+serde = { version = "~1.0" }
+
+# `serde::MessagePack<T>` type
+rmp-serde = { version = "1.1", optional = true }
 
 # linker magic to create a slice containing all models defined by crates
 linkme = { version = "~0.3" }
@@ -56,6 +60,8 @@ features = ["async-std-rustls"]
 default = [
 	"rorm-db/all-driver"
 ]
+
+msgpack = ["rmp-serde"]
 
 sqlite = ["rorm-db/sqlite"]
 mysql = ["rorm-db/mysql"]

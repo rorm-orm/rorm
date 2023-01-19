@@ -57,8 +57,8 @@ pub mod aggregate;
 pub mod conditions;
 pub mod crud;
 pub mod internal;
-/// This module holds traits and structs for working with models
 pub mod model;
+pub mod serde;
 
 /// This slice is populated by the [`Model`] macro with all models.
 ///

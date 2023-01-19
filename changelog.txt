@@ -13,9 +13,10 @@ Since 0.4.2
   The transaction reference is now passed directly to the macro instead of a
   database reference.
 - Refactored annotations
-- Error when max_length is missing
+- Error when `max_length` is missing
 - Major refactor of internals
 - Made conditions::Value take Cows
+- Added `MsgPack<T>` and `Json<T>` wrapper types
 
 Notes for publishing
 --------------------

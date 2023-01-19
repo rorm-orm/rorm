@@ -1,8 +1,11 @@
+//! This module holds traits and structs for working with models
+
+use rorm_db::row::FromRow;
+use rorm_declaration::imr;
+
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
 use crate::internal::field::{Field, RawField};
 use crate::internal::relation_path::Path;
-use rorm_db::row::FromRow;
-use rorm_declaration::imr;
 
 /// Trait implemented on Patches i.e. a subset of a model's fields.
 ///
