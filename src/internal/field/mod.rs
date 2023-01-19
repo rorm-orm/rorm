@@ -81,8 +81,6 @@ use crate::model::{ConstNew, Model};
 use crate::{const_panic, declare_type_option, sealed};
 
 pub mod as_db_type;
-pub mod back_ref;
-pub mod foreign_model;
 use as_db_type::AsDbType;
 
 /// Marker trait for various kinds of fields
@@ -93,9 +91,9 @@ pub trait FieldKind {
 pub mod kind {
     use super::FieldKind;
 
-    /// Marker for some field which is a [`ForeignModel`](crate::internal::field::foreign_model::ForeignModelByField)
+    /// Marker for some field which is a [`ForeignModel`](crate::fields::foreign_model::ForeignModelByField)
     pub struct ForeignModel;
-    /// Marker for some field which is a [`BackRef`](crate::internal::field::back_ref::BackRef)
+    /// Marker for some field which is a [`BackRef`](crate::fields::BackRef)
     pub struct BackRef;
     /// Marker for some field which is an [`AsDbType`](crate::internal::field::as_db_type::AsDbType)
     pub struct AsDbType;

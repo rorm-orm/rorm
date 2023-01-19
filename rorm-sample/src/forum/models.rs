@@ -1,5 +1,6 @@
 use chrono::{NaiveDate, NaiveDateTime};
-use rorm::{DbEnum, ForeignModel, Model};
+use rorm::fields::{BackRef, ForeignModel};
+use rorm::{DbEnum, Model};
 
 #[derive(Model)]
 #[rorm(rename = "account")]
@@ -63,5 +64,5 @@ pub struct Thread {
     pub fred: Option<std::thread::Thread>,
 
     #[rorm(field = "Comment::F.thread")]
-    pub comments: rorm::internal::field::back_ref::BackRef<Comment>,
+    pub comments: BackRef<Comment>,
 }

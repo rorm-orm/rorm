@@ -1,4 +1,6 @@
 //! Rorm is the rust implementation of the drorm project.
+//!
+//! [List of all types valid as model fields](fields)
 #![warn(missing_docs)]
 
 #[cfg(any(
@@ -40,8 +42,6 @@ compile_error!("Using multiple runtime / tls configurations at the same time is 
 #[doc(hidden)]
 pub use linkme;
 
-pub use internal::field::back_ref::BackRef;
-pub use internal::field::foreign_model::ForeignModel;
 pub use model::{Model, Patch};
 pub use rorm_db::*;
 
@@ -56,9 +56,9 @@ pub use rorm_declaration::config;
 pub mod aggregate;
 pub mod conditions;
 pub mod crud;
+pub mod fields;
 pub mod internal;
 pub mod model;
-pub mod serde;
 
 /// This slice is populated by the [`Model`] macro with all models.
 ///

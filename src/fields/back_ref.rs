@@ -7,11 +7,10 @@ use std::collections::HashMap;
 
 use crate::conditions::collections::CollectionOperator::Or;
 use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection, Value};
+use crate::fields::foreign_model;
+use crate::fields::foreign_model::ForeignModelByField;
 use crate::internal::field::as_db_type::AsDbType;
-use crate::internal::field::foreign_model::ForeignModelByField;
-use crate::internal::field::{
-    foreign_model, kind, AbstractField, Field, FieldProxy, FieldType, RawField,
-};
+use crate::internal::field::{kind, AbstractField, Field, FieldProxy, FieldType, RawField};
 use crate::model::{GetField, Model};
 use crate::query;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model

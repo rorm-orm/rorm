@@ -18,7 +18,7 @@ use crate::internal::hmr::db_type::VarBinary;
 /// ```no_run
 /// # use std::collections::HashMap;
 /// use rorm::Model;
-/// use rorm::serde::Json;
+/// use rorm::fields::Json;
 ///
 /// #[derive(Model)]
 /// pub struct Session {

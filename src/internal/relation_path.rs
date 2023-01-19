@@ -2,9 +2,10 @@
 
 use std::marker::PhantomData;
 
-use crate::internal::field::back_ref::BackRef;
-use crate::internal::field::foreign_model::ForeignModelByField;
-use crate::internal::field::{foreign_model, RawField};
+use crate::fields::foreign_model;
+use crate::fields::foreign_model::ForeignModelByField;
+use crate::fields::BackRef;
+use crate::internal::field::RawField;
 use crate::internal::query_context::QueryContextBuilder;
 use crate::{const_concat, sealed, Model};
 
