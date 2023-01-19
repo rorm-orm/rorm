@@ -22,6 +22,59 @@
 //! - [`BackRef<M>`]
 //! - [`Json<T>`]
 //! - [`MsgPack<T>`] (requires the "rmp-serde" crate)
+//!
+//! ---
+//!
+//! ```no_run
+//! use serde::{Deserialize, Serialize};
+//! use rorm::Model;
+//! use rorm::fields::*;
+//!
+//! #[derive(Model)]
+//! pub struct SomeModel {
+//!     #[rorm(id)]
+//!     id: i64,
+//!
+//!     // std
+//!     boolean: bool,
+//!     integer: i32,
+//!     float: f64,
+//!     #[rorm(max_length = 255)]
+//!     string: String,
+//!     binary: Vec<u8>,
+//!
+//!     // times
+//!     time: chrono::NaiveTime,
+//!     date: chrono::NaiveDate,
+//!     datetime: chrono::DateTime<chrono::Utc>,
+//!
+//!     // relations
+//!     other_model: ForeignModel<OtherModel>,
+//!     #[rorm(field = "OtherModel::F.name")]
+//!     also_other_model: ForeignModel<OtherModel, String>,
+//!     #[rorm(field = "OtherModel::F.some_model")]
+//!     other_model_set: BackRef<OtherModel>,
+//!
+//!     // serde
+//!     data: Json<Data>,
+//! }
+//!
+//! #[derive(Model)]
+//! pub struct OtherModel {
+//!     #[rorm(id)]
+//!     id: i64,
+//!
+//!     #[rorm(max_length = 255)]
+//!     name: String,
+//!
+//!     some_model: ForeignModel<SomeModel>,
+//! }
+//!
+//! #[derive(Serialize, Deserialize)]
+//! pub struct Data {
+//!     stuff: String,
+//! }
+//! ```
 
 mod back_ref;
 pub(crate) mod foreign_model;

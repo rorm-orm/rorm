@@ -2,22 +2,29 @@ Since 0.4.2
 -----------
 - Pinned chrono to >= 0.4.20.
   See [RUSTSEC](https://rustsec.org/advisories/RUSTSEC-2020-0159.html) for further information
+
 - insert!
   - Added `.return_nothing()` and `.return_primary_key()`
   - Defaults to returning whole model instead of primary key
   - Updated `insert!`'s docs
+
 - delete!
   - condition is now added last and executes the query similar to insert!'s
     behaviour
+
 - Removed `.transaction(...)` methods
   The transaction reference is now passed directly to the macro instead of a
   database reference.
+
+- Nicer field types
+  - Put `ForeignModel` and `BackRef` into public module `fields`
+  - Added `MsgPack<T>` and `Json<T>` wrapper types
+  - Made `DateTime<Utc>` a valid field type
+
 - Refactored annotations
 - Error when `max_length` is missing
 - Major refactor of internals
 - Made conditions::Value take Cows
-- Added `MsgPack<T>` and `Json<T>` wrapper types
-- Added `DateTime<Utc>` as valid field type
 
 Notes for publishing
 --------------------
