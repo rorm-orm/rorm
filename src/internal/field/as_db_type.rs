@@ -2,12 +2,13 @@
 
 use std::borrow::Cow;
 
+use chrono::{TimeZone, Utc};
 use rorm_db::row::DecodeOwned;
 
 use crate::conditions::Value;
 use crate::internal::field::{kind, FieldType};
-use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
+use crate::internal::hmr::db_type;
 use crate::internal::hmr::db_type::DbType;
 
 /// This trait maps rust types to database types
@@ -18,7 +19,7 @@ pub trait AsDbType: FieldType<Kind = kind::AsDbType> {
     type Primitive: DecodeOwned;
 
     /// The database type as defined in the Intermediate Model Representation
-    type DbType: hmr::db_type::DbType;
+    type DbType: DbType;
 
     /// Annotations implied by this type
     const IMPLICIT: Option<Annotations> = None;
@@ -41,7 +42,7 @@ macro_rules! impl_as_db_type {
         impl AsDbType for $type {
             type Primitive = Self;
 
-            type DbType = hmr::db_type::$db_type;
+            type DbType = db_type::$db_type;
 
             #[inline(always)]
             fn from_primitive(primitive: Self::Primitive) -> Self {
@@ -75,6 +76,22 @@ impl_as_db_type!(f64, Double, F64);
 impl_as_db_type!(bool, Boolean, Bool);
 impl_as_db_type!(Vec<u8>, VarBinary, Binary using as_slice);
 impl_as_db_type!(String, VarChar, String using as_str);
+
+impl FieldType for chrono::DateTime<Utc> {
+    type Kind = kind::AsDbType;
+}
+impl AsDbType for chrono::DateTime<Utc> {
+    type Primitive = chrono::NaiveDateTime;
+    type DbType = db_type::DateTime;
+
+    fn from_primitive(primitive: Self::Primitive) -> Self {
+        Utc.from_utc_datetime(&primitive)
+    }
+
+    fn as_primitive(&self) -> Value {
+        Value::NaiveDateTime(self.naive_utc())
+    }
+}
 
 impl<T: AsDbType> FieldType for Option<T> {
     type Kind = kind::AsDbType;

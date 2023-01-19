@@ -17,6 +17,7 @@ Since 0.4.2
 - Major refactor of internals
 - Made conditions::Value take Cows
 - Added `MsgPack<T>` and `Json<T>` wrapper types
+- Added `DateTime<Utc>` as valid field type
 
 Notes for publishing
 --------------------
