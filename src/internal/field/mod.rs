@@ -67,6 +67,7 @@
 //! and runs a linter shared with `rorm-cli` on them.
 
 use std::marker::PhantomData;
+use std::mem::ManuallyDrop;
 
 use rorm_db::row::{DecodeOwned, RowIndex};
 use rorm_db::{Error, Row};
@@ -78,10 +79,11 @@ use crate::internal::hmr::db_type::{DbType, OptionDbType};
 use crate::internal::hmr::{AsImr, Source};
 use crate::internal::relation_path::{Path, PathImpl, PathStep, ResolvedRelatedField};
 use crate::model::{ConstNew, Model};
-use crate::{const_panic, declare_type_option, sealed};
+use crate::{const_panic, sealed};
 
 pub mod as_db_type;
 pub mod foreign_model;
+
 use as_db_type::AsDbType;
 
 /// Marker trait for various kinds of fields
@@ -125,9 +127,6 @@ pub trait RawField: 'static {
     /// An optionally set explicit db type
     type ExplicitDbType: OptionDbType;
 
-    /// An optionally set related field
-    type RelatedField: OptionField;
-
     /// The model this field is part of
     type Model: Model;
 
@@ -143,10 +142,6 @@ pub trait RawField: 'static {
     /// Optional definition of the location of field in the source code
     const SOURCE: Option<Source>;
 }
-
-declare_type_option!(OptionField, Field, MissingRelatedField);
-/// None type of [`OptionField`] whose name provides a hint in error messages.
-pub struct MissingRelatedField;
 
 /// A [`RawField`] which represents a column in the database
 pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
@@ -266,64 +261,38 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     /// The list of annotations, if this field is relevant to the database.
     const DB_ANNOTATIONS: Option<Annotations> = None;
 }
-impl<F: Field<kind::AsDbType>> AbstractField<kind::AsDbType> for F {
-    fn push_imr(imr: &mut Vec<imr::Field>) {
-        imr.push(imr::Field {
-            name: F::NAME.to_string(),
-            db_type: F::DbType::IMR,
-            annotations: F::ANNOTATIONS.as_imr(),
-            source_defined_at: F::SOURCE.map(|s| s.as_imr()),
-        });
-    }
+macro_rules! impl_abstract_from_field {
+    ($kind:ty) => {
+        impl<F: Field<$kind>> AbstractField<$kind> for F {
+            fn push_imr(imr: &mut Vec<imr::Field>) {
+                imr.push(imr::Field {
+                    name: F::NAME.to_string(),
+                    db_type: F::DbType::IMR,
+                    annotations: F::ANNOTATIONS.as_imr(),
+                    source_defined_at: F::SOURCE.map(|s| s.as_imr()),
+                });
+            }
 
-    fn get_from_row(row: &Row, index: impl RowIndex) -> Result<Self::Type, Error> {
-        Ok(<Self as Field<kind::AsDbType>>::from_primitive(
-            row.get(index)?,
-        ))
-    }
+            fn get_from_row(row: &Row, index: impl RowIndex) -> Result<Self::Type, Error> {
+                Ok(<Self as Field<$kind>>::from_primitive(row.get(index)?))
+            }
 
-    fn push_value<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
-        values.push(<Self as Field<kind::AsDbType>>::as_condition_value(value))
-    }
+            fn push_value<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
+                values.push(<Self as Field<$kind>>::as_condition_value(value))
+            }
 
-    const DB_NAME: Option<&'static str> = Some(F::NAME);
+            const DB_NAME: Option<&'static str> = Some(F::NAME);
 
-    const DB_ANNOTATIONS: Option<Annotations> = {
-        // "Use" the CHECK constant to force the compiler to evaluate it.
-        let _check: usize = F::CHECK;
-        Some(F::ANNOTATIONS)
+            const DB_ANNOTATIONS: Option<Annotations> = {
+                // "Use" the CHECK constant to force the compiler to evaluate it.
+                let _check: usize = F::CHECK;
+                Some(F::ANNOTATIONS)
+            };
+        }
     };
 }
-impl<F: Field<kind::ForeignModel>> AbstractField<kind::ForeignModel> for F {
-    fn push_imr(imr: &mut Vec<imr::Field>) {
-        imr.push(imr::Field {
-            name: F::NAME.to_string(),
-            db_type: F::DbType::IMR,
-            annotations: F::ANNOTATIONS.as_imr(),
-            source_defined_at: F::SOURCE.map(|s| s.as_imr()),
-        });
-    }
-
-    fn get_from_row(row: &Row, index: impl RowIndex) -> Result<Self::Type, Error> {
-        Ok(<Self as Field<kind::ForeignModel>>::from_primitive(
-            row.get(index)?,
-        ))
-    }
-
-    fn push_value<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
-        values.push(<Self as Field<kind::ForeignModel>>::as_condition_value(
-            value,
-        ))
-    }
-
-    const DB_NAME: Option<&'static str> = Some(F::NAME);
-
-    const DB_ANNOTATIONS: Option<Annotations> = {
-        // "Use" the CHECK constant to force the compiler to evaluate it.
-        let _check: usize = F::CHECK;
-        Some(F::ANNOTATIONS)
-    };
-}
+impl_abstract_from_field!(kind::AsDbType);
+impl_abstract_from_field!(kind::ForeignModel);
 
 /// This struct acts as a proxy exposing type level information from the [`RawField`] trait on the value level.
 ///
@@ -367,7 +336,7 @@ impl<F: Field<kind::ForeignModel>> AbstractField<kind::ForeignModel> for F {
 /// Id::Index ~ User::F.id.index()
 /// Id::Type::from_primitive ~ User::F.id.convert_primitive
 /// ```
-pub struct FieldProxy<Field, Path>(PhantomData<(Field, Path)>);
+pub struct FieldProxy<Field, Path>(PhantomData<ManuallyDrop<(Field, Path)>>);
 impl<F: RawField, P> FieldProxy<F, P> {
     /// Create a new instance
     pub const fn new() -> Self {

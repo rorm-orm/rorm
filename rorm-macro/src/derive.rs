@@ -1,10 +1,10 @@
 use darling::{Error, FromAttributes, FromMeta};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::spanned::Spanned;
 use syn::{LitStr, Type, Visibility};
 
-use crate::annotations::{Annotations, FieldPath};
+use crate::annotations::Annotations;
 use crate::utils::{get_source, to_db_name};
 use crate::{annotations, trait_impls};
 
@@ -373,7 +373,6 @@ fn parse_field(
         model_vis: model_vis.clone(),
         type_ident: format_ident!("__{}_{}", model, ident),
         raw_type: field.ty,
-        related_field: annotations.field.take(),
         model: model.clone(),
         index: Literal::usize_unsuffixed(index),
         db_name,
@@ -393,7 +392,6 @@ struct Field {
     model_vis: Visibility,
     type_ident: Ident,
     raw_type: Type,
-    related_field: Option<FieldPath>,
     model: Ident,
     index: Literal,
     db_name: LitStr,
@@ -409,7 +407,6 @@ impl ToTokens for Field {
             model_vis,
             type_ident,
             raw_type,
-            related_field,
             model,
             index,
             db_name,
@@ -422,12 +419,6 @@ impl ToTokens for Field {
             quote! { ::rorm::internal::hmr::db_type::Choices }
         } else {
             quote! { () }
-        };
-
-        let related_field = if let Some(FieldPath { model, field, span }) = related_field.as_ref() {
-            quote_spanned! {*span=> <#model as ::rorm::model::FieldByIndex<{<#model as ::rorm::model::Model>::F.#field.index()}>>::Field}
-        } else {
-            quote! { ::rorm::internal::field::MissingRelatedField }
         };
 
         let source = get_source(&ident);
@@ -445,7 +436,6 @@ impl ToTokens for Field {
                 type Kind = <#raw_type as ::rorm::internal::field::FieldType>::Kind;
                 type Type = #raw_type;
                 type ExplicitDbType = #db_type;
-                type RelatedField = #related_field;
                 type Model = #model;
                 const INDEX: usize = #index;
                 const NAME: &'static str = #db_name;

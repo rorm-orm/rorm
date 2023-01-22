@@ -113,6 +113,16 @@ macro_rules! get_field {
     };
 }
 
+/// Get the type for a model's field
+///
+/// Use this macro for generic parameter in [`ForeignModelByField`](crate::fields::ForeignModelByField) and [`BackRef`](crate::fields::BackRef).
+#[macro_export]
+macro_rules! field {
+    ($model:ident::F.$field:ident) => {
+        <$model as $crate::model::FieldByIndex<{ $model::F.$field.index() }>>::Field
+    };
+}
+
 #[doc(hidden)]
 pub use rorm_macro::rename_linkme;
 

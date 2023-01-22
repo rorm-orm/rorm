@@ -5,8 +5,8 @@ use std::marker::PhantomData;
 use crate::fields::BackRef;
 use crate::fields::ForeignModelByField;
 use crate::internal::field::foreign_model::ForeignModelTrait;
-use crate::internal::field::RawField;
-use crate::internal::field::{foreign_model, kind};
+use crate::internal::field::{kind, AbstractField};
+use crate::internal::field::{Field, RawField};
 use crate::internal::query_context::QueryContextBuilder;
 use crate::{const_concat, sealed, Model};
 
@@ -62,14 +62,13 @@ where
         <Self as PathImpl<_>>::add_to_join_builder(builder);
     }
 }
-impl<T, M, F, P> PathImpl<ForeignModelByField<M, T>> for PathStep<F, P>
+impl<FF, F, P> PathImpl<ForeignModelByField<FF>> for PathStep<F, P>
 where
-    M: Model,
-    F: RawField<Kind = kind::ForeignModel, Type = ForeignModelByField<M, T>> + 'static,
-    ForeignModelByField<M, T>: ForeignModelTrait<F>,
+    FF: Field<kind::AsDbType>,
+    F: Field<kind::ForeignModel, Type = ForeignModelByField<FF>> + 'static,
     P: Path,
 {
-    type ResolvedRelatedField = foreign_model::RelatedField<F>;
+    type ResolvedRelatedField = FF;
 
     const JOIN_FIELDS: [[&'static str; 2]; 2] = [
         [Self::ALIAS, Self::ResolvedRelatedField::NAME],
@@ -77,17 +76,16 @@ where
     ];
 
     fn add_to_join_builder(builder: &mut QueryContextBuilder) {
-        builder.add_relation_path::<M, F, P>();
+        builder.add_relation_path::<FF::Model, F, P>();
     }
 }
-impl<T, M, F, P> PathImpl<Option<ForeignModelByField<M, T>>> for PathStep<F, P>
+impl<FF, F, P> PathImpl<Option<ForeignModelByField<FF>>> for PathStep<F, P>
 where
-    M: Model,
-    F: RawField<Kind = kind::ForeignModel, Type = Option<ForeignModelByField<M, T>>> + 'static,
-    Option<ForeignModelByField<M, T>>: ForeignModelTrait<F>,
+    FF: Field<kind::AsDbType>,
+    F: Field<kind::ForeignModel, Type = Option<ForeignModelByField<FF>>> + 'static,
     P: Path,
 {
-    type ResolvedRelatedField = foreign_model::RelatedField<F>;
+    type ResolvedRelatedField = FF;
 
     const JOIN_FIELDS: [[&'static str; 2]; 2] = [
         [Self::ALIAS, Self::ResolvedRelatedField::NAME],
@@ -95,26 +93,28 @@ where
     ];
 
     fn add_to_join_builder(builder: &mut QueryContextBuilder) {
-        builder.add_relation_path::<M, F, P>();
+        builder.add_relation_path::<FF::Model, F, P>();
     }
 }
-impl<M, F, RF, P> PathImpl<BackRef<M>> for PathStep<F, P>
+impl<FMF, F, P> PathImpl<BackRef<FMF>> for PathStep<F, P>
 where
-    M: Model,
-    F: RawField<Type = BackRef<M>, RelatedField = RF> + 'static,
-    RF: RawField<Kind = kind::ForeignModel>,
-    RF::Type: ForeignModelTrait<RF>,
+    FMF: Field<kind::ForeignModel>,
+    FMF::Type: ForeignModelTrait,
+    F: AbstractField<kind::BackRef, Type = BackRef<FMF>> + 'static,
     P: Path,
 {
-    type ResolvedRelatedField = RF;
+    type ResolvedRelatedField = FMF;
 
     const JOIN_FIELDS: [[&'static str; 2]; 2] = [
         [Self::ALIAS, Self::ResolvedRelatedField::NAME],
-        [P::ALIAS, foreign_model::RelatedField::<RF>::NAME],
+        [
+            P::ALIAS,
+            <<FMF as RawField>::Type as ForeignModelTrait>::RelatedField::NAME,
+        ],
     ];
 
     fn add_to_join_builder(builder: &mut QueryContextBuilder) {
-        builder.add_relation_path::<M, F, P>();
+        builder.add_relation_path::<FMF::Model, F, P>();
     }
 }
 /// Implementation for [PathStep]

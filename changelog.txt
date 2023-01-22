@@ -21,6 +21,8 @@ Since 0.4.2
   - Added `MsgPack<T>` and `Json<T>` wrapper types
   - Made `DateTime<Utc>` a valid field type
 
+- Made `ForeignModel`'s and `BackRef`'s generic parameter to take the related field
+
 - Refactored annotations
 - Error when `max_length` is missing
 - Major refactor of internals

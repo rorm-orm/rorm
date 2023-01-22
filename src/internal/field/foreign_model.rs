@@ -4,29 +4,22 @@ use rorm_db::row::DecodeOwned;
 
 use crate::conditions::Value;
 use crate::fields::ForeignModelByField;
-use crate::internal::field::{kind, Field, FieldType, OptionField, RawField};
+use crate::internal::field::{kind, Field, FieldType, RawField};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::DbType;
 use crate::model::{GetField, Model};
 
-/// Shorthand to access the related field to a [`ForeignModel`]
-pub type RelatedField<F> = <<F as RawField>::Type as ForeignModelTrait<F>>::RelatedField;
-
-impl<M: Model, T> FieldType for ForeignModelByField<M, T> {
+impl<FF: Field<kind::AsDbType>> FieldType for ForeignModelByField<FF> {
     type Kind = kind::ForeignModel;
 }
-
-impl<M: Model, T> FieldType for Option<ForeignModelByField<M, T>> {
+impl<FF: Field<kind::AsDbType>> FieldType for Option<ForeignModelByField<FF>> {
     type Kind = kind::ForeignModel;
 }
 
 #[doc(hidden)]
-pub trait ForeignModelTrait<F>: FieldType<Kind = kind::ForeignModel>
-where
-    F: RawField<Type = Self, Kind = kind::ForeignModel>,
-{
-    type RelatedField: Field;
+pub trait ForeignModelTrait: FieldType<Kind = kind::ForeignModel> {
+    type RelatedField: Field<kind::AsDbType>;
     type Primitive: DecodeOwned;
     const IS_OPTION: bool;
 
@@ -35,29 +28,20 @@ where
     fn as_key(&self) -> Option<&<Self::RelatedField as RawField>::Type>;
 }
 
-type RelatedFieldUsingModel<M, F> =
-    <<F as RawField>::RelatedField as OptionField>::UnwrapOr<<M as Model>::Primary>;
-
-impl<M, F> ForeignModelTrait<F>
-    for ForeignModelByField<M, <RelatedFieldUsingModel<M, F> as RawField>::Type>
+impl<FF: Field<kind::AsDbType>> ForeignModelTrait for ForeignModelByField<FF>
 where
-    M: Model,
-    RelatedFieldUsingModel<M, F>: Field,
-    F: RawField<Type = Self, Kind = kind::ForeignModel>,
-    M: GetField<RelatedFieldUsingModel<M, F>>, // Always true
+    FF::Model: GetField<FF>, // always true
 {
-    type RelatedField = RelatedFieldUsingModel<M, F>;
-    type Primitive = <Self::RelatedField as Field>::Primitive;
+    type RelatedField = FF;
+    type Primitive = FF::Primitive;
     const IS_OPTION: bool = false;
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
-        ForeignModelByField::Key(
-            <F::Type as ForeignModelTrait<F>>::RelatedField::from_primitive(primitive),
-        )
+        ForeignModelByField::Key(FF::from_primitive(primitive))
     }
 
     fn as_condition_value(&self) -> Value {
-        <F::Type as ForeignModelTrait<F>>::RelatedField::as_condition_value(match self {
+        FF::as_condition_value(match self {
             ForeignModelByField::Key(value) => value,
             ForeignModelByField::Instance(model) => model.get_field(),
         })
@@ -71,16 +55,12 @@ where
     }
 }
 
-impl<M, F> ForeignModelTrait<F>
-    for Option<ForeignModelByField<M, <RelatedFieldUsingModel<M, F> as RawField>::Type>>
+impl<FF: Field<kind::AsDbType>> ForeignModelTrait for Option<ForeignModelByField<FF>>
 where
-    M: Model,
-    RelatedFieldUsingModel<M, F>: Field,
-    F: RawField<Type = Self, Kind = kind::ForeignModel>,
-    M: GetField<RelatedFieldUsingModel<M, F>>, // Always true
+    FF::Model: GetField<FF>, // always true
 {
-    type RelatedField = RelatedFieldUsingModel<M, F>;
-    type Primitive = Option<<Self::RelatedField as Field>::Primitive>;
+    type RelatedField = FF;
+    type Primitive = Option<FF::Primitive>;
     const IS_OPTION: bool = true;
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
@@ -96,7 +76,7 @@ where
                 ForeignModelByField::Instance(model) => model.get_field(),
             })
         } else {
-            Value::Null(<<Self::RelatedField as Field>::DbType as DbType>::NULL_TYPE)
+            Value::Null(<FF::DbType as DbType>::NULL_TYPE)
         }
     }
 
@@ -108,34 +88,33 @@ where
     }
 }
 
+pub(crate) type RF<F> = <<F as RawField>::Type as ForeignModelTrait>::RelatedField;
 impl<F> Field<kind::ForeignModel> for F
 where
     F: RawField<Kind = kind::ForeignModel>,
-    F::Type: ForeignModelTrait<F>,
+    F::Type: ForeignModelTrait,
+    <<F::Type as ForeignModelTrait>::RelatedField as RawField>::Model:
+        GetField<<F::Type as ForeignModelTrait>::RelatedField>, // always true
 {
-    type DbType = <RelatedField<F> as Field>::DbType;
-
+    type DbType = <RF<F> as Field<kind::AsDbType>>::DbType;
     const ANNOTATIONS: Annotations = {
         let mut annos = Self::EXPLICIT_ANNOTATIONS;
         if annos.max_length.is_none() {
-            annos.max_length =
-                <F::Type as ForeignModelTrait<F>>::RelatedField::ANNOTATIONS.max_length;
+            annos.max_length = <RF<F> as Field<kind::AsDbType>>::ANNOTATIONS.max_length;
         }
-        annos.nullable |= <<F as RawField>::Type as ForeignModelTrait<F>>::IS_OPTION;
         annos.foreign = Some(hmr::annotations::ForeignKey {
-            table_name: <RelatedField<F> as RawField>::Model::TABLE,
-            column_name: <RelatedField<F> as RawField>::NAME,
+            table_name: <RF<F> as RawField>::Model::TABLE,
+            column_name: <RF<F> as RawField>::NAME,
         });
         annos
     };
-
-    type Primitive = <<F as RawField>::Type as ForeignModelTrait<F>>::Primitive;
+    type Primitive = <<F as RawField>::Type as ForeignModelTrait>::Primitive;
 
     fn from_primitive(primitive: Self::Primitive) -> Self::Type {
-        <<F as RawField>::Type as ForeignModelTrait<F>>::from_primitive(primitive)
+        <<F as RawField>::Type as ForeignModelTrait>::from_primitive(primitive)
     }
 
     fn as_condition_value(value: &Self::Type) -> Value {
-        <<F as RawField>::Type as ForeignModelTrait<F>>::as_condition_value(value)
+        <<F as RawField>::Type as ForeignModelTrait>::as_condition_value(value)
     }
 }

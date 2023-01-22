@@ -1,36 +1,39 @@
 //! The [ForeignModel] field type
 
-use crate::internal::field::RawField;
-use crate::model::Model;
+use crate::internal::field::{kind, Field};
+use crate::model::{GetField, Model};
 
-/// Alias for [ForeignModelByField] which defaults the second generic parameter to use the primary key.
-///
-/// This default is only provided on this alias instead of the enum itself,
-/// because this way internal code must provide the parameter while users can ignore it.
-/// Forgetting to set it in internal code could lead to some bugs which are nasty to find.
-pub type ForeignModel<M, T = <<M as Model>::Primary as RawField>::Type> = ForeignModelByField<M, T>;
+/// Alias for [ForeignModelByField] which only takes a model uses to its primary key.
+pub type ForeignModel<M> = ForeignModelByField<<M as Model>::Primary>;
 
 /// Stores a link to another model in a field.
 ///
 /// In database language, this is a many to one relation.
 #[derive(Clone, Debug)]
-pub enum ForeignModelByField<M: Model, T> {
+pub enum ForeignModelByField<FF: Field<kind::AsDbType>> {
     /// The other model's primary key which can be used to query it later.
-    Key(T),
+    Key(FF::Type),
     /// The other model's queried instance.
-    Instance(Box<M>),
+    Instance(Box<FF::Model>),
 }
-impl<M: Model, T> ForeignModelByField<M, T> {
+
+impl<FF: Field<kind::AsDbType>> ForeignModelByField<FF>
+where
+    FF::Model: GetField<FF>, // always true
+{
     /// Get the instance, if it is available
-    pub fn instance(&self) -> Option<&M> {
+    pub fn instance(&self) -> Option<&FF::Model> {
         match self {
             Self::Key(_) => None,
             Self::Instance(instance) => Some(instance.as_ref()),
         }
     }
-}
-impl<M: Model, T> From<T> for ForeignModelByField<M, T> {
-    fn from(key: T) -> Self {
-        Self::Key(key)
+
+    /// Get the key
+    pub fn key(&self) -> &FF::Type {
+        match self {
+            Self::Key(key) => key,
+            Self::Instance(instance) => instance.get_field(),
+        }
     }
 }

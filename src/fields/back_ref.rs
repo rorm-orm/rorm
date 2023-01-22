@@ -7,56 +7,44 @@ use std::collections::HashMap;
 
 use crate::conditions::collections::CollectionOperator::Or;
 use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection, Value};
+use crate::fields::ForeignModelByField;
 use crate::internal::field::foreign_model;
 use crate::internal::field::foreign_model::ForeignModelTrait;
 use crate::internal::field::{kind, AbstractField, Field, FieldProxy, FieldType, RawField};
-use crate::model::{GetField, Model};
+use crate::model::GetField;
 use crate::query;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
 use crate::Patch;
 
 /// A back reference is the other direction to a [foreign model](foreign_model::ForeignModel)
 #[derive(Clone, Debug)]
-pub struct BackRef<M: Model> {
+pub struct BackRef<FMF: Field<kind::ForeignModel>> {
     /// Cached list of models referencing this one.
     ///
     /// If there wasn't any query yet this field will be `None` instead of an empty vector.
-    pub cached: Option<Vec<M>>,
+    pub cached: Option<Vec<FMF::Model>>,
 }
-impl<M: Model> BackRef<M> {
+impl<FMF: Field<kind::ForeignModel>> BackRef<FMF> {
     /// Access the cached instances or `None` if the cache wasn't populated yet.
-    pub fn get(&self) -> Option<&Vec<M>> {
+    pub fn get(&self) -> Option<&Vec<FMF::Model>> {
         self.cached.as_ref()
     }
 
     /// Access the cached instances or `None` if the cache wasn't populated yet.
-    pub fn get_mut(&mut self) -> Option<&mut Vec<M>> {
+    pub fn get_mut(&mut self) -> Option<&mut Vec<FMF::Model>> {
         self.cached.as_mut()
     }
 }
 
-impl<M: Model> FieldType for BackRef<M> {
+impl<FMF: Field<kind::ForeignModel>> FieldType for BackRef<FMF> {
     type Kind = kind::BackRef;
 }
 
-impl<T, BR, BRM, FM, FMM> AbstractField<kind::BackRef> for BR
+impl<F, FMF, BRF> AbstractField<kind::BackRef> for BRF
 where
-    // `BRM` and `FMM` are two models
-    BRM: Model,
-    FMM: Model,
-
-    // `BR` is a pseudo field on the model `BRM`.
-    // It has the type of `BackRef<FMM>` and points to the related field `FM`
-    BR: RawField<Kind = kind::BackRef, Model = BRM, Type = BackRef<FMM>, RelatedField = FM>,
-
-    // `FM` is a field on the model `FMM`.
-    // It has the type of `ForeignModelByField<BRM, _>`.
-    FM: RawField<Model = FMM, Kind = kind::ForeignModel>,
-    FM::Type: ForeignModelTrait<FM>,
-
-    // The field, `FM` points to, is on the model `BRM`.
-    // Its type `T` matches the type `FM` stores.
-    foreign_model::RelatedField<FM>: Field<Model = BRM, Type = T>,
+    F: Field<kind::AsDbType>,                                      // Some field
+    FMF: Field<kind::ForeignModel, Type = ForeignModelByField<F>>, // A `ForeignModelByField`-field pointing to `F`
+    BRF: RawField<Kind = kind::BackRef, Type = BackRef<FMF>, Model = F::Model>, // A `BackRef`-field pointing to `FMF`
 {
     fn push_imr(_imr: &mut Vec<rorm_declaration::imr::Field>) {}
 
@@ -67,32 +55,24 @@ where
     fn push_value<'a>(_value: &'a Self::Type, _values: &mut Vec<Value<'a>>) {}
 }
 
-impl<BR, BRM, FM, FMM> FieldProxy<BR, BRM>
+impl<BRF, FMF> FieldProxy<BRF, BRF::Model>
 where
-    BRM: Model,
-    FMM: Model,
+    BRF: AbstractField<Type = BackRef<FMF>>,
 
-    BR: AbstractField<Model = BRM, Type = BackRef<FMM>, RelatedField = FM>,
-
-    FM: RawField<Model = FMM, Kind = kind::ForeignModel>,
-    FM::Type: ForeignModelTrait<FM>,
-
-    // needs to be a field to be able to be used as column in condition
-    FM: Field,
-
-    // obvious access to the models' fields
-    FMM: GetField<FM>,
+    FMF: Field<kind::ForeignModel> + Field,
+    FMF::Type: ForeignModelTrait,
+    FMF::Model: GetField<FMF>, // always true
 {
     fn model_as_condition<BRP>(patch: &BRP) -> impl Condition
     where
-        BRP: Patch<Model = BRM>,
-        BRP: GetField<foreign_model::RelatedField<FM>>,
+        BRP: Patch<Model = BRF::Model>,
+        BRP: GetField<foreign_model::RF<FMF>>,
     {
         Binary {
             operator: BinaryOperator::Equals,
-            fst_arg: Column::<FM, FMM>::new(),
-            snd_arg: foreign_model::RelatedField::<FM>::as_condition_value(
-                patch.field::<foreign_model::RelatedField<FM>>(),
+            fst_arg: Column::<FMF, FMF::Model>::new(),
+            snd_arg: foreign_model::RF::<FMF>::as_condition_value(
+                patch.field::<foreign_model::RF<FMF>>(),
             ),
         }
     }
@@ -103,17 +83,17 @@ where
     /// If it has, then it will be updated i.e. the cache overwritten.
     pub async fn populate<BRP>(&self, db: &Database, patch: &mut BRP) -> Result<(), Error>
     where
-        BRP: Patch<Model = BRM>,
-        BRP: GetField<BR>,
-        BRP: GetField<foreign_model::RelatedField<FM>>,
+        BRP: Patch<Model = BRF::Model>,
+        BRP: GetField<BRF>,
+        BRP: GetField<foreign_model::RF<FMF>>,
     {
         let cached = Some(
-            query!(db, FMM)
+            query!(db, FMF::Model)
                 .condition(Self::model_as_condition(patch))
                 .all()
                 .await?,
         );
-        patch.field_mut::<BR>().cached = cached;
+        patch.field_mut::<BRF>().cached = cached;
         Ok(())
     }
 
@@ -126,20 +106,21 @@ where
     /// To avoid allocations only the first instance actually gets populated.
     pub async fn populate_bulk<BRP>(&self, db: &Database, patches: &mut [BRP]) -> Result<(), Error>
     where
-        <foreign_model::RelatedField<FM> as RawField>::Type: std::hash::Hash + Eq + Clone,
-        BRP: Patch<Model = BRM>,
-        BRP: GetField<BR>,
-        BRP: GetField<foreign_model::RelatedField<FM>>,
+        <foreign_model::RF<FMF> as RawField>::Type: std::hash::Hash + Eq + Clone,
+        BRP: Patch<Model = BRF::Model>,
+        BRP: GetField<BRF>,
+        BRP: GetField<foreign_model::RF<FMF>>,
     {
         if patches.is_empty() {
             return Ok(());
         }
+
         let mut cache: HashMap<
-            <foreign_model::RelatedField<FM> as RawField>::Type,
-            Option<Vec<FMM>>,
+            <foreign_model::RF<FMF> as RawField>::Type,
+            Option<Vec<FMF::Model>>,
         > = HashMap::new();
         {
-            let mut stream = query!(db, FMM)
+            let mut stream = query!(db, FMF::Model)
                 .condition(DynamicCollection {
                     operator: Or,
                     vector: patches.iter().map(Self::model_as_condition).collect(),
@@ -159,8 +140,8 @@ where
         }
 
         for model in patches {
-            let cached = cache.get_mut(model.field::<foreign_model::RelatedField<FM>>());
-            model.field_mut::<BR>().cached = cached.map(Option::take).unwrap_or(Some(Vec::new()));
+            let cached = cache.get_mut(model.field::<foreign_model::RF<FMF>>());
+            model.field_mut::<BRF>().cached = cached.map(Option::take).unwrap_or(Some(Vec::new()));
         }
 
         Ok(())

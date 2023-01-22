@@ -1,6 +1,6 @@
 use chrono::{NaiveDate, NaiveDateTime};
-use rorm::fields::{BackRef, ForeignModel};
-use rorm::{DbEnum, Model};
+use rorm::fields::{BackRef, ForeignModel, ForeignModelByField};
+use rorm::{field, DbEnum, Model};
 
 #[derive(Model)]
 #[rorm(rename = "account")]
@@ -43,8 +43,7 @@ pub struct Comment {
     pub created: NaiveDateTime,
 
     #[rorm(on_delete = "Cascade")]
-    #[rorm(field = "User::F.username")]
-    pub user: ForeignModel<User, String>,
+    pub user: ForeignModelByField<field!(User::F.username)>,
 
     #[rorm(on_delete = "Cascade")]
     pub thread: ForeignModel<Thread>,
@@ -63,6 +62,5 @@ pub struct Thread {
     #[rorm(ignore)]
     pub fred: Option<std::thread::Thread>,
 
-    #[rorm(field = "Comment::F.thread")]
-    pub comments: BackRef<Comment>,
+    pub comments: BackRef<field!(Comment::F.thread)>,
 }
