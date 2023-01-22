@@ -27,7 +27,7 @@
 //!
 //! ```no_run
 //! use serde::{Deserialize, Serialize};
-//! use rorm::Model;
+//! use rorm::{Model, field};
 //! use rorm::fields::*;
 //!
 //! #[derive(Model)]
@@ -50,10 +50,8 @@
 //!
 //!     // relations
 //!     other_model: ForeignModel<OtherModel>,
-//!     #[rorm(field = "OtherModel::F.name")]
-//!     also_other_model: ForeignModel<OtherModel, String>,
-//!     #[rorm(field = "OtherModel::F.some_model")]
-//!     other_model_set: BackRef<OtherModel>,
+//!     also_other_model: ForeignModelByField<field!(OtherModel::F.name)>,
+//!     other_model_set: BackRef<field!(OtherModel::F.some_model)>,
 //!
 //!     // serde
 //!     data: Json<Data>,
