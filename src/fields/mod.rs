@@ -9,7 +9,7 @@
 //! - [`f64`]
 //! - [`String`]
 //! - [`Vec<u8>`]
-//! - [`Option<T>`] WIP (currently works only where [`T: AsDbType`](crate::internal::field::as_db_type))
+//! - [`Option<T>`] where `T` is on this list
 //!
 //! # [chrono] types
 //! - [`NaiveDateTime`](chrono::NaiveDateTime)
@@ -19,7 +19,7 @@
 //!
 //! # Our types
 //! - [`ForeignModel<M>`]
-//! - [`BackRef<M>`]
+//! - [`BackRef<M>`] (doesn't work inside an [`Option<T>`])
 //! - [`Json<T>`]
 //! - [`MsgPack<T>`] (requires the "rmp-serde" crate)
 //!

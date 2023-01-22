@@ -131,6 +131,9 @@ where
         BRP: GetField<BR>,
         BRP: GetField<foreign_model::RelatedField<FM>>,
     {
+        if patches.is_empty() {
+            return Ok(());
+        }
         let mut cache: HashMap<
             <foreign_model::RelatedField<FM> as RawField>::Type,
             Option<Vec<FMM>>,
