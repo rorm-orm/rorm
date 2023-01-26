@@ -255,8 +255,8 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     /// to be used in [`Patch::values`](crate::model::Patch::values).
     fn push_value<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>);
 
-    /// The column name which stores this field
-    const DB_NAME: Option<&'static str> = None;
+    /// The columns' names which store this field
+    const COLUMNS: &'static [&'static str] = &[];
 
     /// The list of annotations, if this field is relevant to the database.
     const DB_ANNOTATIONS: Option<Annotations> = None;
@@ -281,7 +281,7 @@ macro_rules! impl_abstract_from_field {
                 values.push(<Self as Field<$kind>>::as_condition_value(value))
             }
 
-            const DB_NAME: Option<&'static str> = Some(F::NAME);
+            const COLUMNS: &'static [&'static str] = &[F::NAME];
 
             const DB_ANNOTATIONS: Option<Annotations> = {
                 // "Use" the CHECK constant to force the compiler to evaluate it.
@@ -349,9 +349,9 @@ impl<F: RawField, P> FieldProxy<F, P> {
     }
 }
 impl<F: AbstractField, P> FieldProxy<F, P> {
-    /// Get the field's database i.e. column name
-    pub const fn name(&self) -> Option<&'static str> {
-        F::DB_NAME
+    /// Get the names of the columns which store the field
+    pub const fn columns(&self) -> &'static [&'static str] {
+        F::COLUMNS
     }
 
     /// Get an instance of the field's type from a row

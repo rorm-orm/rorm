@@ -6,9 +6,9 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
         impl ::rorm::model::Patch for #strct {
             type Model = #model;
 
-            const COLUMNS: &'static [Option<&'static str>] = &[#(
-                <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.name(),
-            )*];
+            const COLUMNS: &'static [&'static str] = ::rorm::concat_columns!(&[#(
+                <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.columns(),
+            )*]);
 
             const INDEXES: &'static [usize] = &[#(
                 <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.index(),
@@ -57,11 +57,11 @@ pub fn try_from_row(
                 Ok(#strct {
                     #(
                         #fields: {
-                            if <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.name().is_some() {
+                            if <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.columns().is_empty() {
+                                <#model as ::rorm::model::Model>::FIELDS.#fields.get_from_row(&row, Option::<usize>::None)?
+                            } else {
                                 i += 1;
                                 <#model as ::rorm::model::Model>::FIELDS.#fields.get_from_row(&row, Some(i as usize))?
-                            } else {
-                                <#model as ::rorm::model::Model>::FIELDS.#fields.get_from_row(&row, Option::<usize>::None)?
                             }
                         },
                     )*

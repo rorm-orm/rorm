@@ -15,7 +15,7 @@ pub trait Patch: FromRow + 'static {
     type Model: Model;
 
     /// List of columns i.e. fields this patch contains
-    const COLUMNS: &'static [Option<&'static str>];
+    const COLUMNS: &'static [&'static str];
 
     /// List of fields' indexes this patch contains
     ///

@@ -101,7 +101,7 @@ where
     pub async fn single<P: Patch<Model = M>>(self, patch: &P) -> Result<R::Result, Error> {
         let values = patch.values();
         let values: Vec<_> = values.iter().map(Value::as_sql).collect();
-        let inserting: Vec<_> = P::COLUMNS.iter().flatten().cloned().collect();
+        let inserting = P::COLUMNS;
         let returning = self.returning.columns();
 
         if returning.is_empty() {
@@ -125,7 +125,7 @@ where
         self,
         patches: impl IntoIterator<Item = &P>,
     ) -> Result<R::BulkResult, Error> {
-        let num_cols = P::COLUMNS.iter().filter(|o| o.is_some()).count();
+        let num_cols = P::COLUMNS.len();
 
         let mut values = Vec::new();
         for patch in patches {
@@ -134,7 +134,7 @@ where
 
         let values: Vec<_> = values.iter().map(Value::as_sql).collect();
         let values_slices: Vec<_> = values.chunks(num_cols).collect();
-        let inserting = Vec::from_iter(P::COLUMNS.iter().flatten().cloned());
+        let inserting = P::COLUMNS;
         let returning = self.returning.columns();
 
         if returning.is_empty() {
@@ -347,15 +347,11 @@ pub mod returning {
     /// The [`Returning`] for patches.
     pub struct Patch<P: ModelPatch> {
         patch: PhantomData<P>,
-        columns: Vec<&'static str>,
     }
 
     impl<P: ModelPatch> Patch<P> {
         pub(crate) fn new() -> Self {
-            Self {
-                patch: PhantomData,
-                columns: P::COLUMNS.iter().flatten().copied().collect(),
-            }
+            Self { patch: PhantomData }
         }
     }
 
@@ -369,7 +365,7 @@ pub mod returning {
         }
 
         fn columns(&self) -> &[&'static str] {
-            &self.columns
+            P::COLUMNS
         }
     }
 
