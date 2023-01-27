@@ -75,6 +75,7 @@
 //! ```
 
 mod back_ref;
+mod datetime;
 mod foreign_model;
 mod json;
 #[cfg(feature = "rmp-serde")]

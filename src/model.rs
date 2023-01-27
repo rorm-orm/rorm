@@ -26,7 +26,7 @@ pub trait Patch: FromRow + 'static {
     ///
     /// These can be used to insert the patch.
     fn values(&self) -> Vec<Value> {
-        let mut values = Vec::new();
+        let mut values = Vec::with_capacity(Self::COLUMNS.len());
         self.push_values(&mut values);
         values
     }

@@ -100,10 +100,13 @@ pub mod kind {
     pub struct BackRef;
     /// Marker for some field which is an [`AsDbType`](crate::internal::field::as_db_type::AsDbType)
     pub struct AsDbType;
+    /// Marker for some field which is an [`DateTime<FixedOffset>`](chrono::DateTime)
+    pub struct DateTime;
 
     impl FieldKind for ForeignModel {}
     impl FieldKind for BackRef {}
     impl FieldKind for AsDbType {}
+    impl FieldKind for DateTime {}
 }
 
 /// The type of field allowed on models

@@ -125,15 +125,13 @@ where
         self,
         patches: impl IntoIterator<Item = &P>,
     ) -> Result<R::BulkResult, Error> {
-        let num_cols = P::COLUMNS.len();
-
         let mut values = Vec::new();
         for patch in patches {
-            values.extend(patch.values());
+            patch.push_values(&mut values);
         }
 
         let values: Vec<_> = values.iter().map(Value::as_sql).collect();
-        let values_slices: Vec<_> = values.chunks(num_cols).collect();
+        let values_slices: Vec<_> = values.chunks(P::COLUMNS.len()).collect();
         let inserting = P::COLUMNS;
         let returning = self.returning.columns();
 
