@@ -79,7 +79,7 @@ use crate::internal::hmr::db_type::{DbType, OptionDbType};
 use crate::internal::hmr::{AsImr, Source};
 use crate::internal::relation_path::{Path, PathImpl, PathStep, ResolvedRelatedField};
 use crate::model::{ConstNew, Model};
-use crate::{const_panic, sealed};
+use crate::{const_concat, const_panic, sealed};
 
 pub mod as_db_type;
 pub mod foreign_model;
@@ -292,10 +292,29 @@ macro_rules! impl_abstract_from_field {
                 Some(F::ANNOTATIONS)
             };
         }
+
+        impl<P: Path, F: Field<$kind>> AliasedField<P, $kind> for F {
+            const COLUMNS: &'static [&'static str] = &[const_concat!(&[P::ALIAS, "__", F::NAME])];
+
+            fn get_by_alias(row: &Row) -> Result<Self::Type, Error> {
+                Ok(<Self as Field<$kind>>::from_primitive(
+                    row.get(<Self as AliasedField<P, $kind>>::COLUMNS[0])?,
+                ))
+            }
+        }
     };
 }
 impl_abstract_from_field!(kind::AsDbType);
 impl_abstract_from_field!(kind::ForeignModel);
+
+/// Helper trait to work with fields which are accessed through an alias.
+pub trait AliasedField<P: Path, K: FieldKind = <Self as RawField>::Kind>: RawField {
+    /// The field's columns prefixed with `P`'s alias
+    const COLUMNS: &'static [&'static str];
+
+    /// Retrieve the field's value using its alias as index
+    fn get_by_alias(row: &Row) -> Result<Self::Type, Error>;
+}
 
 /// This struct acts as a proxy exposing type level information from the [`RawField`] trait on the value level.
 ///

@@ -8,9 +8,10 @@ use rorm_declaration::imr;
 use crate::conditions::Value;
 use crate::const_concat;
 use crate::internal::field::as_db_type::AsDbType;
-use crate::internal::field::{kind, AbstractField, FieldType, RawField};
+use crate::internal::field::{kind, AbstractField, AliasedField, FieldType, RawField};
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::{db_type, Source};
+use crate::internal::relation_path::Path;
 
 impl FieldType for FixedOffset {
     type Kind = kind::AsDbType;
@@ -56,6 +57,22 @@ where
 
     const COLUMNS: &'static [&'static str] =
         &[__DateTime_offset::<F>::NAME, __DateTime_utc::<F>::NAME];
+}
+impl<F, P> AliasedField<P, kind::DateTime> for F
+where
+    P: Path,
+    F: RawField<Kind = kind::DateTime, Type = DateTime<FixedOffset>>,
+{
+    const COLUMNS: &'static [&'static str] = &[
+        <__DateTime_offset<F> as AliasedField<P>>::COLUMNS[0],
+        <__DateTime_utc<F> as AliasedField<P>>::COLUMNS[0],
+    ];
+
+    fn get_by_alias(row: &Row) -> Result<Self::Type, Error> {
+        let offset = <__DateTime_offset<F> as AliasedField<P>>::get_by_alias(row)?;
+        let utc = <__DateTime_utc<F> as AliasedField<P>>::get_by_alias(row)?;
+        Ok(offset.from_utc_datetime(&utc))
+    }
 }
 
 #[allow(non_camel_case_types)]

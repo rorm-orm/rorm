@@ -56,7 +56,7 @@ impl QueryContextBuilder {
     }
 
     /// Add a [FieldProxy] ensuring its relation path is joined and its column is on the correct table
-    pub fn add_field_proxy<F: Field, P: Path>(&mut self) {
+    pub fn add_field_proxy<F: RawField, P: Path>(&mut self) {
         P::add_to_join_builder(self);
     }
 

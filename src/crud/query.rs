@@ -401,7 +401,7 @@ macro_rules! query {
     ($db:expr, ($($field:expr),+$(,)?)) => {
         $crate::crud::query::QueryBuilder::new(
             $db,
-            $crate::crud::query::SelectTuple::<_, { 0 $( + $crate::query!(replace {$field} with 1))+ }>::new(($($field,)+)),
+            $crate::crud::query::SelectTuple::from(($($field,)+)),
         )
     };
 }
@@ -666,25 +666,26 @@ impl<M: Model, P: Patch<Model = M>> Selector<M> for SelectPatch<P> {
 /// The [`Selector`] for tuple
 ///
 /// Implemented for tuple of size 8 or less.
-pub struct SelectTuple<T, const C: usize> {
+pub struct SelectTuple<T> {
     #[allow(dead_code)]
     tuple: T,
-    columns: [ColumnSelector<'static>; C],
+    columns: Vec<ColumnSelector<'static>>,
 }
 macro_rules! impl_select_tuple {
     ($C:literal, ($($S:ident,)+)) => {
-        impl<$($S: Selectable),+> SelectTuple<($($S,)+), $C> {
-            /// Create a SelectTuple
-            pub const fn new(tuple: ($($S,)+)) -> Self {
+        impl<$($S: Selectable),+> From<($($S,)+)> for SelectTuple<($($S,)+)> {
+            fn from(tuple: ($($S,)+)) -> SelectTuple<($($S,)+)>{
+                let mut selectors = Vec::new();
+                $(
+                    $S::push_selector(&mut selectors);
+                )+
                 Self {
                     tuple,
-                    columns: [$(
-                        $S::SQL,
-                    )+],
+                    columns: selectors,
                 }
             }
         }
-        impl<M: Model, $($S: Selectable<Table = M>),+> Selector<M> for SelectTuple<($($S,)+), $C>
+        impl<M: Model, $($S: Selectable<Table = M>),+> Selector<M> for SelectTuple<($($S,)+)>
         {
             type Result = ($(
                 $S::Result,
