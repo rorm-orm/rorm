@@ -1,7 +1,6 @@
 //! is the other direction to a [foreign model](foreign_model::ForeignModel)
 
 use futures::stream::TryStreamExt;
-use rorm_db::row::RowIndex;
 use rorm_db::{Database, Error, Row};
 use std::collections::HashMap;
 
@@ -48,7 +47,11 @@ where
 {
     fn push_imr(_imr: &mut Vec<rorm_declaration::imr::Field>) {}
 
-    fn get_from_row(_row: &Row, _index: impl RowIndex) -> Result<Self::Type, Error> {
+    fn get_by_name(_row: &Row) -> Result<Self::Type, Error> {
+        Ok(BackRef { cached: None })
+    }
+
+    fn get_by_index(_row: &Row, _index: usize) -> Result<Self::Type, Error> {
         Ok(BackRef { cached: None })
     }
 

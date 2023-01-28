@@ -69,7 +69,7 @@
 use std::marker::PhantomData;
 use std::mem::ManuallyDrop;
 
-use rorm_db::row::{DecodeOwned, RowIndex};
+use rorm_db::row::DecodeOwned;
 use rorm_db::{Error, Row};
 use rorm_declaration::imr;
 
@@ -249,8 +249,11 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     /// - there are plans to add fields which might map to more than one database column.
     fn push_imr(imr: &mut Vec<imr::Field>);
 
-    /// Get an instance of the field's type from a row
-    fn get_from_row(row: &Row, index: impl RowIndex) -> Result<Self::Type, Error>;
+    /// Get an instance of the field's type from a row using the field's name
+    fn get_by_name(row: &Row) -> Result<Self::Type, Error>;
+
+    /// Get an instance of the field's type from a row using the field's index inside a patch
+    fn get_by_index(row: &Row, index: usize) -> Result<Self::Type, Error>;
 
     /// Push the field's value onto a [`Vec`]
     ///
@@ -276,7 +279,11 @@ macro_rules! impl_abstract_from_field {
                 });
             }
 
-            fn get_from_row(row: &Row, index: impl RowIndex) -> Result<Self::Type, Error> {
+            fn get_by_name(row: &Row) -> Result<Self::Type, Error> {
+                Ok(<Self as Field<$kind>>::from_primitive(row.get(F::NAME)?))
+            }
+
+            fn get_by_index(row: &Row, index: usize) -> Result<Self::Type, Error> {
                 Ok(<Self as Field<$kind>>::from_primitive(row.get(index)?))
             }
 
@@ -376,13 +383,14 @@ impl<F: AbstractField, P> FieldProxy<F, P> {
         F::COLUMNS
     }
 
-    /// Get an instance of the field's type from a row
-    pub fn get_from_row(&self, row: &Row, index: Option<impl RowIndex>) -> Result<F::Type, Error> {
-        if let Some(index) = index {
-            F::get_from_row(row, index)
-        } else {
-            F::get_from_row(row, F::NAME)
-        }
+    /// Get an instance of the field's type from a row using the field's name
+    pub fn get_by_name(&self, row: &Row) -> Result<F::Type, Error> {
+        F::get_by_name(row)
+    }
+
+    /// Get an instance of the field's type from a row using the field's index inside a patch
+    pub fn get_by_index(&self, row: &Row, index: usize) -> Result<F::Type, Error> {
+        F::get_by_index(row, index)
     }
 
     /// Push the field's value onto a [`Vec`]

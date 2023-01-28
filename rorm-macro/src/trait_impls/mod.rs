@@ -45,7 +45,7 @@ pub fn try_from_row(
             fn from_row(row: ::rorm::row::Row) -> Result<Self, ::rorm::Error> {
                 Ok(#strct {
                     #(
-                        #fields: <#model as ::rorm::model::Model>::FIELDS.#fields.get_from_row(&row, Option::<usize>::None)?,
+                        #fields: <#model as ::rorm::model::Model>::FIELDS.#fields.get_by_name(&row)?,
                     )*
                     #(
                         #ignored: Default::default(),
@@ -58,10 +58,10 @@ pub fn try_from_row(
                     #(
                         #fields: {
                             if <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.columns().is_empty() {
-                                <#model as ::rorm::model::Model>::FIELDS.#fields.get_from_row(&row, Option::<usize>::None)?
+                                <#model as ::rorm::model::Model>::FIELDS.#fields.get_by_name(&row)?
                             } else {
                                 i += 1;
-                                <#model as ::rorm::model::Model>::FIELDS.#fields.get_from_row(&row, Some(i as usize))?
+                                <#model as ::rorm::model::Model>::FIELDS.#fields.get_by_index(&row, i as usize)?
                             }
                         },
                     )*

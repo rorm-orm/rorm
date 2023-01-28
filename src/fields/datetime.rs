@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone};
-use rorm_db::row::RowIndex;
 use rorm_db::{Error, Row};
 use rorm_declaration::imr;
 
@@ -41,13 +40,14 @@ where
         __DateTime_utc::<F>::push_imr(imr);
     }
 
-    fn get_from_row(_row: &Row, _index: impl RowIndex) -> Result<Self::Type, Error> {
-        Err(Error::DecodeError("Not Implemented".to_string()))
-    }
     fn get_by_name(row: &Row) -> Result<Self::Type, Error> {
-        let offset = __DateTime_offset::<F>::get_by_name(row)?;
-        let utc = __DateTime_utc::<F>::get_by_name(row)?;
+        let offset = <__DateTime_offset<F> as AbstractField>::get_by_name(row)?;
+        let utc = <__DateTime_utc<F> as AbstractField>::get_by_name(row)?;
         Ok(offset.from_utc_datetime(&utc))
+    }
+
+    fn get_by_index(_row: &Row, _index: usize) -> Result<Self::Type, Error> {
+        Err(Error::DecodeError("Not Implemented".to_string()))
     }
 
     fn push_value<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
