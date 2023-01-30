@@ -7,16 +7,16 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
             type Model = #model;
 
             const COLUMNS: &'static [&'static str] = ::rorm::concat_columns!(&[#(
-                <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.columns(),
+                ::rorm::internal::field::FieldProxy::columns(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields),
             )*]);
 
             const INDEXES: &'static [usize] = &[#(
-                <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.index(),
+                ::rorm::internal::field::FieldProxy::index(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields),
             )*];
 
             fn push_values<'a>(&'a self, values: &mut Vec<::rorm::conditions::Value<'a>>) {
                 #(
-                    <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.push_value(&self.#fields, values);
+                    ::rorm::internal::field::FieldProxy::push_value(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields, &self.#fields, values);
                 )*
             }
         }
@@ -45,7 +45,7 @@ pub fn try_from_row(
             fn from_row(row: ::rorm::row::Row) -> Result<Self, ::rorm::Error> {
                 Ok(#strct {
                     #(
-                        #fields: <#model as ::rorm::model::Model>::FIELDS.#fields.get_by_name(&row)?,
+                        #fields: ::rorm::internal::field::FieldProxy::get_by_name(<#model as ::rorm::model::Model>::FIELDS.#fields, &row)?,
                     )*
                     #(
                         #ignored: Default::default(),
@@ -57,11 +57,11 @@ pub fn try_from_row(
                 Ok(#strct {
                     #(
                         #fields: {
-                            if <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.columns().is_empty() {
-                                <#model as ::rorm::model::Model>::FIELDS.#fields.get_by_name(&row)?
+                            if ::rorm::internal::field::FieldProxy::columns(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields).is_empty() {
+                                ::rorm::internal::field::FieldProxy::get_by_name(<#model as ::rorm::model::Model>::FIELDS.#fields, &row)?
                             } else {
                                 i += 1;
-                                <#model as ::rorm::model::Model>::FIELDS.#fields.get_by_index(&row, i as usize)?
+                                ::rorm::internal::field::FieldProxy::get_by_index(<#model as ::rorm::model::Model>::FIELDS.#fields, &row, i as usize)?
                             }
                         },
                     )*

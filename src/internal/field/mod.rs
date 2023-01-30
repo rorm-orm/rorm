@@ -373,28 +373,28 @@ impl<F: RawField, P> FieldProxy<F, P> {
     }
 
     /// Get the field's position in the Model
-    pub const fn index(&self) -> usize {
+    pub const fn index(_field: Self) -> usize {
         F::INDEX
     }
 }
 impl<F: AbstractField, P> FieldProxy<F, P> {
     /// Get the names of the columns which store the field
-    pub const fn columns(&self) -> &'static [&'static str] {
+    pub const fn columns(_field: Self) -> &'static [&'static str] {
         F::COLUMNS
     }
 
     /// Get an instance of the field's type from a row using the field's name
-    pub fn get_by_name(&self, row: &Row) -> Result<F::Type, Error> {
+    pub fn get_by_name(_field: Self, row: &Row) -> Result<F::Type, Error> {
         F::get_by_name(row)
     }
 
     /// Get an instance of the field's type from a row using the field's index inside a patch
-    pub fn get_by_index(&self, row: &Row, index: usize) -> Result<F::Type, Error> {
+    pub fn get_by_index(_field: Self, row: &Row, index: usize) -> Result<F::Type, Error> {
         F::get_by_index(row, index)
     }
 
     /// Push the field's value onto a [`Vec`]
-    pub fn push_value<'a>(&self, value: &'a F::Type, values: &mut Vec<Value<'a>>) {
+    pub fn push_value<'a>(_field: Self, value: &'a F::Type, values: &mut Vec<Value<'a>>) {
         F::push_value(value, values)
     }
 }

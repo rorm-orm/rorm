@@ -103,11 +103,11 @@ macro_rules! sealed {
 #[macro_export]
 macro_rules! get_field {
     ($patch:ty, $field:ident) => {
-        <<$patch as ::rorm::model::Patch>::Model as ::rorm::model::FieldByIndex<
+        <<$patch as $crate::model::Patch>::Model as $crate::model::FieldByIndex<
             {
-                <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS
-                    .$field
-                    .index()
+                $crate::internal::field::FieldProxy::index(
+                    <<Self as $crate::model::Patch>::Model as $crate::model::Model>::FIELDS.$field,
+                )
             },
         >>::Field
     };
@@ -119,7 +119,9 @@ macro_rules! get_field {
 #[macro_export]
 macro_rules! field {
     ($model:ident::F.$field:ident) => {
-        <$model as $crate::model::FieldByIndex<{ $model::F.$field.index() }>>::Field
+        <$model as $crate::model::FieldByIndex<
+            { $crate::internal::field::FieldProxy::index($model::F.$field) },
+        >>::Field
     };
 }
 
