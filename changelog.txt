@@ -23,6 +23,8 @@ Since 0.4.2
 
 - Made `ForeignModel`'s and `BackRef`'s generic parameter to take the related field
 
+- Replaced `.fields()` method on FieldProxys with an equivalent `Deref` impl
+
 - Refactored annotations
 - Error when `max_length` is missing
 - Major refactor of internals

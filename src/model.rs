@@ -162,7 +162,14 @@ impl<M: Model, P: Patch<Model = M> + GetField<M::Primary>> Identifiable for P {
 /// exposes a `NEW` constant, which act like [Default::default] but constant.
 ///
 /// It's workaround for not having const methods in traits
-pub trait ConstNew {
+pub trait ConstNew: 'static {
     /// A new or default instance
     const NEW: Self;
+
+    /// A static reference to an default instance
+    ///
+    /// Sadly writing `const REF: &'static Self = &Self::NEW;` doesn't work for all `Self`.
+    /// Rust doesn't allow references to types with interior mutability to be stored in constants.
+    /// Since this can't be enforced by generic, `ConstNew` impls have to write this line themselves.
+    const REF: &'static Self;
 }

@@ -398,22 +398,50 @@ impl<F: AbstractField, P> FieldProxy<F, P> {
         F::push_value(value, values)
     }
 }
+impl<Field, Path> Clone for FieldProxy<Field, Path> {
+    fn clone(&self) -> Self {
+        Self(PhantomData)
+    }
+}
+impl<Field, Path> Copy for FieldProxy<Field, Path> {}
 
-impl<F: RawField, P: Path> FieldProxy<F, P>
+/// A field whose proxy should implement [`Deref`] to some collection of fields.
+///
+/// Depending on the field, this collection might differ in meaning
+/// - For [`BackRef`] and [`ForeignModel`], its their related model's fields
+/// - For multi-column fields, its their "contained" fields
+pub trait ContainerField<P: Path, K: FieldKind = <Self as RawField>::Kind>: RawField {
+    /// Struct of contained fields
+    type Target: ConstNew;
+}
+
+impl<F: RawField, P: Path> std::ops::Deref for FieldProxy<F, P>
 where
+    F: ContainerField<P>,
+{
+    type Target = F::Target;
+
+    fn deref(&self) -> &'static Self::Target {
+        ConstNew::REF
+    }
+}
+
+impl<F, P> ContainerField<P, kind::ForeignModel> for F
+where
+    P: Path,
+    F: RawField<Kind = kind::ForeignModel>,
     PathStep<F, P>: PathImpl<F::Type>,
 {
-    /// Get the related model's fields keeping track where you came from
-    pub const fn fields(
-        &self,
-    ) -> <<ResolvedRelatedField<F, P> as RawField>::Model as Model>::Fields<PathStep<F, P>> {
-        ConstNew::NEW
-    }
+    type Target =
+        <<ResolvedRelatedField<F, P> as RawField>::Model as Model>::Fields<PathStep<F, P>>;
+}
 
-    /// Get the related model's fields keeping track where you came from
-    pub const fn f(
-        &self,
-    ) -> <<ResolvedRelatedField<F, P> as RawField>::Model as Model>::Fields<PathStep<F, P>> {
-        ConstNew::NEW
-    }
+impl<F, P> ContainerField<P, kind::BackRef> for F
+where
+    P: Path,
+    F: RawField<Kind = kind::BackRef>,
+    PathStep<F, P>: PathImpl<F::Type>,
+{
+    type Target =
+        <<ResolvedRelatedField<F, P> as RawField>::Model as Model>::Fields<PathStep<F, P>>;
 }

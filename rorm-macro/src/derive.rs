@@ -191,12 +191,13 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
                 #fields_vis #fields_ident: ::rorm::internal::field::FieldProxy<#fields_type, Path>,
             )*
         }
-        impl<Path> ::rorm::model::ConstNew for #fields_struct<Path> {
+        impl<Path: 'static> ::rorm::model::ConstNew for #fields_struct<Path> {
             const NEW: Self = Self {
                 #(
                     #fields_ident: ::rorm::internal::field::FieldProxy::new(),
                 )*
             };
+            const REF: &'static Self = &Self::NEW;
         }
 
         impl ::rorm::model::Model for #model {

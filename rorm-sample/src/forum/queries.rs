@@ -22,8 +22,8 @@ pub async fn get_posts(
         (
             Comment::F.message,
             Comment::F.created,
-            Comment::F.user.fields().username,
-            Comment::F.user.fields().admin
+            Comment::F.user.username,
+            Comment::F.user.admin
         )
     )
     .condition(Comment::F.thread.equals(thread))
@@ -39,8 +39,8 @@ pub async fn get_posts(
 pub async fn get_support_messages(db: &Database) -> Vec<Comment> {
     query!(db, Comment)
         .condition(and!(
-            Comment::F.thread.fields().name.equals("Support"),
-            Comment::F.user.fields().admin.equals(true)
+            Comment::F.thread.name.equals("Support"),
+            Comment::F.user.admin.equals(true)
         ))
         .all()
         .await
@@ -62,7 +62,7 @@ pub async fn get_thread_back_refs(db: &Database, id: i32) -> Thread {
 #[allow(clippy::let_and_return)] // Currently the code is nicer sectioned this way and it will change in the future
 pub async fn get_threads_with_admins(db: &Database) -> Vec<Thread> {
     let threads = query!(db, Thread)
-        .condition(Thread::F.comments.fields().user.fields().admin.equals(true))
+        .condition(Thread::F.comments.user.admin.equals(true))
         .all()
         .await
         .unwrap();

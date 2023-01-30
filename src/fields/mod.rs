@@ -16,6 +16,7 @@
 //! - [`NaiveTime`](chrono::NaiveTime)
 //! - [`NaiveDate`](chrono::NaiveDate)
 //! - [`DateTime<Utc>`](chrono::DateTime)
+//! - [`DateTime<FixedOffset>`](chrono::DateTime) WIP
 //!
 //! # Our types
 //! - [`ForeignModel<M>`]
