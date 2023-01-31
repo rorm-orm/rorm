@@ -6,7 +6,7 @@ use std::borrow::Cow;
 use std::marker::PhantomData;
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-use rorm_db::{conditional, value};
+use rorm_db::sql::{conditional, value};
 
 use crate::internal::field::{Field, FieldProxy};
 use crate::internal::hmr::db_type::{

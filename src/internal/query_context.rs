@@ -4,11 +4,11 @@ use std::collections::HashMap;
 
 use ouroboros::self_referencing;
 
-use crate::conditional::{BinaryCondition, Condition};
 use crate::internal::field::{Field, FieldProxy, RawField};
 use crate::internal::relation_path::{JoinAlias, Path, PathImpl, PathStep};
-use crate::value::Value;
 use crate::Model;
+use rorm_db::sql::conditional::{BinaryCondition, Condition};
+use rorm_db::sql::value::Value;
 
 /// A [Path]'s hashable representation
 type PathId = std::any::TypeId;
@@ -144,7 +144,7 @@ impl Join {
             } => (table_name, join_alias, join_condition),
         };
         rorm_db::database::JoinTable {
-            join_type: rorm_db::join_table::JoinType::Join,
+            join_type: rorm_db::sql::join_table::JoinType::Join,
             table_name,
             join_alias,
             join_condition,

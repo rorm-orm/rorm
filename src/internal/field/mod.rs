@@ -95,7 +95,7 @@ pub trait FieldKind {
 pub mod kind {
     use super::FieldKind;
 
-    /// Marker for some field which is a [`ForeignModel`](crate::fields::foreign_model::ForeignModelByField)
+    /// Marker for some field which is a [`ForeignModel`](crate::fields::ForeignModelByField)
     pub struct ForeignModel;
     /// Marker for some field which is a [`BackRef`](crate::fields::BackRef)
     pub struct BackRef;
@@ -425,10 +425,11 @@ impl<Field, Path> Clone for FieldProxy<Field, Path> {
 }
 impl<Field, Path> Copy for FieldProxy<Field, Path> {}
 
-/// A field whose proxy should implement [`Deref`] to some collection of fields.
+/// A field whose proxy should implement [`Deref`](std::ops::Deref) to some collection of fields.
 ///
 /// Depending on the field, this collection might differ in meaning
-/// - For [`BackRef`] and [`ForeignModel`], its their related model's fields
+/// - For [`BackRef`](crate::fields::BackRef) and [`ForeignModel`](crate::fields::ForeignModelByField),
+///   its their related model's fields
 /// - For multi-column fields, its their "contained" fields
 pub trait ContainerField<P: Path, K: FieldKind = <Self as RawField>::Kind>: RawField {
     /// Struct of contained fields

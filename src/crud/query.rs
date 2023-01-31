@@ -7,9 +7,9 @@ use rorm_db::database;
 use rorm_db::database::ColumnSelector;
 use rorm_db::error::Error;
 use rorm_db::executor::{All, Executor, One, Optional, Stream};
-use rorm_db::limit_clause::LimitClause;
-use rorm_db::ordering::{OrderByEntry, Ordering};
 use rorm_db::row::Row;
+use rorm_db::sql::limit_clause::LimitClause;
+use rorm_db::sql::ordering::{OrderByEntry, Ordering};
 
 use crate::conditions::Condition;
 use crate::crud::builder::ConditionMarker;
@@ -414,9 +414,9 @@ mod query_stream {
     use std::task::{Context, Poll};
 
     use ouroboros::macro_help::{aliasable_boxed, change_lifetime, AliasableBox};
-    use rorm_db::conditional::Condition as SqlCondition;
     use rorm_db::database::JoinTable;
     use rorm_db::executor::{QueryStrategyResult, Stream};
+    use rorm_db::sql::conditional::Condition as SqlCondition;
     use rorm_db::Error;
 
     use crate::conditions::Condition;

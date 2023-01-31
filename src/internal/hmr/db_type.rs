@@ -4,7 +4,7 @@ use super::AsImr;
 use crate::internal::hmr::annotations::AnnotationIndex;
 use crate::{declare_type_option, imr, sealed};
 
-use rorm_db::value::NullType;
+use rorm_db::sql::value::NullType;
 
 /// Trait to associate the type-level db types with their runtime db types
 pub trait DbType: 'static {

@@ -39,19 +39,18 @@
 ))]
 compile_error!("Using multiple runtime / tls configurations at the same time is not allowed");
 
+/// Expose linkme to be used by the [`Model`](rorm_macro::Model) macro
 #[doc(hidden)]
 pub use linkme;
-
+/// Re-export
 pub use model::{Model, Patch};
+/// Re-export [rorm-db](rorm_db)
 pub use rorm_db::*;
-
-use std::io::Write;
-
-// Reexports to be used by macro
-pub use rorm_declaration::imr;
-
-// Reexported for use in parser structs of user
+pub use rorm_db::{Database, DatabaseConfiguration};
+/// Re-exported for use in parser structs of user
 pub use rorm_declaration::config;
+/// Re-export to be used by [macros](rorm_macro)
+pub use rorm_declaration::imr;
 
 pub mod aggregate;
 pub mod conditions;
@@ -68,10 +67,8 @@ pub mod model;
 #[doc(hidden)]
 pub static MODELS: [fn() -> imr::Model] = [..];
 
-/// Write all models in the Intermediate Model Representation to a [writer].
-///
-/// [writer]: std::io::Write
-pub fn write_models(writer: &mut impl Write) -> Result<(), String> {
+/// Write all models in the Intermediate Model Representation to a [writer](std::io::Write).
+pub fn write_models(writer: &mut impl std::io::Write) -> Result<(), String> {
     let imf = imr::InternalModelFormat {
         models: MODELS.iter().map(|func| func()).collect(),
     };
@@ -115,7 +112,7 @@ macro_rules! get_field {
 
 /// Get the type for a model's field
 ///
-/// Use this macro for generic parameter in [`ForeignModelByField`](crate::fields::ForeignModelByField) and [`BackRef`](crate::fields::BackRef).
+/// Use this macro for generic parameter in [`ForeignModelByField`](fields::ForeignModelByField) and [`BackRef`](fields::BackRef).
 #[macro_export]
 macro_rules! field {
     ($model:ident::F.$field:ident) => {

@@ -2,7 +2,7 @@ use std::fs::read_to_string;
 
 use clap::Parser;
 use log::LevelFilter;
-use rorm::{config::DatabaseConfig, Database, DatabaseConfiguration, DatabaseDriver};
+use rorm::{config::DatabaseConfig, config::DatabaseDriver, Database, DatabaseConfiguration};
 use serde::{Deserialize, Serialize};
 
 pub mod forum;

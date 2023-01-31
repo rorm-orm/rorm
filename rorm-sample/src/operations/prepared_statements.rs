@@ -1,4 +1,4 @@
-use rorm::{value::Value, Database};
+use rorm::{sql::value::Value, Database};
 
 async fn check_select_star(db: &Database, raw_query: &str) -> anyhow::Result<()> {
     let rows = db.raw_sql(raw_query, None, None).await?;

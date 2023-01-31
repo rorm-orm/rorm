@@ -236,10 +236,10 @@ macro_rules! insert {
 pub mod returning {
     use std::marker::PhantomData;
 
-    use crate::error::Error;
     use crate::internal::field::{Field, FieldProxy, RawField};
     use crate::model::{Model, Patch as ModelPatch};
-    use crate::row::Row;
+    use rorm_db::error::Error;
+    use rorm_db::row::Row;
 
     /// Specifies which columns to return after a select and how to decode the rows into what.
     pub trait Returning<M: Model> {

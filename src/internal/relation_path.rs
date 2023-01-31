@@ -12,7 +12,7 @@ use crate::{const_concat, sealed, Model};
 
 /// Trait to store a relation path in generics
 ///
-/// Paths are constructed nesting [PathSteps](PathStep) and terminating the last one with `()`:
+/// Paths are constructed nesting [`PathStep`](PathStep)s and terminating the last one with `()`:
 /// ```skip
 /// PathStep<A, PathStep<B, PathStep<C, ()>>>
 /// ```
@@ -46,7 +46,7 @@ impl<M: Model> Path for M {
     fn add_to_join_builder(_builder: &mut QueryContextBuilder) {}
 }
 
-/// A single step in a [Path]
+/// A single step in a [`Path`]
 #[derive(Copy, Clone)]
 pub struct PathStep<F, P: Path>(PhantomData<(F, P)>);
 
@@ -117,18 +117,16 @@ where
         builder.add_relation_path::<FMF::Model, F, P>();
     }
 }
-/// Implementation for [PathStep]
+/// Implementation for [`PathStep`]
 ///
 /// This is a trait instead of a normal `impl` block,
 /// because different implementations based on the field's raw type are required.
 /// By making this trait generic of this type, these different implementations don't overlap.
 /// Also by making this a trait, constants and type aliases can be used as well.
 ///
-/// [Path] is implemented generically using [PathImpl].
+/// [`Path`] is implemented generically using [`PathImpl`].
 pub trait PathImpl<RawType> {
-    /// The related field the [PathStep]'s field points to.
-    ///
-    /// This type ensures the [RawField]'s [RelatedField](RawField::RelatedField) is unpacked properly.
+    /// The related field the [`PathStep`]'s field points to.
     type ResolvedRelatedField: RawField;
 
     /// The two field joined on.
@@ -137,11 +135,11 @@ pub trait PathImpl<RawType> {
     /// Add all joins required to use this path to the builder
     fn add_to_join_builder(builder: &mut QueryContextBuilder);
 }
-/// Shorthand for accessing [PathImpl::ResolvedRelatedField](PathImpl::ResolvedRelatedField).
+/// Shorthand for accessing [`PathImpl::ResolvedRelatedField`](PathImpl::ResolvedRelatedField).
 pub type ResolvedRelatedField<F, P> =
     <PathStep<F, P> as PathImpl<<F as RawField>::Type>>::ResolvedRelatedField;
 
-/// Trait shared by [Path] and [FieldProxy](super::field::FieldProxy) which provides a unique join alias at compile time.s
+/// Trait shared by [`Path`] and [`FieldProxy`](super::field::FieldProxy) which provides a unique join alias at compile time.s
 pub trait JoinAlias {
     sealed!();
 

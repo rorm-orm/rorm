@@ -2,8 +2,8 @@
 
 use std::marker::PhantomData;
 
-use rorm_db::aggregation::SelectAggregator;
 use rorm_db::row::DecodeOwned;
+use rorm_db::sql::aggregation::SelectAggregator;
 
 use crate::internal::field::{Field, FieldProxy};
 use crate::internal::relation_path::Path;

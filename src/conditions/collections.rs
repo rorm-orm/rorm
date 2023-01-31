@@ -7,7 +7,7 @@
 //! Where static and dynamic mean whether the collection's size is known at compile time.
 
 use crate::internal::query_context::{QueryContext, QueryContextBuilder};
-use rorm_db::conditional;
+use rorm_db::sql::conditional;
 
 use super::Condition;
 

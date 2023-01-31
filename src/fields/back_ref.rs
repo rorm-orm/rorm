@@ -1,4 +1,4 @@
-//! is the other direction to a [foreign model](foreign_model::ForeignModel)
+//! is the other direction to a [foreign model](ForeignModelByField)
 
 use futures::stream::TryStreamExt;
 use rorm_db::{Database, Error, Row};
@@ -15,7 +15,7 @@ use crate::query;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
 use crate::Patch;
 
-/// A back reference is the other direction to a [foreign model](foreign_model::ForeignModel)
+/// A back reference is the other direction to a [foreign model](ForeignModelByField)
 #[derive(Clone, Debug)]
 pub struct BackRef<FMF: Field<kind::ForeignModel>> {
     /// Cached list of models referencing this one.
@@ -80,7 +80,7 @@ where
         }
     }
 
-    /// Populate the [BackRef]'s cached field.
+    /// Populate the [`BackRef`]'s cached field.
     ///
     /// This method doesn't check whether it already has been populated.
     /// If it has, then it will be updated i.e. the cache overwritten.
@@ -100,7 +100,7 @@ where
         Ok(())
     }
 
-    /// Populate the [BackRef]'s cached field for a whole slice of models.
+    /// Populate the [`BackRef`]'s cached field for a whole slice of models.
     ///
     /// This method doesn't check whether it already has been populated.
     /// If it has, then it will be updated i.e. the cache overwritten.
