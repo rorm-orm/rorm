@@ -16,7 +16,7 @@
 //! - [`NaiveTime`](chrono::NaiveTime)
 //! - [`NaiveDate`](chrono::NaiveDate)
 //! - [`DateTime<Utc>`](chrono::DateTime)
-//! - [`DateTime<FixedOffset>`](chrono::DateTime) WIP
+//! - [`DateTime<FixedOffset>`](chrono::DateTime) **WIP** (todo annotations)
 //!
 //! # Our types
 //! - [`ForeignModel<M>`]
@@ -76,7 +76,6 @@
 //! ```
 
 mod back_ref;
-mod datetime;
 mod foreign_model;
 mod json;
 #[cfg(feature = "rmp-serde")]

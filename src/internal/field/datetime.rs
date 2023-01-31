@@ -1,3 +1,5 @@
+//! Implementation detail of [`DateTime<FixedOffset>`]
+
 use std::marker::PhantomData;
 
 use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone};
@@ -7,10 +9,13 @@ use rorm_declaration::imr;
 use crate::conditions::Value;
 use crate::const_concat;
 use crate::internal::field::as_db_type::AsDbType;
-use crate::internal::field::{kind, AbstractField, AliasedField, FieldType, RawField};
+use crate::internal::field::{
+    kind, AbstractField, AliasedField, ContainerField, FieldProxy, FieldType, RawField,
+};
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::{db_type, Source};
 use crate::internal::relation_path::Path;
+use crate::model::ConstNew;
 
 impl FieldType for FixedOffset {
     type Kind = kind::AsDbType;
@@ -46,8 +51,10 @@ where
         Ok(offset.from_utc_datetime(&utc))
     }
 
-    fn get_by_index(_row: &Row, _index: usize) -> Result<Self::Type, Error> {
-        Err(Error::DecodeError("Not Implemented".to_string()))
+    fn get_by_index(row: &Row, index: usize) -> Result<Self::Type, Error> {
+        let offset = <__DateTime_offset<F> as AbstractField>::get_by_index(row, index)?;
+        let utc = <__DateTime_utc<F> as AbstractField>::get_by_index(row, index + 1)?;
+        Ok(offset.from_utc_datetime(&utc))
     }
 
     fn push_value<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
@@ -74,7 +81,35 @@ where
         Ok(offset.from_utc_datetime(&utc))
     }
 }
+impl<F, P> ContainerField<P, kind::DateTime> for F
+where
+    P: Path,
+    F: RawField<Kind = kind::DateTime, Type = DateTime<FixedOffset>>,
+{
+    type Target = __DateTime_Fields<F, P>;
+}
 
+/// [`DateTime<FixedOffset>`]'s internal fields
+#[allow(non_camel_case_types)]
+pub struct __DateTime_Fields<F, P> {
+    /// [`DateTime<FixedOffset>`]'s internal offset field
+    pub offset: FieldProxy<__DateTime_offset<F>, P>,
+
+    /// [`DateTime<FixedOffset>`]'s internal offset field
+    pub utc: FieldProxy<__DateTime_utc<F>, P>,
+}
+impl<F, P: 'static> ConstNew for __DateTime_Fields<F, P>
+where
+    F: RawField<Kind = kind::DateTime, Type = DateTime<FixedOffset>>,
+{
+    const NEW: Self = __DateTime_Fields {
+        offset: FieldProxy::new(),
+        utc: FieldProxy::new(),
+    };
+    const REF: &'static Self = &Self::NEW;
+}
+
+/// [`DateTime<FixedOffset>`]'s internal offset field
 #[allow(non_camel_case_types)]
 pub struct __DateTime_offset<F>(PhantomData<F>);
 impl<F> RawField for __DateTime_offset<F>
@@ -91,6 +126,7 @@ where
     const SOURCE: Option<Source> = F::SOURCE;
 }
 
+/// [`DateTime<FixedOffset>`]'s internal offset field
 #[allow(non_camel_case_types)]
 pub struct __DateTime_utc<F>(PhantomData<F>);
 impl<F> RawField for __DateTime_utc<F>

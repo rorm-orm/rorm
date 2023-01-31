@@ -53,16 +53,13 @@ pub fn try_from_row(
                 })
             }
             fn from_row_using_position(row: ::rorm::row::Row) -> Result<Self, ::rorm::Error> {
-                let mut i: isize = -1;
+                let mut i = 0;
                 Ok(#strct {
                     #(
                         #fields: {
-                            if ::rorm::internal::field::FieldProxy::columns(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields).is_empty() {
-                                ::rorm::internal::field::FieldProxy::get_by_name(<#model as ::rorm::model::Model>::FIELDS.#fields, &row)?
-                            } else {
-                                i += 1;
-                                ::rorm::internal::field::FieldProxy::get_by_index(<#model as ::rorm::model::Model>::FIELDS.#fields, &row, i as usize)?
-                            }
+                            let value = ::rorm::internal::field::FieldProxy::get_by_index(<#model as ::rorm::model::Model>::FIELDS.#fields, &row, i as usize)?;
+                            i += ::rorm::internal::field::FieldProxy::columns(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields).len();
+                            value
                         },
                     )*
                     #(

@@ -82,6 +82,7 @@ use crate::model::{ConstNew, Model};
 use crate::{const_concat, const_panic, sealed};
 
 pub mod as_db_type;
+pub mod datetime;
 pub mod foreign_model;
 
 use as_db_type::AsDbType;
@@ -252,7 +253,26 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     /// Get an instance of the field's type from a row using the field's name
     fn get_by_name(row: &Row) -> Result<Self::Type, Error>;
 
-    /// Get an instance of the field's type from a row using the field's index inside a patch
+    /// Get an instance of the field's type from a row by its position in the SELECT query.
+    ///
+    /// # Multi-column fields
+    ///
+    /// Since this type of field has more than one column, it can't just access the one column at the one index.
+    /// However the row contains the field's columns in the order defined by [`Self::COLUMNS`].
+    /// So use offsets to access them.
+    ///
+    /// ```ignore
+    /// impl AbstractField for F {
+    ///     const COLUMNS: &'static [&'static str] = &["foo", "bar", "baz"];
+    ///
+    ///     fn get_by_index(row: &Row, index: usize) -> Result<Self::Type, Error> {
+    ///         let foo = row.get(index + 0)?;
+    ///         let bar = row.get(index + 1)?;
+    ///         let baz = row.get(index + 2)?;
+    ///         Ok(todo!())
+    ///     }
+    /// }
+    /// ```
     fn get_by_index(row: &Row, index: usize) -> Result<Self::Type, Error>;
 
     /// Push the field's value onto a [`Vec`]
