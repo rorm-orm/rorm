@@ -105,13 +105,13 @@ where
         let returning = self.returning.columns();
 
         if returning.is_empty() {
-            database::insert(self.executor, M::TABLE, &inserting, &values).await?;
+            database::insert(self.executor, M::TABLE, inserting, &values).await?;
             R::produce_result()
         } else {
             database::insert_returning(
                 self.executor,
                 P::Model::TABLE,
-                &inserting,
+                inserting,
                 &values,
                 returning,
             )
@@ -136,13 +136,13 @@ where
         let returning = self.returning.columns();
 
         if returning.is_empty() {
-            database::insert_bulk(self.executor, M::TABLE, &inserting, &values_slices).await?;
+            database::insert_bulk(self.executor, M::TABLE, inserting, &values_slices).await?;
             R::produce_result_bulk()
         } else {
             database::insert_bulk_returning(
                 self.executor,
                 M::TABLE,
-                &inserting,
+                inserting,
                 &values_slices,
                 returning,
             )

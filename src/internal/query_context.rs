@@ -179,7 +179,7 @@ impl From<TempJoinData> for Join {
             } => Join::Dynamic(
                 DynamicJoinBuilder {
                     table_name,
-                    alias: format!("_{}", alias),
+                    alias: format!("_{alias}"),
                     fields,
                     condition_builder: |fields: &[String; 2]| {
                         Condition::BinaryCondition(BinaryCondition::Equals(Box::new([

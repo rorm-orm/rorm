@@ -425,7 +425,7 @@ impl ToTokens for Field {
         let source = get_source(&ident);
 
         let doc = LitStr::new(
-            &format!("rorm's representation of [`{}`]'s `{}` field", model, ident),
+            &format!("rorm's representation of [`{model}`]'s `{ident}` field"),
             ident.span(),
         );
 
