@@ -1,13 +1,25 @@
 //! Helper function for the `const_concat` macros.
 
+/// Syntactic sugar for const functions
+macro_rules! sugar {
+    (for $i:ident in $slice:ident $then:block) => {
+        let mut slices = $slice;
+        while let [$i, tail @ ..] = slices {
+            slices = tail;
+            $then
+        }
+    };
+}
+
 /// Versions working on string slices
 pub mod string {
     /// Count the number of bytes in a slice of strings `&[&str]`
-    pub const fn count_len(mut strings: &[&str]) -> usize {
+    pub const fn count_len(strings: &[&str]) -> usize {
         let mut len = 0;
-        while let [head, tail @ ..] = strings {
-            strings = tail;
-            len += head.len();
+        sugar! {
+            for head in strings {
+                len += head.len();
+            }
         }
         len
     }
@@ -15,24 +27,26 @@ pub mod string {
     /// Concat a slice of strings populating a buffer of fixed size
     pub const fn concat_into<const N: usize>(
         mut buffer: [u8; N],
-        mut strings: &[&str],
+        strings: &[&str],
     ) -> (usize, [u8; N]) {
         let mut i = 0;
-        while let [head, tail @ ..] = strings {
-            strings = tail;
-            let mut bytes = head.as_bytes();
-            while let [head, tail @ ..] = bytes {
-                // Handle buffer overflow
-                if i == N {
-                    buffer[i - 1] = DOT;
-                    buffer[i - 2] = DOT;
-                    buffer[i - 3] = DOT;
-                    return (N, buffer);
-                }
+        sugar! {
+            for string in strings {
+                let bytes = string.as_bytes();
+                sugar!{
+                    for byte in bytes {
+                        // Handle buffer overflow
+                        if i == N {
+                            buffer[i - 1] = DOT;
+                            buffer[i - 2] = DOT;
+                            buffer[i - 3] = DOT;
+                            return (N, buffer);
+                        }
 
-                bytes = tail;
-                buffer[i] = *head;
-                i += 1;
+                        buffer[i] = *byte;
+                        i += 1;
+                    }
+                }
             }
         }
         (i, buffer)
@@ -42,9 +56,10 @@ pub mod string {
 
     #[cfg(test)]
     mod test {
+        use std::str::from_utf8;
+
         use super::concat_into;
         use crate::const_concat;
-        use std::str::from_utf8;
 
         #[test]
         fn compare_with_std_concat() {
