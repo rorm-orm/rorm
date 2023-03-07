@@ -36,6 +36,9 @@ serde = { version = "~1.0" }
 # `serde::MessagePack<T>` type
 rmp-serde = { version = "1.1", optional = true }
 
+# Implement `Uuid` to be used as field
+uuid = { version = "~1.3", optional = true }
+
 # linker magic to create a slice containing all models defined by crates
 linkme = { version = "~0.3" }
 
@@ -54,7 +57,7 @@ rorm-macro = { version = "0.5.0", path = "./rorm-macro" }
 rorm-declaration = { version = "~0.3", path = "./rorm-declaration" }
 
 [package.metadata.docs.rs]
-features = ["async-std-rustls"]
+features = ["async-std-rustls", "rmp-serde", "uuid"]
 
 [features]
 default = [

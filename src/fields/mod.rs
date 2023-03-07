@@ -22,7 +22,10 @@
 //! - [`ForeignModel<M>`]
 //! - [`BackRef<M>`] (doesn't work inside an [`Option<T>`])
 //! - [`Json<T>`]
-//! - [`MsgPack<T>`] (requires the "rmp-serde" crate)
+//! - [`MsgPack<T>`] (requires the "msgpack" feature)
+//!
+//! # [uuid] types
+//! - [`Uuid`](uuid::Uuid) (requires the "uuid" feature)
 //!
 //! ---
 //!
@@ -80,10 +83,11 @@ mod foreign_model;
 mod json;
 #[cfg(feature = "rmp-serde")]
 mod msgpack;
+#[cfg(feature = "uuid")]
+mod uuid;
 
 pub use back_ref::BackRef;
-pub use foreign_model::ForeignModel;
-pub use foreign_model::ForeignModelByField;
+pub use foreign_model::{ForeignModel, ForeignModelByField};
 pub use json::Json;
 #[cfg(feature = "rmp-serde")]
 pub use msgpack::MsgPack;
