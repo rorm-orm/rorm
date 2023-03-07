@@ -35,7 +35,7 @@ impl AggregationFunc for Avg {
 /// Returns the count of the number of times that the column is not null.
 pub struct Count;
 impl AggregationFunc for Count {
-    type Result<Input: DecodeOwned> = Option<i64>;
+    type Result<Input: DecodeOwned> = i64;
     const NAME: &'static str = "count";
     const SQL: SelectAggregator = SelectAggregator::Count;
 }
