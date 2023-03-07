@@ -25,6 +25,8 @@ Since 0.4.2
 
 - Replaced `.fields()` method on FieldProxys with an equivalent `Deref` impl
 
+- `BackRef`'s populate functions take a generic `Executor` instead of `Database`
+
 - Refactored annotations
 - Error when `max_length` is missing
 - Major refactor of internals

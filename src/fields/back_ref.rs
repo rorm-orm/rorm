@@ -1,15 +1,18 @@
 //! is the other direction to a [foreign model](ForeignModelByField)
 
-use futures::stream::TryStreamExt;
-use rorm_db::{Database, Error, Row};
 use std::collections::HashMap;
+
+use futures::stream::TryStreamExt;
+use rorm_db::executor::Executor;
+use rorm_db::{Error, Row};
 
 use crate::conditions::collections::CollectionOperator::Or;
 use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection, Value};
 use crate::fields::ForeignModelByField;
-use crate::internal::field::foreign_model;
 use crate::internal::field::foreign_model::ForeignModelTrait;
-use crate::internal::field::{kind, AbstractField, Field, FieldProxy, FieldType, RawField};
+use crate::internal::field::{
+    foreign_model, kind, AbstractField, Field, FieldProxy, FieldType, RawField,
+};
 use crate::model::GetField;
 use crate::query;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
@@ -84,14 +87,18 @@ where
     ///
     /// This method doesn't check whether it already has been populated.
     /// If it has, then it will be updated i.e. the cache overwritten.
-    pub async fn populate<BRP>(&self, db: &Database, patch: &mut BRP) -> Result<(), Error>
+    pub async fn populate<BRP>(
+        &self,
+        executor: impl Executor<'_>,
+        patch: &mut BRP,
+    ) -> Result<(), Error>
     where
         BRP: Patch<Model = BRF::Model>,
         BRP: GetField<BRF>,
         BRP: GetField<foreign_model::RF<FMF>>,
     {
         let cached = Some(
-            query!(db, FMF::Model)
+            query!(executor, FMF::Model)
                 .condition(Self::model_as_condition(patch))
                 .all()
                 .await?,
@@ -107,7 +114,11 @@ where
     ///
     /// This method doesn't check whether the slice contains a model twice.
     /// To avoid allocations only the first instance actually gets populated.
-    pub async fn populate_bulk<BRP>(&self, db: &Database, patches: &mut [BRP]) -> Result<(), Error>
+    pub async fn populate_bulk<BRP>(
+        &self,
+        executor: impl Executor<'_>,
+        patches: &mut [BRP],
+    ) -> Result<(), Error>
     where
         <foreign_model::RF<FMF> as RawField>::Type: std::hash::Hash + Eq + Clone,
         BRP: Patch<Model = BRF::Model>,
@@ -123,7 +134,7 @@ where
             Option<Vec<FMF::Model>>,
         > = HashMap::new();
         {
-            let mut stream = query!(db, FMF::Model)
+            let mut stream = query!(executor, FMF::Model)
                 .condition(DynamicCollection {
                     operator: Or,
                     vector: patches.iter().map(Self::model_as_condition).collect(),
