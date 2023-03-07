@@ -56,8 +56,11 @@ rorm-db = { version = "~0.6", path = "./rorm-db" }
 rorm-macro = { version = "0.5.0", path = "./rorm-macro" }
 rorm-declaration = { version = "~0.3", path = "./rorm-declaration" }
 
+# rorm-cli exposes interfaces to integrate the cli as library
+rorm-cli = { version = "~0.6", optional = true }
+
 [package.metadata.docs.rs]
-features = ["async-std-rustls", "rmp-serde", "uuid"]
+features = ["async-std-rustls", "rmp-serde", "uuid", "cli"]
 
 [features]
 default = [
@@ -65,6 +68,8 @@ default = [
 ]
 
 msgpack = ["rmp-serde"]
+
+cli = ["rorm-cli"]
 
 sqlite = ["rorm-db/sqlite"]
 mysql = ["rorm-db/mysql"]
