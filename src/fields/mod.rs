@@ -11,21 +11,21 @@
 //! - [`Vec<u8>`]
 //! - [`Option<T>`] where `T` is on this list
 //!
-//! # [chrono] types
-//! - [`NaiveDateTime`](chrono::NaiveDateTime)
-//! - [`NaiveTime`](chrono::NaiveTime)
-//! - [`NaiveDate`](chrono::NaiveDate)
-//! - [`DateTime<Utc>`](chrono::DateTime)
-//! - [`DateTime<FixedOffset>`](chrono::DateTime) **WIP** (todo annotations)
-//!
 //! # Our types
 //! - [`ForeignModel<M>`]
 //! - [`BackRef<M>`] (doesn't work inside an [`Option<T>`])
 //! - [`Json<T>`]
 //! - [`MsgPack<T>`] (requires the "msgpack" feature)
 //!
-//! # [uuid] types
-//! - [`Uuid`](uuid::Uuid) (requires the "uuid" feature)
+//! # chrono types
+//! - [`NaiveDateTime`](chrono::NaiveDateTime)
+//! - [`NaiveTime`](chrono::NaiveTime)
+//! - [`NaiveDate`](chrono::NaiveDate)
+//! - [`DateTime<Utc>`](chrono::DateTime)
+//! - [`DateTime<FixedOffset>`](chrono::DateTime) **WIP** (todo annotations)
+//!
+//! # uuid types
+//! - [`Uuid`](::uuid::Uuid) (requires the "uuid" feature)
 //!
 //! ---
 //!

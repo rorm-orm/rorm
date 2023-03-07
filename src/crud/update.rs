@@ -205,7 +205,7 @@ where
     type Output = Result<u64, Error>;
     type IntoFuture = BoxFuture<'rf, Self::Output>;
 
-    /// Convert a [`UpdateBuilder`] with columns into a [`Future`] implicitly
+    /// Convert a [`UpdateBuilder`] with columns into a future implicitly
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(self.exec())
     }
