@@ -32,6 +32,8 @@ Since 0.4.2
 - Major refactor of internals
 - Made conditions::Value take Cows
 
+- Added feature `cli`, which exposes `rorm-cli` as library
+
 Notes for publishing
 --------------------
 - don't forget to bump and publish rorm-macro!
