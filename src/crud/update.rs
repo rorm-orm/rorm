@@ -1,9 +1,9 @@
 //! Update builder and macro
 
-use std::future::{Future, IntoFuture};
+use std::future::IntoFuture;
 use std::marker::PhantomData;
-use std::pin::Pin;
 
+use futures::future::BoxFuture;
 use rorm_db::database;
 use rorm_db::error::Error;
 use rorm_db::executor::Executor;
@@ -198,12 +198,12 @@ where
 
 impl<'rf, E, M, C> IntoFuture for UpdateBuilder<'rf, E, M, Vec<(&'static str, Value<'rf>)>, C>
 where
-    E: Executor<'rf> + 'rf,
-    M: Model,
+    E: Executor<'rf> + 'rf + Send,
+    M: Model + Sync,
     C: ConditionMarker<'rf>,
 {
     type Output = Result<u64, Error>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + 'rf>>;
+    type IntoFuture = BoxFuture<'rf, Self::Output>;
 
     /// Convert a [`UpdateBuilder`] with columns into a [`Future`] implicitly
     fn into_future(self) -> Self::IntoFuture {

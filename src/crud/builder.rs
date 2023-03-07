@@ -5,7 +5,7 @@ use crate::internal::query_context::QueryContextBuilder;
 use crate::sealed;
 
 /// Marker for the generic parameter storing an optional [`Condition`]
-pub trait ConditionMarker<'a>: 'a {
+pub trait ConditionMarker<'a>: 'a + Send {
     sealed!();
 
     /// Prepare a query context to be able to handle this condition by registering all implicit joins.

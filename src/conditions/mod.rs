@@ -23,7 +23,7 @@ pub use collections::{DynamicCollection, StaticCollection};
 pub type BoxedCondition<'a> = Box<dyn Condition<'a>>;
 
 /// Node in a condition tree
-pub trait Condition<'a>: 'a {
+pub trait Condition<'a>: 'a + Send {
     /// Prepare a query context to be able to handle this condition by registering all implicit joins.
     fn add_to_builder(&self, builder: &mut QueryContextBuilder);
 
@@ -118,6 +118,10 @@ pub struct Column<F, P> {
     pub(crate) field: PhantomData<F>,
     pub(crate) path: PhantomData<P>,
 }
+
+// Safe because column contains no runtime data
+unsafe impl<F, P> Send for Column<F, P> {}
+
 impl<F: Field, P: Path> Column<F, P> {
     /// Construct a new instance
     pub const fn new() -> Self {
