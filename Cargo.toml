@@ -30,14 +30,14 @@ path = "src/lib.rs"
 futures = { version = "~0.3" }
 
 # json serialization to communicate with the migrator
-serde_json = { version = "~1.0" }
-serde = { version = "~1.0" }
+serde_json = { version = "~1" }
+serde = { version = "~1" }
 
 # `serde::MessagePack<T>` type
-rmp-serde = { version = "1.1", optional = true }
+rmp-serde = { version = "~1", optional = true }
 
 # Implement `Uuid` to be used as field
-uuid = { version = "~1.3", optional = true }
+uuid = { version = "~1", optional = true }
 
 # linker magic to create a slice containing all models defined by crates
 linkme = { version = "~0.3" }
@@ -49,7 +49,7 @@ chrono = { version = ">=0.4.20" }
 ouroboros = { version = "~0.15" }
 
 # Allow wrapping futures and streams
-pin-project = { version = "~1.0" }
+pin-project = { version = "~1" }
 
 
 rorm-db = { version = "~0.6", path = "./rorm-db" }
