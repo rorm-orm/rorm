@@ -297,6 +297,12 @@ impl<'a, D: StringLike> IntoSingleValue<'a, D> for &'a str {
         Value::String(Cow::Borrowed(self))
     }
 }
+impl<'a, D: StringLike> IntoSingleValue<'a, D> for &'a String {
+    type Condition = Value<'a>;
+    fn into_condition(self) -> Self::Condition {
+        Value::String(Cow::Borrowed(self))
+    }
+}
 impl<'a, D: StringLike> IntoSingleValue<'a, D> for String {
     type Condition = Value<'a>;
     fn into_condition(self) -> Self::Condition {
@@ -310,16 +316,22 @@ impl<'a, D: StringLike> IntoSingleValue<'a, D> for Cow<'a, str> {
     }
 }
 
-impl<'a> IntoSingleValue<'a, VarBinary> for Vec<u8> {
-    type Condition = Value<'a>;
-    fn into_condition(self) -> Self::Condition {
-        Value::Binary(Cow::Owned(self))
-    }
-}
 impl<'a> IntoSingleValue<'a, VarBinary> for &'a [u8] {
     type Condition = Value<'a>;
     fn into_condition(self) -> Self::Condition {
         Value::Binary(Cow::Borrowed(self))
+    }
+}
+impl<'a> IntoSingleValue<'a, VarBinary> for &'a Vec<u8> {
+    type Condition = Value<'a>;
+    fn into_condition(self) -> Self::Condition {
+        Value::Binary(Cow::Borrowed(self))
+    }
+}
+impl<'a> IntoSingleValue<'a, VarBinary> for Vec<u8> {
+    type Condition = Value<'a>;
+    fn into_condition(self) -> Self::Condition {
+        Value::Binary(Cow::Owned(self))
     }
 }
 impl<'a> IntoSingleValue<'a, VarBinary> for Cow<'a, [u8]> {
