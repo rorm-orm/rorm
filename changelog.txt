@@ -8,6 +8,9 @@ Since 0.4.2
   - Defaults to returning whole model instead of primary key
   - Updated `insert!`'s docs
 
+- update!
+  - Added convenience method `set_if` when builder is in dyn mode
+
 - delete!
   - condition is now added last and executes the query similar to insert!'s
     behaviour

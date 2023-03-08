@@ -110,6 +110,21 @@ impl<'rf, E, M, C> UpdateBuilder<'rf, E, M, OptionalColumns<'rf>, C> {
         builder
     }
 
+    /// Add a column to update if `value` is `Some`
+    ///
+    /// Can be called multiple times.
+    pub fn set_if<F: Field>(
+        self,
+        field: FieldProxy<F, M>,
+        value: Option<impl IntoSingleValue<'rf, <F as Field>::DbType, Condition = Value<'rf>>>,
+    ) -> Self {
+        if let Some(value) = value {
+            self.set(field, value)
+        } else {
+            self
+        }
+    }
+
     /// Go back to a "normal" builder after calling [`begin_dyn_set`](UpdateBuilder::begin_dyn_set).
     ///
     /// This will check if `set` has been called at least once.
