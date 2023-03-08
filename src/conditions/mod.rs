@@ -291,24 +291,41 @@ trait StringLike: DbType {}
 impl StringLike for VarChar {}
 impl StringLike for Choices {}
 
-impl<'a, D, S> IntoSingleValue<'a, D> for &'a S
-where
-    D: StringLike,
-    S: AsRef<str> + ?Sized,
-{
+impl<'a, D: StringLike> IntoSingleValue<'a, D> for &'a str {
     type Condition = Value<'a>;
     fn into_condition(self) -> Self::Condition {
-        Value::String(Cow::Borrowed(self.as_ref()))
+        Value::String(Cow::Borrowed(self))
+    }
+}
+impl<'a, D: StringLike> IntoSingleValue<'a, D> for String {
+    type Condition = Value<'a>;
+    fn into_condition(self) -> Self::Condition {
+        Value::String(Cow::Owned(self))
+    }
+}
+impl<'a, D: StringLike> IntoSingleValue<'a, D> for Cow<'a, str> {
+    type Condition = Value<'a>;
+    fn into_condition(self) -> Self::Condition {
+        Value::String(self)
     }
 }
 
-impl<'a, S> IntoSingleValue<'a, VarBinary> for &'a S
-where
-    S: AsRef<[u8]> + ?Sized,
-{
+impl<'a> IntoSingleValue<'a, VarBinary> for Vec<u8> {
     type Condition = Value<'a>;
     fn into_condition(self) -> Self::Condition {
-        Value::Binary(Cow::Borrowed(self.as_ref()))
+        Value::Binary(Cow::Owned(self))
+    }
+}
+impl<'a> IntoSingleValue<'a, VarBinary> for &'a [u8] {
+    type Condition = Value<'a>;
+    fn into_condition(self) -> Self::Condition {
+        Value::Binary(Cow::Borrowed(self))
+    }
+}
+impl<'a> IntoSingleValue<'a, VarBinary> for Cow<'a, [u8]> {
+    type Condition = Value<'a>;
+    fn into_condition(self) -> Self::Condition {
+        Value::Binary(self)
     }
 }
 

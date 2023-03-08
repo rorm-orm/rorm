@@ -23,6 +23,7 @@ Since 0.4.2
   - Put `ForeignModel` and `BackRef` into public module `fields`
   - Added `MsgPack<T>` and `Json<T>` wrapper types
   - Made `DateTime<Utc>` a valid field type
+  - Made `Uuid` a valid field type
 
 - Made `ForeignModel`'s and `BackRef`'s generic parameter to take the related field
 
@@ -30,10 +31,13 @@ Since 0.4.2
 
 - `BackRef`'s populate functions take a generic `Executor` instead of `Database`
 
+- Conditions can own values
+  - i.e. we use Cows now
+  - restricted IntoSingleValue to `Vec`/`String` and `&[u8]`/`&str`
+
 - Refactored annotations
 - Error when `max_length` is missing
 - Major refactor of internals
-- Made conditions::Value take Cows
 
 - Added feature `cli`, which exposes `rorm-cli` as library
 
