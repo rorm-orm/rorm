@@ -45,6 +45,7 @@ pub use linkme;
 /// Re-export
 pub use model::{Model, Patch};
 /// Re-export of [rorm-cli](rorm_cli)
+#[cfg(feature = "rorm-cli")]
 pub use rorm_cli as cli;
 /// Re-export [rorm-db](rorm_db)
 pub use rorm_db::*;
