@@ -10,8 +10,7 @@ use rorm_db::sql::{conditional, value};
 
 use crate::internal::field::{Field, FieldProxy};
 use crate::internal::hmr::db_type::{
-    Boolean, Choices, Date, DateTime, DbType, Double, Float, Int16, Int32, Int64, Time, VarBinary,
-    VarChar,
+    Boolean, Date, DateTime, DbType, Double, Float, Int16, Int32, Int64, Time, VarBinary, VarChar,
 };
 use crate::internal::query_context::{QueryContext, QueryContextBuilder};
 use crate::internal::relation_path::Path;
@@ -64,6 +63,8 @@ pub enum Value<'a> {
     Null(value::NullType),
     /// String representation
     String(Cow<'a, str>),
+    /// Representation of choices
+    Choice(Cow<'a, str>),
     /// i64 representation
     I64(i64),
     /// i32 representation
@@ -91,6 +92,7 @@ impl<'a> Value<'a> {
         match self {
             Value::Null(null_type) => value::Value::Null(*null_type),
             Value::String(v) => value::Value::String(v.as_ref()),
+            Value::Choice(v) => value::Value::Choice(v.as_ref()),
             Value::I64(v) => value::Value::I64(*v),
             Value::I32(v) => value::Value::I32(*v),
             Value::I16(v) => value::Value::I16(*v),
@@ -287,29 +289,25 @@ pub trait IntoSingleValue<'a, D: DbType>: 'a {
     fn into_condition(self) -> Self::Condition;
 }
 
-trait StringLike: DbType {}
-impl StringLike for VarChar {}
-impl StringLike for Choices {}
-
-impl<'a, D: StringLike> IntoSingleValue<'a, D> for &'a str {
+impl<'a> IntoSingleValue<'a, VarChar> for &'a str {
     type Condition = Value<'a>;
     fn into_condition(self) -> Self::Condition {
         Value::String(Cow::Borrowed(self))
     }
 }
-impl<'a, D: StringLike> IntoSingleValue<'a, D> for &'a String {
+impl<'a> IntoSingleValue<'a, VarChar> for &'a String {
     type Condition = Value<'a>;
     fn into_condition(self) -> Self::Condition {
         Value::String(Cow::Borrowed(self))
     }
 }
-impl<'a, D: StringLike> IntoSingleValue<'a, D> for String {
+impl<'a> IntoSingleValue<'a, VarChar> for String {
     type Condition = Value<'a>;
     fn into_condition(self) -> Self::Condition {
         Value::String(Cow::Owned(self))
     }
 }
-impl<'a, D: StringLike> IntoSingleValue<'a, D> for Cow<'a, str> {
+impl<'a> IntoSingleValue<'a, VarChar> for Cow<'a, str> {
     type Condition = Value<'a>;
     fn into_condition(self) -> Self::Condition {
         Value::String(self)

@@ -57,7 +57,18 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
                 }
 
                 fn as_primitive(&self) -> ::rorm::conditions::Value<'static> {
-                    ::rorm::conditions::Value::String(::std::borrow::Cow::Borrowed(match self {
+                    ::rorm::conditions::Value::Choice(::std::borrow::Cow::Borrowed(match self {
+                        #(
+                            Self::#identifiers => stringify!(#identifiers),
+                        )*
+                    }))
+                }
+            }
+            impl<'a> ::rorm::conditions::IntoSingleValue<'a, ::rorm::internal::hmr::db_type::Choices> for #db_enum {
+                type Condition = ::rorm::conditions::Value<'a>;
+
+                fn into_condition(self) -> Self::Condition {
+                    ::rorm::conditions::Value::Choice(::std::borrow::Cow::Borrowed(match self {
                         #(
                             Self::#identifiers => stringify!(#identifiers),
                         )*

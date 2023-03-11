@@ -1,10 +1,10 @@
 //! A type level version of [`imr::DbType`](crate::imr::DbType) to be used in generic type bound checks
 
+use rorm_db::sql::value::NullType;
+
 use super::AsImr;
 use crate::internal::hmr::annotations::AnnotationIndex;
 use crate::{declare_type_option, imr, sealed};
-
-use rorm_db::sql::value::NullType;
 
 /// Trait to associate the type-level db types with their runtime db types
 pub trait DbType: 'static {
@@ -84,7 +84,7 @@ impl_db_types!(
     NaiveTime,
     /// Type level version of [`imr::DbType::Choices`]
     Choices,
-    String, // TODO requires choices
+    Choice, // TODO requires choices
 );
 
 declare_type_option!(OptionDbType, DbType);
