@@ -1,6 +1,7 @@
 //! is the other direction to a [foreign model](ForeignModelByField)
 
 use std::collections::HashMap;
+use std::fmt;
 
 use futures::stream::TryStreamExt;
 use rorm_db::executor::Executor;
@@ -19,7 +20,7 @@ use crate::query;
 use crate::Patch;
 
 /// A back reference is the other direction to a [foreign model](ForeignModelByField)
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct BackRef<FMF: Field<kind::ForeignModel>> {
     /// Cached list of models referencing this one.
     ///
@@ -159,5 +160,17 @@ where
         }
 
         Ok(())
+    }
+}
+
+impl<FMF> fmt::Debug for BackRef<FMF>
+where
+    FMF: Field<kind::ForeignModel>,
+    FMF::Model: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BackRef")
+            .field("cached", &self.cached)
+            .finish()
     }
 }
