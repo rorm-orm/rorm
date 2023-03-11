@@ -39,7 +39,7 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
                 type Kind = ::rorm::internal::field::kind::AsDbType;
             }
             impl ::rorm::internal::field::as_db_type::AsDbType for #db_enum {
-                type Primitive = String;
+                type Primitive = ::rorm::choice::Choice;
                 type DbType = ::rorm::internal::hmr::db_type::Choices;
 
                 const IMPLICIT: Option<::rorm::internal::hmr::annotations::Annotations> = Some({
@@ -50,7 +50,7 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
 
                 fn from_primitive(primitive: Self::Primitive) -> Self {
                     use #db_enum::*;
-                    match primitive.as_str() {
+                    match primitive.0.as_str() {
                         #(stringify!(#identifiers) => #identifiers,)*
                         _ => panic!("Unexpected database value"),
                     }
