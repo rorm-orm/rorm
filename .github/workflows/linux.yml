@@ -17,6 +17,8 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
 
       # When rustup is updated, it tries to replace its binary, which on Windows is somehow locked.
       # This can result in the CI failure, see: https://github.com/rust-lang/rustup/issues/3029
@@ -31,8 +33,23 @@ jobs:
           rustup component add clippy
           cargo install clippy-sarif sarif-fmt
 
-      - name: Build rorm
+      - name: Build rorm with tokio-rustls
         run: cargo build -p rorm -F tokio-rustls
+
+      - name: Build rorm with tokio-native-tls
+        run: cargo build -p rorm -F tokio-native-tls
+
+      - name: Build rorm with async-std-rustls
+        run: cargo build -p rorm -F async-std-rustls
+
+      - name: Build rorm with async-std-native-tls
+        run: cargo build -p rorm -F async-std-native-tls
+
+      - name: Build rorm with actix-rustls
+        run: cargo build -p rorm -F actix-rustls
+
+      - name: Build rorm with actix-native-tls
+        run: cargo build -p rorm -F actix-native-tls
 
       - name: Run rust-clippy
         run: cargo clippy --workspace --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
