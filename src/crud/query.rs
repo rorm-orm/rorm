@@ -4,11 +4,13 @@ use std::marker::PhantomData;
 use std::ops::{Range, RangeInclusive, Sub};
 
 use rorm_db::database::ColumnSelector;
+use rorm_db::error::Error;
 use rorm_db::executor::{All, One, Optional, Stream};
 use rorm_db::limit_clause::LimitClause;
 use rorm_db::ordering::{OrderByEntry, Ordering};
+use rorm_db::row::Row;
 use rorm_db::transaction::Transaction;
-use rorm_db::{error::Error, row::Row, Database};
+use rorm_db::Database;
 
 use crate::conditions::Condition;
 use crate::crud::builder::{ConditionMarker, TransactionMarker};
@@ -426,13 +428,13 @@ mod query_stream {
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
-    use crate::crud::query::Selector;
     use ouroboros::macro_help::{aliasable_boxed, change_lifetime, AliasableBox};
     use rorm_db::conditional::Condition;
     use rorm_db::database::JoinTable;
     use rorm_db::executor::{QueryStrategyResult, Stream};
     use rorm_db::Error;
 
+    use crate::crud::query::Selector;
     use crate::internal::query_context::QueryContext;
     use crate::Model;
 
@@ -717,3 +719,120 @@ impl_select_tuple!(5, (S0, S1, S2, S3, S4,));
 impl_select_tuple!(6, (S0, S1, S2, S3, S4, S5,));
 impl_select_tuple!(7, (S0, S1, S2, S3, S4, S5, S6,));
 impl_select_tuple!(8, (S0, S1, S2, S3, S4, S5, S6, S7,));
+impl_select_tuple!(9, (S0, S1, S2, S3, S4, S5, S6, S7, S8,));
+impl_select_tuple!(10, (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9,));
+impl_select_tuple!(11, (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10,));
+impl_select_tuple!(12, (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11,));
+impl_select_tuple!(13, (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12,));
+impl_select_tuple!(
+    14,
+    (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13,)
+);
+impl_select_tuple!(
+    15,
+    (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14,)
+);
+impl_select_tuple!(
+    16,
+    (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15,)
+);
+impl_select_tuple!(
+    17,
+    (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16,)
+);
+impl_select_tuple!(
+    18,
+    (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17,)
+);
+impl_select_tuple!(
+    19,
+    (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18,)
+);
+impl_select_tuple!(
+    20,
+    (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,)
+);
+impl_select_tuple!(
+    21,
+    (
+        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
+        S20,
+    )
+);
+impl_select_tuple!(
+    22,
+    (
+        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
+        S20, S21,
+    )
+);
+impl_select_tuple!(
+    23,
+    (
+        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
+        S20, S21, S22,
+    )
+);
+impl_select_tuple!(
+    24,
+    (
+        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
+        S20, S21, S22, S23,
+    )
+);
+impl_select_tuple!(
+    25,
+    (
+        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
+        S20, S21, S22, S23, S24,
+    )
+);
+impl_select_tuple!(
+    26,
+    (
+        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
+        S20, S21, S22, S23, S24, S25,
+    )
+);
+impl_select_tuple!(
+    27,
+    (
+        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
+        S20, S21, S22, S23, S24, S25, S26,
+    )
+);
+impl_select_tuple!(
+    28,
+    (
+        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
+        S20, S21, S22, S23, S24, S25, S26, S27,
+    )
+);
+impl_select_tuple!(
+    29,
+    (
+        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
+        S20, S21, S22, S23, S24, S25, S26, S27, S28,
+    )
+);
+impl_select_tuple!(
+    30,
+    (
+        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
+        S20, S21, S22, S23, S24, S25, S26, S27, S28, S29,
+    )
+);
+impl_select_tuple!(
+    31,
+    (
+        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
+        S20, S21, S22, S23, S24, S25, S26, S27, S28, S29, S30,
+    )
+);
+impl_select_tuple!(
+    32,
+    (
+        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
+        S20, S21, S22, S23, S24, S25, S26, S27, S28, S29, S30, S31,
+    )
+);
