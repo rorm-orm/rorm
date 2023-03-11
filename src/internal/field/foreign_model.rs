@@ -99,6 +99,7 @@ where
     type DbType = <RF<F> as Field<kind::AsDbType>>::DbType;
     const ANNOTATIONS: Annotations = {
         let mut annos = Self::EXPLICIT_ANNOTATIONS;
+        annos.nullable = <<F as RawField>::Type as ForeignModelTrait>::IS_OPTION;
         if annos.max_length.is_none() {
             annos.max_length = <RF<F> as Field<kind::AsDbType>>::ANNOTATIONS.max_length;
         }
