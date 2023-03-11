@@ -44,6 +44,8 @@ compile_error!("Using multiple runtime / tls configurations at the same time is 
 pub use linkme;
 /// Re-export
 pub use model::{Model, Patch};
+/// Re-export of [rorm-cli](rorm_cli)
+pub use rorm_cli as cli;
 /// Re-export [rorm-db](rorm_db)
 pub use rorm_db::*;
 pub use rorm_db::{Database, DatabaseConfiguration};
@@ -124,7 +126,6 @@ macro_rules! field {
 
 #[doc(hidden)]
 pub use rorm_macro::rename_linkme;
-
 /// This attribute is put on your main function.
 ///
 /// When you build with the `rorm-main` feature enabled this attribute will replace your main function.
@@ -145,7 +146,6 @@ pub use rorm_macro::rename_linkme;
 /// fn main() {}
 /// ```
 pub use rorm_macro::rorm_main;
-
 /// ```no_run
 /// use rorm::DbEnum;
 ///
@@ -157,7 +157,6 @@ pub use rorm_macro::rorm_main;
 /// }
 /// ```
 pub use rorm_macro::DbEnum;
-
 /// ```no_run
 /// use rorm::Model;
 ///
@@ -183,7 +182,6 @@ pub use rorm_macro::DbEnum;
 /// }
 /// ```
 pub use rorm_macro::Model;
-
 /// ```no_run
 /// use rorm::{Model, Patch};
 ///
