@@ -52,7 +52,7 @@ ouroboros = { version = "~0.15" }
 pin-project = { version = "~1" }
 
 
-rorm-db = { version = "~0.6", path = "./rorm-db" }
+rorm-db = { version = "~0.7", path = "./rorm-db" }
 rorm-macro = { version = "0.5.0", path = "./rorm-macro" }
 rorm-declaration = { version = "~0.3", path = "./rorm-declaration" }
 
