@@ -75,7 +75,7 @@ use rorm_declaration::imr;
 
 use crate::conditions::Value;
 use crate::internal::hmr::annotations::Annotations;
-use crate::internal::hmr::db_type::{DbType, OptionDbType};
+use crate::internal::hmr::db_type::DbType;
 use crate::internal::hmr::{AsImr, Source};
 use crate::internal::relation_path::{Path, PathImpl, PathStep, ResolvedRelatedField};
 use crate::model::{ConstNew, Model};
@@ -128,9 +128,6 @@ pub trait RawField: 'static {
     /// The type stored in the model's field
     type Type: FieldType<Kind = Self::Kind>;
 
-    /// An optionally set explicit db type
-    type ExplicitDbType: OptionDbType;
-
     /// The model this field is part of
     type Model: Model;
 
@@ -152,8 +149,6 @@ pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
     sealed!();
 
     /// The data type as which this field is stored in the db
-    ///
-    /// It might differ from [`AsDbType::DbType`], when certain attributes (namely `#[rorm(choices)]`) are set.
     type DbType: DbType;
 
     /// List of the actual annotations
@@ -205,7 +200,7 @@ pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
 }
 
 impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDbType> for F {
-    type DbType = <F::ExplicitDbType as OptionDbType>::UnwrapOr<<T as AsDbType>::DbType>;
+    type DbType = <T as AsDbType>::DbType;
 
     const ANNOTATIONS: Annotations = {
         if let Some(implicit) = Self::Type::IMPLICIT {

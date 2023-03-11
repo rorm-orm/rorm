@@ -34,11 +34,6 @@ pub struct Annotations {
     /// It accepts a single integer literal as argument.
     pub max_length: Option<LitInt>,
 
-    /// Parse the `#[rorm(choices(..))]` annotation.
-    ///
-    /// It accepts any number of string literals as arguments.
-    pub choices: Option<Choices>,
-
     /// Parse the `#[rorm(index)]` annotation.
     ///
     /// It accepts four different syntax's:
@@ -92,18 +87,6 @@ impl FromMeta for OnAction {
     }
 }
 
-#[derive(Debug)]
-pub struct Choices(Vec<LitStr>);
-impl FromMeta for Choices {
-    fn from_list(items: &[NestedMeta]) -> darling::Result<Self> {
-        let result: darling::Result<Vec<LitStr>> = items
-            .iter()
-            .map(<LitStr as FromMeta>::from_nested_meta)
-            .collect();
-        result.map(Choices)
-    }
-}
-
 #[derive(Default, Debug)]
 pub struct Index(Option<NamedIndex>);
 impl FromMeta for Index {
@@ -142,7 +125,6 @@ impl ToTokens for Annotations {
             ignore: _, //
             default,
             max_length,
-            choices,
             index,
         } = self;
 
@@ -158,9 +140,6 @@ impl ToTokens for Annotations {
         let primary_key = primary_key.then(|| quote! {PrimaryKey});
         let unique = unique.then(|| quote! {Unique});
         let max_length = max_length.as_ref().map(|len| quote! {MaxLength(#len)});
-        let choices = choices
-            .as_ref()
-            .map(|Choices(choices)| quote! { Choices(&[#(#choices),*]) });
         let default = default.as_ref().map(|Default { variant, literal }| {
             let variant = Ident::new(variant, literal.span());
             quote! {DefaultValue(::rorm::internal::hmr::annotations::DefaultValueData::#variant(#literal))}
@@ -205,7 +184,6 @@ impl ToTokens for Annotations {
         let auto_create_time = finalize(auto_create_time);
         let auto_update_time = finalize(auto_update_time);
         let auto_increment = finalize(auto_increment);
-        let choices = finalize(choices);
         let default = finalize(default);
         let index = finalize(index);
         let max_length = finalize(max_length);
@@ -220,7 +198,7 @@ impl ToTokens for Annotations {
                 auto_create_time: #auto_create_time,
                 auto_update_time: #auto_update_time,
                 auto_increment: #auto_increment,
-                choices: #choices,
+                choices: None, // Set implicitly by type
                 default: #default,
                 index: #index,
                 max_length: #max_length,

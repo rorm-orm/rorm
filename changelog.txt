@@ -35,6 +35,9 @@ Since 0.4.2
   - i.e. we use Cows now
   - restricted IntoSingleValue to `Vec`/`String` and `&[u8]`/`&str`
 
+- Removed `#[rorm(choices(...))]` feature!
+  Use `#[derive(DbEnum)]` instead
+
 - Refactored annotations
 - Error when `max_length` is missing
 - Major refactor of internals

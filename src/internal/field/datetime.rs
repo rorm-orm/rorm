@@ -118,7 +118,6 @@ where
 {
     type Kind = kind::AsDbType;
     type Type = FixedOffset;
-    type ExplicitDbType = ();
     type Model = F::Model;
     const INDEX: usize = F::INDEX + 1;
     const NAME: &'static str = const_concat!(&[F::NAME, "_offset"]);
@@ -135,7 +134,6 @@ where
 {
     type Kind = kind::AsDbType;
     type Type = NaiveDateTime;
-    type ExplicitDbType = ();
     type Model = F::Model;
     const INDEX: usize = F::INDEX + 2;
     const NAME: &'static str = const_concat!(&[F::NAME, "_utc"]);

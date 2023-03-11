@@ -416,12 +416,6 @@ impl ToTokens for Field {
             ..
         } = self;
 
-        let db_type = if annotations.choices.is_some() {
-            quote! { ::rorm::internal::hmr::db_type::Choices }
-        } else {
-            quote! { () }
-        };
-
         let source = get_source(&ident);
 
         let doc = LitStr::new(
@@ -436,7 +430,6 @@ impl ToTokens for Field {
             impl ::rorm::internal::field::RawField for #type_ident {
                 type Kind = <#raw_type as ::rorm::internal::field::FieldType>::Kind;
                 type Type = #raw_type;
-                type ExplicitDbType = #db_type;
                 type Model = #model;
                 const INDEX: usize = #index;
                 const NAME: &'static str = #db_name;
