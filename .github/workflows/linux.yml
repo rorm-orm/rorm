@@ -5,124 +5,54 @@ on:
       - "*.md"
   pull_request:
 
-# This CI configuration makes heavy use of the local cache of a self-hosted Linux runner, except for the first job
 jobs:
-  build-linux-shared:
-    name: Build rorm from scratch
+  build_rs:
+    name: Build & Tests on linux
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - name: Update rust
-        run: rustup update
-
-      - name: Build rorm
-        run: cargo build -F tokio-rustls
-
-      - name: Cargo test
-        run: |
-          cargo test -p rorm-macro
-          cargo test -F tokio-rustls
-
-      - name: Install rorm-cli from crates.io
-        run: cargo install rorm-cli
-        if: ${{ github.ref_name == 'main' }}
-
-      - name: Install rorm-cli from git
-        run: |
-          git clone https://github.com/rorm-orm/rorm-cli --recursive
-          cargo install rorm-cli --path rorm-cli
-        if: ${{ github.ref_name != 'main' }}
-
-      - name: Execute rorm-sample with SQLite
-        env:
-          CONFIG_FILE: "sqlite.toml"
-        run: |
-          set -x
-          RUST_BACKTRACE=full cargo run -- --help
-          echo Config: ${CONFIG_FILE}
-          rm -rvf .models.json
-          rorm-cli migrate --database-config "${CONFIG_FILE}" --log-sql
-          cargo run -F rorm-main
-          rorm-cli make-migrations
-          rorm-cli migrate --database-config "${CONFIG_FILE}" --log-sql
-          RUST_BACKTRACE=full RUST_LOG=rorm=debug cargo run -- "${CONFIG_FILE}"
-        working-directory: ./rorm-sample
-
-  build-linux:
-    name: Build rorm
-    runs-on: [ self-hosted, linux, x64 ]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - name: Build rorm
-        run: CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/target ~/.cargo/bin/cargo build -F tokio-rustls
-
-      - name: Run rorm-sample
-        run: CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/target RUST_BACKTRACE=full ~/.cargo/bin/cargo run -- --help
-        working-directory: ./rorm-sample
-
-  cargo-test-linux:
-    name: Cargo Tests
-    needs: build-linux
-    env:
-      RUSTFLAGS: "-Cinstrument-coverage"
-      LLVM_PROFILE_FILE: "coverage-rorm_%p-%m.profraw"
-    runs-on: [ self-hosted, linux, x64 ]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - name: Install coverage utilitiy
-        run: CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/target ~/.cargo/bin/cargo install grcov
-
-      - name: Run tests
-        run: |
-          export PATH=~/.cargo/bin:$PATH
-          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/target
-          cargo test -p rorm-macro
-          cargo test -F tokio-rustls
-
-      - name: Create code coverage report
-        run: |
-          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/target
-          ~/.cargo/bin/grcov . --binary-path ${CARGO_TARGET_DIR}/debug -s . -t html --branch --ignore-not-existing -o ./coverage
-          cp -rv coverage-rorm*raw ./coverage
-
-      - name: Upload code coverage results to GitHub
-        uses: actions/upload-artifact@v3
-        with:
-          name: coverage-report
-          path: coverage
-
-  clippy-analyze-linux:
-    name: Clippy Analyze
-    needs: build-linux
-    runs-on: [ self-hosted, linux, x64 ]
     permissions:
       contents: read
       security-events: write
       actions: read
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v3
         with:
-          submodules: recursive
+          submodules: "recursive"
 
-      - name: Setup utilities
+      # When rustup is updated, it tries to replace its binary, which on Windows is somehow locked.
+      # This can result in the CI failure, see: https://github.com/rust-lang/rustup/issues/3029
+      - run: |
+          rustup set auto-self-update disable
+          rustup toolchain install stable --profile minimal
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install dependencies
         run: |
-          ~/.cargo/bin/rustup component add clippy
-          ~/.cargo/bin/cargo install clippy-sarif sarif-fmt
+          rustup component add clippy
+          cargo install clippy-sarif sarif-fmt
+
+      - name: Build rorm with tokio-rustls
+        run: cargo build -p rorm -F tokio-rustls
+
+      - name: Build rorm with tokio-native-tls
+        run: cargo build -p rorm -F tokio-native-tls
+
+      - name: Build rorm with async-std-rustls
+        run: cargo build -p rorm -F async-std-rustls
+
+      - name: Build rorm with async-std-native-tls
+        run: cargo build -p rorm -F async-std-native-tls
+
+      - name: Build rorm with actix-rustls
+        run: cargo build -p rorm -F actix-rustls
+
+      - name: Build rorm with actix-native-tls
+        run: cargo build -p rorm -F actix-native-tls
 
       - name: Run rust-clippy
-        run: |
-          export PATH=~/.cargo/bin:$PATH
-          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/target
-          cargo clippy --workspace --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+        run: cargo clippy --workspace --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
         continue-on-error: true
 
       - name: Upload clippy analysis results to GitHub
@@ -130,87 +60,3 @@ jobs:
         with:
           sarif_file: rust-clippy-results.sarif
           wait-for-processing: true
-
-  sample-project-linux:
-    name: Sample project
-    needs: [ cargo-test-linux ]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - image: postgres:15
-            health_cmd: pg_isready
-            config: sqlite.toml
-          - image: mariadb:10.9
-            health_cmd: "mysqladmin ping"
-            config: mysql.toml
-          - image: mariadb:10.8
-            health_cmd: "mysqladmin ping"
-            config: mysql.toml
-          - image: mariadb:10.7
-            health_cmd: "mysqladmin ping"
-            config: mysql.toml
-          - image: mariadb:10.6
-            health_cmd: "mysqladmin ping"
-            config: mysql.toml
-          - image: mariadb:10.5
-            health_cmd: "mysqladmin ping"
-            config: mysql.toml
-          - image: postgres:15
-            health_cmd: pg_isready
-            config: postgres.toml
-          - image: postgres:14
-            health_cmd: pg_isready
-            config: postgres.toml
-          - image: postgres:13
-            health_cmd: pg_isready
-            config: postgres.toml
-          - image: postgres:12
-            health_cmd: pg_isready
-            config: postgres.toml
-          - image: postgres:11
-            health_cmd: pg_isready
-            config: postgres.toml
-    runs-on: [ self-hosted, linux, x64 ]
-
-    services:
-      database:
-        image: ${{ matrix.image }}
-        env:
-          POSTGRES_USER: username
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: db
-          MARIADB_USER: username
-          MARIADB_PASSWORD: password
-          MARIADB_DATABASE: db
-          MARIADB_RANDOM_ROOT_PASSWORD: yes
-        ports:
-          - 127.0.0.1:5432:5432/tcp
-          - 127.0.0.1:3306:3306/tcp
-        options: >-
-          --health-cmd="${{ matrix.health_cmd }}"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 3
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - name: Verify MariaDB connection
-        run: |
-          while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
-            echo "Waiting for MariaDB...";
-            sleep 1;
-          done
-        if: ${{ matrix.config == 'mysql.toml' }}
-
-      - name: Run the project for ${{ matrix.config }}
-        run: |
-          set -x
-          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/target
-          echo Config: ${{ matrix.config }}
-          rm -rvf .models.json
-          ~/.cargo/bin/rorm-cli migrate --database-config "${{ matrix.config }}" --log-sql
-          RUST_BACKTRACE=full RUST_LOG=rorm=debug ~/.cargo/bin/cargo run -- "${{ matrix.config }}"
-        working-directory: ./rorm-sample

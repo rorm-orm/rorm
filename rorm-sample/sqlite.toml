@@ -1,4 +1,0 @@
-[Database]
-Driver = "SQLite"
-
-Filename = "sqlite.db"

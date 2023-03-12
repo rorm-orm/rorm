@@ -1,4 +1,4 @@
-//! Rorm is the rust implementation of the drorm project.
+//! Rorm is a rust orm.
 //!
 //! [List of all types valid as model fields](fields)
 #![warn(missing_docs)]

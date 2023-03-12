@@ -4,7 +4,6 @@ members = [
 	"rorm-db",
 	"rorm-declaration",
 	"rorm-macro",
-	"rorm-sample",
 	"rorm-sql",
 ]
 
