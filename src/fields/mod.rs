@@ -81,7 +81,7 @@
 mod back_ref;
 mod foreign_model;
 mod json;
-#[cfg(feature = "rmp-serde")]
+#[cfg(feature = "msgpack")]
 mod msgpack;
 #[cfg(feature = "uuid")]
 mod uuid;
@@ -89,10 +89,10 @@ mod uuid;
 pub use back_ref::BackRef;
 pub use foreign_model::{ForeignModel, ForeignModelByField};
 pub use json::Json;
-#[cfg(feature = "rmp-serde")]
+#[cfg(feature = "msgpack")]
 pub use msgpack::MsgPack;
-#[cfg(not(feature = "rmp-serde"))]
+#[cfg(not(feature = "msgpack"))]
 /// Stores data by serializing it to message pack.
 ///
-/// Requires the "rmp-serde" crate
+/// Requires the "msgpack" crate
 pub enum MsgPack {}
