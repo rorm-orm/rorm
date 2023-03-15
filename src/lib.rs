@@ -177,9 +177,6 @@ pub use rorm_macro::DbEnum;
 ///     admin: bool,
 ///
 ///     age: i16,
-///
-///     #[rorm(choices("m", "f", "d"))]
-///     gender: String,
 /// }
 /// ```
 pub use rorm_macro::Model;
