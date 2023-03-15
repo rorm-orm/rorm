@@ -2,7 +2,7 @@
 name = "rorm-macro"
 version = "0.6.0"
 edition = "2021"
-repository = "https://github.com/myOmikron/drorm"
+repository = "https://github.com/rorm-orm/rorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
 categories = ["database"]
 keywords = ["declarative", "orm", "database", "macros"]
