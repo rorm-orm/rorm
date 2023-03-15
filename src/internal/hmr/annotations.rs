@@ -197,7 +197,7 @@ impl AsImr for Annotations {
             annotations.push(imr::Annotation::AutoCreateTime);
         }
         if let Some(_) = auto_update_time {
-            annotations.push(imr::Annotation::AutoCreateTime);
+            annotations.push(imr::Annotation::AutoUpdateTime);
         }
         if let Some(_) = auto_increment {
             annotations.push(imr::Annotation::AutoIncrement);
