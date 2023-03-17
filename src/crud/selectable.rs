@@ -7,7 +7,7 @@ use crate::aggregate::{AggregatedColumn, AggregationFunc};
 use crate::const_concat;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::{AbstractField, AliasedField, Field, FieldProxy};
-use crate::internal::query_context::QueryContextBuilder;
+use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
 use crate::model::Model;
 
@@ -33,7 +33,7 @@ pub trait Selectable {
     fn push_selector(selectors: &mut Vec<ColumnSelector<'static>>);
 
     /// Prepare the context to handle the select i.e. register potential joins
-    fn prepare(builder: &mut QueryContextBuilder);
+    fn prepare(context: &mut QueryContext);
 
     /// Retrieve the result from a row
     fn decode(row: &Row) -> Result<Self::Result, Error>;
@@ -61,8 +61,8 @@ where
         }
     }
 
-    fn prepare(builder: &mut QueryContextBuilder) {
-        builder.add_field_proxy::<F, P>()
+    fn prepare(context: &mut QueryContext) {
+        P::add_to_context(context);
     }
 
     fn decode(row: &Row) -> Result<Self::Result, Error> {
@@ -92,8 +92,8 @@ where
         });
     }
 
-    fn prepare(builder: &mut QueryContextBuilder) {
-        builder.add_field_proxy::<F, P>()
+    fn prepare(context: &mut QueryContext) {
+        P::add_to_context(context);
     }
 
     fn decode(row: &Row) -> Result<Self::Result, Error> {

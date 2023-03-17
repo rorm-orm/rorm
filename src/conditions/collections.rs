@@ -6,10 +6,10 @@
 //!
 //! Where static and dynamic mean whether the collection's size is known at compile time.
 
-use crate::internal::query_context::{QueryContext, QueryContextBuilder};
 use rorm_db::sql::conditional;
 
 use super::Condition;
+use crate::internal::query_context::QueryContext;
 
 /// Operator to join a collection's conditions with
 #[derive(Copy, Clone)]
@@ -59,9 +59,9 @@ impl<A> DynamicCollection<A> {
 }
 
 impl<'a, A: Condition<'a>> Condition<'a> for DynamicCollection<A> {
-    fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
+    fn add_to_context(&self, context: &mut QueryContext) {
         for cond in self.vector.iter() {
-            cond.add_to_builder(builder);
+            cond.add_to_context(context);
         }
     }
 
@@ -128,9 +128,9 @@ macro_rules! impl_static_collection {
     (impl $($generic:ident),+) => {
         #[allow(non_snake_case)] // the macro is simpler when generic variable are reused as value variables
         impl<'a, $($generic: Condition<'a>),+> Condition<'a> for StaticCollection<($($generic,)+)> {
-            fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
+            fn add_to_context(&self, context: &mut QueryContext) {
                 let ($($generic,)+) = &self.tuple;
-                $($generic.add_to_builder(builder);)+
+                $($generic.add_to_context(context);)+
             }
 
             fn as_sql(&self, context: &QueryContext) -> conditional::Condition {

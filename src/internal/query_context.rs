@@ -1,29 +1,29 @@
 //! The query context holds some of a query's data which rorm-db borrows.
 
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 use ouroboros::self_referencing;
-
-use crate::internal::field::{Field, FieldProxy, RawField};
-use crate::internal::relation_path::{JoinAlias, Path, PathImpl, PathStep};
-use crate::Model;
 use rorm_db::sql::conditional::{BinaryCondition, Condition};
 use rorm_db::sql::value::Value;
+
+use crate::internal::field::RawField;
+use crate::internal::relation_path::{JoinAlias, Path, PathImpl, PathStep};
+use crate::Model;
 
 /// A [Path]'s hashable representation
 type PathId = std::any::TypeId;
 
-/// A [FieldProxy](crate::internal::field::FieldProxy)'s hashable representation
-type ProxyId = std::any::TypeId;
-
-/// Builder for a [QueryContext]
-#[derive(Default, Debug)]
-pub struct QueryContextBuilder {
-    joins: HashMap<PathId, TempJoinData>,
-    fields: HashMap<ProxyId, String>,
+/// Context for creating queries.
+///
+/// Since rorm-db borrows all of its parameters, there has to be someone who own it.
+/// This struct owns all the implicit data required to query something i.e. join and alias information.
+#[derive(Debug, Default)]
+pub struct QueryContext {
+    handled_paths: HashSet<PathId>,
+    joins: Vec<Join>,
 }
-impl QueryContextBuilder {
-    /// Create an empty instance
+impl QueryContext {
+    /// Create an empty context
     pub fn new() -> Self {
         Self::default()
     }
@@ -40,61 +40,23 @@ impl QueryContextBuilder {
     {
         let new_table = PathId::of::<PathStep<F, P>>();
 
-        if self.joins.contains_key(&new_table) {
-            return;
+        if self.handled_paths.insert(new_table) {
+            P::add_to_context(self);
+
+            self.joins.push(
+                TempJoinData::Static {
+                    alias: PathStep::<F, P>::ALIAS,
+                    table_name: M::TABLE,
+                    fields: PathStep::<F, P>::JOIN_FIELDS,
+                }
+                .into(),
+            );
         }
-        P::add_to_join_builder(self);
-
-        self.joins.insert(
-            new_table,
-            TempJoinData::Static {
-                alias: PathStep::<F, P>::ALIAS,
-                table_name: M::TABLE,
-                fields: PathStep::<F, P>::JOIN_FIELDS,
-            },
-        );
-    }
-
-    /// Add a [FieldProxy] ensuring its relation path is joined and its column is on the correct table
-    pub fn add_field_proxy<F: RawField, P: Path>(&mut self) {
-        P::add_to_join_builder(self);
-    }
-
-    /// Consume the builder and produce a [QueryContext]
-    pub fn finish(self) -> QueryContext {
-        QueryContext {
-            joins: self.joins.into_values().map(Join::from).collect(),
-            fields: self.fields,
-        }
-    }
-}
-
-/// Context for creating queries.
-///
-/// Since rorm-db borrows all of its parameters, there has to be someone who own it.
-/// This struct owns all the implicit data required to query something i.e. join and alias information.
-#[derive(Debug, Default)]
-pub struct QueryContext {
-    joins: Vec<Join>,
-    fields: HashMap<ProxyId, String>,
-}
-impl QueryContext {
-    /// Create an empty context
-    pub fn new() -> Self {
-        Self::default()
     }
 
     /// Create a vector borrowing the joins in rorm_db's format which can be passed to it as slice.
     pub fn get_joins(&self) -> Vec<rorm_db::database::JoinTable> {
         self.joins.iter().map(Join::as_db_format).collect()
-    }
-
-    /// Get a field's column name joined with its table
-    pub fn get_field<F: Field, P: Path>(&self) -> &str {
-        self.fields
-            .get(&ProxyId::of::<FieldProxy<F, P>>())
-            .expect("Here be error handling?") // TODO
-            .as_str()
     }
 }
 

@@ -15,7 +15,7 @@ use crate::conditions::Condition;
 use crate::crud::builder::ConditionMarker;
 use crate::crud::selectable::Selectable;
 use crate::internal::field::{FieldProxy, RawField};
-use crate::internal::query_context::QueryContextBuilder;
+use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
 use crate::model::{Model, Patch};
 use crate::sealed;
@@ -51,7 +51,7 @@ use crate::sealed;
 #[must_use]
 pub struct QueryBuilder<'rf, E, M, S, C, LO> {
     executor: E,
-    ctx: QueryContextBuilder,
+    ctx: QueryContext,
     selector: S,
     _phantom: PhantomData<&'rf M>,
 
@@ -69,7 +69,7 @@ pub trait Selector<M: Model> {
     fn decode(row: Row) -> Result<Self::Result, Error>;
 
     /// Columns to query
-    fn columns(&self, builder: &mut QueryContextBuilder) -> &[ColumnSelector<'static>];
+    fn columns(&self, context: &mut QueryContext) -> &[ColumnSelector<'static>];
 }
 
 impl<'ex, 'rf, E, M, S> QueryBuilder<'rf, E, M, S, (), ()>
@@ -82,7 +82,7 @@ where
     pub fn new(executor: E, selector: S) -> Self {
         QueryBuilder {
             executor,
-            ctx: QueryContextBuilder::new(),
+            ctx: QueryContext::new(),
             selector,
             _phantom: PhantomData,
 
@@ -153,7 +153,7 @@ impl<'rf, E, M, S, C, LO> QueryBuilder<'rf, E, M, S, C, LO> {
         F: RawField,
         P: Path<Origin = M>,
     {
-        P::add_to_join_builder(&mut self.ctx);
+        P::add_to_context(&mut self.ctx);
         self.ordering.push(OrderByEntry {
             ordering: order,
             table_name: Some(P::ALIAS),
@@ -200,13 +200,12 @@ where
     {
         let columns = self.selector.columns(&mut self.ctx);
         self.condition.add_to_builder(&mut self.ctx);
-        let context = self.ctx.finish();
-        let joins = context.get_joins();
+        let joins = self.ctx.get_joins();
 
         let condition = self.condition.into_option();
         let condition = condition
             .as_ref()
-            .map(|condition| condition.as_sql(&context));
+            .map(|condition| condition.as_sql(&self.ctx));
 
         database::query::<All>(
             self.executor,
@@ -232,7 +231,7 @@ where
         let columns = self.selector.columns(&mut self.ctx);
         self.condition.add_to_builder(&mut self.ctx);
         QueryStream::new(
-            self.ctx.finish(),
+            self.ctx,
             |ctx| ctx.get_joins(),
             self.condition.into_option(),
             |conditions, joins| {
@@ -258,13 +257,12 @@ where
     {
         let columns = self.selector.columns(&mut self.ctx);
         self.condition.add_to_builder(&mut self.ctx);
-        let context = self.ctx.finish();
-        let joins = context.get_joins();
+        let joins = self.ctx.get_joins();
 
         let condition = self.condition.into_option();
         let condition = condition
             .as_ref()
-            .map(|condition| condition.as_sql(&context));
+            .map(|condition| condition.as_sql(&self.ctx));
 
         let row = database::query::<One>(
             self.executor,
@@ -286,13 +284,12 @@ where
     {
         let columns = self.selector.columns(&mut self.ctx);
         self.condition.add_to_builder(&mut self.ctx);
-        let context = self.ctx.finish();
-        let joins = context.get_joins();
+        let joins = self.ctx.get_joins();
 
         let condition = self.condition.into_option();
         let condition = condition
             .as_ref()
-            .map(|condition| condition.as_sql(&context));
+            .map(|condition| condition.as_sql(&self.ctx));
 
         let row = database::query::<Optional>(
             self.executor,
@@ -658,7 +655,7 @@ impl<M: Model, P: Patch<Model = M>> Selector<M> for SelectPatch<P> {
         P::from_row(row)
     }
 
-    fn columns(&self, _builder: &mut QueryContextBuilder) -> &[ColumnSelector<'static>] {
+    fn columns(&self, _context: &mut QueryContext) -> &[ColumnSelector<'static>] {
         &self.columns
     }
 }
@@ -697,9 +694,9 @@ macro_rules! impl_select_tuple {
                 )+))
             }
 
-            fn columns(&self, builder: &mut QueryContextBuilder) -> &[ColumnSelector<'static>] {
+            fn columns(&self, context: &mut QueryContext) -> &[ColumnSelector<'static>] {
                 $(
-                    $S::prepare(builder);
+                    $S::prepare(context);
                 )+
                 &self.columns
             }

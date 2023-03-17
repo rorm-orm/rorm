@@ -12,7 +12,7 @@ use crate::internal::field::{Field, FieldProxy};
 use crate::internal::hmr::db_type::{
     Boolean, Date, DateTime, DbType, Double, Float, Int16, Int32, Int64, Time, VarBinary, VarChar,
 };
-use crate::internal::query_context::{QueryContext, QueryContextBuilder};
+use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
 
 pub mod collections;
@@ -24,7 +24,7 @@ pub type BoxedCondition<'a> = Box<dyn Condition<'a>>;
 /// Node in a condition tree
 pub trait Condition<'a>: 'a + Send {
     /// Prepare a query context to be able to handle this condition by registering all implicit joins.
-    fn add_to_builder(&self, builder: &mut QueryContextBuilder);
+    fn add_to_context(&self, context: &mut QueryContext);
 
     /// Convert the condition into rorm-sql's format using a query context's registered joins.
     fn as_sql(&self, context: &QueryContext) -> conditional::Condition;
@@ -38,8 +38,8 @@ pub trait Condition<'a>: 'a + Send {
     }
 }
 impl<'a> Condition<'a> for BoxedCondition<'a> {
-    fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
-        self.as_ref().add_to_builder(builder);
+    fn add_to_context(&self, context: &mut QueryContext) {
+        self.as_ref().add_to_context(context);
     }
 
     fn as_sql(&self, context: &QueryContext) -> conditional::Condition {
@@ -107,7 +107,7 @@ impl<'a> Value<'a> {
     }
 }
 impl<'a> Condition<'a> for Value<'a> {
-    fn add_to_builder(&self, _builder: &mut QueryContextBuilder) {}
+    fn add_to_context(&self, _context: &mut QueryContext) {}
 
     fn as_sql(&self, _context: &QueryContext) -> conditional::Condition {
         conditional::Condition::Value(self.as_sql())
@@ -134,8 +134,8 @@ impl<F: Field, P: Path> Column<F, P> {
     }
 }
 impl<'a, F: Field, P: Path> Condition<'a> for Column<F, P> {
-    fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
-        builder.add_field_proxy::<F, P>();
+    fn add_to_context(&self, context: &mut QueryContext) {
+        P::add_to_context(context);
     }
 
     fn as_sql(&self, _context: &QueryContext) -> conditional::Condition {
@@ -178,9 +178,9 @@ pub enum BinaryOperator {
     NotRegexp,
 }
 impl<'a, A: Condition<'a>, B: Condition<'a>> Condition<'a> for Binary<A, B> {
-    fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
-        self.fst_arg.add_to_builder(builder);
-        self.snd_arg.add_to_builder(builder);
+    fn add_to_context(&self, context: &mut QueryContext) {
+        self.fst_arg.add_to_context(context);
+        self.snd_arg.add_to_context(context);
     }
 
     fn as_sql(&self, context: &QueryContext) -> conditional::Condition {
@@ -219,10 +219,10 @@ pub enum TernaryOperator {
     NotBetween,
 }
 impl<'a, A: Condition<'a>, B: Condition<'a>, C: Condition<'a>> Condition<'a> for Ternary<A, B, C> {
-    fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
-        self.fst_arg.add_to_builder(builder);
-        self.snd_arg.add_to_builder(builder);
-        self.trd_arg.add_to_builder(builder);
+    fn add_to_context(&self, context: &mut QueryContext) {
+        self.fst_arg.add_to_context(context);
+        self.snd_arg.add_to_context(context);
+        self.trd_arg.add_to_context(context);
     }
 
     fn as_sql(&self, context: &QueryContext) -> conditional::Condition {
@@ -258,8 +258,8 @@ pub enum UnaryOperator {
     Not,
 }
 impl<'a, A: Condition<'a>> Condition<'a> for Unary<A> {
-    fn add_to_builder(&self, builder: &mut QueryContextBuilder) {
-        self.fst_arg.add_to_builder(builder);
+    fn add_to_context(&self, context: &mut QueryContext) {
+        self.fst_arg.add_to_context(context);
     }
 
     fn as_sql(&self, context: &QueryContext) -> conditional::Condition {

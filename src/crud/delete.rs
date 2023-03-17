@@ -7,7 +7,7 @@ use rorm_db::error::Error;
 use rorm_db::executor::Executor;
 
 use crate::conditions::{Condition, DynamicCollection};
-use crate::internal::query_context::QueryContextBuilder;
+use crate::internal::query_context::QueryContext;
 use crate::model::{Identifiable, Model};
 use crate::Patch;
 
@@ -75,9 +75,8 @@ where
 
     /// Delete all rows matching a condition
     pub async fn condition<'c, C: Condition<'c>>(self, condition: C) -> Result<u64, Error> {
-        let mut builder = QueryContextBuilder::new();
-        condition.add_to_builder(&mut builder);
-        let context = builder.finish();
+        let mut context = QueryContext::new();
+        condition.add_to_context(&mut context);
         let condition = condition.as_sql(&context);
         database::delete(self.executor, M::TABLE, Some(&condition)).await
     }

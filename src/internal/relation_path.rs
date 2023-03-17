@@ -2,12 +2,10 @@
 
 use std::marker::PhantomData;
 
-use crate::fields::BackRef;
-use crate::fields::ForeignModelByField;
+use crate::fields::{BackRef, ForeignModelByField};
 use crate::internal::field::foreign_model::ForeignModelTrait;
-use crate::internal::field::{kind, AbstractField};
-use crate::internal::field::{Field, RawField};
-use crate::internal::query_context::QueryContextBuilder;
+use crate::internal::field::{kind, AbstractField, Field, RawField};
+use crate::internal::query_context::QueryContext;
 use crate::{const_concat, sealed, Model};
 
 /// Trait to store a relation path in generics
@@ -37,13 +35,13 @@ pub trait Path: JoinAlias + 'static {
     /// The model (or table in the context of joins) this path originates from
     type Origin: Model;
 
-    /// Add all joins required to use this path to the builder
-    fn add_to_join_builder(builder: &mut QueryContextBuilder);
+    /// Add all joins required to use this path to the query context
+    fn add_to_context(context: &mut QueryContext);
 }
 impl<M: Model> Path for M {
     type Origin = M;
 
-    fn add_to_join_builder(_builder: &mut QueryContextBuilder) {}
+    fn add_to_context(_context: &mut QueryContext) {}
 }
 
 /// A single step in a [`Path`]
@@ -58,8 +56,8 @@ where
 {
     type Origin = P::Origin;
 
-    fn add_to_join_builder(builder: &mut QueryContextBuilder) {
-        <Self as PathImpl<_>>::add_to_join_builder(builder);
+    fn add_to_context(context: &mut QueryContext) {
+        <Self as PathImpl<_>>::add_to_context(context);
     }
 }
 impl<FF, F, P> PathImpl<ForeignModelByField<FF>> for PathStep<F, P>
@@ -75,8 +73,8 @@ where
         [P::ALIAS, F::NAME],
     ];
 
-    fn add_to_join_builder(builder: &mut QueryContextBuilder) {
-        builder.add_relation_path::<FF::Model, F, P>();
+    fn add_to_context(context: &mut QueryContext) {
+        context.add_relation_path::<FF::Model, F, P>();
     }
 }
 impl<FF, F, P> PathImpl<Option<ForeignModelByField<FF>>> for PathStep<F, P>
@@ -92,8 +90,8 @@ where
         [P::ALIAS, F::NAME],
     ];
 
-    fn add_to_join_builder(builder: &mut QueryContextBuilder) {
-        builder.add_relation_path::<FF::Model, F, P>();
+    fn add_to_context(context: &mut QueryContext) {
+        context.add_relation_path::<FF::Model, F, P>();
     }
 }
 impl<FMF, F, P> PathImpl<BackRef<FMF>> for PathStep<F, P>
@@ -113,8 +111,8 @@ where
         ],
     ];
 
-    fn add_to_join_builder(builder: &mut QueryContextBuilder) {
-        builder.add_relation_path::<FMF::Model, F, P>();
+    fn add_to_context(context: &mut QueryContext) {
+        context.add_relation_path::<FMF::Model, F, P>();
     }
 }
 /// Implementation for [`PathStep`]
@@ -132,8 +130,8 @@ pub trait PathImpl<RawType> {
     /// The two field joined on.
     const JOIN_FIELDS: [[&'static str; 2]; 2];
 
-    /// Add all joins required to use this path to the builder
-    fn add_to_join_builder(builder: &mut QueryContextBuilder);
+    /// Add all joins required to use this path to the query context
+    fn add_to_context(context: &mut QueryContext);
 }
 /// Shorthand for accessing [`PathImpl::ResolvedRelatedField`](PathImpl::ResolvedRelatedField).
 pub type ResolvedRelatedField<F, P> =
