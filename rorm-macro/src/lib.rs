@@ -1,7 +1,7 @@
 #![cfg_attr(feature = "unstable", feature(proc_macro_span))]
+#![cfg_attr(all(doc, CHANNEL_NIGHTLY), feature(doc_auto_cfg))]
 extern crate proc_macro;
 use proc_macro::TokenStream;
-
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 

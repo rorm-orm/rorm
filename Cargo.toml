@@ -58,8 +58,11 @@ rorm-declaration = { version = "~0.3", path = "./rorm-declaration" }
 # rorm-cli exposes interfaces to integrate the cli as library
 rorm-cli = { version = "~0.7", optional = true }
 
+[build-dependencies]
+rustc_version = "0.4.0"
+
 [package.metadata.docs.rs]
-features = ["async-std-rustls", "msgpack", "uuid", "cli"]
+features = ["msgpack", "uuid", "cli"]
 
 [features]
 default = [

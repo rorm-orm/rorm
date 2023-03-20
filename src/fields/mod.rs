@@ -91,8 +91,3 @@ pub use foreign_model::{ForeignModel, ForeignModelByField};
 pub use json::Json;
 #[cfg(feature = "msgpack")]
 pub use msgpack::MsgPack;
-#[cfg(not(feature = "msgpack"))]
-/// Stores data by serializing it to message pack.
-///
-/// Requires the "msgpack" crate
-pub enum MsgPack {}
