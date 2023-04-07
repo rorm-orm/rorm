@@ -52,6 +52,10 @@ impl<T: Serialize + DeserializeOwned> AsDbType for Json<T> {
     fn as_primitive(&self) -> Value {
         Value::Binary(Cow::Owned(serde_json::to_vec(&self.0).unwrap())) // TODO propagate error?
     }
+
+    fn into_primitive(self) -> Value<'static> {
+        Value::Binary(Cow::Owned(serde_json::to_vec(&self.0).unwrap())) // TODO propagate error?
+    }
 }
 
 // From

@@ -52,6 +52,10 @@ impl<T: Serialize + DeserializeOwned> AsDbType for MsgPack<T> {
     fn as_primitive(&self) -> Value {
         Value::Binary(Cow::Owned(rmp_serde::to_vec(&self.0).unwrap())) // TODO propagate error?
     }
+
+    fn into_primitive(self) -> Value<'static> {
+        Value::Binary(Cow::Owned(rmp_serde::to_vec(&self.0).unwrap())) // TODO propagate error?
+    }
 }
 
 // From

@@ -32,6 +32,9 @@ pub trait AsDbType: FieldType<Kind = kind::AsDbType> {
 
     /// Convert a reference to `Self` into the primitive [`Value`] used by our db implementation.
     fn as_primitive(&self) -> Value;
+
+    /// Convert `Self` into the primitive [`Value`] used by our db implementation.
+    fn into_primitive(self) -> Value<'static>;
 }
 
 macro_rules! impl_as_db_type {
@@ -57,11 +60,21 @@ macro_rules! impl_as_db_type {
         fn as_primitive(&self) -> Value {
             Value::$value_variant(*self)
         }
+
+        #[inline(always)]
+        fn into_primitive(self) -> Value<'static> {
+            Value::$value_variant(self)
+        }
     };
     (impl_as_primitive, $type:ty, $db_type:ident, $value_variant:ident using $method:ident) => {
         #[inline(always)]
         fn as_primitive(&self) -> Value {
             Value::$value_variant(Cow::Borrowed(self.$method()))
+        }
+
+        #[inline(always)]
+        fn into_primitive(self) -> Value<'static> {
+            todo!()
         }
     };
 }
@@ -91,6 +104,10 @@ impl AsDbType for chrono::DateTime<Utc> {
     fn as_primitive(&self) -> Value {
         Value::NaiveDateTime(self.naive_utc())
     }
+
+    fn into_primitive(self) -> Value<'static> {
+        Value::NaiveDateTime(self.naive_utc())
+    }
 }
 
 impl<T: AsDbType> FieldType for Option<T> {
@@ -115,9 +132,13 @@ impl<T: AsDbType> AsDbType for Option<T> {
     }
 
     fn as_primitive(&self) -> Value {
-        match self {
-            Some(value) => value.as_primitive(),
-            None => Value::Null(T::DbType::NULL_TYPE),
-        }
+        self.as_ref()
+            .map(T::as_primitive)
+            .unwrap_or(Value::Null(T::DbType::NULL_TYPE))
+    }
+
+    fn into_primitive(self) -> Value<'static> {
+        self.map(T::into_primitive)
+            .unwrap_or(Value::Null(T::DbType::NULL_TYPE))
     }
 }

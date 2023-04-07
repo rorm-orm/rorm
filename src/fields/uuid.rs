@@ -22,4 +22,8 @@ impl AsDbType for Uuid {
     fn as_primitive(&self) -> Value {
         Value::Binary(Cow::Borrowed(self.as_bytes().as_slice()))
     }
+
+    fn into_primitive(self) -> Value<'static> {
+        Value::Binary(Cow::Owned(self.into_bytes().to_vec()))
+    }
 }

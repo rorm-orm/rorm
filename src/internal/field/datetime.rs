@@ -29,6 +29,10 @@ impl AsDbType for FixedOffset {
     }
 
     fn as_primitive(&self) -> Value {
+        self.into_primitive()
+    }
+
+    fn into_primitive(self) -> Value<'static> {
         Value::I32(self.local_minus_utc())
     }
 }
