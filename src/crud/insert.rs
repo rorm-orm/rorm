@@ -7,6 +7,7 @@ use rorm_db::error::Error;
 use rorm_db::executor::Executor;
 
 use crate::conditions::Value;
+use crate::internal::patch::{IntoPatchCow, PatchCow};
 use crate::model::{Model, Patch};
 
 /// Builder for insert queries
@@ -121,13 +122,27 @@ where
     }
 
     /// Insert a bulk of patches into the db
-    pub async fn bulk<P: Patch<Model = M>>(
-        self,
-        patches: impl IntoIterator<Item = &P>,
-    ) -> Result<R::BulkResult, Error> {
-        let mut values = Vec::new();
+    ///
+    /// # Argument
+    /// This method accepts anything which can be used to iterate
+    /// over instances or references of your [`Patch`].
+    ///
+    /// **Examples**: (where `P` is your patch)
+    /// - `Vec<P>`
+    /// - `&[P]`
+    /// - A [`map`](Iterator::map) iterator yielding `P` or `&P`
+    pub async fn bulk<'p, I, P>(self, patches: I) -> Result<R::BulkResult, Error>
+    where
+        I: IntoIterator,
+        I::Item: IntoPatchCow<'p, Patch = P>,
+        P: Patch<Model = M>,
+    {
+        let mut values: Vec<Value<'p>> = Vec::new();
         for patch in patches {
-            patch.push_references(&mut values);
+            match patch.into_patch_cow() {
+                PatchCow::Borrowed(patch) => patch.push_references(&mut values),
+                PatchCow::Owned(patch) => patch.push_values(&mut values),
+            }
         }
 
         let values: Vec<_> = values.iter().map(Value::as_sql).collect();

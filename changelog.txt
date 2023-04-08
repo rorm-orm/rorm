@@ -1,5 +1,7 @@
 Since 0.5.1
 -----------
+- `insert!`
+  - `.bulk()` accepts iterator over references or instances
 
 Notes for publishing
 --------------------

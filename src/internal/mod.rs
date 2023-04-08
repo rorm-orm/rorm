@@ -6,6 +6,7 @@
 pub mod const_concat;
 pub mod field;
 pub mod hmr;
+pub mod patch;
 pub mod query_context;
 pub mod relation_path;
 

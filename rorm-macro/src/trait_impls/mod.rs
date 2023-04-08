@@ -27,6 +27,21 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
             }
         }
 
+        impl<'a> ::rorm::internal::patch::IntoPatchCow<'a> for #strct {
+            type Patch = #strct;
+
+            fn into_patch_cow(self) -> ::rorm::internal::patch::PatchCow<'a, #strct> {
+                ::rorm::internal::patch::PatchCow::Owned(self)
+            }
+        }
+        impl<'a> ::rorm::internal::patch::IntoPatchCow<'a> for &'a #strct {
+            type Patch = #strct;
+
+            fn into_patch_cow(self) -> ::rorm::internal::patch::PatchCow<'a, #strct> {
+                ::rorm::internal::patch::PatchCow::Borrowed(self)
+            }
+        }
+
         #(
             impl ::rorm::model::GetField<::rorm::get_field!(#strct, #fields)> for #strct {
                 fn get_field(self) -> <::rorm::get_field!(#strct, #fields) as ::rorm::internal::field::RawField>::Type {
