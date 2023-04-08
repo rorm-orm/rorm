@@ -1,0 +1,38 @@
+features = ["tokio-rustls", "tokio-native-tls", "actix-rustls", "actix-native-tls", "async-std-rustls", "async-std-native-tls", "uuid", "msgpack", "cli"]
+
+[advisories]
+# The path where the advisory database is cloned/fetched into
+db-path = "~/.cargo/advisory-db"
+# The url(s) of the advisory databases to use
+db-urls = ["https://github.com/rustsec/advisory-db"]
+# The lint level for security vulnerabilities
+vulnerability = "deny"
+unmaintained = "warn"
+yanked = "warn"
+notice = "warn"
+ignore = [
+    # Waiting on sqlx release
+    "RUSTSEC-2022-0090"
+]
+
+[licenses]
+
+unlicensed = "deny"
+
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "MPL-2.0",
+    "ISC",
+    "Unicode-DFS-2016",
+    "LicenseRef-ring",
+]
+
+[[licenses.clarify]]
+name = "ring"
+expression = "LicenseRef-ring"
+license-files = [
+    { path = "LICENSE", hash = 0xbd0eed23 },
+]
