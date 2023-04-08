@@ -99,7 +99,7 @@ where
 {
     /// Insert a single patch into the db
     pub async fn single<P: Patch<Model = M>>(self, patch: &P) -> Result<R::Result, Error> {
-        let values = patch.values();
+        let values = patch.references();
         let values: Vec<_> = values.iter().map(Value::as_sql).collect();
         let inserting = P::COLUMNS;
         let returning = self.returning.columns();
@@ -127,7 +127,7 @@ where
     ) -> Result<R::BulkResult, Error> {
         let mut values = Vec::new();
         for patch in patches {
-            patch.push_values(&mut values);
+            patch.push_references(&mut values);
         }
 
         let values: Vec<_> = values.iter().map(Value::as_sql).collect();
@@ -236,10 +236,11 @@ macro_rules! insert {
 pub mod returning {
     use std::marker::PhantomData;
 
-    use crate::internal::field::{Field, FieldProxy, RawField};
-    use crate::model::{Model, Patch as ModelPatch};
     use rorm_db::error::Error;
     use rorm_db::row::Row;
+
+    use crate::internal::field::{Field, FieldProxy, RawField};
+    use crate::model::{Model, Patch as ModelPatch};
 
     /// Specifies which columns to return after a select and how to decode the rows into what.
     pub trait Returning<M: Model> {

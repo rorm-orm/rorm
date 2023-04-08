@@ -35,7 +35,7 @@ where
     pub fn key(&self) -> &FF::Type {
         match self {
             Self::Key(key) => key,
-            Self::Instance(instance) => instance.get_field(),
+            Self::Instance(instance) => instance.borrow_field(),
         }
     }
 }

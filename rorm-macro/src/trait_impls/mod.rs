@@ -14,19 +14,28 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
                 ::rorm::internal::field::FieldProxy::index(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields),
             )*];
 
-            fn push_values<'a>(&'a self, values: &mut Vec<::rorm::conditions::Value<'a>>) {
+            fn push_references<'a>(&'a self, values: &mut Vec<::rorm::conditions::Value<'a>>) {
                 #(
-                    ::rorm::internal::field::FieldProxy::push_value(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields, &self.#fields, values);
+                    ::rorm::internal::field::FieldProxy::push_ref(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields, &self.#fields, values);
+                )*
+            }
+
+            fn push_values(self, values: &mut Vec<::rorm::conditions::Value>) {
+                #(
+                    ::rorm::internal::field::FieldProxy::push_value(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields, self.#fields, values);
                 )*
             }
         }
 
         #(
             impl ::rorm::model::GetField<::rorm::get_field!(#strct, #fields)> for #strct {
-                fn get_field(&self) -> &<::rorm::get_field!(#strct, #fields) as ::rorm::internal::field::RawField>::Type {
+                fn get_field(self) -> <::rorm::get_field!(#strct, #fields) as ::rorm::internal::field::RawField>::Type {
+                    self.#fields
+                }
+                fn borrow_field(&self) -> &<::rorm::get_field!(#strct, #fields) as ::rorm::internal::field::RawField>::Type {
                     &self.#fields
                 }
-                fn get_field_mut(&mut self) -> &mut <::rorm::get_field!(#strct, #fields) as ::rorm::internal::field::RawField>::Type {
+                fn borrow_field_mut(&mut self) -> &mut <::rorm::get_field!(#strct, #fields) as ::rorm::internal::field::RawField>::Type {
                     &mut self.#fields
                 }
             }

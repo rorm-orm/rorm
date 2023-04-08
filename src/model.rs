@@ -22,17 +22,25 @@ pub trait Patch: FromRow + 'static {
     /// Used in [`contains_index`]
     const INDEXES: &'static [usize];
 
-    /// Create a [`Vec`] containing the patch's condition values
-    ///
-    /// These can be used to insert the patch.
-    fn values(&self) -> Vec<Value> {
+    /// Create a [`Vec`] moving the patch's condition values
+    fn values(self) -> Vec<Value<'static>> {
         let mut values = Vec::with_capacity(Self::COLUMNS.len());
         self.push_values(&mut values);
         values
     }
 
     /// Push the patch's condition values onto a [`Vec`]
-    fn push_values<'a>(&'a self, values: &mut Vec<Value<'a>>);
+    fn push_values(self, values: &mut Vec<Value>);
+
+    /// Create a [`Vec`] borrowing the patch's condition values
+    fn references(&self) -> Vec<Value> {
+        let mut values = Vec::with_capacity(Self::COLUMNS.len());
+        self.push_references(&mut values);
+        values
+    }
+
+    /// Push the patch's condition values onto a [`Vec`]
+    fn push_references<'a>(&'a self, values: &mut Vec<Value<'a>>);
 
     /// Get a reference to a field
     fn field<F>(&self) -> &F::Type
@@ -40,7 +48,7 @@ pub trait Patch: FromRow + 'static {
         F: RawField,
         Self: GetField<F>,
     {
-        <Self as GetField<F>>::get_field(self)
+        <Self as GetField<F>>::borrow_field(self)
     }
 
     /// Get a mutable reference to a field
@@ -49,7 +57,7 @@ pub trait Patch: FromRow + 'static {
         F: RawField,
         Self: GetField<F>,
     {
-        <Self as GetField<F>>::get_field_mut(self)
+        <Self as GetField<F>>::borrow_field_mut(self)
     }
 }
 
@@ -114,11 +122,14 @@ pub trait FieldByIndex<const INDEX: usize>: Model {
 /// (for example the model's primary key, see [Identifiable])
 /// and gain access to it.
 pub trait GetField<F: RawField>: Patch {
-    /// Get reference to the field
-    fn get_field(&self) -> &F::Type;
+    /// Take the field by ownership
+    fn get_field(self) -> F::Type;
 
-    /// Get mutable reference to the field
-    fn get_field_mut(&mut self) -> &mut F::Type;
+    /// Borrow the field
+    fn borrow_field(&self) -> &F::Type;
+
+    /// Borrow the field mutably
+    fn borrow_field_mut(&mut self) -> &mut F::Type;
 }
 
 /// Update a model's field based on the model's primary key
@@ -155,7 +166,7 @@ pub trait Identifiable: Patch {
 }
 impl<M: Model, P: Patch<Model = M> + GetField<M::Primary>> Identifiable for P {
     fn get_primary_key(&self) -> &<M::Primary as RawField>::Type {
-        <Self as GetField<M::Primary>>::get_field(self)
+        <Self as GetField<M::Primary>>::borrow_field(self)
     }
 }
 

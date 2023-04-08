@@ -59,7 +59,9 @@ where
         Ok(BackRef { cached: None })
     }
 
-    fn push_value<'a>(_value: &'a Self::Type, _values: &mut Vec<Value<'a>>) {}
+    fn push_ref<'a>(_value: &'a Self::Type, _values: &mut Vec<Value<'a>>) {}
+
+    fn push_value(_value: Self::Type, _values: &mut Vec<Value>) {}
 }
 
 impl<BRF, FMF> FieldProxy<BRF, BRF::Model>
@@ -143,7 +145,7 @@ where
                 .stream();
 
             while let Some(instance) = stream.try_next().await? {
-                if let Some(key) = instance.get_field().as_key() {
+                if let Some(key) = instance.borrow_field().as_key() {
                     cache
                         .entry(key.clone())
                         .or_insert_with(|| Some(Vec::new()))

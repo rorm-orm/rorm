@@ -74,7 +74,7 @@ macro_rules! impl_as_db_type {
 
         #[inline(always)]
         fn into_primitive(self) -> Value<'static> {
-            todo!()
+            Value::$value_variant(Cow::Owned(self))
         }
     };
 }

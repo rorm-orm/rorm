@@ -197,6 +197,9 @@ pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
 
     /// Convert a reference to `Self` into the primitive [`Value`] used by our db implementation.
     fn as_condition_value(value: &Self::Type) -> Value;
+
+    /// Convert `Self` into the primitive [`Value`] used by our db implementation.
+    fn into_condition_value(value: Self::Type) -> Value<'static>;
 }
 
 impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDbType> for F {
@@ -231,6 +234,10 @@ impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDb
 
     fn as_condition_value(value: &Self::Type) -> Value {
         T::as_primitive(value)
+    }
+
+    fn into_condition_value(value: Self::Type) -> Value<'static> {
+        T::into_primitive(value)
     }
 }
 
@@ -270,11 +277,17 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     /// ```
     fn get_by_index(row: &Row, index: usize) -> Result<Self::Type, Error>;
 
-    /// Push the field's value onto a [`Vec`]
+    /// Push the field's borrowed value onto a [`Vec`]
+    ///
+    /// This method is forwarded through [`FieldProxy::push_ref`]
+    /// to be used in [`Patch::values`](crate::model::Patch::values).
+    fn push_ref<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>);
+
+    /// Push the field's owned value onto a [`Vec`]
     ///
     /// This method is forwarded through [`FieldProxy::push_value`]
     /// to be used in [`Patch::values`](crate::model::Patch::values).
-    fn push_value<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>);
+    fn push_value(value: Self::Type, values: &mut Vec<Value>);
 
     /// The columns' names which store this field
     const COLUMNS: &'static [&'static str] = &[];
@@ -302,8 +315,12 @@ macro_rules! impl_abstract_from_field {
                 Ok(<Self as Field<$kind>>::from_primitive(row.get(index)?))
             }
 
-            fn push_value<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
+            fn push_ref<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
                 values.push(<Self as Field<$kind>>::as_condition_value(value))
+            }
+
+            fn push_value(value: Self::Type, values: &mut Vec<Value>) {
+                values.push(<Self as Field<$kind>>::into_condition_value(value))
             }
 
             const COLUMNS: &'static [&'static str] = &[F::NAME];
@@ -408,8 +425,13 @@ impl<F: AbstractField, P> FieldProxy<F, P> {
         F::get_by_index(row, index)
     }
 
-    /// Push the field's value onto a [`Vec`]
-    pub fn push_value<'a>(_field: Self, value: &'a F::Type, values: &mut Vec<Value<'a>>) {
+    /// Push the field's borrowed value onto a [`Vec`]
+    pub fn push_ref<'a>(_field: Self, value: &'a F::Type, values: &mut Vec<Value<'a>>) {
+        F::push_ref(value, values)
+    }
+
+    /// Push the field's owned value onto a [`Vec`]
+    pub fn push_value(_field: Self, value: F::Type, values: &mut Vec<Value>) {
         F::push_value(value, values)
     }
 }

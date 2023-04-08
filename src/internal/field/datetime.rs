@@ -61,8 +61,13 @@ where
         Ok(offset.from_utc_datetime(&utc))
     }
 
-    fn push_value<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
+    fn push_ref<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
         values.push(value.offset().as_primitive());
+        values.push(Value::NaiveDateTime(value.naive_utc()));
+    }
+
+    fn push_value(value: Self::Type, values: &mut Vec<Value>) {
+        values.push(Value::I32(value.offset().local_minus_utc()));
         values.push(Value::NaiveDateTime(value.naive_utc()));
     }
 

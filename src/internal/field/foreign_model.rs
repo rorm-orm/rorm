@@ -25,6 +25,7 @@ pub trait ForeignModelTrait: FieldType<Kind = kind::ForeignModel> {
 
     fn from_primitive(primitive: Self::Primitive) -> Self;
     fn as_condition_value(&self) -> Value;
+    fn into_condition_value(self) -> Value<'static>;
     fn as_key(&self) -> Option<&<Self::RelatedField as RawField>::Type>;
 }
 
@@ -43,6 +44,13 @@ where
     fn as_condition_value(&self) -> Value {
         FF::as_condition_value(match self {
             ForeignModelByField::Key(value) => value,
+            ForeignModelByField::Instance(model) => model.borrow_field(),
+        })
+    }
+
+    fn into_condition_value(self) -> Value<'static> {
+        FF::into_condition_value(match self {
+            ForeignModelByField::Key(value) => value,
             ForeignModelByField::Instance(model) => model.get_field(),
         })
     }
@@ -50,7 +58,7 @@ where
     fn as_key(&self) -> Option<&<Self::RelatedField as RawField>::Type> {
         Some(match self {
             ForeignModelByField::Key(key) => key,
-            ForeignModelByField::Instance(instance) => instance.get_field(),
+            ForeignModelByField::Instance(instance) => instance.borrow_field(),
         })
     }
 }
@@ -73,6 +81,17 @@ where
         if let Some(value) = self {
             Self::RelatedField::as_condition_value(match value {
                 ForeignModelByField::Key(value) => value,
+                ForeignModelByField::Instance(model) => model.borrow_field(),
+            })
+        } else {
+            Value::Null(<FF::DbType as DbType>::NULL_TYPE)
+        }
+    }
+
+    fn into_condition_value(self) -> Value<'static> {
+        if let Some(value) = self {
+            Self::RelatedField::into_condition_value(match value {
+                ForeignModelByField::Key(value) => value,
                 ForeignModelByField::Instance(model) => model.get_field(),
             })
         } else {
@@ -83,7 +102,7 @@ where
     fn as_key(&self) -> Option<&<Self::RelatedField as RawField>::Type> {
         self.as_ref().map(|value| match value {
             ForeignModelByField::Key(key) => key,
-            ForeignModelByField::Instance(instance) => instance.get_field(),
+            ForeignModelByField::Instance(instance) => instance.borrow_field(),
         })
     }
 }
@@ -117,5 +136,9 @@ where
 
     fn as_condition_value(value: &Self::Type) -> Value {
         <<F as RawField>::Type as ForeignModelTrait>::as_condition_value(value)
+    }
+
+    fn into_condition_value(value: Self::Type) -> Value<'static> {
+        <<F as RawField>::Type as ForeignModelTrait>::into_condition_value(value)
     }
 }
