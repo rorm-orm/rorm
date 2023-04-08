@@ -134,8 +134,8 @@ pub trait GetField<F: RawField>: Patch {
 
 /// Update a model's field based on the model's primary key
 ///
-/// This trait is similar to [GetField::get_field_mut].
-/// But [GetField::get_field_mut] only allows access to one field at a time,
+/// This trait is similar to [`GetField::borrow_field_mut`].
+/// But [`GetField::borrow_field_mut`] only allows access to one field at a time,
 /// because the method hides the fact, that the mutual borrow only applies to a single field.
 /// This trait provides a solution to this problem, for a common scenario:
 /// The need for an additional immutable borrow to the primary key.
