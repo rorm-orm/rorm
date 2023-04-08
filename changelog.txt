@@ -1,4 +1,4 @@
-Since 0.5.2
+Since 0.5.3
 -----------
 
 Notes for publishing
