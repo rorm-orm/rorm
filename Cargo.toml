@@ -56,7 +56,7 @@ rorm-macro = { version = "0.6.0", path = "./rorm-macro" }
 rorm-declaration = { version = "~0.3", path = "./rorm-declaration" }
 
 # rorm-cli exposes interfaces to integrate the cli as library
-rorm-cli = { version = "~0.7", optional = true }
+rorm-cli = { version = ">=0.7.3", default-features = false, optional = true }
 
 [package.metadata.docs.rs]
 features = ["async-std-rustls", "msgpack", "uuid", "cli"]
