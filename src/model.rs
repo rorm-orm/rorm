@@ -17,11 +17,6 @@ pub trait Patch: FromRow + 'static {
     /// List of columns i.e. fields this patch contains
     const COLUMNS: &'static [&'static str];
 
-    /// List of fields' indexes this patch contains
-    ///
-    /// Used in [`contains_index`]
-    const INDEXES: &'static [usize];
-
     /// Create a [`Vec`] moving the patch's condition values
     fn values(self) -> Vec<Value<'static>> {
         let mut values = Vec::with_capacity(Self::COLUMNS.len());
@@ -41,43 +36,11 @@ pub trait Patch: FromRow + 'static {
 
     /// Push the patch's condition values onto a [`Vec`]
     fn push_references<'a>(&'a self, values: &mut Vec<Value<'a>>);
-
-    /// Get a reference to a field
-    fn field<F>(&self) -> &F::Type
-    where
-        F: RawField,
-        Self: GetField<F>,
-    {
-        <Self as GetField<F>>::borrow_field(self)
-    }
-
-    /// Get a mutable reference to a field
-    fn field_mut<F>(&mut self) -> &mut F::Type
-    where
-        F: RawField,
-        Self: GetField<F>,
-    {
-        <Self as GetField<F>>::borrow_field_mut(self)
-    }
 }
 
 /// The [Condition](crate::conditions::Condition) type returned by [Identifiable::as_condition]
 pub type PatchAsCondition<'a, P> =
     Binary<Column<<<P as Patch>::Model as Model>::Primary, <P as Patch>::Model>, Value<'a>>;
-
-/// Check whether a [`Patch`] contains a certain field index.
-///
-/// This function in const and can therefore check the existence of fields at compile time.
-pub const fn contains_index<P: Patch>(field: usize) -> bool {
-    let mut indexes = P::INDEXES;
-    while let [index, remaining @ ..] = indexes {
-        indexes = remaining;
-        if *index == field {
-            return true;
-        }
-    }
-    false
-}
 
 /// Trait implementing most database interactions for a struct.
 ///

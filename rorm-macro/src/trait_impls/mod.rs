@@ -13,10 +13,6 @@ pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStr
                     ::rorm::internal::field::FieldProxy::columns(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields),
                 )*]);
 
-                const INDEXES: &'static [usize] = &[#(
-                    ::rorm::internal::field::FieldProxy::index(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields),
-                )*];
-
                 fn push_references<'a>(&'a self, values: &mut Vec<::rorm::conditions::Value<'a>>) {
                     use ::rorm::internal::field::AbstractField;
                     #(

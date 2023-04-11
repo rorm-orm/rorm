@@ -80,8 +80,7 @@ where
         Binary {
             operator: BinaryOperator::Equals,
             fst_arg: Column::<FMF, FMF::Model>::new(),
-            snd_arg: foreign_model::RF::<FMF>::new()
-                .as_condition_value(patch.field::<foreign_model::RF<FMF>>()),
+            snd_arg: foreign_model::RF::<FMF>::new().as_condition_value(patch.borrow_field()),
         }
     }
 
@@ -105,7 +104,7 @@ where
                 .all()
                 .await?,
         );
-        patch.field_mut::<BRF>().cached = cached;
+        <BRP as GetField<BRF>>::borrow_field_mut(patch).cached = cached;
         Ok(())
     }
 
@@ -156,8 +155,11 @@ where
         }
 
         for model in patches {
-            let cached = cache.get_mut(model.field::<foreign_model::RF<FMF>>());
-            model.field_mut::<BRF>().cached = cached.map(Option::take).unwrap_or(Some(Vec::new()));
+            let cached = cache.get_mut(<BRP as GetField<foreign_model::RF<FMF>>>::borrow_field(
+                model,
+            ));
+            <BRP as GetField<BRF>>::borrow_field_mut(model).cached =
+                cached.map(Option::take).unwrap_or(Some(Vec::new()));
         }
 
         Ok(())
