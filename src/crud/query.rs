@@ -4,10 +4,8 @@ use std::marker::PhantomData;
 use std::ops::{Range, RangeInclusive, Sub};
 
 use rorm_db::database;
-use rorm_db::database::ColumnSelector;
 use rorm_db::error::Error;
 use rorm_db::executor::{All, Executor, One, Optional, Stream};
-use rorm_db::row::Row;
 use rorm_db::sql::limit_clause::LimitClause;
 use rorm_db::sql::ordering::{OrderByEntry, Ordering};
 
@@ -17,7 +15,7 @@ use crate::crud::selectable::Selectable;
 use crate::internal::field::{FieldProxy, RawField};
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
-use crate::model::{Model, Patch};
+use crate::model::Model;
 use crate::sealed;
 
 /// Builder for select queries
@@ -37,7 +35,7 @@ use crate::sealed;
 ///
 ///     The model from whose table to select.
 ///
-/// - `S`: [`Selector<M>`]
+/// - `S`: [`Selectable<Model = M>`]
 ///
 ///     The columns to be selected and a type to convert the rows into.
 ///
@@ -60,23 +58,11 @@ pub struct QueryBuilder<'rf, E, M, S, C, LO> {
     ordering: Vec<OrderByEntry<'static>>,
 }
 
-/// Specifies which columns to query and how to decode the rows into what.
-pub trait Selector<M: Model> {
-    /// Type as which rows should be decoded
-    type Result;
-
-    /// Decode a row
-    fn decode(row: Row) -> Result<Self::Result, Error>;
-
-    /// Columns to query
-    fn columns(&self, context: &mut QueryContext) -> &[ColumnSelector<'static>];
-}
-
 impl<'ex, 'rf, E, M, S> QueryBuilder<'rf, E, M, S, (), ()>
 where
     E: Executor<'ex>,
     M: Model,
-    S: Selector<M>,
+    S: Selectable<Model = M>,
 {
     /// Start building a query using a generic [`Selector`]
     pub fn new(executor: E, selector: S) -> Self {
@@ -190,7 +176,7 @@ where
     'ex: 'rf,
     E: Executor<'ex>,
     M: Model,
-    S: Selector<M>,
+    S: Selectable<Model = M>,
     C: ConditionMarker<'rf>,
 {
     /// Retrieve and decode all matching rows
@@ -198,7 +184,9 @@ where
     where
         LO: LimitMarker,
     {
-        let columns = self.selector.columns(&mut self.ctx);
+        S::prepare(&mut self.ctx);
+        let columns = S::selector();
+
         self.condition.add_to_builder(&mut self.ctx);
         let joins = self.ctx.get_joins();
 
@@ -210,7 +198,7 @@ where
         database::query::<All>(
             self.executor,
             M::TABLE,
-            columns,
+            &columns,
             &joins,
             condition.as_ref(),
             self.ordering.as_slice(),
@@ -218,27 +206,34 @@ where
         )
         .await?
         .into_iter()
-        .map(|x| S::decode(x).map_err(|_| Error::DecodeError("Could not decode row".to_string())))
+        .map(|x| {
+            self.selector
+                .decode(&x)
+                .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
+        })
         .collect::<Result<Vec<_>, _>>()
     }
 
     /// Retrieve and decode the query as a stream
-    pub fn stream(mut self) -> QueryStream<'rf, M, S>
+    pub fn stream(mut self) -> QueryStream<'rf, S>
     where
         S: 'rf,
         LO: LimitMarker,
     {
-        let columns = self.selector.columns(&mut self.ctx);
+        S::prepare(&mut self.ctx);
+        let columns = S::selector();
+
         self.condition.add_to_builder(&mut self.ctx);
         QueryStream::new(
+            self.selector,
             self.ctx,
             |ctx| ctx.get_joins(),
             self.condition.into_option(),
-            |conditions, joins| {
+            move |conditions, joins| {
                 database::query::<Stream>(
                     self.executor,
                     M::TABLE,
-                    columns,
+                    &columns,
                     joins,
                     conditions,
                     self.ordering.as_slice(),
@@ -255,7 +250,9 @@ where
     where
         LO: OffsetMarker,
     {
-        let columns = self.selector.columns(&mut self.ctx);
+        S::prepare(&mut self.ctx);
+        let columns = S::selector();
+
         self.condition.add_to_builder(&mut self.ctx);
         let joins = self.ctx.get_joins();
 
@@ -267,14 +264,16 @@ where
         let row = database::query::<One>(
             self.executor,
             M::TABLE,
-            columns,
+            &columns,
             &joins,
             condition.as_ref(),
             self.ordering.as_slice(),
             self.lim_off.into_option(),
         )
         .await?;
-        S::decode(row).map_err(|_| Error::DecodeError("Could not decode row".to_string()))
+        self.selector
+            .decode(&row)
+            .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
     }
 
     /// Try to retrieve and decode a matching row
@@ -282,7 +281,9 @@ where
     where
         LO: OffsetMarker,
     {
-        let columns = self.selector.columns(&mut self.ctx);
+        S::prepare(&mut self.ctx);
+        let columns = S::selector();
+
         self.condition.add_to_builder(&mut self.ctx);
         let joins = self.ctx.get_joins();
 
@@ -294,7 +295,7 @@ where
         let row = database::query::<Optional>(
             self.executor,
             M::TABLE,
-            columns,
+            &columns,
             &joins,
             condition.as_ref(),
             self.ordering.as_slice(),
@@ -304,7 +305,7 @@ where
         match row {
             None => Ok(None),
             Some(row) => {
-                Ok(Some(S::decode(row).map_err(|_| {
+                Ok(Some(self.selector.decode(&row).map_err(|_| {
                     Error::DecodeError("Could not decode row".to_string())
                 })?))
             }
@@ -392,13 +393,13 @@ macro_rules! query {
     ($db:expr, $patch:path) => {
         $crate::crud::query::QueryBuilder::new(
             $db,
-            $crate::crud::query::SelectPatch::<$patch>::new(),
+            ::std::marker::PhantomData::<$patch>,
         )
     };
     ($db:expr, ($($field:expr),+$(,)?)) => {
         $crate::crud::query::QueryBuilder::new(
             $db,
-            $crate::crud::query::SelectTuple::from(($($field,)+)),
+            ($($field,)+),
         )
     };
 }
@@ -406,7 +407,6 @@ macro_rules! query {
 /// Sadly ouroboros doesn't handle the lifetime bounds required for the QueryStream very well.
 /// This module's code is copied from ouroboros' expanded macro and the tailored to fit the lifetime bounds.
 mod query_stream {
-    use std::marker::PhantomData;
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
@@ -417,27 +417,27 @@ mod query_stream {
     use rorm_db::Error;
 
     use crate::conditions::Condition;
-    use crate::crud::query::Selector;
+    use crate::crud::selectable::Selectable;
     use crate::internal::query_context::QueryContext;
-    use crate::Model;
 
     #[pin_project::pin_project]
     #[allow(dead_code)] // The field's are never "read" because they are aliased before being assigned to the struct
-    pub struct QueryStream<'rf, M, S> {
+    pub struct QueryStream<'rf, S> {
         ctx: AliasableBox<QueryContext>,
 
         owned_condition: AliasableBox<Option<Box<dyn Condition<'rf>>>>,
         sql_condition: AliasableBox<Option<SqlCondition<'rf>>>,
         joins: AliasableBox<Vec<JoinTable<'rf, 'rf>>>,
 
-        selector: PhantomData<(M, S)>,
+        selector: S,
 
         #[pin]
         stream: <Stream as QueryStrategyResult>::Result<'rf>,
     }
 
-    impl<'stream, M, S> QueryStream<'stream, M, S> {
+    impl<'stream, S> QueryStream<'stream, S> {
         pub(crate) fn new<'until_build>(
+            selector: S,
             ctx: QueryContext,
             joins_builder: impl FnOnce(&'stream QueryContext) -> Vec<JoinTable<'stream, 'stream>>
                 + 'until_build,
@@ -479,22 +479,21 @@ mod query_stream {
                     joins,
                     owned_condition,
                     sql_condition,
-                    selector: PhantomData,
+                    selector,
                     stream,
                 }
             }
         }
     }
 
-    impl<'stream, M: Model, S: Selector<M>> futures::stream::Stream for QueryStream<'stream, M, S> {
+    impl<'stream, S: Selectable> futures::stream::Stream for QueryStream<'stream, S> {
         type Item = Result<S::Result, Error>;
 
         fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-            self.project()
-                .stream
-                .as_mut()
-                .poll_next(cx)
-                .map(|option| option.map(|result| result.and_then(S::decode)))
+            let mut projection = self.project();
+            projection.stream.as_mut().poll_next(cx).map(|option| {
+                option.map(|result| result.and_then(|row| projection.selector.decode(&row)))
+            })
         }
     }
 }
@@ -620,211 +619,3 @@ impl OffsetMarker for u64 {
         Some(self)
     }
 }
-
-/// The [`Selector`] for patches.
-pub struct SelectPatch<P: Patch> {
-    patch: PhantomData<P>,
-    columns: Vec<ColumnSelector<'static>>,
-}
-impl<P: Patch> SelectPatch<P> {
-    /// Create a SelectPatch
-    pub fn new() -> Self {
-        SelectPatch {
-            patch: PhantomData,
-            columns: P::COLUMNS
-                .iter()
-                .map(|x| ColumnSelector {
-                    table_name: Some(P::Model::TABLE),
-                    column_name: x,
-                    select_alias: None,
-                    aggregation: None,
-                })
-                .collect(),
-        }
-    }
-}
-impl<P: Patch> Default for SelectPatch<P> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl<M: Model, P: Patch<Model = M>> Selector<M> for SelectPatch<P> {
-    type Result = P;
-
-    fn decode(row: Row) -> Result<Self::Result, Error> {
-        P::from_row(row)
-    }
-
-    fn columns(&self, _context: &mut QueryContext) -> &[ColumnSelector<'static>] {
-        &self.columns
-    }
-}
-
-/// The [`Selector`] for tuple
-///
-/// Implemented for tuple of size 8 or less.
-pub struct SelectTuple<T> {
-    #[allow(dead_code)]
-    tuple: T,
-    columns: Vec<ColumnSelector<'static>>,
-}
-macro_rules! impl_select_tuple {
-    ($C:literal, ($($S:ident,)+)) => {
-        impl<$($S: Selectable),+> From<($($S,)+)> for SelectTuple<($($S,)+)> {
-            fn from(tuple: ($($S,)+)) -> SelectTuple<($($S,)+)>{
-                let mut selectors = Vec::new();
-                $(
-                    $S::push_selector(&mut selectors);
-                )+
-                Self {
-                    tuple,
-                    columns: selectors,
-                }
-            }
-        }
-        impl<M: Model, $($S: Selectable<Table = M>),+> Selector<M> for SelectTuple<($($S,)+)>
-        {
-            type Result = ($(
-                $S::Result,
-            )+);
-
-            fn decode(row: Row) -> Result<Self::Result, Error> {
-                Ok(($(
-                    $S::decode(&row)?,
-                )+))
-            }
-
-            fn columns(&self, context: &mut QueryContext) -> &[ColumnSelector<'static>] {
-                $(
-                    $S::prepare(context);
-                )+
-                &self.columns
-            }
-        }
-    };
-}
-impl_select_tuple!(1, (S0,));
-impl_select_tuple!(2, (S0, S1,));
-impl_select_tuple!(3, (S0, S1, S2,));
-impl_select_tuple!(4, (S0, S1, S2, S3,));
-impl_select_tuple!(5, (S0, S1, S2, S3, S4,));
-impl_select_tuple!(6, (S0, S1, S2, S3, S4, S5,));
-impl_select_tuple!(7, (S0, S1, S2, S3, S4, S5, S6,));
-impl_select_tuple!(8, (S0, S1, S2, S3, S4, S5, S6, S7,));
-impl_select_tuple!(9, (S0, S1, S2, S3, S4, S5, S6, S7, S8,));
-impl_select_tuple!(10, (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9,));
-impl_select_tuple!(11, (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10,));
-impl_select_tuple!(12, (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11,));
-impl_select_tuple!(13, (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12,));
-impl_select_tuple!(
-    14,
-    (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13,)
-);
-impl_select_tuple!(
-    15,
-    (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14,)
-);
-impl_select_tuple!(
-    16,
-    (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15,)
-);
-impl_select_tuple!(
-    17,
-    (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16,)
-);
-impl_select_tuple!(
-    18,
-    (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17,)
-);
-impl_select_tuple!(
-    19,
-    (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18,)
-);
-impl_select_tuple!(
-    20,
-    (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,)
-);
-impl_select_tuple!(
-    21,
-    (
-        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
-        S20,
-    )
-);
-impl_select_tuple!(
-    22,
-    (
-        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
-        S20, S21,
-    )
-);
-impl_select_tuple!(
-    23,
-    (
-        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
-        S20, S21, S22,
-    )
-);
-impl_select_tuple!(
-    24,
-    (
-        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
-        S20, S21, S22, S23,
-    )
-);
-impl_select_tuple!(
-    25,
-    (
-        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
-        S20, S21, S22, S23, S24,
-    )
-);
-impl_select_tuple!(
-    26,
-    (
-        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
-        S20, S21, S22, S23, S24, S25,
-    )
-);
-impl_select_tuple!(
-    27,
-    (
-        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
-        S20, S21, S22, S23, S24, S25, S26,
-    )
-);
-impl_select_tuple!(
-    28,
-    (
-        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
-        S20, S21, S22, S23, S24, S25, S26, S27,
-    )
-);
-impl_select_tuple!(
-    29,
-    (
-        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
-        S20, S21, S22, S23, S24, S25, S26, S27, S28,
-    )
-);
-impl_select_tuple!(
-    30,
-    (
-        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
-        S20, S21, S22, S23, S24, S25, S26, S27, S28, S29,
-    )
-);
-impl_select_tuple!(
-    31,
-    (
-        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
-        S20, S21, S22, S23, S24, S25, S26, S27, S28, S29, S30,
-    )
-);
-impl_select_tuple!(
-    32,
-    (
-        S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19,
-        S20, S21, S22, S23, S24, S25, S26, S27, S28, S29, S30, S31,
-    )
-);
