@@ -44,29 +44,29 @@ impl<F> AbstractField<kind::DateTime> for F
 where
     F: RawField<Kind = kind::DateTime, Type = DateTime<FixedOffset>>,
 {
-    fn push_imr(imr: &mut Vec<imr::Field>) {
-        __DateTime_offset::<F>::push_imr(imr);
-        __DateTime_utc::<F>::push_imr(imr);
+    fn push_imr(self, imr: &mut Vec<imr::Field>) {
+        __DateTime_offset::<F>::new().push_imr(imr);
+        __DateTime_utc::<F>::new().push_imr(imr);
     }
 
-    fn get_by_name(row: &Row) -> Result<Self::Type, Error> {
-        let offset = <__DateTime_offset<F> as AbstractField>::get_by_name(row)?;
-        let utc = <__DateTime_utc<F> as AbstractField>::get_by_name(row)?;
+    fn get_by_name(self, row: &Row) -> Result<Self::Type, Error> {
+        let offset = __DateTime_offset::<F>::new().get_by_name(row)?;
+        let utc = __DateTime_utc::<F>::new().get_by_name(row)?;
         Ok(offset.from_utc_datetime(&utc))
     }
 
-    fn get_by_index(row: &Row, index: usize) -> Result<Self::Type, Error> {
-        let offset = <__DateTime_offset<F> as AbstractField>::get_by_index(row, index)?;
-        let utc = <__DateTime_utc<F> as AbstractField>::get_by_index(row, index + 1)?;
+    fn get_by_index(self, row: &Row, index: usize) -> Result<Self::Type, Error> {
+        let offset = __DateTime_offset::<F>::new().get_by_index(row, index)?;
+        let utc = __DateTime_utc::<F>::new().get_by_index(row, index + 1)?;
         Ok(offset.from_utc_datetime(&utc))
     }
 
-    fn push_ref<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
+    fn push_ref<'a>(self, value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
         values.push(value.offset().as_primitive());
         values.push(Value::NaiveDateTime(value.naive_utc()));
     }
 
-    fn push_value(value: Self::Type, values: &mut Vec<Value>) {
+    fn push_value(self, value: Self::Type, values: &mut Vec<Value>) {
         values.push(Value::I32(value.offset().local_minus_utc()));
         values.push(Value::NaiveDateTime(value.naive_utc()));
     }
@@ -120,6 +120,7 @@ where
 
 /// [`DateTime<FixedOffset>`]'s internal offset field
 #[allow(non_camel_case_types)]
+#[derive(Copy, Clone)]
 pub struct __DateTime_offset<F>(PhantomData<F>);
 impl<F> RawField for __DateTime_offset<F>
 where
@@ -132,10 +133,14 @@ where
     const NAME: &'static str = const_concat!(&[F::NAME, "_offset"]);
     const EXPLICIT_ANNOTATIONS: Annotations = F::EXPLICIT_ANNOTATIONS;
     const SOURCE: Option<Source> = F::SOURCE;
+    fn new() -> Self {
+        Self(PhantomData)
+    }
 }
 
 /// [`DateTime<FixedOffset>`]'s internal offset field
 #[allow(non_camel_case_types)]
+#[derive(Copy, Clone)]
 pub struct __DateTime_utc<F>(PhantomData<F>);
 impl<F> RawField for __DateTime_utc<F>
 where
@@ -148,4 +153,7 @@ where
     const NAME: &'static str = const_concat!(&[F::NAME, "_utc"]);
     const EXPLICIT_ANNOTATIONS: Annotations = F::EXPLICIT_ANNOTATIONS;
     const SOURCE: Option<Source> = F::SOURCE;
+    fn new() -> Self {
+        Self(PhantomData)
+    }
 }

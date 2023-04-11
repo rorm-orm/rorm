@@ -3,58 +3,65 @@ use quote::{quote, ToTokens};
 
 pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStream {
     quote! {
-        impl ::rorm::model::Patch for #strct {
-            type Model = #model;
+        const _: () = {
+            use ::rorm::internal::field::AbstractField;
 
-            const COLUMNS: &'static [&'static str] = ::rorm::concat_columns!(&[#(
-                ::rorm::internal::field::FieldProxy::columns(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields),
-            )*]);
+            impl ::rorm::model::Patch for #strct {
+                type Model = #model;
 
-            const INDEXES: &'static [usize] = &[#(
-                ::rorm::internal::field::FieldProxy::index(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields),
-            )*];
+                const COLUMNS: &'static [&'static str] = ::rorm::concat_columns!(&[#(
+                    ::rorm::internal::field::FieldProxy::columns(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields),
+                )*]);
 
-            fn push_references<'a>(&'a self, values: &mut Vec<::rorm::conditions::Value<'a>>) {
-                #(
-                    ::rorm::internal::field::FieldProxy::push_ref(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields, &self.#fields, values);
-                )*
-            }
+                const INDEXES: &'static [usize] = &[#(
+                    ::rorm::internal::field::FieldProxy::index(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields),
+                )*];
 
-            fn push_values(self, values: &mut Vec<::rorm::conditions::Value>) {
-                #(
-                    ::rorm::internal::field::FieldProxy::push_value(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields, self.#fields, values);
-                )*
-            }
-        }
-
-        impl<'a> ::rorm::internal::patch::IntoPatchCow<'a> for #strct {
-            type Patch = #strct;
-
-            fn into_patch_cow(self) -> ::rorm::internal::patch::PatchCow<'a, #strct> {
-                ::rorm::internal::patch::PatchCow::Owned(self)
-            }
-        }
-        impl<'a> ::rorm::internal::patch::IntoPatchCow<'a> for &'a #strct {
-            type Patch = #strct;
-
-            fn into_patch_cow(self) -> ::rorm::internal::patch::PatchCow<'a, #strct> {
-                ::rorm::internal::patch::PatchCow::Borrowed(self)
-            }
-        }
-
-        #(
-            impl ::rorm::model::GetField<::rorm::get_field!(#strct, #fields)> for #strct {
-                fn get_field(self) -> <::rorm::get_field!(#strct, #fields) as ::rorm::internal::field::RawField>::Type {
-                    self.#fields
+                fn push_references<'a>(&'a self, values: &mut Vec<::rorm::conditions::Value<'a>>) {
+                    use ::rorm::internal::field::AbstractField;
+                    #(
+                        <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.field()
+                            .push_ref(&self.#fields, values);
+                    )*
                 }
-                fn borrow_field(&self) -> &<::rorm::get_field!(#strct, #fields) as ::rorm::internal::field::RawField>::Type {
-                    &self.#fields
-                }
-                fn borrow_field_mut(&mut self) -> &mut <::rorm::get_field!(#strct, #fields) as ::rorm::internal::field::RawField>::Type {
-                    &mut self.#fields
+
+                fn push_values(self, values: &mut Vec<::rorm::conditions::Value>) {
+                    #(
+                        <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.field()
+                            .push_value(self.#fields, values);
+                    )*
                 }
             }
-        )*
+
+            impl<'a> ::rorm::internal::patch::IntoPatchCow<'a> for #strct {
+                type Patch = #strct;
+
+                fn into_patch_cow(self) -> ::rorm::internal::patch::PatchCow<'a, #strct> {
+                    ::rorm::internal::patch::PatchCow::Owned(self)
+                }
+            }
+            impl<'a> ::rorm::internal::patch::IntoPatchCow<'a> for &'a #strct {
+                type Patch = #strct;
+
+                fn into_patch_cow(self) -> ::rorm::internal::patch::PatchCow<'a, #strct> {
+                    ::rorm::internal::patch::PatchCow::Borrowed(self)
+                }
+            }
+
+            #(
+                impl ::rorm::model::GetField<::rorm::get_field!(#strct, #fields)> for #strct {
+                    fn get_field(self) -> <::rorm::get_field!(#strct, #fields) as ::rorm::internal::field::RawField>::Type {
+                        self.#fields
+                    }
+                    fn borrow_field(&self) -> &<::rorm::get_field!(#strct, #fields) as ::rorm::internal::field::RawField>::Type {
+                        &self.#fields
+                    }
+                    fn borrow_field_mut(&mut self) -> &mut <::rorm::get_field!(#strct, #fields) as ::rorm::internal::field::RawField>::Type {
+                        &mut self.#fields
+                    }
+                }
+            )*
+        };
     }
 }
 
@@ -65,32 +72,36 @@ pub fn try_from_row(
     ignored: &[Ident],
 ) -> TokenStream {
     quote! {
-        impl ::rorm::row::FromRow for #strct {
-            fn from_row(row: ::rorm::row::Row) -> Result<Self, ::rorm::Error> {
-                Ok(#strct {
-                    #(
-                        #fields: ::rorm::internal::field::FieldProxy::get_by_name(<#model as ::rorm::model::Model>::FIELDS.#fields, &row)?,
-                    )*
-                    #(
-                        #ignored: Default::default(),
-                    )*
-                })
+        const _: () = {
+            use ::rorm::internal::field::AbstractField;
+
+            impl ::rorm::row::FromRow for #strct {
+                fn from_row(row: ::rorm::row::Row) -> Result<Self, ::rorm::Error> {
+                    Ok(#strct {
+                        #(
+                            #fields: <#model as ::rorm::model::Model>::FIELDS.#fields.field().get_by_name(&row)?,
+                        )*
+                        #(
+                            #ignored: Default::default(),
+                        )*
+                    })
+                }
+                fn from_row_using_position(row: ::rorm::row::Row) -> Result<Self, ::rorm::Error> {
+                    let mut i = 0;
+                    Ok(#strct {
+                        #(
+                            #fields: {
+                                let value = <#model as ::rorm::model::Model>::FIELDS.#fields.field().get_by_index(&row, i as usize)?;
+                                i += ::rorm::internal::field::FieldProxy::columns(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields).len();
+                                value
+                            },
+                        )*
+                        #(
+                            #ignored: Default::default(),
+                        )*
+                    })
+                }
             }
-            fn from_row_using_position(row: ::rorm::row::Row) -> Result<Self, ::rorm::Error> {
-                let mut i = 0;
-                Ok(#strct {
-                    #(
-                        #fields: {
-                            let value = ::rorm::internal::field::FieldProxy::get_by_index(<#model as ::rorm::model::Model>::FIELDS.#fields, &row, i as usize)?;
-                            i += ::rorm::internal::field::FieldProxy::columns(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields).len();
-                            value
-                        },
-                    )*
-                    #(
-                        #ignored: Default::default(),
-                    )*
-                })
-            }
-        }
+        };
     }
 }

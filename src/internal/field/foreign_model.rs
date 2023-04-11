@@ -38,18 +38,18 @@ where
     const IS_OPTION: bool = false;
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
-        ForeignModelByField::Key(FF::from_primitive(primitive))
+        ForeignModelByField::Key(FF::new().from_primitive(primitive))
     }
 
     fn as_condition_value(&self) -> Value {
-        FF::as_condition_value(match self {
+        FF::new().as_condition_value(match self {
             ForeignModelByField::Key(value) => value,
             ForeignModelByField::Instance(model) => model.borrow_field(),
         })
     }
 
     fn into_condition_value(self) -> Value<'static> {
-        FF::into_condition_value(match self {
+        FF::new().into_condition_value(match self {
             ForeignModelByField::Key(value) => value,
             ForeignModelByField::Instance(model) => model.get_field(),
         })
@@ -73,13 +73,13 @@ where
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         primitive.map(|primitive| {
-            ForeignModelByField::Key(Self::RelatedField::from_primitive(primitive))
+            ForeignModelByField::Key(Self::RelatedField::new().from_primitive(primitive))
         })
     }
 
     fn as_condition_value(&self) -> Value {
         if let Some(value) = self {
-            Self::RelatedField::as_condition_value(match value {
+            Self::RelatedField::new().as_condition_value(match value {
                 ForeignModelByField::Key(value) => value,
                 ForeignModelByField::Instance(model) => model.borrow_field(),
             })
@@ -90,7 +90,7 @@ where
 
     fn into_condition_value(self) -> Value<'static> {
         if let Some(value) = self {
-            Self::RelatedField::into_condition_value(match value {
+            Self::RelatedField::new().into_condition_value(match value {
                 ForeignModelByField::Key(value) => value,
                 ForeignModelByField::Instance(model) => model.get_field(),
             })
@@ -130,15 +130,15 @@ where
     };
     type Primitive = <<F as RawField>::Type as ForeignModelTrait>::Primitive;
 
-    fn from_primitive(primitive: Self::Primitive) -> Self::Type {
+    fn from_primitive(self, primitive: Self::Primitive) -> Self::Type {
         <<F as RawField>::Type as ForeignModelTrait>::from_primitive(primitive)
     }
 
-    fn as_condition_value(value: &Self::Type) -> Value {
+    fn as_condition_value(self, value: &Self::Type) -> Value {
         <<F as RawField>::Type as ForeignModelTrait>::as_condition_value(value)
     }
 
-    fn into_condition_value(value: Self::Type) -> Value<'static> {
+    fn into_condition_value(self, value: Self::Type) -> Value<'static> {
         <<F as RawField>::Type as ForeignModelTrait>::into_condition_value(value)
     }
 }

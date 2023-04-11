@@ -221,9 +221,10 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
             const TABLE: &'static str = #table_name;
 
             fn get_imr() -> ::rorm::imr::Model {
+                use ::rorm::internal::field::{RawField, AbstractField};
                 let mut fields = Vec::new();
                 #(
-                    <#fields_type as ::rorm::internal::field::AbstractField<_>>::push_imr(&mut fields);
+                    #fields_type::new().push_imr(&mut fields);
                 )*
                 ::rorm::imr::Model {
                     name: Self::TABLE.to_string(),
@@ -438,6 +439,12 @@ impl ToTokens for Field {
             #[doc = #doc]
             #[allow(non_camel_case_types)]
             #model_vis struct #type_ident;
+            impl ::std::clone::Clone for #type_ident {
+                fn clone(&self) -> Self {
+                    Self
+                }
+            }
+            impl ::std::marker::Copy for #type_ident {}
             impl ::rorm::internal::field::RawField for #type_ident {
                 type Kind = <#raw_type as ::rorm::internal::field::FieldType>::Kind;
                 type Type = #raw_type;
@@ -446,6 +453,9 @@ impl ToTokens for Field {
                 const NAME: &'static str = #db_name;
                 const EXPLICIT_ANNOTATIONS: ::rorm::internal::hmr::annotations::Annotations = #annotations;
                 const SOURCE: Option<::rorm::internal::hmr::Source> = #source;
+                fn new() -> Self {
+                    Self
+                }
             }
         };
         tokens.extend(temp);

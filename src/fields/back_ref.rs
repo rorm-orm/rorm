@@ -49,19 +49,19 @@ where
     FMF: Field<kind::ForeignModel, Type = ForeignModelByField<F>>, // A `ForeignModelByField`-field pointing to `F`
     BRF: RawField<Kind = kind::BackRef, Type = BackRef<FMF>, Model = F::Model>, // A `BackRef`-field pointing to `FMF`
 {
-    fn push_imr(_imr: &mut Vec<rorm_declaration::imr::Field>) {}
+    fn push_imr(self, _imr: &mut Vec<rorm_declaration::imr::Field>) {}
 
-    fn get_by_name(_row: &Row) -> Result<Self::Type, Error> {
+    fn get_by_name(self, _row: &Row) -> Result<Self::Type, Error> {
         Ok(BackRef { cached: None })
     }
 
-    fn get_by_index(_row: &Row, _index: usize) -> Result<Self::Type, Error> {
+    fn get_by_index(self, _row: &Row, _index: usize) -> Result<Self::Type, Error> {
         Ok(BackRef { cached: None })
     }
 
-    fn push_ref<'a>(_value: &'a Self::Type, _values: &mut Vec<Value<'a>>) {}
+    fn push_ref<'a>(self, _value: &'a Self::Type, _values: &mut Vec<Value<'a>>) {}
 
-    fn push_value(_value: Self::Type, _values: &mut Vec<Value>) {}
+    fn push_value(self, _value: Self::Type, _values: &mut Vec<Value>) {}
 }
 
 impl<BRF, FMF> FieldProxy<BRF, BRF::Model>
@@ -80,9 +80,8 @@ where
         Binary {
             operator: BinaryOperator::Equals,
             fst_arg: Column::<FMF, FMF::Model>::new(),
-            snd_arg: foreign_model::RF::<FMF>::as_condition_value(
-                patch.field::<foreign_model::RF<FMF>>(),
-            ),
+            snd_arg: foreign_model::RF::<FMF>::new()
+                .as_condition_value(patch.field::<foreign_model::RF<FMF>>()),
         }
     }
 

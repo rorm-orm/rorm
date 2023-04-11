@@ -121,7 +121,7 @@ pub trait FieldType {
 /// It contains all the information a model's author provides on the field.
 ///
 /// This trait itself doesn't do much, but it forms the basis to implement the other traits.
-pub trait RawField: 'static {
+pub trait RawField: 'static + Copy {
     /// The field's kind which is determined by its [type](RawField::Type)
     type Kind: FieldKind;
 
@@ -142,6 +142,12 @@ pub trait RawField: 'static {
 
     /// Optional definition of the location of field in the source code
     const SOURCE: Option<Source>;
+
+    /// Create a new instance
+    ///
+    /// Since `Self` is always a zero sized type, this is a noop.
+    /// It exists to enable accessing field method through [`FieldProxy`] without having to forward every one.
+    fn new() -> Self;
 }
 
 /// A [`RawField`] which represents a column in the database
@@ -193,13 +199,13 @@ pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
     type Primitive: DecodeOwned;
 
     /// Convert the associated primitive type into [`Self::Type`](RawField::Type).
-    fn from_primitive(primitive: Self::Primitive) -> Self::Type;
+    fn from_primitive(self, primitive: Self::Primitive) -> Self::Type;
 
     /// Convert a reference to `Self` into the primitive [`Value`] used by our db implementation.
-    fn as_condition_value(value: &Self::Type) -> Value;
+    fn as_condition_value(self, value: &Self::Type) -> Value;
 
     /// Convert `Self` into the primitive [`Value`] used by our db implementation.
-    fn into_condition_value(value: Self::Type) -> Value<'static>;
+    fn into_condition_value(self, value: Self::Type) -> Value<'static>;
 }
 
 impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDbType> for F {
@@ -228,15 +234,15 @@ impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDb
 
     type Primitive = T::Primitive;
 
-    fn from_primitive(primitive: Self::Primitive) -> Self::Type {
+    fn from_primitive(self, primitive: Self::Primitive) -> Self::Type {
         T::from_primitive(primitive)
     }
 
-    fn as_condition_value(value: &Self::Type) -> Value {
+    fn as_condition_value(self, value: &Self::Type) -> Value {
         T::as_primitive(value)
     }
 
-    fn into_condition_value(value: Self::Type) -> Value<'static> {
+    fn into_condition_value(self, value: Self::Type) -> Value<'static> {
         T::into_primitive(value)
     }
 }
@@ -250,10 +256,10 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     /// - [`kind::BackRef`] fields don't add anything
     /// - [`Field`] fields add their database column
     /// - there are plans to add fields which might map to more than one database column.
-    fn push_imr(imr: &mut Vec<imr::Field>);
+    fn push_imr(self, imr: &mut Vec<imr::Field>);
 
     /// Get an instance of the field's type from a row using the field's name
-    fn get_by_name(row: &Row) -> Result<Self::Type, Error>;
+    fn get_by_name(self, row: &Row) -> Result<Self::Type, Error>;
 
     /// Get an instance of the field's type from a row by its position in the SELECT query.
     ///
@@ -275,19 +281,19 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     ///     }
     /// }
     /// ```
-    fn get_by_index(row: &Row, index: usize) -> Result<Self::Type, Error>;
+    fn get_by_index(self, row: &Row, index: usize) -> Result<Self::Type, Error>;
 
     /// Push the field's borrowed value onto a [`Vec`]
     ///
     /// This method is forwarded through [`FieldProxy::push_ref`]
     /// to be used in [`Patch::values`](crate::model::Patch::values).
-    fn push_ref<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>);
+    fn push_ref<'a>(self, value: &'a Self::Type, values: &mut Vec<Value<'a>>);
 
     /// Push the field's owned value onto a [`Vec`]
     ///
     /// This method is forwarded through [`FieldProxy::push_value`]
     /// to be used in [`Patch::values`](crate::model::Patch::values).
-    fn push_value(value: Self::Type, values: &mut Vec<Value>);
+    fn push_value(self, value: Self::Type, values: &mut Vec<Value>);
 
     /// The columns' names which store this field
     const COLUMNS: &'static [&'static str] = &[];
@@ -298,7 +304,7 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
 macro_rules! impl_abstract_from_field {
     ($kind:ty) => {
         impl<F: Field<$kind>> AbstractField<$kind> for F {
-            fn push_imr(imr: &mut Vec<imr::Field>) {
+            fn push_imr(self, imr: &mut Vec<imr::Field>) {
                 imr.push(imr::Field {
                     name: F::NAME.to_string(),
                     db_type: F::DbType::IMR,
@@ -307,20 +313,20 @@ macro_rules! impl_abstract_from_field {
                 });
             }
 
-            fn get_by_name(row: &Row) -> Result<Self::Type, Error> {
-                Ok(<Self as Field<$kind>>::from_primitive(row.get(F::NAME)?))
+            fn get_by_name(self, row: &Row) -> Result<Self::Type, Error> {
+                Ok(<Self as RawField>::new().from_primitive(row.get(F::NAME)?))
             }
 
-            fn get_by_index(row: &Row, index: usize) -> Result<Self::Type, Error> {
-                Ok(<Self as Field<$kind>>::from_primitive(row.get(index)?))
+            fn get_by_index(self, row: &Row, index: usize) -> Result<Self::Type, Error> {
+                Ok(<Self as RawField>::new().from_primitive(row.get(index)?))
             }
 
-            fn push_ref<'a>(value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
-                values.push(<Self as Field<$kind>>::as_condition_value(value))
+            fn push_ref<'a>(self, value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
+                values.push(<Self as RawField>::new().as_condition_value(value))
             }
 
-            fn push_value(value: Self::Type, values: &mut Vec<Value>) {
-                values.push(<Self as Field<$kind>>::into_condition_value(value))
+            fn push_value(self, value: Self::Type, values: &mut Vec<Value>) {
+                values.push(<Self as RawField>::new().into_condition_value(value))
             }
 
             const COLUMNS: &'static [&'static str] = &[F::NAME];
@@ -336,9 +342,8 @@ macro_rules! impl_abstract_from_field {
             const COLUMNS: &'static [&'static str] = &[const_concat!(&[P::ALIAS, "__", F::NAME])];
 
             fn get_by_alias(row: &Row) -> Result<Self::Type, Error> {
-                Ok(<Self as Field<$kind>>::from_primitive(
-                    row.get(<Self as AliasedField<P, $kind>>::COLUMNS[0])?,
-                ))
+                Ok(<Self as RawField>::new()
+                    .from_primitive(row.get(<Self as AliasedField<P, $kind>>::COLUMNS[0])?))
             }
         }
     };
@@ -415,24 +420,9 @@ impl<F: AbstractField, P> FieldProxy<F, P> {
         F::COLUMNS
     }
 
-    /// Get an instance of the field's type from a row using the field's name
-    pub fn get_by_name(_field: Self, row: &Row) -> Result<F::Type, Error> {
-        F::get_by_name(row)
-    }
-
-    /// Get an instance of the field's type from a row using the field's index inside a patch
-    pub fn get_by_index(_field: Self, row: &Row, index: usize) -> Result<F::Type, Error> {
-        F::get_by_index(row, index)
-    }
-
-    /// Push the field's borrowed value onto a [`Vec`]
-    pub fn push_ref<'a>(_field: Self, value: &'a F::Type, values: &mut Vec<Value<'a>>) {
-        F::push_ref(value, values)
-    }
-
-    /// Push the field's owned value onto a [`Vec`]
-    pub fn push_value(_field: Self, value: F::Type, values: &mut Vec<Value>) {
-        F::push_value(value, values)
+    /// Get the underlying field to call its methods
+    pub fn field(&self) -> F {
+        F::new()
     }
 }
 impl<Field, Path> Clone for FieldProxy<Field, Path> {

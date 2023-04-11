@@ -350,7 +350,7 @@ pub mod returning {
         type Result = <M::Primary as RawField>::Type;
 
         fn decode(row: Row) -> Result<Self::Result, Error> {
-            Ok(<M::Primary as Field>::from_primitive(row.get(0)?))
+            Ok(<M::Primary as RawField>::new().from_primitive(row.get(0)?))
         }
 
         fn columns(&self) -> &[&'static str] {
@@ -412,7 +412,7 @@ pub mod returning {
 
                 fn decode(row: Row) -> Result<Self::Result, Error> {
                     Ok(($(
-                        $F::from_primitive(row.get($i)?),
+                        $F::new().from_primitive(row.get($i)?),
                     )+))
                 }
 
