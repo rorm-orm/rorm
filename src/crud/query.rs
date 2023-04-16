@@ -184,8 +184,8 @@ where
     where
         LO: LimitMarker,
     {
-        S::prepare(&mut self.ctx);
-        let columns = S::selector();
+        self.selector.prepare(&mut self.ctx);
+        let columns = self.selector.selector();
 
         self.condition.add_to_builder(&mut self.ctx);
         let joins = self.ctx.get_joins();
@@ -220,8 +220,8 @@ where
         S: 'rf,
         LO: LimitMarker,
     {
-        S::prepare(&mut self.ctx);
-        let columns = S::selector();
+        self.selector.prepare(&mut self.ctx);
+        let columns = self.selector.selector();
 
         self.condition.add_to_builder(&mut self.ctx);
         QueryStream::new(
@@ -250,8 +250,8 @@ where
     where
         LO: OffsetMarker,
     {
-        S::prepare(&mut self.ctx);
-        let columns = S::selector();
+        self.selector.prepare(&mut self.ctx);
+        let columns = self.selector.selector();
 
         self.condition.add_to_builder(&mut self.ctx);
         let joins = self.ctx.get_joins();
@@ -281,8 +281,8 @@ where
     where
         LO: OffsetMarker,
     {
-        S::prepare(&mut self.ctx);
-        let columns = S::selector();
+        self.selector.prepare(&mut self.ctx);
+        let columns = self.selector.selector();
 
         self.condition.add_to_builder(&mut self.ctx);
         let joins = self.ctx.get_joins();
@@ -389,17 +389,20 @@ where
 /// ```
 #[macro_export]
 macro_rules! query {
-    (replace $anything:tt with $result:tt) => { $result };
-    ($db:expr, $patch:path) => {
+    ($db:expr, ($(
+        $($model:ident)::+.$($field:ident).+ $(($($args:tt)?))? $(as $patch:ty)?
+    ),+$(,)?)) => {
         $crate::crud::query::QueryBuilder::new(
             $db,
-            ::std::marker::PhantomData::<$patch>,
+            ($(
+                $($model)::+.$($field).+ $(($($args)?))? $(.select_as::<$patch>())?,
+            )+),
         )
     };
-    ($db:expr, ($($field:expr),+$(,)?)) => {
+    ($db:expr, $patch:ty) => {
         $crate::crud::query::QueryBuilder::new(
             $db,
-            ($($field,)+),
+            <$patch as $crate::model::Patch>::select::<<$patch as $crate::model::Patch>::Model>(),
         )
     };
 }

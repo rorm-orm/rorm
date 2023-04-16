@@ -1,13 +1,64 @@
 use proc_macro2::{Ident, TokenStream};
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
+use syn::Type;
 
-pub fn patch(strct: &Ident, model: &impl ToTokens, fields: &[Ident]) -> TokenStream {
+pub fn patch(
+    strct: &Ident,
+    model: &impl ToTokens,
+    fields: &[Ident],
+    types: &[Type],
+) -> TokenStream {
+    let patch_selector = format_ident!("__{strct}_Selector");
     quote! {
         const _: () = {
             use ::rorm::internal::field::AbstractField;
 
+            pub struct #patch_selector<P> {
+                #(
+                    #fields: ::rorm::crud::selectable::PatchFieldSelector<#types, P>,
+                )*
+            }
+            impl<P> ::rorm::crud::selectable::Selectable for #patch_selector<P>
+            where
+                P: ::rorm::internal::relation_path::Path
+            {
+                type Model = P::Origin;
+
+                type Result = #strct;
+
+                fn push_selector(&self, selectors: &mut Vec<::rorm::database::ColumnSelector<'static>>) {
+                    #(
+                        self.#fields.push_selector(selectors);
+                    )*
+                }
+
+                fn prepare(&self, context: &mut ::rorm::internal::query_context::QueryContext) {
+                    #(
+                        self.#fields.prepare(context);
+                    )*
+                }
+
+                fn decode(&self, row: &::rorm::row::Row) -> Result<Self::Result, ::rorm::Error> {
+                    Ok(#strct {#(
+                        #fields: self.#fields.decode(row)?,
+                    )*})
+                }
+            }
+
             impl ::rorm::model::Patch for #strct {
                 type Model = #model;
+
+                type Selector<P: ::rorm::internal::relation_path::Path> = #patch_selector<P>;
+
+                fn select<P: ::rorm::internal::relation_path::Path>() -> Self::Selector<P> {
+                    #patch_selector {
+                        #(
+                            #fields: ::rorm::crud::selectable::PatchFieldSelector::new(
+                                <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields
+                            ),
+                        )*
+                    }
+                }
 
                 const COLUMNS: &'static [&'static str] = ::rorm::concat_columns!(&[#(
                     ::rorm::internal::field::FieldProxy::columns(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields),

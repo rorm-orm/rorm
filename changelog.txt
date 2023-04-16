@@ -2,6 +2,8 @@ Since 0.5.1
 -----------
 - `insert!`
   - `.bulk()` accepts iterator over references or instances
+- `query!`
+  - Select a foreign model as an entire patch using `as` keyword
 
 Notes for publishing
 --------------------

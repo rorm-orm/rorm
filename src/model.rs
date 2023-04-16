@@ -4,6 +4,7 @@ use rorm_db::row::FromRow;
 use rorm_declaration::imr;
 
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
+use crate::crud::selectable::Selectable;
 use crate::internal::field::{Field, RawField};
 use crate::internal::relation_path::Path;
 
@@ -13,6 +14,12 @@ use crate::internal::relation_path::Path;
 pub trait Patch: FromRow + 'static {
     /// The model this patch is for
     type Model: Model;
+
+    /// [`Selector`](Selectable) returned by [`Patch::select`]
+    type Selector<P: Path>: Selectable<Result = Self, Model = P::Origin>;
+
+    /// Create a [`Selector`](Selectable) to select this patch through a specific [`Path`]
+    fn select<P: Path>() -> Self::Selector<P>;
 
     /// List of columns i.e. fields this patch contains
     const COLUMNS: &'static [&'static str];

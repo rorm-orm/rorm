@@ -9,9 +9,9 @@ use crate::aggregate::{AggregatedColumn, AggregationFunc};
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::{AbstractField, AliasedField, Field, FieldProxy, RawField};
 use crate::internal::query_context::QueryContext;
-use crate::internal::relation_path::Path;
+use crate::internal::relation_path::{Path, PathImpl, PathStep, ResolvedRelatedField};
 use crate::model::Model;
-use crate::{const_concat, Patch};
+use crate::Patch;
 
 /// Anything which can be used to select a single item
 pub trait Selectable {
@@ -24,17 +24,17 @@ pub trait Selectable {
     /// Push your rorm-sql `ColumnSelector` to the list
     ///
     /// Used to populate [`SelectTuple`](crate::crud::query::SelectTuple)'s `columns` field.
-    fn push_selector(selectors: &mut Vec<ColumnSelector<'static>>);
+    fn push_selector(&self, selectors: &mut Vec<ColumnSelector<'static>>);
 
     /// Wrap [`Selectable::push_selector`] to produce a [`Vec`]
-    fn selector() -> Vec<ColumnSelector<'static>> {
+    fn selector(&self) -> Vec<ColumnSelector<'static>> {
         let mut columns = Vec::new();
-        Self::push_selector(&mut columns);
+        self.push_selector(&mut columns);
         columns
     }
 
     /// Prepare the context to handle the select i.e. register potential joins
-    fn prepare(context: &mut QueryContext);
+    fn prepare(&self, context: &mut QueryContext);
 
     /// Retrieve the result from a row
     fn decode(&self, row: &Row) -> Result<Self::Result, Error>;
@@ -49,7 +49,7 @@ where
 
     type Model = P::Origin;
 
-    fn push_selector(selectors: &mut Vec<ColumnSelector<'static>>) {
+    fn push_selector(&self, selectors: &mut Vec<ColumnSelector<'static>>) {
         let columns = <F as AbstractField>::COLUMNS;
         let aliases = <F as AliasedField<P>>::COLUMNS;
         for (column, alias) in columns.iter().zip(aliases) {
@@ -62,7 +62,7 @@ where
         }
     }
 
-    fn prepare(context: &mut QueryContext) {
+    fn prepare(&self, context: &mut QueryContext) {
         P::add_to_context(context);
     }
 
@@ -71,14 +71,74 @@ where
     }
 }
 
-impl<A, F, P> AggregatedColumn<A, F, P>
+#[doc(hidden)]
+pub struct PatchFieldSelector<T, P> {
+    decode: fn(&Row) -> Result<T, Error>,
+    columns: &'static [&'static str],
+    aliases: &'static [&'static str],
+    path: PhantomData<P>,
+}
+impl<T, P> PatchFieldSelector<T, P>
 where
-    A: AggregationFunc,
-    F: RawField,
     P: Path,
 {
-    const SELECT_ALIAS: &'static str = const_concat!(&[P::ALIAS, "__", F::NAME, "___", A::NAME]);
+    pub fn new<F>(_proxy: FieldProxy<F, F::Model>) -> Self
+    where
+        F: RawField<Type = T>,
+        F: AbstractField,
+        F: AliasedField<P>,
+    {
+        Self {
+            decode: F::get_by_alias,
+            columns: <F as AbstractField>::COLUMNS,
+            aliases: <F as AliasedField<P>>::COLUMNS,
+            path: PhantomData,
+        }
+    }
 }
+impl<T, P> Selectable for PatchFieldSelector<T, P>
+where
+    P: Path,
+{
+    type Result = T;
+
+    type Model = P::Origin;
+
+    fn push_selector(&self, selectors: &mut Vec<ColumnSelector<'static>>) {
+        for (column, alias) in self.columns.iter().zip(self.aliases) {
+            selectors.push(ColumnSelector {
+                table_name: Some(P::ALIAS),
+                column_name: column,
+                select_alias: Some(alias),
+                aggregation: None,
+            });
+        }
+    }
+
+    fn prepare(&self, context: &mut QueryContext) {
+        P::add_to_context(context);
+    }
+
+    fn decode(&self, row: &Row) -> Result<Self::Result, Error> {
+        (self.decode)(row)
+    }
+}
+
+#[doc(hidden)]
+impl<F, P> FieldProxy<F, P>
+where
+    F: RawField,
+    P: Path,
+    PathStep<F, P>: PathImpl<F::Type>,
+{
+    pub fn select_as<Ptch>(self) -> Ptch::Selector<PathStep<F, P>>
+    where
+        Ptch: Patch<Model = <ResolvedRelatedField<F, P> as RawField>::Model>,
+    {
+        Ptch::select()
+    }
+}
+
 impl<A, F, P> Selectable for AggregatedColumn<A, F, P>
 where
     A: AggregationFunc,
@@ -90,7 +150,7 @@ where
 
     type Model = P::Origin;
 
-    fn push_selector(selectors: &mut Vec<ColumnSelector<'static>>) {
+    fn push_selector(&self, selectors: &mut Vec<ColumnSelector<'static>>) {
         selectors.push(ColumnSelector {
             table_name: Some(P::ALIAS),
             column_name: F::NAME,
@@ -99,7 +159,7 @@ where
         });
     }
 
-    fn prepare(context: &mut QueryContext) {
+    fn prepare(&self, context: &mut QueryContext) {
         P::add_to_context(context);
     }
 
@@ -108,29 +168,8 @@ where
     }
 }
 
-impl<M: Model, P: Patch<Model = M>> Selectable for PhantomData<P> {
-    type Result = P;
-
-    type Model = M;
-
-    fn push_selector(selectors: &mut Vec<ColumnSelector<'static>>) {
-        selectors.extend(P::COLUMNS.iter().map(|x| ColumnSelector {
-            table_name: Some(P::Model::TABLE),
-            column_name: x,
-            select_alias: None,
-            aggregation: None,
-        }));
-    }
-
-    fn prepare(_context: &mut QueryContext) {}
-
-    fn decode(&self, _row: &Row) -> Result<Self::Result, Error> {
-        P::from_row(todo!())
-    }
-}
-
 macro_rules! impl_select_tuple {
-    ($C:literal, ($($index:tt : $S:ident,)+)) => {
+    ($_:literal, ($($index:tt : $S:ident,)+)) => {
         impl<M: Model, $($S: Selectable<Model = M>),+> Selectable for ($($S,)+)
         {
             type Result = ($(
@@ -139,15 +178,15 @@ macro_rules! impl_select_tuple {
 
             type Model = M;
 
-            fn push_selector(selectors: &mut Vec<ColumnSelector<'static>>) {
+            fn push_selector(&self, selectors: &mut Vec<ColumnSelector<'static>>) {
                 $(
-                    $S::push_selector(selectors);
+                    self.$index.push_selector(selectors);
                 )+
             }
 
-            fn prepare(context: &mut QueryContext) {
+            fn prepare(&self, context: &mut QueryContext) {
                 $(
-                    $S::prepare(context);
+                    self.$index.prepare(context);
                 )+
             }
 

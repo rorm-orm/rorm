@@ -159,9 +159,10 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
     let model_source = get_source(&span);
 
     let fields_ident = Vec::from_iter(fields.iter().map(|field| field.ident.clone()));
+    let fields_raw_type = Vec::from_iter(fields.iter().map(|field| field.raw_type.clone()));
     let vis = strct.vis;
     let model = strct.ident;
-    let impl_patch = trait_impls::patch(&model, &model, &fields_ident);
+    let impl_patch = trait_impls::patch(&model, &model, &fields_ident, &fields_raw_type);
     let impl_try_from_row =
         trait_impls::try_from_row(&model, &model, &fields_ident, &ignored_fields);
 
@@ -307,10 +308,12 @@ pub fn patch(strct: TokenStream) -> darling::Result<TokenStream> {
     let mut errors = Error::accumulator();
 
     let mut field_idents = Vec::new();
+    let mut field_types = Vec::new();
     for field in strct.fields {
         errors.handle(NoAnnotations::from_attributes(&field.attrs));
         if let Some(ident) = field.ident {
             field_idents.push(ident);
+            field_types.push(field.ty);
         } else {
             errors.push(Error::custom("missing field name").with_span(&field));
         }
@@ -322,7 +325,7 @@ pub fn patch(strct: TokenStream) -> darling::Result<TokenStream> {
 
     let patch = strct.ident;
     let compile_check = format_ident!("__compile_check_{}", patch);
-    let impl_patch = trait_impls::patch(&patch, &model_path, &field_idents);
+    let impl_patch = trait_impls::patch(&patch, &model_path, &field_idents, &field_types);
     let impl_try_from_row = trait_impls::try_from_row(&patch, &model_path, &field_idents, &[]);
 
     errors.finish()?;
