@@ -26,12 +26,6 @@ pub fn patch(
 
                 type Result = #strct;
 
-                fn push_selector(&self, selectors: &mut Vec<::rorm::database::ColumnSelector<'static>>) {
-                    #(
-                        self.#fields.push_selector(selectors);
-                    )*
-                }
-
                 fn prepare(&self, context: &mut ::rorm::internal::query_context::QueryContext) {
                     #(
                         self.#fields.prepare(context);

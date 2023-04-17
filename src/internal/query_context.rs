@@ -3,6 +3,7 @@
 use std::collections::HashSet;
 
 use ouroboros::self_referencing;
+use rorm_db::database::ColumnSelector;
 use rorm_db::sql::conditional::{BinaryCondition, Condition};
 use rorm_db::sql::value::Value;
 
@@ -21,6 +22,7 @@ type PathId = std::any::TypeId;
 pub struct QueryContext {
     handled_paths: HashSet<PathId>,
     joins: Vec<Join>,
+    selects: Vec<ColumnSelector<'static>>,
 }
 impl QueryContext {
     /// Create an empty context
@@ -54,9 +56,19 @@ impl QueryContext {
         }
     }
 
+    /// Add a new column to select
+    pub fn add_select(&mut self, select: ColumnSelector<'static>) {
+        self.selects.push(select);
+    }
+
     /// Create a vector borrowing the joins in rorm_db's format which can be passed to it as slice.
     pub fn get_joins(&self) -> Vec<rorm_db::database::JoinTable> {
         self.joins.iter().map(Join::as_db_format).collect()
+    }
+
+    /// Create a vector borrowing the selects in rorm_db's format which can be passed to it as slice.
+    pub fn get_selects(&self) -> Vec<ColumnSelector> {
+        self.selects.clone()
     }
 }
 

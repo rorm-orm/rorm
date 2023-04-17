@@ -21,19 +21,11 @@ pub trait Selectable {
     /// Model from whose table to select from
     type Model: Model;
 
-    /// Push your rorm-sql `ColumnSelector` to the list
+    /// Prepare the context to handle the select
     ///
-    /// Used to populate [`SelectTuple`](crate::crud::query::SelectTuple)'s `columns` field.
-    fn push_selector(&self, selectors: &mut Vec<ColumnSelector<'static>>);
-
-    /// Wrap [`Selectable::push_selector`] to produce a [`Vec`]
-    fn selector(&self) -> Vec<ColumnSelector<'static>> {
-        let mut columns = Vec::new();
-        self.push_selector(&mut columns);
-        columns
-    }
-
-    /// Prepare the context to handle the select i.e. register potential joins
+    /// i.e. push
+    /// - the actual [columns]() to select
+    /// - potential joins
     fn prepare(&self, context: &mut QueryContext);
 
     /// Retrieve the result from a row
@@ -49,20 +41,17 @@ where
 
     type Model = P::Origin;
 
-    fn push_selector(&self, selectors: &mut Vec<ColumnSelector<'static>>) {
+    fn prepare(&self, context: &mut QueryContext) {
         let columns = <F as AbstractField>::COLUMNS;
         let aliases = <F as AliasedField<P>>::COLUMNS;
         for (column, alias) in columns.iter().zip(aliases) {
-            selectors.push(ColumnSelector {
+            context.add_select(ColumnSelector {
                 table_name: Some(P::ALIAS),
                 column_name: column,
                 select_alias: Some(alias),
                 aggregation: None,
             });
         }
-    }
-
-    fn prepare(&self, context: &mut QueryContext) {
         P::add_to_context(context);
     }
 
@@ -104,18 +93,15 @@ where
 
     type Model = P::Origin;
 
-    fn push_selector(&self, selectors: &mut Vec<ColumnSelector<'static>>) {
+    fn prepare(&self, context: &mut QueryContext) {
         for (column, alias) in self.columns.iter().zip(self.aliases) {
-            selectors.push(ColumnSelector {
+            context.add_select(ColumnSelector {
                 table_name: Some(P::ALIAS),
                 column_name: column,
                 select_alias: Some(alias),
                 aggregation: None,
             });
         }
-    }
-
-    fn prepare(&self, context: &mut QueryContext) {
         P::add_to_context(context);
     }
 
@@ -150,16 +136,13 @@ where
 
     type Model = P::Origin;
 
-    fn push_selector(&self, selectors: &mut Vec<ColumnSelector<'static>>) {
-        selectors.push(ColumnSelector {
+    fn prepare(&self, context: &mut QueryContext) {
+        context.add_select(ColumnSelector {
             table_name: Some(P::ALIAS),
             column_name: F::NAME,
             select_alias: Some(Self::SELECT_ALIAS),
             aggregation: Some(A::SQL),
         });
-    }
-
-    fn prepare(&self, context: &mut QueryContext) {
         P::add_to_context(context);
     }
 
@@ -177,12 +160,6 @@ macro_rules! impl_select_tuple {
             )+);
 
             type Model = M;
-
-            fn push_selector(&self, selectors: &mut Vec<ColumnSelector<'static>>) {
-                $(
-                    self.$index.push_selector(selectors);
-                )+
-            }
 
             fn prepare(&self, context: &mut QueryContext) {
                 $(

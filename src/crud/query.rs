@@ -185,9 +185,9 @@ where
         LO: LimitMarker,
     {
         self.selector.prepare(&mut self.ctx);
-        let columns = self.selector.selector();
-
         self.condition.add_to_builder(&mut self.ctx);
+
+        let columns = self.ctx.get_selects();
         let joins = self.ctx.get_joins();
 
         let condition = self.condition.into_option();
@@ -221,19 +221,18 @@ where
         LO: LimitMarker,
     {
         self.selector.prepare(&mut self.ctx);
-        let columns = self.selector.selector();
-
         self.condition.add_to_builder(&mut self.ctx);
+
         QueryStream::new(
             self.selector,
             self.ctx,
             |ctx| ctx.get_joins(),
             self.condition.into_option(),
-            move |conditions, joins| {
+            move |conditions, columns, joins| {
                 database::query::<Stream>(
                     self.executor,
                     M::TABLE,
-                    &columns,
+                    columns,
                     joins,
                     conditions,
                     self.ordering.as_slice(),
@@ -251,9 +250,9 @@ where
         LO: OffsetMarker,
     {
         self.selector.prepare(&mut self.ctx);
-        let columns = self.selector.selector();
-
         self.condition.add_to_builder(&mut self.ctx);
+
+        let columns = self.ctx.get_selects();
         let joins = self.ctx.get_joins();
 
         let condition = self.condition.into_option();
@@ -282,9 +281,9 @@ where
         LO: OffsetMarker,
     {
         self.selector.prepare(&mut self.ctx);
-        let columns = self.selector.selector();
-
         self.condition.add_to_builder(&mut self.ctx);
+
+        let columns = self.ctx.get_selects();
         let joins = self.ctx.get_joins();
 
         let condition = self.condition.into_option();
@@ -414,7 +413,7 @@ mod query_stream {
     use std::task::{Context, Poll};
 
     use ouroboros::macro_help::{aliasable_boxed, change_lifetime, AliasableBox};
-    use rorm_db::database::JoinTable;
+    use rorm_db::database::{ColumnSelector, JoinTable};
     use rorm_db::executor::{QueryStrategyResult, Stream};
     use rorm_db::sql::conditional::Condition as SqlCondition;
     use rorm_db::Error;
@@ -430,6 +429,7 @@ mod query_stream {
 
         owned_condition: AliasableBox<Option<Box<dyn Condition<'rf>>>>,
         sql_condition: AliasableBox<Option<SqlCondition<'rf>>>,
+        columns: AliasableBox<Vec<ColumnSelector<'rf>>>,
         joins: AliasableBox<Vec<JoinTable<'rf, 'rf>>>,
 
         selector: S,
@@ -447,6 +447,7 @@ mod query_stream {
             condition: Option<Box<dyn Condition<'stream>>>,
             stream_builder: impl FnOnce(
                     Option<&'stream SqlCondition<'stream>>,
+                    &'stream Vec<ColumnSelector<'stream>>,
                     &'stream Vec<JoinTable<'stream, 'stream>>,
                 ) -> <Stream as QueryStrategyResult>::Result<'stream>
                 + 'until_build,
@@ -457,6 +458,10 @@ mod query_stream {
             unsafe {
                 let ctx = aliasable_boxed(ctx);
                 let ctx_illegal_static_reference = change_lifetime(&*ctx);
+
+                let columns = ctx_illegal_static_reference.get_selects();
+                let columns = aliasable_boxed(columns);
+                let columns_illegal_static_reference = change_lifetime(&*columns);
 
                 let joins = joins_builder(ctx_illegal_static_reference);
                 let joins = aliasable_boxed(joins);
@@ -474,11 +479,13 @@ mod query_stream {
 
                 let stream = stream_builder(
                     sql_condition_illegal_static_reference.as_ref(),
+                    columns_illegal_static_reference,
                     joins_illegal_static_reference,
                 );
 
                 Self {
                     ctx,
+                    columns,
                     joins,
                     owned_condition,
                     sql_condition,
