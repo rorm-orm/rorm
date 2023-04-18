@@ -7,7 +7,6 @@ use rorm_db::{Error, Row};
 use rorm_declaration::imr;
 
 use crate::conditions::Value;
-use crate::const_concat;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::{
     kind, AbstractField, AliasedField, ContainerField, FieldProxy, FieldType, RawField,
@@ -16,6 +15,7 @@ use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::{db_type, Source};
 use crate::internal::relation_path::Path;
 use crate::model::ConstNew;
+use crate::{const_concat, sealed};
 
 impl FieldType for FixedOffset {
     type Kind = kind::AsDbType;
@@ -58,6 +58,8 @@ impl<F> AbstractField<kind::DateTime> for F
 where
     F: RawField<Kind = kind::DateTime, Type = DateTime<FixedOffset>>,
 {
+    sealed!(impl);
+
     fn push_imr(self, imr: &mut Vec<imr::Field>) {
         __DateTime_offset::<F>::new().push_imr(imr);
         __DateTime_utc::<F>::new().push_imr(imr);

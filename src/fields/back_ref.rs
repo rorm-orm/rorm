@@ -15,9 +15,9 @@ use crate::internal::field::{
     foreign_model, kind, AbstractField, Field, FieldProxy, FieldType, RawField,
 };
 use crate::model::GetField;
-use crate::query;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
 use crate::Patch;
+use crate::{query, sealed};
 
 /// A back reference is the other direction to a [foreign model](ForeignModelByField)
 #[derive(Clone)]
@@ -59,6 +59,8 @@ where
     FMF: Field<kind::ForeignModel, Type = ForeignModelByField<F>>, // A `ForeignModelByField`-field pointing to `F`
     BRF: RawField<Kind = kind::BackRef, Type = BackRef<FMF>, Model = F::Model>, // A `BackRef`-field pointing to `FMF`
 {
+    sealed!(impl);
+
     fn push_imr(self, _imr: &mut Vec<rorm_declaration::imr::Field>) {}
 
     fn get_by_name(self, _row: &Row) -> Result<Self::Type, Error> {

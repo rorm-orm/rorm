@@ -550,22 +550,30 @@ impl FiniteRange<u64> for RangeInclusive<u64> {
 
 /// Unification of [`LimitMarker`] and [`OffsetMarker`]
 pub trait LimOffMarker: 'static {
-    sealed!();
+    sealed!(trait);
 }
-impl LimOffMarker for () {}
-impl<O: OffsetMarker> LimOffMarker for Limit<O> {}
-impl LimOffMarker for u64 {}
+impl LimOffMarker for () {
+    sealed!(impl);
+}
+impl<O: OffsetMarker> LimOffMarker for Limit<O> {
+    sealed!(impl);
+}
+impl LimOffMarker for u64 {
+    sealed!(impl);
+}
 
 /// Marker for the generic parameter storing a limit.
 ///
 /// Valid values are `()`, `Limit<()>` and `Limit<u64>`.
 pub trait LimitMarker: LimOffMarker {
-    sealed!();
+    sealed!(trait);
 
     /// Convert the generic limit into [`Option<LimitClause>`]
     fn into_option(self) -> Option<LimitClause>;
 }
 impl LimitMarker for () {
+    sealed!(impl);
+
     fn into_option(self) -> Option<LimitClause> {
         None
     }
@@ -579,6 +587,8 @@ pub struct Limit<O: OffsetMarker> {
     offset: O,
 }
 impl<O: OffsetMarker> LimitMarker for Limit<O> {
+    sealed!(impl);
+
     fn into_option(self) -> Option<LimitClause> {
         Some(LimitClause {
             limit: self.limit,
@@ -589,7 +599,7 @@ impl<O: OffsetMarker> LimitMarker for Limit<O> {
 
 /// Unification of `()` and `Limit<()>`
 pub trait AcceptsOffset: LimOffMarker {
-    sealed!();
+    sealed!(trait);
 
     /// The resulting type i.e. `u64` or `Limit<u64>`
     type Result: LimOffMarker;
@@ -597,12 +607,14 @@ pub trait AcceptsOffset: LimOffMarker {
     fn add_offset(self, offset: u64) -> Self::Result;
 }
 impl AcceptsOffset for () {
+    sealed!(impl);
     type Result = u64;
     fn add_offset(self, offset: u64) -> Self::Result {
         offset
     }
 }
 impl AcceptsOffset for Limit<()> {
+    sealed!(impl);
     type Result = Limit<u64>;
     fn add_offset(self, offset: u64) -> Self::Result {
         let Limit { limit, offset: _ } = self;
@@ -614,17 +626,19 @@ impl AcceptsOffset for Limit<()> {
 ///
 /// Valid values are `()` and `u64`.
 pub trait OffsetMarker: LimOffMarker {
-    sealed!();
+    sealed!(trait);
 
     /// Convert the generic offset into [`Option<u64>`]
     fn into_option(self) -> Option<u64>;
 }
 impl OffsetMarker for () {
+    sealed!(impl);
     fn into_option(self) -> Option<u64> {
         None
     }
 }
 impl OffsetMarker for u64 {
+    sealed!(impl);
     fn into_option(self) -> Option<u64> {
         Some(self)
     }

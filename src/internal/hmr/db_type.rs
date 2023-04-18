@@ -4,11 +4,11 @@ use rorm_db::sql::value::NullType;
 
 use super::AsImr;
 use crate::internal::hmr::annotations::AnnotationIndex;
-use crate::{declare_type_option, imr, sealed};
+use crate::{imr, sealed};
 
 /// Trait to associate the type-level db types with their runtime db types
 pub trait DbType: 'static {
-    sealed!();
+    sealed!(trait);
 
     /// Equivalent runtime db type
     const IMR: imr::DbType;
@@ -34,6 +34,8 @@ macro_rules! impl_db_types {
                 #[doc = $doc]
                 pub struct $type;
                 impl DbType for $type {
+                    sealed!(impl);
+
                     const IMR: imr::DbType = imr::DbType::$type;
 
                     const NULL_TYPE: NullType = NullType::$variant;
@@ -86,5 +88,3 @@ impl_db_types!(
     Choices,
     Choice, // TODO requires choices
 );
-
-declare_type_option!(OptionDbType, DbType);

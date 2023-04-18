@@ -9,6 +9,7 @@ use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::DbType;
 use crate::model::{GetField, Model};
+use crate::sealed;
 
 impl<FF: Field<kind::AsDbType>> FieldType for ForeignModelByField<FF>
 where
@@ -61,6 +62,8 @@ where
 
 #[doc(hidden)]
 pub trait ForeignModelTrait: FieldType<Kind = kind::ForeignModel> {
+    sealed!(trait);
+
     type RelatedField: Field<kind::AsDbType>;
     type Primitive: DecodeOwned;
     const IS_OPTION: bool;
@@ -73,6 +76,8 @@ impl<FF: Field<kind::AsDbType>> ForeignModelTrait for ForeignModelByField<FF>
 where
     FF::Model: GetField<FF>, // always true
 {
+    sealed!(impl);
+
     type RelatedField = FF;
     type Primitive = FF::Primitive;
     const IS_OPTION: bool = false;
@@ -93,6 +98,8 @@ impl<FF: Field<kind::AsDbType>> ForeignModelTrait for Option<ForeignModelByField
 where
     FF::Model: GetField<FF>, // always true
 {
+    sealed!(impl);
+
     type RelatedField = FF;
     type Primitive = Option<FF::Primitive>;
     const IS_OPTION: bool = true;
@@ -119,7 +126,10 @@ where
     <<F::Type as ForeignModelTrait>::RelatedField as RawField>::Model:
         GetField<<F::Type as ForeignModelTrait>::RelatedField>, // always true
 {
+    sealed!(impl);
+
     type DbType = <RF<F> as Field<kind::AsDbType>>::DbType;
+
     const ANNOTATIONS: Annotations = {
         let mut annos = Self::EXPLICIT_ANNOTATIONS;
         annos.nullable = <<F as RawField>::Type as ForeignModelTrait>::IS_OPTION;

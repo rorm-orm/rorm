@@ -89,11 +89,12 @@ use as_db_type::AsDbType;
 
 /// Marker trait for various kinds of fields
 pub trait FieldKind {
-    sealed!();
+    sealed!(trait);
 }
 /// Namespace for the different [`FieldKind`] impls.
 pub mod kind {
     use super::FieldKind;
+    use crate::sealed;
 
     /// Marker for some field which is a [`ForeignModel`](crate::fields::ForeignModelByField)
     pub struct ForeignModel;
@@ -104,10 +105,18 @@ pub mod kind {
     /// Marker for some field which is an [`DateTime<FixedOffset>`](chrono::DateTime)
     pub struct DateTime;
 
-    impl FieldKind for ForeignModel {}
-    impl FieldKind for BackRef {}
-    impl FieldKind for AsDbType {}
-    impl FieldKind for DateTime {}
+    impl FieldKind for ForeignModel {
+        sealed!(impl);
+    }
+    impl FieldKind for BackRef {
+        sealed!(impl);
+    }
+    impl FieldKind for AsDbType {
+        sealed!(impl);
+    }
+    impl FieldKind for DateTime {
+        sealed!(impl);
+    }
 }
 
 /// The type of field allowed on models
@@ -161,7 +170,7 @@ pub trait RawField: 'static + Copy {
 
 /// A [`RawField`] which represents a single column in the database
 pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
-    sealed!();
+    sealed!(trait);
 
     /// The data type as which this field is stored in the db
     type DbType: DbType;
@@ -232,6 +241,8 @@ pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
 }
 
 impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDbType> for F {
+    sealed!(impl);
+
     type DbType = <T as AsDbType>::DbType;
 
     const ANNOTATIONS: Annotations = {
@@ -264,7 +275,7 @@ impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDb
 
 /// A common interface unifying the fields of various kinds.
 pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
-    sealed!();
+    sealed!(trait);
 
     /// Add the field to its model's intermediate model representation
     ///
@@ -307,6 +318,8 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
 macro_rules! impl_abstract_from_field {
     ($kind:ty) => {
         impl<F: Field<$kind>> AbstractField<$kind> for F {
+            sealed!(impl);
+
             fn push_imr(self, imr: &mut Vec<imr::Field>) {
                 imr.push(imr::Field {
                     name: F::NAME.to_string(),

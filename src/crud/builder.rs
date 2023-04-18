@@ -6,7 +6,7 @@ use crate::sealed;
 
 /// Marker for the generic parameter storing an optional [`Condition`]
 pub trait ConditionMarker<'a>: 'a + Send {
-    sealed!();
+    sealed!(trait);
 
     /// Prepare a query context to be able to handle this condition by registering all implicit joins.
     fn add_to_builder(&self, context: &mut QueryContext);
@@ -16,6 +16,8 @@ pub trait ConditionMarker<'a>: 'a + Send {
 }
 
 impl<'a> ConditionMarker<'a> for () {
+    sealed!(impl);
+
     fn add_to_builder(&self, _context: &mut QueryContext) {}
 
     fn into_option(self) -> Option<Box<dyn Condition<'a>>> {
@@ -24,6 +26,8 @@ impl<'a> ConditionMarker<'a> for () {
 }
 
 impl<'a, T: Condition<'a>> ConditionMarker<'a> for T {
+    sealed!(impl);
+
     fn add_to_builder(&self, context: &mut QueryContext) {
         Condition::add_to_context(self, context);
     }

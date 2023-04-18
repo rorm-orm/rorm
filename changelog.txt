@@ -4,6 +4,7 @@ Since 0.5.1
   - `.bulk()` accepts iterator over references or instances
 - `query!`
   - Select a foreign model as an entire patch using `as` keyword
+- sealed traits are actually sealed now
 
 Notes for publishing
 --------------------

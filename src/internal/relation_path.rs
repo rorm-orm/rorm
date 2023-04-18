@@ -30,7 +30,7 @@ use crate::{const_concat, sealed, Model};
 ///     = Comment::F.user.fields().group.fields().name;
 /// ```
 pub trait Path: JoinAlias + 'static {
-    sealed!();
+    sealed!(trait);
 
     /// The model (or table in the context of joins) this path originates from
     type Origin: Model;
@@ -39,6 +39,8 @@ pub trait Path: JoinAlias + 'static {
     fn add_to_context(context: &mut QueryContext);
 }
 impl<M: Model> Path for M {
+    sealed!(impl);
+
     type Origin = M;
 
     fn add_to_context(_context: &mut QueryContext) {}
@@ -54,6 +56,8 @@ where
     P: Path,
     Self: PathImpl<F::Type>,
 {
+    sealed!(impl);
+
     type Origin = P::Origin;
 
     fn add_to_context(context: &mut QueryContext) {
@@ -66,6 +70,8 @@ where
     F: Field<kind::ForeignModel, Type = ForeignModelByField<FF>> + 'static,
     P: Path,
 {
+    sealed!(impl);
+
     type ResolvedRelatedField = FF;
 
     const JOIN_FIELDS: [[&'static str; 2]; 2] = [
@@ -83,6 +89,8 @@ where
     F: Field<kind::ForeignModel, Type = Option<ForeignModelByField<FF>>> + 'static,
     P: Path,
 {
+    sealed!(impl);
+
     type ResolvedRelatedField = FF;
 
     const JOIN_FIELDS: [[&'static str; 2]; 2] = [
@@ -101,6 +109,8 @@ where
     F: AbstractField<kind::BackRef, Type = BackRef<FMF>> + 'static,
     P: Path,
 {
+    sealed!(impl);
+
     type ResolvedRelatedField = FMF;
 
     const JOIN_FIELDS: [[&'static str; 2]; 2] = [
@@ -124,6 +134,8 @@ where
 ///
 /// [`Path`] is implemented generically using [`PathImpl`].
 pub trait PathImpl<RawType> {
+    sealed!(trait);
+
     /// The related field the [`PathStep`]'s field points to.
     type ResolvedRelatedField: RawField;
 
@@ -139,16 +151,20 @@ pub type ResolvedRelatedField<F, P> =
 
 /// Trait shared by [`Path`] and [`FieldProxy`](super::field::FieldProxy) which provides a unique join alias at compile time.s
 pub trait JoinAlias {
-    sealed!();
+    sealed!(trait);
 
     /// Unique join alias
     const ALIAS: &'static str;
 }
 
 impl<M: Model> JoinAlias for M {
+    sealed!(impl);
+
     const ALIAS: &'static str = M::TABLE;
 }
 
 impl<F: RawField, P: Path> JoinAlias for PathStep<F, P> {
+    sealed!(impl);
+
     const ALIAS: &'static str = const_concat!(&[P::ALIAS, "__", F::NAME]);
 }

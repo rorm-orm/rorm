@@ -26,7 +26,7 @@ macro_rules! declare_type_option {
         /// A type-level [Option],
         #[doc = concat!("ether some [", stringify!($trait) ,"] or none i.e. `", stringify!($none), "`")]
         pub trait $option {
-            $crate::sealed!();
+            $crate::sealed!(trait);
 
             /// [Option::unwrap_or]
             ///
