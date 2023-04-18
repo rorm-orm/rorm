@@ -69,3 +69,50 @@ pub fn rorm_main(args: TokenStream, item: TokenStream) -> TokenStream {
         }
     }).into()
 }
+
+/// ```no-run
+/// impl_tuple!(some_macro, 2..5);
+///
+/// // produces
+///
+/// some_macro!(0: T0, 1: T1);               // tuple of length 2
+/// some_macro!(0: T0, 1: T1, 2: T2);        // tuple of length 3
+/// some_macro!(0: T0, 1: T1, 2: T2, 3: T3); // tuple of length 4
+/// ```
+#[proc_macro]
+pub fn impl_tuple(args: TokenStream) -> TokenStream {
+    // handwritten without dependencies just for fun
+    use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenTree as TT};
+
+    let args = Vec::from_iter(args.into_iter());
+    let [TT::Ident(macro_ident), TT::Punct(comma), TT::Literal(start), TT::Punct(fst_dot), TT::Punct(snd_dot), TT::Literal(end)] = &args[..] else {panic!()};
+    if *comma != ','
+        || *fst_dot != '.'
+        || *snd_dot != '.' && matches!(fst_dot.spacing(), Spacing::Alone)
+    {
+        panic!();
+    }
+
+    let start: usize = start.to_string().parse().unwrap();
+    let end: usize = end.to_string().parse().unwrap();
+
+    let mut tokens = TokenStream::default();
+    for until in start..end {
+        let mut impl_args = TokenStream::new();
+        for index in 0..until {
+            impl_args.extend([
+                TT::Literal(Literal::usize_unsuffixed(index)),
+                TT::Punct(Punct::new(':', Spacing::Alone)),
+                TT::Ident(Ident::new(&format!("T{index}"), Span::call_site())),
+                TT::Punct(Punct::new(',', Spacing::Alone)),
+            ]);
+        }
+        tokens.extend([
+            TT::Ident(macro_ident.clone()),
+            TT::Punct(Punct::new('!', Spacing::Alone)),
+            TT::Group(Group::new(Delimiter::Parenthesis, impl_args)),
+            TT::Punct(Punct::new(';', Spacing::Alone)),
+        ]);
+    }
+    tokens
+}
