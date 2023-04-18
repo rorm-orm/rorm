@@ -41,6 +41,16 @@ impl<FMF: Field<kind::ForeignModel>> BackRef<FMF> {
 
 impl<FMF: Field<kind::ForeignModel>> FieldType for BackRef<FMF> {
     type Kind = kind::BackRef;
+
+    type Columns<'a> = [Value<'a>; 0];
+
+    fn into_values(self) -> Self::Columns<'static> {
+        []
+    }
+
+    fn as_values(&self) -> Self::Columns<'_> {
+        []
+    }
 }
 
 impl<F, FMF, BRF> AbstractField<kind::BackRef> for BRF
@@ -58,10 +68,6 @@ where
     fn get_by_index(self, _row: &Row, _index: usize) -> Result<Self::Type, Error> {
         Ok(BackRef { cached: None })
     }
-
-    fn push_ref<'a>(self, _value: &'a Self::Type, _values: &mut Vec<Value<'a>>) {}
-
-    fn push_value(self, _value: Self::Type, _values: &mut Vec<Value>) {}
 }
 
 impl<BRF, FMF> FieldProxy<BRF, BRF::Model>
@@ -80,7 +86,7 @@ where
         Binary {
             operator: BinaryOperator::Equals,
             fst_arg: Column::<FMF, FMF::Model>::new(),
-            snd_arg: foreign_model::RF::<FMF>::new().as_condition_value(patch.borrow_field()),
+            snd_arg: foreign_model::RF::<FMF>::new().as_value(patch.borrow_field()),
         }
     }
 

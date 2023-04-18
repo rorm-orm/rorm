@@ -129,7 +129,7 @@ pub trait Identifiable: Patch {
             operator: BinaryOperator::Equals,
             fst_arg: Column::new(),
             snd_arg: <<Self::Model as Model>::Primary as RawField>::new()
-                .as_condition_value(self.get_primary_key()),
+                .as_value(self.get_primary_key()),
         }
     }
 }

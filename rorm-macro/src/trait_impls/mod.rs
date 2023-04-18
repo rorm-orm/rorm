@@ -11,7 +11,7 @@ pub fn patch(
     let patch_selector = format_ident!("__{strct}_Selector");
     quote! {
         const _: () = {
-            use ::rorm::internal::field::AbstractField;
+            use ::rorm::internal::field::{AbstractField, FieldType};
 
             pub struct #patch_selector<P> {
                 #(
@@ -61,15 +61,13 @@ pub fn patch(
                 fn push_references<'a>(&'a self, values: &mut Vec<::rorm::conditions::Value<'a>>) {
                     use ::rorm::internal::field::AbstractField;
                     #(
-                        <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.field()
-                            .push_ref(&self.#fields, values);
+                        values.extend(self.#fields.as_values());
                     )*
                 }
 
                 fn push_values(self, values: &mut Vec<::rorm::conditions::Value>) {
                     #(
-                        <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.field()
-                            .push_value(self.#fields, values);
+                        values.extend(self.#fields.into_values());
                     )*
                 }
             }

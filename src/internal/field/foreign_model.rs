@@ -10,11 +10,53 @@ use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::DbType;
 use crate::model::{GetField, Model};
 
-impl<FF: Field<kind::AsDbType>> FieldType for ForeignModelByField<FF> {
+impl<FF: Field<kind::AsDbType>> FieldType for ForeignModelByField<FF>
+where
+    FF::Model: GetField<FF>, // always true
+{
     type Kind = kind::ForeignModel;
+
+    type Columns<'a> = [Value<'a>; 1];
+
+    fn into_values(self) -> Self::Columns<'static> {
+        [FF::new().into_value(match self {
+            ForeignModelByField::Key(value) => value,
+            ForeignModelByField::Instance(model) => model.get_field(),
+        })]
+    }
+
+    fn as_values(&self) -> Self::Columns<'_> {
+        [FF::new().as_value(match self {
+            ForeignModelByField::Key(value) => value,
+            ForeignModelByField::Instance(model) => model.borrow_field(),
+        })]
+    }
 }
-impl<FF: Field<kind::AsDbType>> FieldType for Option<ForeignModelByField<FF>> {
+impl<FF: Field<kind::AsDbType>> FieldType for Option<ForeignModelByField<FF>>
+where
+    FF::Model: GetField<FF>, // always true
+{
     type Kind = kind::ForeignModel;
+
+    type Columns<'a> = [Value<'a>; 1];
+
+    fn into_values(self) -> Self::Columns<'static> {
+        [if let Some(value) = self {
+            let [value] = value.into_values();
+            value
+        } else {
+            Value::Null(<FF::DbType as DbType>::NULL_TYPE)
+        }]
+    }
+
+    fn as_values(&self) -> Self::Columns<'_> {
+        [if let Some(value) = self {
+            let [value] = value.as_values();
+            value
+        } else {
+            Value::Null(<FF::DbType as DbType>::NULL_TYPE)
+        }]
+    }
 }
 
 #[doc(hidden)]
@@ -24,8 +66,6 @@ pub trait ForeignModelTrait: FieldType<Kind = kind::ForeignModel> {
     const IS_OPTION: bool;
 
     fn from_primitive(primitive: Self::Primitive) -> Self;
-    fn as_condition_value(&self) -> Value;
-    fn into_condition_value(self) -> Value<'static>;
     fn as_key(&self) -> Option<&<Self::RelatedField as RawField>::Type>;
 }
 
@@ -39,20 +79,6 @@ where
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         ForeignModelByField::Key(FF::new().from_primitive(primitive))
-    }
-
-    fn as_condition_value(&self) -> Value {
-        FF::new().as_condition_value(match self {
-            ForeignModelByField::Key(value) => value,
-            ForeignModelByField::Instance(model) => model.borrow_field(),
-        })
-    }
-
-    fn into_condition_value(self) -> Value<'static> {
-        FF::new().into_condition_value(match self {
-            ForeignModelByField::Key(value) => value,
-            ForeignModelByField::Instance(model) => model.get_field(),
-        })
     }
 
     fn as_key(&self) -> Option<&<Self::RelatedField as RawField>::Type> {
@@ -75,28 +101,6 @@ where
         primitive.map(|primitive| {
             ForeignModelByField::Key(Self::RelatedField::new().from_primitive(primitive))
         })
-    }
-
-    fn as_condition_value(&self) -> Value {
-        if let Some(value) = self {
-            Self::RelatedField::new().as_condition_value(match value {
-                ForeignModelByField::Key(value) => value,
-                ForeignModelByField::Instance(model) => model.borrow_field(),
-            })
-        } else {
-            Value::Null(<FF::DbType as DbType>::NULL_TYPE)
-        }
-    }
-
-    fn into_condition_value(self) -> Value<'static> {
-        if let Some(value) = self {
-            Self::RelatedField::new().into_condition_value(match value {
-                ForeignModelByField::Key(value) => value,
-                ForeignModelByField::Instance(model) => model.get_field(),
-            })
-        } else {
-            Value::Null(<FF::DbType as DbType>::NULL_TYPE)
-        }
     }
 
     fn as_key(&self) -> Option<&<Self::RelatedField as RawField>::Type> {
@@ -132,13 +136,5 @@ where
 
     fn from_primitive(self, primitive: Self::Primitive) -> Self::Type {
         <<F as RawField>::Type as ForeignModelTrait>::from_primitive(primitive)
-    }
-
-    fn as_condition_value(self, value: &Self::Type) -> Value {
-        <<F as RawField>::Type as ForeignModelTrait>::as_condition_value(value)
-    }
-
-    fn into_condition_value(self, value: Self::Type) -> Value<'static> {
-        <<F as RawField>::Type as ForeignModelTrait>::into_condition_value(value)
     }
 }

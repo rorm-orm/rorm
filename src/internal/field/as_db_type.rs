@@ -6,7 +6,7 @@ use chrono::{TimeZone, Utc};
 use rorm_db::row::DecodeOwned;
 
 use crate::conditions::Value;
-use crate::internal::field::{kind, FieldType};
+use crate::internal::field::{extract_value, kind, FieldType};
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type;
 use crate::internal::hmr::db_type::DbType;
@@ -14,7 +14,7 @@ use crate::internal::hmr::db_type::DbType;
 /// This trait maps rust types to database types
 ///
 /// I.e. it specifies which datatypes are allowed on model's fields.
-pub trait AsDbType: FieldType<Kind = kind::AsDbType> {
+pub trait AsDbType: FieldType<Kind = kind::AsDbType> + Sized {
     /// A type which can be retrieved from the db and then converted into Self.
     type Primitive: DecodeOwned;
 
@@ -29,18 +29,15 @@ pub trait AsDbType: FieldType<Kind = kind::AsDbType> {
     /// This function allows "non-primitive" types like any [`DbEnum`](rorm_macro::DbEnum) to implement
     /// their decoding without access to the underlying db details (namely `sqlx::Decode`)
     fn from_primitive(primitive: Self::Primitive) -> Self;
-
-    /// Convert a reference to `Self` into the primitive [`Value`] used by our db implementation.
-    fn as_primitive(&self) -> Value;
-
-    /// Convert `Self` into the primitive [`Value`] used by our db implementation.
-    fn into_primitive(self) -> Value<'static>;
 }
 
 macro_rules! impl_as_db_type {
     ($type:ty, $db_type:ident, $value_variant:ident $(using $method:ident)?) => {
         impl FieldType for $type {
             type Kind = kind::AsDbType;
+            type Columns<'a> = [Value<'a>; 1];
+
+            impl_as_db_type!(impl_as_primitive, $type, $db_type, $value_variant $(using $method)?);
         }
         impl AsDbType for $type {
             type Primitive = Self;
@@ -51,30 +48,28 @@ macro_rules! impl_as_db_type {
             fn from_primitive(primitive: Self::Primitive) -> Self {
                 primitive
             }
-
-            impl_as_db_type!(impl_as_primitive, $type, $db_type, $value_variant $(using $method)?);
         }
     };
     (impl_as_primitive, $type:ty, $db_type:ident, $value_variant:ident) => {
         #[inline(always)]
-        fn as_primitive(&self) -> Value {
-            Value::$value_variant(*self)
+        fn as_values(&self) -> Self::Columns<'_> {
+            [Value::$value_variant(*self)]
         }
 
         #[inline(always)]
-        fn into_primitive(self) -> Value<'static> {
-            Value::$value_variant(self)
+        fn into_values(self) -> Self::Columns<'static> {
+            [Value::$value_variant(self)]
         }
     };
     (impl_as_primitive, $type:ty, $db_type:ident, $value_variant:ident using $method:ident) => {
         #[inline(always)]
-        fn as_primitive(&self) -> Value {
-            Value::$value_variant(Cow::Borrowed(self.$method()))
+        fn as_values(&self) -> Self::Columns<'_> {
+            [Value::$value_variant(Cow::Borrowed(self.$method()))]
         }
 
         #[inline(always)]
-        fn into_primitive(self) -> Value<'static> {
-            Value::$value_variant(Cow::Owned(self))
+        fn into_values(self) -> Self::Columns<'static> {
+            [Value::$value_variant(Cow::Owned(self))]
         }
     };
 }
@@ -92,6 +87,16 @@ impl_as_db_type!(String, VarChar, String using as_str);
 
 impl FieldType for chrono::DateTime<Utc> {
     type Kind = kind::AsDbType;
+
+    type Columns<'a> = [Value<'a>; 1];
+
+    fn into_values(self) -> Self::Columns<'static> {
+        [Value::NaiveDateTime(self.naive_utc())]
+    }
+
+    fn as_values(&self) -> Self::Columns<'_> {
+        [Value::NaiveDateTime(self.naive_utc())]
+    }
 }
 impl AsDbType for chrono::DateTime<Utc> {
     type Primitive = chrono::NaiveDateTime;
@@ -100,18 +105,34 @@ impl AsDbType for chrono::DateTime<Utc> {
     fn from_primitive(primitive: Self::Primitive) -> Self {
         Utc.from_utc_datetime(&primitive)
     }
-
-    fn as_primitive(&self) -> Value {
-        Value::NaiveDateTime(self.naive_utc())
-    }
-
-    fn into_primitive(self) -> Value<'static> {
-        Value::NaiveDateTime(self.naive_utc())
-    }
 }
 
 impl<T: AsDbType> FieldType for Option<T> {
     type Kind = kind::AsDbType;
+
+    type Columns<'a> = [Value<'a>; 1];
+
+    fn into_values(self) -> Self::Columns<'static> {
+        [if let Some(value) = self {
+            let Some(value) = extract_value(value.into_values()) else {
+                unreachable!("An AsDbType may only be stored in a single column")
+            };
+            value
+        } else {
+            Value::Null(T::DbType::NULL_TYPE)
+        }]
+    }
+
+    fn as_values(&self) -> Self::Columns<'_> {
+        [if let Some(value) = self {
+            let Some(value) = extract_value(value.as_values()) else {
+                unreachable!("An AsDbType may only be stored in a single column")
+            };
+            value
+        } else {
+            Value::Null(T::DbType::NULL_TYPE)
+        }]
+    }
 }
 impl<T: AsDbType> AsDbType for Option<T> {
     type Primitive = Option<T::Primitive>;
@@ -129,16 +150,5 @@ impl<T: AsDbType> AsDbType for Option<T> {
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         primitive.map(T::from_primitive)
-    }
-
-    fn as_primitive(&self) -> Value {
-        self.as_ref()
-            .map(T::as_primitive)
-            .unwrap_or(Value::Null(T::DbType::NULL_TYPE))
-    }
-
-    fn into_primitive(self) -> Value<'static> {
-        self.map(T::into_primitive)
-            .unwrap_or(Value::Null(T::DbType::NULL_TYPE))
     }
 }

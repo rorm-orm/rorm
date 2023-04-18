@@ -19,6 +19,16 @@ use crate::model::ConstNew;
 
 impl FieldType for FixedOffset {
     type Kind = kind::AsDbType;
+
+    type Columns<'a> = [Value<'a>; 1];
+
+    fn into_values(self) -> Self::Columns<'static> {
+        [Value::I32(self.local_minus_utc())]
+    }
+
+    fn as_values(&self) -> Self::Columns<'_> {
+        [Value::I32(self.local_minus_utc())]
+    }
 }
 impl AsDbType for FixedOffset {
     type Primitive = i32;
@@ -27,18 +37,22 @@ impl AsDbType for FixedOffset {
     fn from_primitive(primitive: Self::Primitive) -> Self {
         FixedOffset::east_opt(primitive).unwrap() // TODO handle this
     }
-
-    fn as_primitive(&self) -> Value {
-        self.into_primitive()
-    }
-
-    fn into_primitive(self) -> Value<'static> {
-        Value::I32(self.local_minus_utc())
-    }
 }
 
 impl FieldType for DateTime<FixedOffset> {
     type Kind = kind::DateTime;
+
+    type Columns<'a> = [Value<'a>; 2];
+
+    fn into_values(self) -> Self::Columns<'static> {
+        let [offset] = self.offset().into_values();
+        [offset, Value::NaiveDateTime(self.naive_utc())]
+    }
+
+    fn as_values(&self) -> Self::Columns<'_> {
+        let [offset] = self.offset().as_values();
+        [offset, Value::NaiveDateTime(self.naive_utc())]
+    }
 }
 impl<F> AbstractField<kind::DateTime> for F
 where
@@ -59,16 +73,6 @@ where
         let offset = __DateTime_offset::<F>::new().get_by_index(row, index)?;
         let utc = __DateTime_utc::<F>::new().get_by_index(row, index + 1)?;
         Ok(offset.from_utc_datetime(&utc))
-    }
-
-    fn push_ref<'a>(self, value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
-        values.push(value.offset().as_primitive());
-        values.push(Value::NaiveDateTime(value.naive_utc()));
-    }
-
-    fn push_value(self, value: Self::Type, values: &mut Vec<Value>) {
-        values.push(Value::I32(value.offset().local_minus_utc()));
-        values.push(Value::NaiveDateTime(value.naive_utc()));
     }
 
     const COLUMNS: &'static [&'static str] =

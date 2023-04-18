@@ -114,6 +114,15 @@ pub mod kind {
 pub trait FieldType {
     /// The kind of field this type declares
     type Kind: FieldKind;
+
+    /// Array with length specific to the field type
+    type Columns<'a>: IntoIterator<Item = Value<'a>>;
+
+    /// Construct an array of [`Value`] representing `self` in the database via ownership
+    fn into_values(self) -> Self::Columns<'static>;
+
+    /// Construct an array of [`Value`] representing `self` in the database via borrowing
+    fn as_values(&self) -> Self::Columns<'_>;
 }
 
 /// This trait is implemented by the `#[derive(Model)]` macro on unique unit struct for each of a model's fields.
@@ -150,7 +159,7 @@ pub trait RawField: 'static + Copy {
     fn new() -> Self;
 }
 
-/// A [`RawField`] which represents a column in the database
+/// A [`RawField`] which represents a single column in the database
 pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
     sealed!();
 
@@ -201,11 +210,25 @@ pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
     /// Convert the associated primitive type into [`Self::Type`](RawField::Type).
     fn from_primitive(self, primitive: Self::Primitive) -> Self::Type;
 
-    /// Convert a reference to `Self` into the primitive [`Value`] used by our db implementation.
-    fn as_condition_value(self, value: &Self::Type) -> Value;
+    /// The [`Field`] contract requires [`RawField::into_values`] to only return a single value
+    ///
+    /// This method is a shorthand to access this value
+    fn into_value(self, value: Self::Type) -> Value<'static> {
+        let Some(value) = extract_value(value.into_values()) else {
+            unreachable!("A `Field` may only contain one column")
+        };
+        value
+    }
 
-    /// Convert `Self` into the primitive [`Value`] used by our db implementation.
-    fn into_condition_value(self, value: Self::Type) -> Value<'static>;
+    /// The [`Field`] contract requires [`RawField::as_values`] to only return a single value
+    ///
+    /// This method is a shorthand to access this value
+    fn as_value(self, value: &Self::Type) -> Value {
+        let Some(value) = extract_value(value.as_values()) else {
+            unreachable!("A `Field` may only contain one column")
+        };
+        value
+    }
 }
 
 impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDbType> for F {
@@ -236,14 +259,6 @@ impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDb
 
     fn from_primitive(self, primitive: Self::Primitive) -> Self::Type {
         T::from_primitive(primitive)
-    }
-
-    fn as_condition_value(self, value: &Self::Type) -> Value {
-        T::as_primitive(value)
-    }
-
-    fn into_condition_value(self, value: Self::Type) -> Value<'static> {
-        T::into_primitive(value)
     }
 }
 
@@ -283,18 +298,6 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     /// ```
     fn get_by_index(self, row: &Row, index: usize) -> Result<Self::Type, Error>;
 
-    /// Push the field's borrowed value onto a [`Vec`]
-    ///
-    /// This method is forwarded through [`FieldProxy::push_ref`]
-    /// to be used in [`Patch::values`](crate::model::Patch::values).
-    fn push_ref<'a>(self, value: &'a Self::Type, values: &mut Vec<Value<'a>>);
-
-    /// Push the field's owned value onto a [`Vec`]
-    ///
-    /// This method is forwarded through [`FieldProxy::push_value`]
-    /// to be used in [`Patch::values`](crate::model::Patch::values).
-    fn push_value(self, value: Self::Type, values: &mut Vec<Value>);
-
     /// The columns' names which store this field
     const COLUMNS: &'static [&'static str] = &[];
 
@@ -319,14 +322,6 @@ macro_rules! impl_abstract_from_field {
 
             fn get_by_index(self, row: &Row, index: usize) -> Result<Self::Type, Error> {
                 Ok(<Self as RawField>::new().from_primitive(row.get(index)?))
-            }
-
-            fn push_ref<'a>(self, value: &'a Self::Type, values: &mut Vec<Value<'a>>) {
-                values.push(<Self as RawField>::new().as_condition_value(value))
-            }
-
-            fn push_value(self, value: Self::Type, values: &mut Vec<Value>) {
-                values.push(<Self as RawField>::new().into_condition_value(value))
             }
 
             const COLUMNS: &'static [&'static str] = &[F::NAME];
@@ -472,4 +467,17 @@ where
 {
     type Target =
         <<ResolvedRelatedField<F, P> as RawField>::Model as Model>::Fields<PathStep<F, P>>;
+}
+
+/// Check if a container of [`Values`] contains a single value and returns it.
+///
+/// If it doesn't, returns nothing
+fn extract_value<'a>(values: impl IntoIterator<Item = Value<'a>>) -> Option<Value<'a>> {
+    let mut values = values.into_iter();
+    let value = values.next()?;
+    if values.next().is_none() {
+        Some(value)
+    } else {
+        None
+    }
 }
