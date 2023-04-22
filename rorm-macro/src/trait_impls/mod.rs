@@ -1,8 +1,9 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use syn::Type;
+use syn::{Type, Visibility};
 
 pub fn patch(
+    vis: &Visibility,
     strct: &Ident,
     model: &impl ToTokens,
     fields: &[Ident],
@@ -13,7 +14,7 @@ pub fn patch(
         const _: () = {
             use ::rorm::internal::field::{AbstractField, FieldType};
 
-            pub struct #patch_selector<P> {
+            #vis struct #patch_selector<P> {
                 #(
                     #fields: ::rorm::crud::selectable::PatchFieldSelector<#types, P>,
                 )*
