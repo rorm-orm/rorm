@@ -1,4 +1,4 @@
-//! Trait for the items inside [`SelectTuple`](crate::crud::query::SelectTuple)
+//! Trait for selecting stuff
 
 use std::marker::PhantomData;
 

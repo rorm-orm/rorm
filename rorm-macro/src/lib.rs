@@ -70,7 +70,7 @@ pub fn rorm_main(args: TokenStream, item: TokenStream) -> TokenStream {
     }).into()
 }
 
-/// ```no-run
+/// ```ignored
 /// impl_tuple!(some_macro, 2..5);
 ///
 /// // produces

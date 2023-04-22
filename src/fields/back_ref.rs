@@ -12,8 +12,9 @@ use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollec
 use crate::fields::ForeignModelByField;
 use crate::internal::field::foreign_model::ForeignModelTrait;
 use crate::internal::field::{
-    foreign_model, kind, AbstractField, Field, FieldProxy, FieldType, RawField,
+    foreign_model, kind, AbstractField, AliasedField, Field, FieldProxy, FieldType, RawField,
 };
+use crate::internal::relation_path::Path;
 use crate::model::GetField;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
 use crate::Patch;
@@ -69,6 +70,18 @@ where
 
     fn get_by_index(self, _row: &Row, _index: usize) -> Result<Self::Type, Error> {
         Ok(BackRef { cached: None })
+    }
+}
+
+impl<F, P> AliasedField<P, kind::BackRef> for F
+where
+    P: Path,
+    F: AbstractField<kind::BackRef>,
+{
+    const COLUMNS: &'static [&'static str] = &[];
+
+    fn get_by_alias(row: &Row) -> Result<Self::Type, Error> {
+        F::new().get_by_name(row) // Since it won't access the row at all, this is fine
     }
 }
 

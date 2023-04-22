@@ -64,7 +64,7 @@ where
     M: Model,
     S: Selectable<Model = M>,
 {
-    /// Start building a query using a generic [`Selector`]
+    /// Start building a query using a generic [`Selector`](Selectable)
     pub fn new(executor: E, selector: S) -> Self {
         QueryBuilder {
             executor,

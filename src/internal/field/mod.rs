@@ -217,9 +217,10 @@ pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
     type Primitive: DecodeOwned;
 
     /// Convert the associated primitive type into [`Self::Type`](RawField::Type).
+    #[allow(clippy::wrong_self_convention)] // Self is not part of the conversion and just there for easier access via macros
     fn from_primitive(self, primitive: Self::Primitive) -> Self::Type;
 
-    /// The [`Field`] contract requires [`RawField::into_values`] to only return a single value
+    /// The [`Field`] contract requires [`FieldType::into_values`] to only return a single value
     ///
     /// This method is a shorthand to access this value
     fn into_value(self, value: Self::Type) -> Value<'static> {
@@ -229,7 +230,7 @@ pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
         value
     }
 
-    /// The [`Field`] contract requires [`RawField::as_values`] to only return a single value
+    /// The [`Field`] contract requires [`FieldType::as_values`] to only return a single value
     ///
     /// This method is a shorthand to access this value
     fn as_value(self, value: &Self::Type) -> Value {
