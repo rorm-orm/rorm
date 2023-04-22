@@ -37,6 +37,24 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
 
             impl ::rorm::internal::field::FieldType for #db_enum {
                 type Kind = ::rorm::internal::field::kind::AsDbType;
+
+                type Columns<'a> = [::rorm::conditions::Value<'a>; 1];
+
+                fn into_values(self) -> Self::Columns<'static> {
+                    [::rorm::conditions::Value::Choice(::std::borrow::Cow::Borrowed(match self {
+                        #(
+                            Self::#identifiers => stringify!(#identifiers),
+                        )*
+                    }))]
+                }
+
+                fn as_values(&self) -> Self::Columns<'_> {
+                    [::rorm::conditions::Value::Choice(::std::borrow::Cow::Borrowed(match self {
+                        #(
+                            Self::#identifiers => stringify!(#identifiers),
+                        )*
+                    }))]
+                }
             }
             impl ::rorm::internal::field::as_db_type::AsDbType for #db_enum {
                 type Primitive = ::rorm::choice::Choice;
@@ -54,14 +72,6 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
                         #(stringify!(#identifiers) => #identifiers,)*
                         _ => panic!("Unexpected database value"),
                     }
-                }
-
-                fn as_primitive(&self) -> ::rorm::conditions::Value<'static> {
-                    ::rorm::conditions::Value::Choice(::std::borrow::Cow::Borrowed(match self {
-                        #(
-                            Self::#identifiers => stringify!(#identifiers),
-                        )*
-                    }))
                 }
             }
             impl<'a> ::rorm::conditions::IntoSingleValue<'a, ::rorm::internal::hmr::db_type::Choices> for #db_enum {

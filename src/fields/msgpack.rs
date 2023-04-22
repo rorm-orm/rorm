@@ -40,6 +40,19 @@ impl<T: Serialize + DeserializeOwned> MsgPack<T> {
 
 impl<T: Serialize + DeserializeOwned> FieldType for MsgPack<T> {
     type Kind = kind::AsDbType;
+    type Columns<'a> = [Value<'a>; 1];
+
+    fn into_values(self) -> Self::Columns<'static> {
+        [Value::Binary(Cow::Owned(
+            rmp_serde::to_vec(&self.0).unwrap(), // TODO propagate error?
+        ))]
+    }
+
+    fn as_values(&self) -> Self::Columns<'_> {
+        [Value::Binary(Cow::Owned(
+            rmp_serde::to_vec(&self.0).unwrap(), // TODO propagate error?
+        ))]
+    }
 }
 impl<T: Serialize + DeserializeOwned> AsDbType for MsgPack<T> {
     type Primitive = Vec<u8>;
@@ -47,14 +60,6 @@ impl<T: Serialize + DeserializeOwned> AsDbType for MsgPack<T> {
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         Self(rmp_serde::from_slice(&primitive).unwrap()) // TODO propagate error?
-    }
-
-    fn as_primitive(&self) -> Value {
-        Value::Binary(Cow::Owned(rmp_serde::to_vec(&self.0).unwrap())) // TODO propagate error?
-    }
-
-    fn into_primitive(self) -> Value<'static> {
-        Value::Binary(Cow::Owned(rmp_serde::to_vec(&self.0).unwrap())) // TODO propagate error?
     }
 }
 
