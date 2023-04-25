@@ -11,7 +11,8 @@ use rorm_db::sql::ordering::{OrderByEntry, Ordering};
 
 use crate::conditions::Condition;
 use crate::crud::builder::ConditionMarker;
-use crate::crud::selectable::Selectable;
+use crate::crud::decoder::Decoder;
+use crate::crud::selector::Selector;
 use crate::internal::field::{FieldProxy, RawField};
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
@@ -62,9 +63,9 @@ impl<'ex, 'rf, E, M, S> QueryBuilder<'rf, E, M, S, (), ()>
 where
     E: Executor<'ex>,
     M: Model,
-    S: Selectable<Model = M>,
+    S: Selector<Model = M>,
 {
-    /// Start building a query using a generic [`Selector`](Selectable)
+    /// Start building a query using a generic [`Selector`](Selector)
     pub fn new(executor: E, selector: S) -> Self {
         QueryBuilder {
             executor,
@@ -176,7 +177,7 @@ where
     'ex: 'rf,
     E: Executor<'ex>,
     M: Model,
-    S: Selectable<Model = M>,
+    S: Selector<Model = M>,
     C: ConditionMarker<'rf>,
 {
     /// Retrieve and decode all matching rows
@@ -184,7 +185,7 @@ where
     where
         LO: LimitMarker,
     {
-        self.selector.prepare(&mut self.ctx);
+        let decoder = self.selector.select(&mut self.ctx);
         self.condition.add_to_builder(&mut self.ctx);
 
         let columns = self.ctx.get_selects();
@@ -207,24 +208,24 @@ where
         .await?
         .into_iter()
         .map(|x| {
-            self.selector
-                .decode(&x)
+            decoder
+                .by_name(&x)
                 .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
         })
         .collect::<Result<Vec<_>, _>>()
     }
 
     /// Retrieve and decode the query as a stream
-    pub fn stream(mut self) -> QueryStream<'rf, S>
+    pub fn stream(mut self) -> QueryStream<'rf, S::Decoder>
     where
         S: 'rf,
         LO: LimitMarker,
     {
-        self.selector.prepare(&mut self.ctx);
+        let decoder = self.selector.select(&mut self.ctx);
         self.condition.add_to_builder(&mut self.ctx);
 
         QueryStream::new(
-            self.selector,
+            decoder,
             self.ctx,
             |ctx| ctx.get_joins(),
             self.condition.into_option(),
@@ -249,7 +250,7 @@ where
     where
         LO: OffsetMarker,
     {
-        self.selector.prepare(&mut self.ctx);
+        let decoder = self.selector.select(&mut self.ctx);
         self.condition.add_to_builder(&mut self.ctx);
 
         let columns = self.ctx.get_selects();
@@ -270,8 +271,8 @@ where
             self.lim_off.into_option(),
         )
         .await?;
-        self.selector
-            .decode(&row)
+        decoder
+            .by_name(&row)
             .map_err(|_| Error::DecodeError("Could not decode row".to_string()))
     }
 
@@ -280,7 +281,7 @@ where
     where
         LO: OffsetMarker,
     {
-        self.selector.prepare(&mut self.ctx);
+        let decoder = self.selector.select(&mut self.ctx);
         self.condition.add_to_builder(&mut self.ctx);
 
         let columns = self.ctx.get_selects();
@@ -304,7 +305,7 @@ where
         match row {
             None => Ok(None),
             Some(row) => {
-                Ok(Some(self.selector.decode(&row).map_err(|_| {
+                Ok(Some(decoder.by_name(&row).map_err(|_| {
                     Error::DecodeError("Could not decode row".to_string())
                 })?))
             }
@@ -401,7 +402,7 @@ macro_rules! query {
     ($db:expr, $patch:ty) => {
         $crate::crud::query::QueryBuilder::new(
             $db,
-            <$patch as $crate::model::Patch>::select::<<$patch as $crate::model::Patch>::Model>(),
+            $crate::model::PatchSelector::<$patch>::new(),
         )
     };
 }
@@ -419,12 +420,12 @@ mod query_stream {
     use rorm_db::Error;
 
     use crate::conditions::Condition;
-    use crate::crud::selectable::Selectable;
+    use crate::crud::decoder::Decoder;
     use crate::internal::query_context::QueryContext;
 
     #[pin_project::pin_project]
     #[allow(dead_code)] // The field's are never "read" because they are aliased before being assigned to the struct
-    pub struct QueryStream<'rf, S> {
+    pub struct QueryStream<'rf, D> {
         ctx: AliasableBox<QueryContext>,
 
         owned_condition: AliasableBox<Option<Box<dyn Condition<'rf>>>>,
@@ -432,15 +433,15 @@ mod query_stream {
         columns: AliasableBox<Vec<ColumnSelector<'rf>>>,
         joins: AliasableBox<Vec<JoinTable<'rf, 'rf>>>,
 
-        selector: S,
+        decoder: D,
 
         #[pin]
         stream: <Stream as QueryStrategyResult>::Result<'rf>,
     }
 
-    impl<'stream, S> QueryStream<'stream, S> {
+    impl<'stream, D> QueryStream<'stream, D> {
         pub(crate) fn new<'until_build>(
-            selector: S,
+            decoder: D,
             ctx: QueryContext,
             joins_builder: impl FnOnce(&'stream QueryContext) -> Vec<JoinTable<'stream, 'stream>>
                 + 'until_build,
@@ -489,20 +490,20 @@ mod query_stream {
                     joins,
                     owned_condition,
                     sql_condition,
-                    selector,
+                    decoder,
                     stream,
                 }
             }
         }
     }
 
-    impl<'stream, S: Selectable> futures::stream::Stream for QueryStream<'stream, S> {
-        type Item = Result<S::Result, Error>;
+    impl<'stream, D: Decoder> futures::stream::Stream for QueryStream<'stream, D> {
+        type Item = Result<D::Result, Error>;
 
         fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             let mut projection = self.project();
             projection.stream.as_mut().poll_next(cx).map(|option| {
-                option.map(|result| result.and_then(|row| projection.selector.decode(&row)))
+                option.map(|result| result.and_then(|row| projection.decoder.by_name(&row)))
             })
         }
     }

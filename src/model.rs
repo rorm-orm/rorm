@@ -1,11 +1,15 @@
 //! This module holds traits and structs for working with models
 
+use std::marker::PhantomData;
+
 use rorm_db::row::FromRow;
 use rorm_declaration::imr;
 
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
-use crate::crud::selectable::Selectable;
+use crate::crud::decoder::Decoder;
+use crate::crud::selector::Selector;
 use crate::internal::field::{Field, RawField};
+use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
 
 /// Trait implemented on Patches i.e. a subset of a model's fields.
@@ -15,11 +19,13 @@ pub trait Patch: FromRow + 'static {
     /// The model this patch is for
     type Model: Model;
 
-    /// [`Selector`](Selectable) returned by [`Patch::select`]
-    type Selector<P: Path>: Selectable<Result = Self, Model = P::Origin>;
+    /// [`Decoder`] returned by [`Patch::select`] which decodes this patch from a row
+    type Decoder: Decoder<Result = Self>;
 
-    /// Create a [`Selector`](Selectable) to select this patch through a specific [`Path`]
-    fn select<P: Path>() -> Self::Selector<P>;
+    /// Constructs a [`Self::Decoder`] and configures a [`QueryContext`] to query the required columns
+    ///
+    /// (Cmp [`Selector`])
+    fn select<P: Path>(ctx: &mut QueryContext) -> Self::Decoder;
 
     /// List of columns i.e. fields this patch contains
     const COLUMNS: &'static [&'static str];
@@ -43,6 +49,25 @@ pub trait Patch: FromRow + 'static {
 
     /// Push the patch's condition values onto a [`Vec`]
     fn push_references<'a>(&'a self, values: &mut Vec<Value<'a>>);
+}
+
+/// [`Selector`] selecting a [`Patch`] through its [`Patch::select`] method
+pub struct PatchSelector<Ptch: Patch, Pth = <Ptch as Patch>::Model>(PhantomData<(Ptch, Pth)>);
+impl<Ptch: Patch, Pth> PatchSelector<Ptch, Pth> {
+    /// construct a new instance
+    pub fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+impl<Ptch: Patch, Pth: Path> Selector for PatchSelector<Ptch, Pth> {
+    type Result = Ptch;
+    type Model = Pth::Origin;
+    type Decoder = Ptch::Decoder;
+
+    fn select(self, ctx: &mut QueryContext) -> Self::Decoder {
+        Pth::add_to_context(ctx);
+        Ptch::select::<Pth>(ctx)
+    }
 }
 
 /// The [Condition](crate::conditions::Condition) type returned by [Identifiable::as_condition]

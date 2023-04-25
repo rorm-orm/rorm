@@ -6,7 +6,12 @@ use crate::conditions::Value;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::{kind, FieldType};
 use crate::internal::hmr::db_type;
+use crate::Error::DecodeError;
+use crate::{impl_option_as_db_type, new_converting_decoder};
 
+new_converting_decoder!(UuidDecoder, |value: Vec<u8>| -> Uuid {
+    Uuid::from_slice(&value).map_err(|err| DecodeError(format!("Couldn't decode uuid: {err}")))
+});
 impl FieldType for Uuid {
     type Kind = kind::AsDbType;
     type Columns<'a> = [Value<'a>; 1];
@@ -18,6 +23,8 @@ impl FieldType for Uuid {
     fn as_values(&self) -> Self::Columns<'_> {
         [Value::Binary(Cow::Borrowed(self.as_bytes().as_slice()))]
     }
+
+    type Decoder = UuidDecoder;
 }
 
 impl AsDbType for Uuid {
@@ -28,3 +35,16 @@ impl AsDbType for Uuid {
         Uuid::from_slice(&primitive).expect("Malformed database data") // TODO propagate error?
     }
 }
+
+new_converting_decoder!(
+    OptionUuidDecoder,
+    |value: Option<Vec<u8>>| -> Option<Uuid> {
+        value
+            .map(|value| {
+                Uuid::from_slice(&value)
+                    .map_err(|err| DecodeError(format!("Couldn't decode uuid: {err}")))
+            })
+            .transpose()
+    }
+);
+impl_option_as_db_type!(Uuid, OptionUuidDecoder);

@@ -12,8 +12,9 @@
 //! [`update!`]: macro@crate::update
 //! [`delete!`]: macro@crate::delete
 pub mod builder;
+pub mod decoder;
 pub mod delete;
 pub mod insert;
 pub mod query;
-pub mod selectable;
+pub mod selector;
 pub mod update;

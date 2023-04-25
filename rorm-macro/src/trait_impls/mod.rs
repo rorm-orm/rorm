@@ -9,33 +9,30 @@ pub fn patch(
     fields: &[Ident],
     types: &[Type],
 ) -> TokenStream {
-    let patch_selector = format_ident!("__{strct}_Selector");
+    let patch_decoder = format_ident!("__{strct}_Decoder");
     quote! {
         const _: () = {
             use ::rorm::internal::field::{AbstractField, FieldType};
+            use ::rorm::internal::field::decoder::FieldDecoder;
 
-            #vis struct #patch_selector<P> {
+            #vis struct #patch_decoder {
                 #(
-                    #fields: ::rorm::crud::selectable::PatchFieldSelector<#types, P>,
+                    #fields: <#types as ::rorm::internal::field::FieldType>::Decoder,
                 )*
             }
-            impl<P> ::rorm::crud::selectable::Selectable for #patch_selector<P>
-            where
-                P: ::rorm::internal::relation_path::Path
+            impl ::rorm::crud::decoder::Decoder for #patch_decoder
             {
-                type Model = P::Origin;
-
                 type Result = #strct;
 
-                fn prepare(&self, context: &mut ::rorm::internal::query_context::QueryContext) {
-                    #(
-                        self.#fields.prepare(context);
-                    )*
+                fn by_name(&self, row: &::rorm::row::Row) -> Result<Self::Result, ::rorm::Error> {
+                    Ok(#strct {#(
+                        #fields: self.#fields.by_name(row)?,
+                    )*})
                 }
 
-                fn decode(&self, row: &::rorm::row::Row) -> Result<Self::Result, ::rorm::Error> {
+                fn by_index(&self, row: &::rorm::row::Row) -> Result<Self::Result, ::rorm::Error> {
                     Ok(#strct {#(
-                        #fields: self.#fields.decode(row)?,
+                        #fields: self.#fields.by_index(row)?,
                     )*})
                 }
             }
@@ -43,16 +40,15 @@ pub fn patch(
             impl ::rorm::model::Patch for #strct {
                 type Model = #model;
 
-                type Selector<P: ::rorm::internal::relation_path::Path> = #patch_selector<P>;
+                type Decoder = #patch_decoder;
 
-                fn select<P: ::rorm::internal::relation_path::Path>() -> Self::Selector<P> {
-                    #patch_selector {
-                        #(
-                            #fields: ::rorm::crud::selectable::PatchFieldSelector::new(
-                                <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields
-                            ),
-                        )*
-                    }
+                fn select<P: ::rorm::internal::relation_path::Path>(ctx: &mut ::rorm::internal::query_context::QueryContext) -> Self::Decoder {
+                    #patch_decoder {#(
+                        #fields: FieldDecoder::new(
+                            ctx,
+                            <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields.through::<P>(),
+                        ),
+                    )*}
                 }
 
                 const COLUMNS: &'static [&'static str] = ::rorm::concat_columns!(&[#(

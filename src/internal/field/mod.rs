@@ -83,9 +83,12 @@ use crate::{const_concat, const_panic, sealed};
 
 pub mod as_db_type;
 pub mod datetime;
+pub mod decoder;
 pub mod foreign_model;
 
 use as_db_type::AsDbType;
+
+use crate::internal::field::decoder::FieldDecoder;
 
 /// Marker trait for various kinds of fields
 pub trait FieldKind {
@@ -132,6 +135,9 @@ pub trait FieldType {
 
     /// Construct an array of [`Value`] representing `self` in the database via borrowing
     fn as_values(&self) -> Self::Columns<'_>;
+
+    /// [`FieldDecoder`] to use for fields of this type
+    type Decoder: FieldDecoder<Result = Self>;
 }
 
 /// This trait is implemented by the `#[derive(Model)]` macro on unique unit struct for each of a model's fields.
@@ -350,7 +356,7 @@ macro_rules! impl_abstract_from_field {
         impl<P: Path, F: Field<$kind>> AliasedField<P, $kind> for F {
             const COLUMNS: &'static [&'static str] = &[const_concat!(&[P::ALIAS, "__", F::NAME])];
 
-            fn get_by_alias(row: &Row) -> Result<Self::Type, Error> {
+            fn _get_by_alias(row: &Row) -> Result<Self::Type, Error> {
                 Ok(<Self as RawField>::new()
                     .from_primitive(row.get(<Self as AliasedField<P, $kind>>::COLUMNS[0])?))
             }
@@ -366,7 +372,7 @@ pub trait AliasedField<P: Path, K: FieldKind = <Self as RawField>::Kind>: RawFie
     const COLUMNS: &'static [&'static str];
 
     /// Retrieve the field's value using its alias as index
-    fn get_by_alias(row: &Row) -> Result<Self::Type, Error>;
+    fn _get_by_alias(row: &Row) -> Result<Self::Type, Error>;
 }
 
 /// This struct acts as a proxy exposing type level information from the [`RawField`] trait on the value level.
@@ -421,6 +427,11 @@ impl<F: RawField, P> FieldProxy<F, P> {
     /// Get the field's position in the Model
     pub const fn index(_field: Self) -> usize {
         F::INDEX
+    }
+
+    /// Change the path
+    pub const fn through<NewP>(self) -> FieldProxy<F, NewP> {
+        FieldProxy::new()
     }
 }
 impl<F: AbstractField, P> FieldProxy<F, P> {

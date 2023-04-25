@@ -9,6 +9,7 @@ use rorm_db::{Error, Row};
 
 use crate::conditions::collections::CollectionOperator::Or;
 use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection, Value};
+use crate::crud::decoder::NoopDecoder;
 use crate::fields::ForeignModelByField;
 use crate::internal::field::foreign_model::ForeignModelTrait;
 use crate::internal::field::{
@@ -52,6 +53,8 @@ impl<FMF: Field<kind::ForeignModel>> FieldType for BackRef<FMF> {
     fn as_values(&self) -> Self::Columns<'_> {
         []
     }
+
+    type Decoder = NoopDecoder<Self>;
 }
 
 impl<F, FMF, BRF> AbstractField<kind::BackRef> for BRF
@@ -80,7 +83,7 @@ where
 {
     const COLUMNS: &'static [&'static str] = &[];
 
-    fn get_by_alias(row: &Row) -> Result<Self::Type, Error> {
+    fn _get_by_alias(row: &Row) -> Result<Self::Type, Error> {
         F::new().get_by_name(row) // Since it won't access the row at all, this is fine
     }
 }
@@ -196,5 +199,11 @@ where
         f.debug_struct("BackRef")
             .field("cached", &self.cached)
             .finish()
+    }
+}
+
+impl<FMF: Field<kind::ForeignModel>> Default for BackRef<FMF> {
+    fn default() -> Self {
+        Self { cached: None }
     }
 }

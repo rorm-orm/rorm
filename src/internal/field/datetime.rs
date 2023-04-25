@@ -3,20 +3,32 @@
 use std::marker::PhantomData;
 
 use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone};
+use rorm_db::Error::DecodeError;
 use rorm_db::{Error, Row};
 use rorm_declaration::imr;
 
 use crate::conditions::Value;
+use crate::crud::decoder::{Decoder, DirectDecoder};
 use crate::internal::field::as_db_type::AsDbType;
+use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::{
     kind, AbstractField, AliasedField, ContainerField, FieldProxy, FieldType, RawField,
 };
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::{db_type, Source};
+use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
 use crate::model::ConstNew;
-use crate::{const_concat, sealed};
+use crate::{const_concat, impl_option_as_db_type, new_converting_decoder, sealed};
 
+new_converting_decoder!(
+    /// [`FieldDecoder`] for [`FixedOffset`]
+    FixedOffsetDecoder,
+    |value: i32| -> FixedOffset {
+        FixedOffset::east_opt(value)
+            .ok_or_else(|| DecodeError(format!("Couldn't decode fixed offset: {value}")))
+    }
+);
 impl FieldType for FixedOffset {
     type Kind = kind::AsDbType;
 
@@ -29,6 +41,8 @@ impl FieldType for FixedOffset {
     fn as_values(&self) -> Self::Columns<'_> {
         [Value::I32(self.local_minus_utc())]
     }
+
+    type Decoder = FixedOffsetDecoder;
 }
 impl AsDbType for FixedOffset {
     type Primitive = i32;
@@ -38,6 +52,19 @@ impl AsDbType for FixedOffset {
         FixedOffset::east_opt(primitive).unwrap() // TODO handle this
     }
 }
+new_converting_decoder!(
+    /// [`FieldDecoder`] for [`Option<FixedOffset>`](FixedOffset)
+    OptionFixedOffsetDecoder,
+    |value: Option<i32>| -> Option<FixedOffset> {
+        value
+            .map(|value| {
+                FixedOffset::east_opt(value)
+                    .ok_or_else(|| DecodeError(format!("Couldn't decode fixed offset: {value}")))
+            })
+            .transpose()
+    }
+);
+impl_option_as_db_type!(FixedOffset, OptionFixedOffsetDecoder);
 
 impl FieldType for DateTime<FixedOffset> {
     type Kind = kind::DateTime;
@@ -52,6 +79,41 @@ impl FieldType for DateTime<FixedOffset> {
     fn as_values(&self) -> Self::Columns<'_> {
         let [offset] = self.offset().as_values();
         [offset, Value::NaiveDateTime(self.naive_utc())]
+    }
+
+    type Decoder = DateTimeDecoder;
+}
+
+/// [`FieldDecoder`] for [`DateTime<FixedOffset>>`]
+pub struct DateTimeDecoder {
+    offset: FixedOffsetDecoder,
+    utc: DirectDecoder<NaiveDateTime>,
+}
+impl Decoder for DateTimeDecoder {
+    type Result = DateTime<FixedOffset>;
+
+    fn by_name(&self, row: &Row) -> Result<Self::Result, Error> {
+        let offset = self.offset.by_name(row)?;
+        let utc = self.utc.by_name(row)?;
+        Ok(offset.from_utc_datetime(&utc))
+    }
+
+    fn by_index(&self, row: &Row) -> Result<Self::Result, Error> {
+        let offset = self.offset.by_index(row)?;
+        let utc = self.utc.by_index(row)?;
+        Ok(offset.from_utc_datetime(&utc))
+    }
+}
+impl FieldDecoder for DateTimeDecoder {
+    fn new<F, P>(ctx: &mut QueryContext, _: FieldProxy<F, P>) -> Self
+    where
+        F: RawField<Type = Self::Result>,
+        P: Path,
+    {
+        Self {
+            offset: FixedOffsetDecoder::new(ctx, FieldProxy::<__DateTime_offset<F>, P>::new()),
+            utc: DirectDecoder::new(ctx, FieldProxy::<__DateTime_utc<F>, P>::new()),
+        }
     }
 }
 impl<F> AbstractField<kind::DateTime> for F
@@ -90,9 +152,9 @@ where
         <__DateTime_utc<F> as AliasedField<P>>::COLUMNS[0],
     ];
 
-    fn get_by_alias(row: &Row) -> Result<Self::Type, Error> {
-        let offset = <__DateTime_offset<F> as AliasedField<P>>::get_by_alias(row)?;
-        let utc = <__DateTime_utc<F> as AliasedField<P>>::get_by_alias(row)?;
+    fn _get_by_alias(row: &Row) -> Result<Self::Type, Error> {
+        let offset = <__DateTime_offset<F> as AliasedField<P>>::_get_by_alias(row)?;
+        let utc = <__DateTime_utc<F> as AliasedField<P>>::_get_by_alias(row)?;
         Ok(offset.from_utc_datetime(&utc))
     }
 }
@@ -130,7 +192,7 @@ where
 pub struct __DateTime_offset<F>(PhantomData<F>);
 impl<F> RawField for __DateTime_offset<F>
 where
-    F: RawField<Kind = kind::DateTime, Type = DateTime<FixedOffset>>,
+    F: RawField<Type = DateTime<FixedOffset>>,
 {
     type Kind = kind::AsDbType;
     type Type = FixedOffset;
@@ -150,7 +212,7 @@ where
 pub struct __DateTime_utc<F>(PhantomData<F>);
 impl<F> RawField for __DateTime_utc<F>
 where
-    F: RawField<Kind = kind::DateTime, Type = DateTime<FixedOffset>>,
+    F: RawField<Type = DateTime<FixedOffset>>,
 {
     type Kind = kind::AsDbType;
     type Type = NaiveDateTime;

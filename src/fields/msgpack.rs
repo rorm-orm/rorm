@@ -3,13 +3,15 @@
 use std::borrow::Cow;
 use std::ops::{Deref, DerefMut};
 
+use rorm_db::Error::DecodeError;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::conditions::Value;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::{kind, FieldType};
-use crate::internal::hmr::db_type::VarBinary;
+use crate::internal::hmr::db_type::{DbType, VarBinary};
+use crate::new_converting_decoder;
 
 /// Stores data by serializing it to message pack.
 ///
@@ -38,6 +40,14 @@ impl<T: Serialize + DeserializeOwned> MsgPack<T> {
     }
 }
 
+new_converting_decoder!(
+    MsgPackDecoder<T: Serialize + DeserializeOwned>,
+    |value: Vec<u8>| -> MsgPack<T> {
+        rmp_serde::from_slice(&value)
+            .map(MsgPack)
+            .map_err(|err| DecodeError(format!("Couldn't decode msg pack: {err}")))
+    }
+);
 impl<T: Serialize + DeserializeOwned> FieldType for MsgPack<T> {
     type Kind = kind::AsDbType;
     type Columns<'a> = [Value<'a>; 1];
@@ -53,6 +63,8 @@ impl<T: Serialize + DeserializeOwned> FieldType for MsgPack<T> {
             rmp_serde::to_vec(&self.0).unwrap(), // TODO propagate error?
         ))]
     }
+
+    type Decoder = MsgPackDecoder<T>;
 }
 impl<T: Serialize + DeserializeOwned> AsDbType for MsgPack<T> {
     type Primitive = Vec<u8>;
@@ -60,6 +72,44 @@ impl<T: Serialize + DeserializeOwned> AsDbType for MsgPack<T> {
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         Self(rmp_serde::from_slice(&primitive).unwrap()) // TODO propagate error?
+    }
+}
+
+new_converting_decoder!(
+    OptionMsgPackDecoder<T: Serialize + DeserializeOwned>,
+    |value: Option<Vec<u8>>| -> Option<MsgPack<T>> {
+        value
+            .map(|value| {
+                rmp_serde::from_slice(&value)
+                    .map(MsgPack)
+                    .map_err(|err| DecodeError(format!("Couldn't decode msg pack: {err}")))
+            })
+            .transpose()
+    }
+);
+impl<T: Serialize + DeserializeOwned> FieldType for Option<MsgPack<T>> {
+    type Kind = kind::AsDbType;
+    type Columns<'a> = [Value<'a>; 1];
+
+    fn into_values(self) -> Self::Columns<'static> {
+        self.map(MsgPack::into_values)
+            .unwrap_or([Value::Null(VarBinary::NULL_TYPE)])
+    }
+
+    fn as_values(&self) -> Self::Columns<'_> {
+        self.as_ref()
+            .map(MsgPack::as_values)
+            .unwrap_or([Value::Null(VarBinary::NULL_TYPE)])
+    }
+
+    type Decoder = OptionMsgPackDecoder<T>;
+}
+impl<T: Serialize + DeserializeOwned> AsDbType for Option<MsgPack<T>> {
+    type Primitive = Option<Vec<u8>>;
+    type DbType = VarBinary;
+
+    fn from_primitive(primitive: Self::Primitive) -> Self {
+        primitive.map(MsgPack::<T>::from_primitive)
     }
 }
 

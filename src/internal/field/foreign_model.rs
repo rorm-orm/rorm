@@ -1,18 +1,28 @@
 //! Implementation detail of [`ForeignModelByField`]
 
+use std::marker::PhantomData;
+
 use rorm_db::row::DecodeOwned;
+use rorm_db::{Error, Row};
 
 use crate::conditions::Value;
+use crate::crud::decoder::Decoder;
 use crate::fields::ForeignModelByField;
-use crate::internal::field::{kind, Field, FieldType, RawField};
+use crate::internal::field::as_db_type::AsDbType;
+use crate::internal::field::decoder::FieldDecoder;
+use crate::internal::field::{kind, Field, FieldProxy, FieldType, RawField};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::DbType;
+use crate::internal::hmr::Source;
+use crate::internal::query_context::QueryContext;
+use crate::internal::relation_path::Path;
 use crate::model::{GetField, Model};
 use crate::sealed;
 
-impl<FF: Field<kind::AsDbType>> FieldType for ForeignModelByField<FF>
+impl<FF> FieldType for ForeignModelByField<FF>
 where
+    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
     FF::Model: GetField<FF>, // always true
 {
     type Kind = kind::ForeignModel;
@@ -32,32 +42,36 @@ where
             ForeignModelByField::Instance(model) => model.borrow_field(),
         })]
     }
+
+    type Decoder = ForeignModelByFieldDecoder<FF>;
 }
-impl<FF: Field<kind::AsDbType>> FieldType for Option<ForeignModelByField<FF>>
+
+impl<FF> FieldType for Option<ForeignModelByField<FF>>
 where
+    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
     FF::Model: GetField<FF>, // always true
+    Option<FF::Type>: AsDbType,
 {
     type Kind = kind::ForeignModel;
 
     type Columns<'a> = [Value<'a>; 1];
 
     fn into_values(self) -> Self::Columns<'static> {
-        [if let Some(value) = self {
-            let [value] = value.into_values();
-            value
-        } else {
-            Value::Null(<FF::DbType as DbType>::NULL_TYPE)
-        }]
+        self.map(ForeignModelByField::into_values)
+            .unwrap_or([Value::Null(
+                <<Option<FF::Type> as AsDbType>::DbType>::NULL_TYPE,
+            )])
     }
 
     fn as_values(&self) -> Self::Columns<'_> {
-        [if let Some(value) = self {
-            let [value] = value.as_values();
-            value
-        } else {
-            Value::Null(<FF::DbType as DbType>::NULL_TYPE)
-        }]
+        self.as_ref()
+            .map(ForeignModelByField::as_values)
+            .unwrap_or([Value::Null(
+                <<Option<FF::Type> as AsDbType>::DbType>::NULL_TYPE,
+            )])
     }
+
+    type Decoder = OptionForeignModelByFieldDecoder<FF>;
 }
 
 #[doc(hidden)]
@@ -72,8 +86,9 @@ pub trait ForeignModelTrait: FieldType<Kind = kind::ForeignModel> {
     fn as_key(&self) -> Option<&<Self::RelatedField as RawField>::Type>;
 }
 
-impl<FF: Field<kind::AsDbType>> ForeignModelTrait for ForeignModelByField<FF>
+impl<FF> ForeignModelTrait for ForeignModelByField<FF>
 where
+    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
     FF::Model: GetField<FF>, // always true
 {
     sealed!(impl);
@@ -96,7 +111,9 @@ where
 
 impl<FF: Field<kind::AsDbType>> ForeignModelTrait for Option<ForeignModelByField<FF>>
 where
+    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
     FF::Model: GetField<FF>, // always true
+    Option<FF::Type>: AsDbType,
 {
     sealed!(impl);
 
@@ -146,5 +163,107 @@ where
 
     fn from_primitive(self, primitive: Self::Primitive) -> Self::Type {
         <<F as RawField>::Type as ForeignModelTrait>::from_primitive(primitive)
+    }
+}
+
+/// [`FieldDecoder`] for [`ForeignModelByField<FF>`]
+pub struct ForeignModelByFieldDecoder<FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>>(
+    <FF::Type as FieldType>::Decoder,
+);
+impl<FF> Decoder for ForeignModelByFieldDecoder<FF>
+where
+    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
+{
+    type Result = ForeignModelByField<FF>;
+
+    fn by_name(&self, row: &Row) -> Result<Self::Result, Error> {
+        self.0.by_name(row).map(ForeignModelByField::Key)
+    }
+
+    fn by_index(&self, row: &Row) -> Result<Self::Result, Error> {
+        self.0.by_index(row).map(ForeignModelByField::Key)
+    }
+}
+impl<FF> FieldDecoder for ForeignModelByFieldDecoder<FF>
+where
+    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
+{
+    fn new<F, P>(ctx: &mut QueryContext, _: FieldProxy<F, P>) -> Self
+    where
+        F: RawField<Type = Self::Result>,
+        P: Path,
+    {
+        Self(FieldDecoder::new(
+            ctx,
+            FieldProxy::<FakeFieldType<FF::Type, F>, P>::new(),
+        ))
+    }
+}
+
+/// [`FieldDecoder`] for [`Option<ForeignModelByField<FF>>`](ForeignModelByField)
+pub struct OptionForeignModelByFieldDecoder<
+    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
+>(<Option<FF::Type> as FieldType>::Decoder)
+where
+    Option<FF::Type>: FieldType;
+impl<FF> Decoder for OptionForeignModelByFieldDecoder<FF>
+where
+    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
+    Option<FF::Type>: FieldType,
+{
+    type Result = Option<ForeignModelByField<FF>>;
+
+    fn by_name(&self, row: &Row) -> Result<Self::Result, Error> {
+        self.0
+            .by_name(row)
+            .map(|option| option.map(ForeignModelByField::Key))
+    }
+
+    fn by_index(&self, row: &Row) -> Result<Self::Result, Error> {
+        self.0
+            .by_index(row)
+            .map(|option| option.map(ForeignModelByField::Key))
+    }
+}
+impl<FF> FieldDecoder for OptionForeignModelByFieldDecoder<FF>
+where
+    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
+    Option<FF::Type>: FieldType,
+{
+    fn new<F, P>(ctx: &mut QueryContext, _: FieldProxy<F, P>) -> Self
+    where
+        F: RawField<Type = Self::Result>,
+        P: Path,
+    {
+        Self(FieldDecoder::new(
+            ctx,
+            FieldProxy::<FakeFieldType<Option<FF::Type>, F>, P>::new(),
+        ))
+    }
+}
+
+/// Take a field `F` and create a new "fake" field with the different [`RawField::Type`](RawField::Type) `T`
+#[allow(non_camel_case_types)]
+struct FakeFieldType<T, F>(PhantomData<(T, F)>);
+impl<T, F> Clone for FakeFieldType<T, F> {
+    fn clone(&self) -> Self {
+        Self(PhantomData)
+    }
+}
+impl<T, F> Copy for FakeFieldType<T, F> {}
+impl<T, F> RawField for FakeFieldType<T, F>
+where
+    T: FieldType + 'static,
+    F: RawField,
+{
+    type Kind = T::Kind;
+    type Type = T;
+    type Model = F::Model;
+    const INDEX: usize = F::INDEX;
+    const NAME: &'static str = F::NAME;
+    const EXPLICIT_ANNOTATIONS: Annotations = F::EXPLICIT_ANNOTATIONS;
+    const SOURCE: Option<Source> = F::SOURCE;
+    fn new() -> Self {
+        Self(PhantomData)
     }
 }

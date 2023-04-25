@@ -6,10 +6,12 @@ use chrono::{TimeZone, Utc};
 use rorm_db::row::DecodeOwned;
 
 use crate::conditions::Value;
-use crate::internal::field::{extract_value, kind, FieldType};
+use crate::crud::decoder::DirectDecoder;
+use crate::internal::field::{kind, FieldType};
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type;
 use crate::internal::hmr::db_type::DbType;
+use crate::new_converting_decoder;
 
 /// This trait maps rust types to database types
 ///
@@ -31,6 +33,48 @@ pub trait AsDbType: FieldType<Kind = kind::AsDbType> + Sized {
     fn from_primitive(primitive: Self::Primitive) -> Self;
 }
 
+#[doc(hidden)]
+#[macro_export]
+macro_rules! impl_option_as_db_type {
+    ($type:ty, $decoder:ty) => {
+        impl FieldType for Option<$type> {
+            type Kind = kind::AsDbType;
+            type Columns<'a> = [Value<'a>; 1];
+
+            fn into_values(self) -> Self::Columns<'static> {
+                self.map(<$type>::into_values)
+                    .unwrap_or([Value::Null(<<$type as AsDbType>::DbType as $crate::internal::hmr::db_type::DbType>::NULL_TYPE)])
+            }
+
+            fn as_values(&self) -> Self::Columns<'_> {
+                self.as_ref()
+                    .map(<$type>::as_values)
+                    .unwrap_or([Value::Null(<<$type as AsDbType>::DbType as $crate::internal::hmr::db_type::DbType>::NULL_TYPE)])
+            }
+
+            type Decoder = $decoder;
+        }
+
+        impl AsDbType for Option<$type> {
+            type Primitive = Option<<$type as AsDbType>::Primitive>;
+            type DbType = <$type as AsDbType>::DbType;
+
+            const IMPLICIT: Option<Annotations> = {
+                let mut annos = if let Some(annos) = <$type as AsDbType>::IMPLICIT {
+                    annos
+                } else {
+                    Annotations::empty()
+                };
+                annos.nullable = true;
+                Some(annos)
+            };
+
+            fn from_primitive(primitive: Self::Primitive) -> Self {
+                primitive.map(<$type as AsDbType>::from_primitive)
+            }
+        }
+    };
+}
 macro_rules! impl_as_db_type {
     ($type:ty, $db_type:ident, $value_variant:ident $(using $method:ident)?) => {
         impl FieldType for $type {
@@ -38,7 +82,10 @@ macro_rules! impl_as_db_type {
             type Columns<'a> = [Value<'a>; 1];
 
             impl_as_db_type!(impl_as_primitive, $type, $db_type, $value_variant $(using $method)?);
+
+            type Decoder = DirectDecoder<Self>;
         }
+
         impl AsDbType for $type {
             type Primitive = Self;
 
@@ -49,6 +96,8 @@ macro_rules! impl_as_db_type {
                 primitive
             }
         }
+
+        impl_option_as_db_type!($type, DirectDecoder<Self>);
     };
     (impl_as_primitive, $type:ty, $db_type:ident, $value_variant:ident) => {
         #[inline(always)]
@@ -85,6 +134,11 @@ impl_as_db_type!(bool, Boolean, Bool);
 impl_as_db_type!(Vec<u8>, VarBinary, Binary using as_slice);
 impl_as_db_type!(String, VarChar, String using as_str);
 
+new_converting_decoder!(
+    /// [`FieldDecoder`] for [`chrono::DateTime<Utc>`]
+    UtcDateTimeDecoder,
+    |value: chrono::NaiveDateTime| -> chrono::DateTime<Utc> { Ok(Utc.from_utc_datetime(&value)) }
+);
 impl FieldType for chrono::DateTime<Utc> {
     type Kind = kind::AsDbType;
 
@@ -97,6 +151,8 @@ impl FieldType for chrono::DateTime<Utc> {
     fn as_values(&self) -> Self::Columns<'_> {
         [Value::NaiveDateTime(self.naive_utc())]
     }
+
+    type Decoder = UtcDateTimeDecoder;
 }
 impl AsDbType for chrono::DateTime<Utc> {
     type Primitive = chrono::NaiveDateTime;
@@ -106,49 +162,11 @@ impl AsDbType for chrono::DateTime<Utc> {
         Utc.from_utc_datetime(&primitive)
     }
 }
-
-impl<T: AsDbType> FieldType for Option<T> {
-    type Kind = kind::AsDbType;
-
-    type Columns<'a> = [Value<'a>; 1];
-
-    fn into_values(self) -> Self::Columns<'static> {
-        [if let Some(value) = self {
-            let Some(value) = extract_value(value.into_values()) else {
-                unreachable!("An AsDbType may only be stored in a single column")
-            };
-            value
-        } else {
-            Value::Null(T::DbType::NULL_TYPE)
-        }]
+new_converting_decoder!(
+    /// [`FieldDecoder`] for [`Option<chrono::DateTime<Utc>>`](chrono::DateTime)
+    OptionUtcDateTimeDecoder,
+    |value: Option<chrono::NaiveDateTime>| -> Option<chrono::DateTime<Utc>> {
+        Ok(value.map(|value| Utc.from_utc_datetime(&value)))
     }
-
-    fn as_values(&self) -> Self::Columns<'_> {
-        [if let Some(value) = self {
-            let Some(value) = extract_value(value.as_values()) else {
-                unreachable!("An AsDbType may only be stored in a single column")
-            };
-            value
-        } else {
-            Value::Null(T::DbType::NULL_TYPE)
-        }]
-    }
-}
-impl<T: AsDbType> AsDbType for Option<T> {
-    type Primitive = Option<T::Primitive>;
-    type DbType = T::DbType;
-
-    const IMPLICIT: Option<Annotations> = {
-        let mut annos = if let Some(annos) = T::IMPLICIT {
-            annos
-        } else {
-            Annotations::empty()
-        };
-        annos.nullable = true;
-        Some(annos)
-    };
-
-    fn from_primitive(primitive: Self::Primitive) -> Self {
-        primitive.map(T::from_primitive)
-    }
-}
+);
+impl_option_as_db_type!(chrono::DateTime<Utc>, OptionUtcDateTimeDecoder);

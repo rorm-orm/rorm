@@ -1,12 +1,13 @@
 //! The query context holds some of a query's data which rorm-db borrows.
 
+use std::borrow::Cow;
 use std::collections::HashSet;
 
 use ouroboros::self_referencing;
-use rorm_db::database::ColumnSelector;
 use rorm_db::sql::conditional::{BinaryCondition, Condition};
 use rorm_db::sql::value::Value;
 
+use crate::aggregate::AggregationFunc;
 use crate::internal::field::RawField;
 use crate::internal::relation_path::{JoinAlias, Path, PathImpl, PathStep};
 use crate::Model;
@@ -22,7 +23,7 @@ type PathId = std::any::TypeId;
 pub struct QueryContext {
     handled_paths: HashSet<PathId>,
     joins: Vec<Join>,
-    selects: Vec<ColumnSelector<'static>>,
+    selects: Vec<Select>,
 }
 impl QueryContext {
     /// Create an empty context
@@ -30,6 +31,50 @@ impl QueryContext {
         Self::default()
     }
 
+    pub fn select_field<F: RawField, P: Path>(&mut self) -> (usize, String) {
+        P::add_to_context(self);
+        let alias = format!("{path}__{field}", path = P::ALIAS, field = F::NAME);
+        self.selects.push(Select {
+            table_name: Cow::Borrowed(P::ALIAS),
+            column_name: F::NAME,
+            select_alias: alias.clone(),
+            aggregation: None,
+        });
+        (self.selects.len() - 1, alias)
+    }
+
+    pub fn select_aggregation<A: AggregationFunc, F: RawField, P: Path>(
+        &mut self,
+    ) -> (usize, String) {
+        P::add_to_context(self);
+        let alias = format!(
+            "{path}__{field}___{func}",
+            path = P::ALIAS,
+            field = F::NAME,
+            func = A::NAME,
+        );
+        self.selects.push(Select {
+            table_name: Cow::Borrowed(P::ALIAS),
+            column_name: F::NAME,
+            select_alias: alias.clone(),
+            aggregation: Some(A::SQL),
+        });
+        (self.selects.len() - 1, alias)
+    }
+
+    /// Create a vector borrowing the joins in rorm_db's format which can be passed to it as slice.
+    pub fn get_joins(&self) -> Vec<rorm_db::database::JoinTable> {
+        self.joins.iter().map(Join::as_db_format).collect()
+    }
+
+    /// Create a vector borrowing the selects in rorm_db's format which can be passed to it as slice.
+    pub fn get_selects(&self) -> Vec<rorm_db::database::ColumnSelector> {
+        self.selects.iter().map(Select::as_db_format).collect()
+    }
+}
+impl QueryContext {
+    /// **Use [`Path::add_to_context`], this method is its impl detail!**
+    ///
     /// Recursively add a relation path to the builder
     ///
     /// The generic parameters are the parameters defining the outer most [PathStep].
@@ -55,20 +100,29 @@ impl QueryContext {
             );
         }
     }
+}
 
-    /// Add a new column to select
-    pub fn add_select(&mut self, select: ColumnSelector<'static>) {
-        self.selects.push(select);
-    }
-
-    /// Create a vector borrowing the joins in rorm_db's format which can be passed to it as slice.
-    pub fn get_joins(&self) -> Vec<rorm_db::database::JoinTable> {
-        self.joins.iter().map(Join::as_db_format).collect()
-    }
-
-    /// Create a vector borrowing the selects in rorm_db's format which can be passed to it as slice.
-    pub fn get_selects(&self) -> Vec<ColumnSelector> {
-        self.selects.clone()
+#[derive(Debug, Clone)]
+struct Select {
+    table_name: Cow<'static, str>,
+    column_name: &'static str,
+    select_alias: String,
+    aggregation: Option<rorm_db::sql::aggregation::SelectAggregator>,
+}
+impl Select {
+    fn as_db_format(&self) -> rorm_db::database::ColumnSelector {
+        let Self {
+            table_name,
+            column_name,
+            select_alias,
+            aggregation,
+        } = self;
+        rorm_db::database::ColumnSelector {
+            table_name: Some(table_name.as_ref()),
+            column_name,
+            select_alias: Some(select_alias.as_str()),
+            aggregation: *aggregation,
+        }
     }
 }
 
