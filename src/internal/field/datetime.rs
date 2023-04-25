@@ -12,7 +12,7 @@ use crate::crud::decoder::{Decoder, DirectDecoder};
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::{
-    kind, AbstractField, AliasedField, ContainerField, FieldProxy, FieldType, RawField,
+    kind, AbstractField, ContainerField, FieldProxy, FieldType, RawField,
 };
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::{db_type, Source};
@@ -141,22 +141,6 @@ where
 
     const COLUMNS: &'static [&'static str] =
         &[__DateTime_offset::<F>::NAME, __DateTime_utc::<F>::NAME];
-}
-impl<F, P> AliasedField<P, kind::DateTime> for F
-where
-    P: Path,
-    F: RawField<Kind = kind::DateTime, Type = DateTime<FixedOffset>>,
-{
-    const COLUMNS: &'static [&'static str] = &[
-        <__DateTime_offset<F> as AliasedField<P>>::COLUMNS[0],
-        <__DateTime_utc<F> as AliasedField<P>>::COLUMNS[0],
-    ];
-
-    fn _get_by_alias(row: &Row) -> Result<Self::Type, Error> {
-        let offset = <__DateTime_offset<F> as AliasedField<P>>::_get_by_alias(row)?;
-        let utc = <__DateTime_utc<F> as AliasedField<P>>::_get_by_alias(row)?;
-        Ok(offset.from_utc_datetime(&utc))
-    }
 }
 impl<F, P> ContainerField<P, kind::DateTime> for F
 where

@@ -6,7 +6,7 @@ use crate::aggregate::{AggregatedColumn, AggregationFunc};
 use crate::crud::decoder::{Decoder, DirectDecoder};
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::{AbstractField, AliasedField, Field, FieldProxy, FieldType, RawField};
+use crate::internal::field::{AbstractField, Field, FieldProxy, FieldType, RawField};
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::{Path, PathImpl, PathStep, ResolvedRelatedField};
 use crate::model::{Model, PatchSelector};
@@ -31,7 +31,7 @@ pub trait Selector {
 impl<F, P> Selector for FieldProxy<F, P>
 where
     P: Path,
-    F: AbstractField + AliasedField<P>,
+    F: AbstractField,
 {
     type Result = F::Type;
 
