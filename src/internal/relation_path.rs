@@ -35,6 +35,9 @@ pub trait Path: JoinAlias + 'static {
     /// The model (or table in the context of joins) this path originates from
     type Origin: Model;
 
+    /// Is `Self = Self::Origin`?
+    const IS_ORIGIN: bool = false;
+
     /// Add all joins required to use this path to the query context
     fn add_to_context(context: &mut QueryContext);
 }
@@ -42,6 +45,8 @@ impl<M: Model> Path for M {
     sealed!(impl);
 
     type Origin = M;
+
+    const IS_ORIGIN: bool = true;
 
     fn add_to_context(_context: &mut QueryContext) {}
 }

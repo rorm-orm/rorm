@@ -6,7 +6,7 @@ use crate::aggregate::{AggregatedColumn, AggregationFunc};
 use crate::crud::decoder::{Decoder, DirectDecoder};
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::{AbstractField, Field, FieldProxy, FieldType, RawField};
+use crate::internal::field::{Field, FieldProxy, FieldType, RawField};
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::{Path, PathImpl, PathStep, ResolvedRelatedField};
 use crate::model::{Model, PatchSelector};
@@ -24,6 +24,9 @@ pub trait Selector {
     /// [`Decoder`] to decode the selected value from a [`&Row`]
     type Decoder: Decoder<Result = Self::Result>;
 
+    /// Can this selector be used in insert queries to specify the returning expression?
+    const INSERT_COMPATIBLE: bool;
+
     /// Constructs a decoder and configures a [`QueryContext`] to query the required columns
     fn select(self, ctx: &mut QueryContext) -> Self::Decoder;
 }
@@ -31,13 +34,12 @@ pub trait Selector {
 impl<F, P> Selector for FieldProxy<F, P>
 where
     P: Path,
-    F: AbstractField,
+    F: RawField,
 {
     type Result = F::Type;
-
     type Model = P::Origin;
-
     type Decoder = <F::Type as FieldType>::Decoder;
+    const INSERT_COMPATIBLE: bool = P::IS_ORIGIN;
 
     fn select(self, ctx: &mut QueryContext) -> Self::Decoder {
         FieldDecoder::new(ctx, FieldProxy::<F, P>::new())
@@ -67,10 +69,9 @@ where
     P: Path,
 {
     type Result = A::Result<<F::Type as AsDbType>::Primitive>;
-
     type Model = P::Origin;
-
     type Decoder = DirectDecoder<Self::Result>;
+    const INSERT_COMPATIBLE: bool = false;
 
     fn select(self, ctx: &mut QueryContext) -> Self::Decoder {
         let (index, column) = ctx.select_aggregation::<A, F, P>();
@@ -95,6 +96,8 @@ macro_rules! selectable {
             type Decoder = ($(
                 $S::Decoder,
             )+);
+
+            const INSERT_COMPATIBLE: bool = $($S::INSERT_COMPATIBLE &&)+ true;
 
             fn select(self, ctx: &mut QueryContext) -> Self::Decoder {
                 ($(

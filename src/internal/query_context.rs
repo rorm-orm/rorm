@@ -31,6 +31,7 @@ impl QueryContext {
         Self::default()
     }
 
+    /// Add a field to select returning its index and alias
     pub fn select_field<F: RawField, P: Path>(&mut self) -> (usize, String) {
         P::add_to_context(self);
         let alias = format!("{path}__{field}", path = P::ALIAS, field = F::NAME);
@@ -43,6 +44,7 @@ impl QueryContext {
         (self.selects.len() - 1, alias)
     }
 
+    /// Add a field to aggregate returning its index and alias
     pub fn select_aggregation<A: AggregationFunc, F: RawField, P: Path>(
         &mut self,
     ) -> (usize, String) {
@@ -70,6 +72,33 @@ impl QueryContext {
     /// Create a vector borrowing the selects in rorm_db's format which can be passed to it as slice.
     pub fn get_selects(&self) -> Vec<rorm_db::database::ColumnSelector> {
         self.selects.iter().map(Select::as_db_format).collect()
+    }
+
+    /// Create a vector borrowing the selects only by their `column_name` to be used in `INSERT RETURNING`.
+    ///
+    /// This method also checks, if the context would be valid in the first place.
+    pub fn get_returning(&self) -> Option<Vec<&'static str>> {
+        // Disallow joins
+        if !self.joins.is_empty() {
+            return None;
+        }
+
+        let mut returning = Vec::with_capacity(self.selects.len());
+        let table_name = self.selects.first()?.table_name.as_ref();
+        for select in &self.selects {
+            // Disallow aggregation
+            if select.aggregation.is_some() {
+                return None;
+            }
+
+            // Disallow different tables (theoretically unnecessary?)
+            if select.table_name != table_name {
+                return None;
+            }
+
+            returning.push(select.column_name);
+        }
+        Some(returning)
     }
 }
 impl QueryContext {

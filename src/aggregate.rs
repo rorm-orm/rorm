@@ -5,8 +5,7 @@ use std::marker::PhantomData;
 use rorm_db::row::DecodeOwned;
 use rorm_db::sql::aggregation::SelectAggregator;
 
-use crate::const_concat;
-use crate::internal::field::{Field, FieldProxy, RawField};
+use crate::internal::field::{Field, FieldProxy};
 use crate::internal::relation_path::Path;
 
 /// A function which can be used in aggregation.
@@ -109,14 +108,4 @@ pub struct AggregatedColumn<A, F, P> {
     function: PhantomData<A>,
     field: PhantomData<F>,
     path: PhantomData<P>,
-}
-
-impl<A, F, P> AggregatedColumn<A, F, P>
-where
-    A: AggregationFunc,
-    F: RawField,
-    P: Path,
-{
-    pub(crate) const SELECT_ALIAS: &'static str =
-        const_concat!(&[P::ALIAS, "__", F::NAME, "___", A::NAME]);
 }

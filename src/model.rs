@@ -63,6 +63,7 @@ impl<Ptch: Patch, Pth: Path> Selector for PatchSelector<Ptch, Pth> {
     type Result = Ptch;
     type Model = Pth::Origin;
     type Decoder = Ptch::Decoder;
+    const INSERT_COMPATIBLE: bool = Pth::IS_ORIGIN;
 
     fn select(self, ctx: &mut QueryContext) -> Self::Decoder {
         Pth::add_to_context(ctx);

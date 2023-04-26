@@ -7,8 +7,12 @@ use rorm_db::error::Error;
 use rorm_db::executor::Executor;
 
 use crate::conditions::Value;
+use crate::crud::decoder::Decoder;
+use crate::crud::selector::Selector;
+use crate::internal::field::FieldProxy;
 use crate::internal::patch::{IntoPatchCow, PatchCow};
-use crate::model::{Model, Patch};
+use crate::internal::query_context::QueryContext;
+use crate::model::{Model, Patch, PatchSelector};
 
 /// Builder for insert queries
 ///
@@ -28,14 +32,13 @@ use crate::model::{Model, Patch};
 ///     What to return after the insert.
 ///
 #[must_use]
-pub struct InsertBuilder<E, M, R> {
+pub struct InsertBuilder<E, M, S> {
     executor: E,
-    returning: R,
-
-    _phantom: PhantomData<M>,
+    selector: S,
+    model: PhantomData<M>,
 }
 
-impl<'ex, E, M> InsertBuilder<E, M, returning::Patch<M>>
+impl<'ex, E, M> InsertBuilder<E, M, PatchSelector<M, M>>
 where
     E: Executor<'ex>,
     M: Model,
@@ -44,81 +47,87 @@ where
     pub fn new(executor: E) -> Self {
         InsertBuilder {
             executor,
-            returning: returning::Patch::new(),
-
-            _phantom: PhantomData,
+            selector: PatchSelector::new(),
+            model: PhantomData,
         }
     }
-}
 
-impl<E, M> InsertBuilder<E, M, returning::Patch<M>>
-where
-    M: Model,
-{
-    fn set_return<R>(self, returning: R) -> InsertBuilder<E, M, R> {
-        #[rustfmt::skip]
-        let InsertBuilder { executor, _phantom, .. } = self;
-        #[rustfmt::skip]
-        return InsertBuilder { executor, returning, _phantom };
+    fn set_return<S>(self, selector: S) -> InsertBuilder<E, M, S>
+    where
+        S: Selector<Model = M>,
+    {
+        InsertBuilder {
+            executor: self.executor,
+            selector,
+            model: PhantomData,
+        }
     }
 
     /// Remove the return value from the insert query reducing query time.
-    pub fn return_nothing(self) -> InsertBuilder<E, M, returning::Nothing> {
-        self.set_return(returning::Nothing)
+    pub fn return_nothing(self) -> InsertReturningNothing<E, M> {
+        InsertReturningNothing {
+            executor: self.executor,
+            model: PhantomData,
+        }
     }
 
-    /// Remove the return value from the insert query reducing query time.
-    pub fn return_primary_key(self) -> InsertBuilder<E, M, returning::PrimaryKey<M>> {
-        self.set_return(returning::PrimaryKey::new())
+    /// Return the tables primary key after performing the insert
+    pub fn return_primary_key(self) -> InsertBuilder<E, M, FieldProxy<M::Primary, M>> {
+        self.set_return(FieldProxy::new())
     }
 
     /// Set a tuple of fields to be returned after performing the insert
-    pub fn return_tuple<Return, const C: usize>(
-        self,
-        tuple: Return,
-    ) -> InsertBuilder<E, M, returning::Tuple<Return, C>>
+    pub fn return_tuple<Return>(self, tuple: Return) -> InsertBuilder<E, M, Return>
     where
-        returning::Tuple<Return, C>: returning::Returning<M> + From<Return>,
+        Return: Selector<Model = M>,
     {
         self.set_return(tuple.into())
     }
 
     /// Set a patch to be returned after performing the insert
-    pub fn return_patch<Return>(self) -> InsertBuilder<E, M, returning::Patch<Return>>
+    pub fn return_patch<Return>(self) -> InsertBuilder<E, M, PatchSelector<Return, M>>
     where
         Return: Patch<Model = M>,
     {
-        self.set_return(returning::Patch::new())
+        self.set_return(PatchSelector::new())
     }
 }
 
-impl<'ex, E, M, R> InsertBuilder<E, M, R>
+impl<'ex, E, M, S> InsertBuilder<E, M, S>
 where
     E: Executor<'ex>,
     M: Model,
-    R: returning::Returning<M>,
+    S: Selector<Model = M>,
 {
+    // Until rust supports checking constants in type bounds, this ugly check is necessary
+    const CHECK: () = {
+        if !S::INSERT_COMPATIBLE {
+            panic!("An invalid selector was passed to an InsertBuilder! Please check you're insert!(..).return_tuple(..) calls!");
+        }
+    };
+
     /// Insert a single patch into the db
-    pub async fn single<P: Patch<Model = M>>(self, patch: &P) -> Result<R::Result, Error> {
+    pub async fn single<P: Patch<Model = M>>(self, patch: &P) -> Result<S::Result, Error> {
+        let _check = Self::CHECK;
+
         let values = patch.references();
         let values: Vec<_> = values.iter().map(Value::as_sql).collect();
-        let inserting = P::COLUMNS;
-        let returning = self.returning.columns();
 
-        if returning.is_empty() {
-            database::insert(self.executor, M::TABLE, inserting, &values).await?;
-            R::produce_result()
-        } else {
-            database::insert_returning(
-                self.executor,
-                P::Model::TABLE,
-                inserting,
-                &values,
-                returning,
-            )
-            .await
-            .and_then(R::decode)
-        }
+        let mut ctx = QueryContext::new();
+        let decoder = self.selector.select(&mut ctx);
+        let returning = ctx
+            .get_returning()
+            .expect("Should have been checked in set_select");
+
+        let row = database::insert_returning(
+            self.executor,
+            P::Model::TABLE,
+            P::COLUMNS,
+            &values,
+            &returning,
+        )
+        .await?;
+        decoder.by_index(&row)
     }
 
     /// Insert a bulk of patches into the db
@@ -131,7 +140,65 @@ where
     /// - `Vec<P>`
     /// - `&[P]`
     /// - A [`map`](Iterator::map) iterator yielding `P` or `&P`
-    pub async fn bulk<'p, I, P>(self, patches: I) -> Result<R::BulkResult, Error>
+    pub async fn bulk<'p, I, P>(self, patches: I) -> Result<Vec<S::Result>, Error>
+    where
+        I: IntoIterator,
+        I::Item: IntoPatchCow<'p, Patch = P>,
+        P: Patch<Model = M>,
+    {
+        let _check = Self::CHECK;
+
+        let mut values: Vec<Value<'p>> = Vec::new();
+        for patch in patches {
+            match patch.into_patch_cow() {
+                PatchCow::Borrowed(patch) => patch.push_references(&mut values),
+                PatchCow::Owned(patch) => patch.push_values(&mut values),
+            }
+        }
+
+        let values: Vec<_> = values.iter().map(Value::as_sql).collect();
+        let values_slices: Vec<_> = values.chunks(P::COLUMNS.len()).collect();
+
+        let mut ctx = QueryContext::new();
+        let decoder = self.selector.select(&mut ctx);
+        let returning = ctx
+            .get_returning()
+            .expect("Should have been checked in set_select");
+
+        let rows = database::insert_bulk_returning(
+            self.executor,
+            M::TABLE,
+            P::COLUMNS,
+            &values_slices,
+            &returning,
+        )
+        .await?;
+        rows.iter().map(|row| decoder.by_index(row)).collect()
+    }
+}
+
+/// Variation of [`InsertBuilder`] which performs an insert without returning anything
+#[must_use]
+pub struct InsertReturningNothing<E, M> {
+    executor: E,
+    model: PhantomData<M>,
+}
+impl<'ex, E, M> InsertReturningNothing<E, M>
+where
+    E: Executor<'ex>,
+    M: Model,
+{
+    /// See [`InsertBuilder::single`]
+    pub async fn single<P: Patch<Model = M>>(self, patch: &P) -> Result<(), Error> {
+        let values = patch.references();
+        let values: Vec<_> = values.iter().map(Value::as_sql).collect();
+        let inserting = P::COLUMNS;
+
+        database::insert(self.executor, M::TABLE, inserting, &values).await
+    }
+
+    /// See [`InsertBuilder::bulk`]
+    pub async fn bulk<'p, I, P>(self, patches: I) -> Result<(), Error>
     where
         I: IntoIterator,
         I::Item: IntoPatchCow<'p, Patch = P>,
@@ -148,22 +215,8 @@ where
         let values: Vec<_> = values.iter().map(Value::as_sql).collect();
         let values_slices: Vec<_> = values.chunks(P::COLUMNS.len()).collect();
         let inserting = P::COLUMNS;
-        let returning = self.returning.columns();
 
-        if returning.is_empty() {
-            database::insert_bulk(self.executor, M::TABLE, inserting, &values_slices).await?;
-            R::produce_result_bulk()
-        } else {
-            database::insert_bulk_returning(
-                self.executor,
-                M::TABLE,
-                inserting,
-                &values_slices,
-                returning,
-            )
-            .await
-            .and_then(R::decode_bulk)
-        }
+        database::insert_bulk(self.executor, M::TABLE, inserting, &values_slices).await
     }
 }
 
@@ -245,189 +298,4 @@ macro_rules! insert {
             $db,
         )
     };
-}
-
-#[doc(hidden)]
-pub mod returning {
-    use std::marker::PhantomData;
-
-    use rorm_db::error::Error;
-    use rorm_db::row::Row;
-
-    use crate::internal::field::{Field, FieldProxy, RawField};
-    use crate::model::{Model, Patch as ModelPatch};
-
-    /// Specifies which columns to return after a select and how to decode the rows into what.
-    pub trait Returning<M: Model> {
-        /// Type as which rows should be decoded
-        type Result;
-
-        /// Type as which lists of rows should be decoded
-        ///
-        /// This defaults to `Vec<Self::Result>`.
-        type BulkResult;
-
-        /// Produce a result when [`Self::columns`] returns an empty slice and no actual row could be retrieved.
-        fn produce_result() -> Result<Self::Result, Error> {
-            Err(Error::DecodeError("No columns where specified".to_string()))
-        }
-
-        /// Produce a bulk result when [`Self::columns`] returns an empty slice and no actual rows could be retrieved.
-        fn produce_result_bulk() -> Result<Self::BulkResult, Error> {
-            Err(Error::DecodeError("No columns where specified".to_string()))
-        }
-
-        /// Decode a single row
-        fn decode(row: Row) -> Result<Self::Result, Error>;
-
-        /// Decode many rows
-        ///
-        /// This default to `rows.into_iter().map(Self::decode).collect()`.
-        fn decode_bulk(rows: Vec<Row>) -> Result<Self::BulkResult, Error>;
-
-        /// Columns to query
-        fn columns(&self) -> &[&'static str];
-    }
-
-    /// Add the default implementation for the bulk members of [`Returning`]
-    /// i.e. just apply the single impl to a [`Vec`].
-    macro_rules! default_bulk_impl {
-        () => {
-            type BulkResult = Vec<Self::Result>;
-
-            fn decode_bulk(rows: Vec<Row>) -> Result<Self::BulkResult, Error> {
-                rows.into_iter().map(Self::decode).collect()
-            }
-        };
-    }
-
-    /// The [`Returning`] for nothing.
-    pub struct Nothing;
-
-    impl<M: Model> Returning<M> for Nothing {
-        type Result = ();
-        type BulkResult = ();
-
-        fn produce_result() -> Result<Self::Result, Error> {
-            Ok(())
-        }
-
-        fn produce_result_bulk() -> Result<Self::BulkResult, Error> {
-            Ok(())
-        }
-
-        fn decode(_row: Row) -> Result<Self::Result, Error> {
-            unreachable!("returning::Nothing::columns should return an empty slice")
-        }
-
-        fn decode_bulk(_rows: Vec<Row>) -> Result<Self::BulkResult, Error> {
-            unreachable!("returning::Nothing::columns should return an empty slice")
-        }
-
-        fn columns(&self) -> &[&'static str] {
-            &[]
-        }
-    }
-
-    /// The default [`Returning`] behaviour: return the primary key
-    pub struct PrimaryKey<M> {
-        columns: [&'static str; 1],
-        model: PhantomData<M>,
-    }
-
-    impl<M: Model> PrimaryKey<M> {
-        pub(crate) const fn new() -> Self {
-            Self {
-                columns: [M::Primary::NAME],
-                model: PhantomData,
-            }
-        }
-    }
-
-    impl<M: Model> Returning<M> for PrimaryKey<M> {
-        default_bulk_impl!();
-
-        type Result = <M::Primary as RawField>::Type;
-
-        fn decode(row: Row) -> Result<Self::Result, Error> {
-            Ok(<M::Primary as RawField>::new().from_primitive(row.get(0)?))
-        }
-
-        fn columns(&self) -> &[&'static str] {
-            &self.columns
-        }
-    }
-
-    /// The [`Returning`] for patches.
-    pub struct Patch<P: ModelPatch> {
-        patch: PhantomData<P>,
-    }
-
-    impl<P: ModelPatch> Patch<P> {
-        pub(crate) fn new() -> Self {
-            Self { patch: PhantomData }
-        }
-    }
-
-    impl<M: Model, P: ModelPatch<Model = M>> Returning<M> for Patch<P> {
-        default_bulk_impl!();
-
-        type Result = P;
-
-        fn decode(row: Row) -> Result<Self::Result, Error> {
-            P::from_row_using_position(row)
-        }
-
-        fn columns(&self) -> &[&'static str] {
-            P::COLUMNS
-        }
-    }
-
-    /// The [`Returning`] for tuple
-    ///
-    /// Implemented for tuple of size 8 or less.
-    pub struct Tuple<T, const C: usize> {
-        #[allow(dead_code)]
-        tuple: T,
-        columns: [&'static str; C],
-    }
-    macro_rules! impl_select_tuple {
-        ($C:literal, ($($F:ident @ $i:literal),+)) => {
-            impl<$($F: Field),+> From<($(FieldProxy<$F, $F::Model>,)+)> for Tuple<($(FieldProxy<$F, $F::Model>,)+), $C> {
-                fn from(tuple: ($(FieldProxy<$F, $F::Model>,)+)) -> Self {
-                    Self {
-                        tuple,
-                        columns: [$(
-                            $F::NAME,
-                        )+],
-                    }
-                }
-            }
-            impl<M: Model, $($F: Field<Model = M>),+> Returning<M> for Tuple<($(FieldProxy<$F, M>,)+), $C> {
-                default_bulk_impl!();
-
-                type Result = ($(
-                    $F::Type,
-                )+);
-
-                fn decode(row: Row) -> Result<Self::Result, Error> {
-                    Ok(($(
-                        $F::new().from_primitive(row.get($i)?),
-                    )+))
-                }
-
-                fn columns(&self) -> &[&'static str] {
-                    &self.columns
-                }
-            }
-        };
-    }
-    impl_select_tuple!(1, (A @ 0));
-    impl_select_tuple!(2, (A @ 0, B @ 1));
-    impl_select_tuple!(3, (A @ 0, B @ 1, C @ 2));
-    impl_select_tuple!(4, (A @ 0, B @ 1, C @ 2, D @ 3));
-    impl_select_tuple!(5, (A @ 0, B @ 1, C @ 2, D @ 3, E @ 4));
-    impl_select_tuple!(6, (A @ 0, B @ 1, C @ 2, D @ 3, E @ 4, F @ 5));
-    impl_select_tuple!(7, (A @ 0, B @ 1, C @ 2, D @ 3, E @ 4, F @ 5, G @ 6));
-    impl_select_tuple!(8, (A @ 0, B @ 1, C @ 2, D @ 3, E @ 4, F @ 5, G @ 6, H @ 7));
 }
