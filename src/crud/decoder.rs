@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use rorm_db::row::DecodeOwned;
 use rorm_db::{Error, Row};
 
-/// Something which decodes a [value](Self::Result) from a [`&Row`]
+/// Something which decodes a [value](Self::Result) from a [`&Row`](rorm_db::Row)
 ///
 /// It is basically a closure `Fn(&Row) -> Result<Self::Result, Error>`.
 /// Sadly we need to support decoding via indexes so this trait actually has two method.
@@ -16,8 +16,8 @@ use rorm_db::{Error, Row};
 /// and b) that the row contains the columns which the decoder will access
 ///
 /// These concerns are delegated to further sub-traits, namely:
-/// - [`Selector`] which constructs a [`Decoder`] and configures the [`QueryContext`] appropriately
-/// - [`FieldDecoder`](FieldDecoder) which decodes and is associated to single fields through [`FieldType::Decoder`]
+/// - [`Selector`](super::selector::Selector) which constructs a [`Decoder`] and configures the [`QueryContext`](crate::internal::query_context::QueryContext) appropriately
+/// - [`FieldDecoder`](crate::internal::field::decoder::FieldDecoder) which decodes and is associated to single fields through [`FieldType::Decoder`](crate::internal::field::FieldType::Decoder)
 pub trait Decoder {
     /// The value decoded from a row
     type Result;
@@ -52,7 +52,7 @@ where
 
 /// A [`Decoder`] which "decodes" a value by using the [`Default`] trait
 ///
-/// This is a "noop" which doesn't touch the [`&Row`] at all
+/// This is a "noop" which doesn't touch the [`&Row`](rorm_db::Row) at all
 pub struct NoopDecoder<T>(pub(crate) PhantomData<T>);
 impl<T> Decoder for NoopDecoder<T>
 where

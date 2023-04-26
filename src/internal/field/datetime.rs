@@ -84,7 +84,7 @@ impl FieldType for DateTime<FixedOffset> {
     type Decoder = DateTimeDecoder;
 }
 
-/// [`FieldDecoder`] for [`DateTime<FixedOffset>>`]
+/// [`FieldDecoder`] for [`DateTime<FixedOffset>`]
 pub struct DateTimeDecoder {
     offset: FixedOffsetDecoder,
     utc: DirectDecoder<NaiveDateTime>,

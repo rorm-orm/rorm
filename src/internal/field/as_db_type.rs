@@ -59,11 +59,11 @@ macro_rules! impl_option_as_db_type {
             type Primitive = Option<<$type as AsDbType>::Primitive>;
             type DbType = <$type as AsDbType>::DbType;
 
-            const IMPLICIT: Option<Annotations> = {
+            const IMPLICIT: Option<$crate::internal::hmr::annotations::Annotations> = {
                 let mut annos = if let Some(annos) = <$type as AsDbType>::IMPLICIT {
                     annos
                 } else {
-                    Annotations::empty()
+                    $crate::internal::hmr::annotations::Annotations::empty()
                 };
                 annos.nullable = true;
                 Some(annos)
@@ -135,7 +135,7 @@ impl_as_db_type!(Vec<u8>, VarBinary, Binary using as_slice);
 impl_as_db_type!(String, VarChar, String using as_str);
 
 new_converting_decoder!(
-    /// [`FieldDecoder`] for [`chrono::DateTime<Utc>`]
+    /// [`FieldDecoder`](crate::internal::field::decoder::FieldDecoder) for [`chrono::DateTime<Utc>`]
     UtcDateTimeDecoder,
     |value: chrono::NaiveDateTime| -> chrono::DateTime<Utc> { Ok(Utc.from_utc_datetime(&value)) }
 );
@@ -163,7 +163,7 @@ impl AsDbType for chrono::DateTime<Utc> {
     }
 }
 new_converting_decoder!(
-    /// [`FieldDecoder`] for [`Option<chrono::DateTime<Utc>>`](chrono::DateTime)
+    /// [`FieldDecoder`](crate::internal::field::decoder::FieldDecoder) for [`Option<chrono::DateTime<Utc>>`](chrono::DateTime)
     OptionUtcDateTimeDecoder,
     |value: Option<chrono::NaiveDateTime>| -> Option<chrono::DateTime<Utc>> {
         Ok(value.map(|value| Utc.from_utc_datetime(&value)))

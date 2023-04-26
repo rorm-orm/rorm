@@ -102,7 +102,7 @@ macro_rules! const_concat {
     }};
 }
 
-/// Wrap a `Fn(&mut std::fmt::Formatter<'_>) -> std::fmt::Result` to implement [`Display`]
+/// Wrap a `Fn(&mut std::fmt::Formatter<'_>) -> std::fmt::Result` to implement [`Display`](std::fmt::Display)
 pub struct DisplayImpl<F: Fn(&mut std::fmt::Formatter<'_>) -> std::fmt::Result>(
     /// The wrapped closure
     pub F,

@@ -21,7 +21,7 @@ pub trait Selector {
     /// [`Model`] from whose table to select from
     type Model: Model;
 
-    /// [`Decoder`] to decode the selected value from a [`&Row`]
+    /// [`Decoder`] to decode the selected value from a [`&Row`](rorm_db::Row)
     type Decoder: Decoder<Result = Self::Result>;
 
     /// Can this selector be used in insert queries to specify the returning expression?

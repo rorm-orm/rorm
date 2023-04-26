@@ -58,6 +58,11 @@ impl<Ptch: Patch, Pth> PatchSelector<Ptch, Pth> {
         Self(PhantomData)
     }
 }
+impl<Ptch: Patch, Pth: Path> Default for PatchSelector<Ptch, Pth> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
 impl<Ptch: Patch, Pth: Path> Selector for PatchSelector<Ptch, Pth> {
     type Result = Ptch;
     type Model = Pth::Origin;

@@ -27,7 +27,7 @@ use crate::model::{Model, Patch, PatchSelector};
 ///
 ///     The model into whose table to insert rows.
 ///
-/// - `R`: [`Returning<P::Model>`](returning::Returning)
+/// - `S`: [`Selector`]
 ///
 ///     What to return after the insert.
 ///
@@ -81,7 +81,7 @@ where
     where
         Return: Selector<Model = M>,
     {
-        self.set_return(tuple.into())
+        self.set_return(tuple)
     }
 
     /// Set a patch to be returned after performing the insert
@@ -108,6 +108,8 @@ where
 
     /// Insert a single patch into the db
     pub async fn single<P: Patch<Model = M>>(self, patch: &P) -> Result<S::Result, Error> {
+        // it is intentional to force the compile to evaluate the CHECK expression
+        #[allow(clippy::let_unit_value)]
         let _check = Self::CHECK;
 
         let values = patch.references();
@@ -146,6 +148,8 @@ where
         I::Item: IntoPatchCow<'p, Patch = P>,
         P: Patch<Model = M>,
     {
+        // it is intentional to force the compile to evaluate the CHECK expression
+        #[allow(clippy::let_unit_value)]
         let _check = Self::CHECK;
 
         let mut values: Vec<Value<'p>> = Vec::new();

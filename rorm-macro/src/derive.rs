@@ -27,6 +27,7 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
         }
     }
     let db_enum = enm.ident;
+    let decoder = format_ident!("__{db_enum}_Decoder");
 
     errors.finish()?;
     Ok(quote! {
@@ -55,7 +56,22 @@ pub fn db_enum(enm: TokenStream) -> darling::Result<TokenStream> {
                         )*
                     }))]
                 }
+
+                type Decoder = #decoder;
             }
+            ::rorm::new_converting_decoder!(
+                #[doc(hidden)]
+                #decoder,
+                |value: ::rorm::choice::Choice| -> #db_enum {
+                    let value: String = value.0;
+                    match value.as_str() {
+                        #(
+                            stringify!(#identifiers) => Ok(#db_enum::#identifiers),
+                        )*
+                        _ => Err(::rorm::Error::DecodeError(format!("Invalid value '{}' for enum '{}'", value, stringify!(#db_enum)))),
+                    }
+                }
+            );
             impl ::rorm::internal::field::as_db_type::AsDbType for #db_enum {
                 type Primitive = ::rorm::choice::Choice;
                 type DbType = ::rorm::internal::hmr::db_type::Choices;
