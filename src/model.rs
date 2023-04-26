@@ -2,7 +2,6 @@
 
 use std::marker::PhantomData;
 
-use rorm_db::row::FromRow;
 use rorm_declaration::imr;
 
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
@@ -15,7 +14,7 @@ use crate::internal::relation_path::Path;
 /// Trait implemented on Patches i.e. a subset of a model's fields.
 ///
 /// Implemented by [`derive(Patch)`] as well as [`derive(Model)`].
-pub trait Patch: FromRow + 'static {
+pub trait Patch: Sized + 'static {
     /// The model this patch is for
     type Model: Model;
 

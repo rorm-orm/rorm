@@ -173,8 +173,6 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
     let vis = strct.vis;
     let model = strct.ident;
     let impl_patch = trait_impls::patch(&vis, &model, &model, &fields_ident, &fields_raw_type);
-    let impl_try_from_row =
-        trait_impls::try_from_row(&model, &model, &fields_ident, &ignored_fields);
 
     let fields_vis = fields.iter().map(|field| &field.vis);
     let fields_type: Vec<_> = fields.iter().map(|field| &field.type_ident).collect();
@@ -280,7 +278,6 @@ pub fn model(strct: TokenStream) -> darling::Result<TokenStream> {
         };
 
         #impl_patch
-        #impl_try_from_row
 
         #[allow(non_upper_case_globals)]
         #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
@@ -337,7 +334,6 @@ pub fn patch(strct: TokenStream) -> darling::Result<TokenStream> {
     let compile_check = format_ident!("__compile_check_{}", patch);
     let impl_patch =
         trait_impls::patch(&strct.vis, &patch, &model_path, &field_idents, &field_types);
-    let impl_try_from_row = trait_impls::try_from_row(&patch, &model_path, &field_idents, &[]);
 
     errors.finish()?;
     Ok(quote! {
@@ -353,7 +349,6 @@ pub fn patch(strct: TokenStream) -> darling::Result<TokenStream> {
         }
 
         #impl_patch
-        #impl_try_from_row
     })
 }
 

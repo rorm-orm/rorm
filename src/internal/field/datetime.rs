@@ -127,18 +127,6 @@ where
         __DateTime_utc::<F>::new().push_imr(imr);
     }
 
-    fn get_by_name(self, row: &Row) -> Result<Self::Type, Error> {
-        let offset = __DateTime_offset::<F>::new().get_by_name(row)?;
-        let utc = __DateTime_utc::<F>::new().get_by_name(row)?;
-        Ok(offset.from_utc_datetime(&utc))
-    }
-
-    fn get_by_index(self, row: &Row, index: usize) -> Result<Self::Type, Error> {
-        let offset = __DateTime_offset::<F>::new().get_by_index(row, index)?;
-        let utc = __DateTime_utc::<F>::new().get_by_index(row, index + 1)?;
-        Ok(offset.from_utc_datetime(&utc))
-    }
-
     const COLUMNS: &'static [&'static str] =
         &[__DateTime_offset::<F>::NAME, __DateTime_utc::<F>::NAME];
 }

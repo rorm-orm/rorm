@@ -5,7 +5,7 @@ use std::fmt;
 
 use futures::stream::TryStreamExt;
 use rorm_db::executor::Executor;
-use rorm_db::{Error, Row};
+use rorm_db::Error;
 
 use crate::conditions::collections::CollectionOperator::Or;
 use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection, Value};
@@ -65,14 +65,6 @@ where
     sealed!(impl);
 
     fn push_imr(self, _imr: &mut Vec<rorm_declaration::imr::Field>) {}
-
-    fn get_by_name(self, _row: &Row) -> Result<Self::Type, Error> {
-        Ok(BackRef { cached: None })
-    }
-
-    fn get_by_index(self, _row: &Row, _index: usize) -> Result<Self::Type, Error> {
-        Ok(BackRef { cached: None })
-    }
 }
 
 impl<BRF, FMF> FieldProxy<BRF, BRF::Model>

@@ -70,7 +70,6 @@ use std::marker::PhantomData;
 use std::mem::ManuallyDrop;
 
 use rorm_db::row::DecodeOwned;
-use rorm_db::{Error, Row};
 use rorm_declaration::imr;
 
 use crate::conditions::Value;
@@ -291,31 +290,6 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     /// - there are plans to add fields which might map to more than one database column.
     fn push_imr(self, imr: &mut Vec<imr::Field>);
 
-    /// Get an instance of the field's type from a row using the field's name
-    fn get_by_name(self, row: &Row) -> Result<Self::Type, Error>;
-
-    /// Get an instance of the field's type from a row by its position in the SELECT query.
-    ///
-    /// # Multi-column fields
-    ///
-    /// Since this type of field has more than one column, it can't just access the one column at the one index.
-    /// However the row contains the field's columns in the order defined by [`Self::COLUMNS`].
-    /// So use offsets to access them.
-    ///
-    /// ```ignore
-    /// impl AbstractField for F {
-    ///     const COLUMNS: &'static [&'static str] = &["foo", "bar", "baz"];
-    ///
-    ///     fn get_by_index(row: &Row, index: usize) -> Result<Self::Type, Error> {
-    ///         let foo = row.get(index + 0)?;
-    ///         let bar = row.get(index + 1)?;
-    ///         let baz = row.get(index + 2)?;
-    ///         Ok(todo!())
-    ///     }
-    /// }
-    /// ```
-    fn get_by_index(self, row: &Row, index: usize) -> Result<Self::Type, Error>;
-
     /// The columns' names which store this field
     const COLUMNS: &'static [&'static str] = &[];
 
@@ -334,14 +308,6 @@ macro_rules! impl_abstract_from_field {
                     annotations: F::ANNOTATIONS.as_imr(),
                     source_defined_at: F::SOURCE.map(|s| s.as_imr()),
                 });
-            }
-
-            fn get_by_name(self, row: &Row) -> Result<Self::Type, Error> {
-                Ok(<Self as RawField>::new().from_primitive(row.get(F::NAME)?))
-            }
-
-            fn get_by_index(self, row: &Row, index: usize) -> Result<Self::Type, Error> {
-                Ok(<Self as RawField>::new().from_primitive(row.get(index)?))
             }
 
             const COLUMNS: &'static [&'static str] = &[F::NAME];
