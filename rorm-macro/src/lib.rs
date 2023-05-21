@@ -1,3 +1,4 @@
+//! This crate tries to follow the base layout proposed by a [ferrous-systems.com](https://ferrous-systems.com/blog/testing-proc-macros/#the-pipeline) blog post.
 #![cfg_attr(feature = "unstable", feature(proc_macro_span))]
 #![cfg_attr(all(doc, CHANNEL_NIGHTLY), feature(doc_auto_cfg))]
 extern crate proc_macro;
@@ -5,8 +6,12 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 
-mod annotations;
+use crate::generate::model::generate_model;
+
+mod analyze;
 mod derive;
+mod generate;
+mod parse;
 mod rename_linkme;
 mod trait_impls;
 mod utils;
@@ -22,8 +27,8 @@ pub fn derive_db_enum(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(Model, attributes(rorm))]
 pub fn derive_model(input: TokenStream) -> TokenStream {
-    match derive::model(input.into()) {
-        Ok(tokens) => tokens,
+    match parse::model::parse_model(input.into()).and_then(analyze::model::analyze_model) {
+        Ok(model) => generate_model(&model),
         Err(error) => error.write_errors(),
     }
     .into()
