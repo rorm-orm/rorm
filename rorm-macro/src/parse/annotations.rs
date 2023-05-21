@@ -1,6 +1,10 @@
-use darling::{Error, FromMeta};
+use darling::{Error, FromAttributes, FromMeta};
 use proc_macro2::Ident;
 use syn::{Lit, LitInt, LitStr, NestedMeta};
+
+#[derive(FromAttributes, Debug)]
+#[darling(attributes(rorm))]
+pub struct NoAnnotations;
 
 #[derive(Debug)]
 pub struct Default {

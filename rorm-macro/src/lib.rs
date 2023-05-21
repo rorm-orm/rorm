@@ -6,7 +6,11 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 
+use crate::analyze::model::analyze_model;
+use crate::generate::db_enum::generate_db_enum;
 use crate::generate::model::generate_model;
+use crate::parse::db_enum::parse_db_enum;
+use crate::parse::model::parse_model;
 
 mod analyze;
 mod derive;
@@ -18,8 +22,8 @@ mod utils;
 
 #[proc_macro_derive(DbEnum)]
 pub fn derive_db_enum(input: TokenStream) -> TokenStream {
-    match derive::db_enum(input.into()) {
-        Ok(tokens) => tokens,
+    match parse_db_enum(input.into()) {
+        Ok(model) => generate_db_enum(&model),
         Err(error) => error.write_errors(),
     }
     .into()
@@ -27,7 +31,7 @@ pub fn derive_db_enum(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(Model, attributes(rorm))]
 pub fn derive_model(input: TokenStream) -> TokenStream {
-    match parse::model::parse_model(input.into()).and_then(analyze::model::analyze_model) {
+    match parse_model(input.into()).and_then(analyze_model) {
         Ok(model) => generate_model(&model),
         Err(error) => error.write_errors(),
     }

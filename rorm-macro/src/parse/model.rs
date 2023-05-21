@@ -16,7 +16,7 @@ pub fn parse_model(tokens: TokenStream) -> darling::Result<ParsedModel> {
     } = parse2(tokens)?;
     let mut errors = darling::Error::accumulator();
 
-    // ensure absence of generics
+    // check absence of generics
     if generics.lt_token.is_some() {
         errors.push(darling::Error::unsupported_shape_with_expected(
             "generic struct",
