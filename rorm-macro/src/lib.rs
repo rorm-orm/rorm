@@ -9,15 +9,15 @@ use quote::{quote, ToTokens};
 use crate::analyze::model::analyze_model;
 use crate::generate::db_enum::generate_db_enum;
 use crate::generate::model::generate_model;
+use crate::generate::patch::generate_patch;
 use crate::parse::db_enum::parse_db_enum;
 use crate::parse::model::parse_model;
+use crate::parse::patch::parse_patch;
 
 mod analyze;
-mod derive;
 mod generate;
 mod parse;
 mod rename_linkme;
-mod trait_impls;
 mod utils;
 
 #[proc_macro_derive(DbEnum)]
@@ -40,8 +40,8 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(Patch, attributes(rorm))]
 pub fn derive_patch(input: TokenStream) -> TokenStream {
-    match derive::patch(input.into()) {
-        Ok(tokens) => tokens,
+    match parse_patch(input.into()) {
+        Ok(patch) => generate_patch(&patch),
         Err(error) => error.write_errors(),
     }
     .into()

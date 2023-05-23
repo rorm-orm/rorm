@@ -3,15 +3,13 @@ use quote::{format_ident, quote};
 use syn::LitStr;
 
 use crate::analyze::model::{AnalyzedField, AnalyzedModel, AnalyzedModelFieldAnnotations};
+use crate::generate::patch::partially_generate_patch;
 use crate::parse::annotations::{Default, Index, NamedIndex, OnAction};
-use crate::trait_impls;
 use crate::utils::get_source;
 
 pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
     let fields_struct = generate_fields_struct(model);
     let fields_struct_ident = format_ident!("__{}_Fields_Struct", model.ident);
-    let static_get_imr = format_ident!("__{}_get_imr", model.ident);
-
     let field_declarations = generate_fields(model);
     let AnalyzedModel {
         vis,
@@ -23,7 +21,16 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
     } = model;
     let primary_struct = &fields[*primary_key].unit;
     let primary_ident = &fields[*primary_key].ident;
-    let field_structs = fields.iter().map(|field| &field.unit);
+    let primary_type = &fields[*primary_key].ty;
+    let impl_patch = partially_generate_patch(
+        ident,
+        ident,
+        vis,
+        fields.iter().map(|field| &field.ident),
+        fields.iter().map(|field| &field.ty),
+    );
+    let field_structs_1 = fields.iter().map(|field| &field.unit);
+    let field_structs_2 = field_structs_1.clone();
 
     let source = get_source(ident);
 
@@ -44,7 +51,7 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
                 use ::rorm::internal::field::{RawField, AbstractField};
                 let mut fields = Vec::new();
                 #(
-                    #field_structs::new().push_imr(&mut fields);
+                    #field_structs_1::new().push_imr(&mut fields);
                 )*
                 ::rorm::imr::Model {
                     name: Self::TABLE.to_string(),
@@ -53,43 +60,19 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
                 }
             }
         }
-    };
-    for (index, field) in fields.iter().enumerate() {
-        let unit = &field.unit;
-        tokens.extend(quote! {
-            impl ::rorm::model::FieldByIndex<{ #index }> for #ident {
-                type Field = #unit;
-            }
-        });
-    }
-    for field in fields.iter().filter(|field| !field.annos.primary_key) {
-        let field_struct = &field.unit;
-        let field_ident = &field.ident;
-        let field_type = &field.ty;
-        tokens.extend(quote!{
-            impl ::rorm::model::UpdateField<#field_struct> for #ident {
-                fn update_field<'m, T>(
-                    &'m mut self,
-                    update: impl FnOnce(&'m <#primary_struct as ::rorm::internal::field::RawField>::Type, &'m mut #field_type) -> T,
-                ) -> T {
-                    update(&self.#primary_ident, &mut self.#field_ident)
-                }
-            }
-        });
-    }
-    let fields_ident: Vec<_> = fields.iter().map(|field| field.ident.clone()).collect();
-    let fields_raw_type: Vec<_> = fields.iter().map(|field| field.ty.clone()).collect();
-    let impl_patch = trait_impls::patch(vis, ident, ident, &fields_ident, &fields_raw_type);
 
-    let compile_check = format_ident!("__compile_check_{}", ident);
-    let field_structs = fields.iter().map(|field| &field.unit);
-    tokens.extend(quote! {
-        #[allow(non_upper_case_globals)]
-        const #compile_check: () = {
+
+        const _: () = {
+            #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
+            #[::rorm::rename_linkme]
+            static __get_imr: fn() -> ::rorm::imr::Model = <#ident as ::rorm::model::Model>::get_imr;
+
+            #impl_patch
+
             // Cross field checks
             let mut count_auto_increment = 0;
             #(
-                if let Some(annos) = <#field_structs as ::rorm::internal::field::AbstractField>::DB_ANNOTATIONS {
+                if let Some(annos) = <#field_structs_2 as ::rorm::internal::field::AbstractField>::DB_ANNOTATIONS {
                     if annos.auto_increment.is_some() {
                         count_auto_increment += 1;
                     }
@@ -97,15 +80,41 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
             )*
             assert!(count_auto_increment <= 1, "\"auto_increment\" can only be set once per model");
         };
+    };
+    for (index, field) in fields.iter().enumerate() {
+        let field_struct = &field.unit;
+        let field_ident = &field.ident;
+        let field_type = &field.ty;
+        tokens.extend(quote! {
+            impl ::rorm::model::FieldByIndex<{ #index }> for #ident {
+                type Field = #field_struct;
+            }
 
-        #impl_patch
-
-        #[allow(non_upper_case_globals)]
-        #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
-        #[::rorm::rename_linkme]
-        static #static_get_imr: fn() -> ::rorm::imr::Model = <#ident as ::rorm::model::Model>::get_imr;
-    });
-
+            impl ::rorm::model::GetField<#field_struct> for #ident {
+                fn get_field(self) -> #field_type {
+                    self.#field_ident
+                }
+                fn borrow_field(&self) -> &#field_type {
+                    &self.#field_ident
+                }
+                fn borrow_field_mut(&mut self) -> &mut #field_type {
+                    &mut self.#field_ident
+                }
+            }
+        });
+        if !field.annos.primary_key {
+            tokens.extend(quote! {
+                impl ::rorm::model::UpdateField<#field_struct> for #ident {
+                    fn update_field<'m, T>(
+                        &'m mut self,
+                        update: impl FnOnce(&'m #primary_type, &'m mut #field_type) -> T,
+                    ) -> T {
+                        update(&self.#primary_ident, &mut self.#field_ident)
+                    }
+                }
+            });
+        }
+    }
     tokens
 }
 
