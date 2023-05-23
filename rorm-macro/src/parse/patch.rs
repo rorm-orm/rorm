@@ -1,9 +1,10 @@
 use darling::FromAttributes;
 use proc_macro2::{Ident, TokenStream};
 use quote::format_ident;
-use syn::{parse2, Field, Fields, ItemStruct, Path, PathSegment, Type, Visibility};
+use syn::{parse2, Field, ItemStruct, Path, PathSegment, Type, Visibility};
 
 use crate::parse::annotations::NoAnnotations;
+use crate::parse::{check_non_generic, get_fields_named};
 
 pub fn parse_patch(tokens: TokenStream) -> darling::Result<ParsedPatch> {
     let ItemStruct {
@@ -28,39 +29,27 @@ pub fn parse_patch(tokens: TokenStream) -> darling::Result<ParsedPatch> {
     });
 
     // Check absence of generics
-    if generics.lt_token.is_some() {
-        errors.push(darling::Error::unsupported_shape_with_expected(
-            "generic struct",
-            &"struct without generics",
-        ))
-    }
+    errors.handle(check_non_generic(generics));
 
     // Parse fields
     let mut parsed_fields = Vec::new();
-    match fields {
-        Fields::Named(raw_fields) => {
-            parsed_fields.reserve_exact(raw_fields.named.len());
-            for field in raw_fields.named {
-                let Field {
-                    attrs,
-                    vis: _,
-                    ident,
-                    colon_token: _,
-                    ty,
-                } = field;
-                errors.handle(NoAnnotations::from_attributes(&attrs));
-                let ident = ident.expect("Fields::Named should contain named fields");
-                parsed_fields.push(ParsedPatchField { ident, ty });
-            }
+    if let Some(raw_fields) = errors.handle(get_fields_named(fields)) {
+        parsed_fields.reserve_exact(raw_fields.named.len());
+        for field in raw_fields.named {
+            let Field {
+                attrs,
+                vis: _,
+                ident,
+                colon_token: _,
+                ty,
+            } = field;
+
+            // Patch fields don't accept annotations
+            errors.handle(NoAnnotations::from_attributes(&attrs));
+
+            let ident = ident.expect("Fields::Named should contain named fields");
+            parsed_fields.push(ParsedPatchField { ident, ty });
         }
-        Fields::Unnamed(_) => errors.push(darling::Error::unsupported_shape_with_expected(
-            "named tuple",
-            &"struct with named fields",
-        )),
-        Fields::Unit => errors.push(darling::Error::unsupported_shape_with_expected(
-            "unit struct",
-            &"struct with named fields",
-        )),
     }
 
     errors.finish_with(ParsedPatch {

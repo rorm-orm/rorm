@@ -1,8 +1,9 @@
 use darling::FromAttributes;
 use proc_macro2::{Ident, TokenStream};
-use syn::{parse2, Field, Fields, ItemStruct, LitInt, LitStr, Type, Visibility};
+use syn::{parse2, Field, ItemStruct, LitInt, LitStr, Type, Visibility};
 
 use crate::parse::annotations::{Default, Index, OnAction};
+use crate::parse::{check_non_generic, get_fields_named};
 
 pub fn parse_model(tokens: TokenStream) -> darling::Result<ParsedModel> {
     let ItemStruct {
@@ -17,12 +18,7 @@ pub fn parse_model(tokens: TokenStream) -> darling::Result<ParsedModel> {
     let mut errors = darling::Error::accumulator();
 
     // check absence of generics
-    if generics.lt_token.is_some() {
-        errors.push(darling::Error::unsupported_shape_with_expected(
-            "generic struct",
-            &"struct without generics",
-        ))
-    }
+    errors.handle(check_non_generic(generics));
 
     // parse struct annotations
     let annos = errors
@@ -31,35 +27,25 @@ pub fn parse_model(tokens: TokenStream) -> darling::Result<ParsedModel> {
 
     // parse field annotations
     let mut parsed_fields = Vec::new();
-    match fields {
-        Fields::Named(raw_fields) => {
-            parsed_fields.reserve_exact(raw_fields.named.len());
-            for field in raw_fields.named {
-                let Field {
-                    attrs,
-                    vis,
-                    ident,
-                    colon_token: _,
-                    ty,
-                } = field;
-                let Some(annos) = errors.handle(ModelFieldAnnotations::from_attributes(&attrs)) else {continue;};
-                let ident = ident.expect("Fields::Named should contain named fields");
-                parsed_fields.push(ParsedField {
-                    vis,
-                    ident,
-                    ty,
-                    annos,
-                });
-            }
+    if let Some(raw_fields) = errors.handle(get_fields_named(fields)) {
+        parsed_fields.reserve_exact(raw_fields.named.len());
+        for field in raw_fields.named {
+            let Field {
+                attrs,
+                vis,
+                ident,
+                colon_token: _,
+                ty,
+            } = field;
+            let Some(annos) = errors.handle(ModelFieldAnnotations::from_attributes(&attrs)) else {continue;};
+            let ident = ident.expect("Fields::Named should contain named fields");
+            parsed_fields.push(ParsedField {
+                vis,
+                ident,
+                ty,
+                annos,
+            });
         }
-        Fields::Unnamed(_) => errors.push(darling::Error::unsupported_shape_with_expected(
-            "named tuple",
-            &"struct with named fields",
-        )),
-        Fields::Unit => errors.push(darling::Error::unsupported_shape_with_expected(
-            "unit struct",
-            &"struct with named fields",
-        )),
     }
 
     errors.finish_with(ParsedModel {

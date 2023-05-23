@@ -2,6 +2,7 @@ use proc_macro2::Ident;
 use quote::format_ident;
 use syn::{LitInt, LitStr, Type, Visibility};
 
+use crate::analyze::vis_to_display;
 use crate::parse::annotations::{Default, Index, OnAction};
 use crate::parse::model::{ModelAnnotations, ModelFieldAnnotations, ParsedField, ParsedModel};
 use crate::utils::to_db_name;
@@ -18,7 +19,7 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
     // Get table name
     let table = rename.unwrap_or_else(|| LitStr::new(&to_db_name(ident.to_string()), ident.span()));
     if table.value().contains("__") {
-        errors.push(darling::Error::custom("Names can't contain a double underscore. You might want to consider using `#[rorm(rename = \"...\")]`.").with_span(&table));
+        errors.push(darling::Error::custom("Table names can't contain a double underscore. If you need to name your model like this, consider using `#[rorm(rename = \"...\")]`.").with_span(&table));
     }
 
     // Analyze fields
@@ -57,7 +58,7 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
             let column =
                 rename.unwrap_or_else(|| LitStr::new(&to_db_name(ident.to_string()), ident.span()));
             if column.value().contains("__") {
-                errors.push(darling::Error::custom("Names can't contain a double underscore. You might want to consider using `#[rorm(rename = \"...\")]`.").with_span(&column));
+                errors.push(darling::Error::custom("Column names can't contain a double underscore. If you need to name your field like this, consider using `#[rorm(rename = \"...\")]`.").with_span(&column));
             }
 
             // Handle #[rorm(id)] annotation
@@ -65,7 +66,7 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
                 if primary_key {
                     errors.push(
                         darling::Error::custom(
-                            "`#[rorm(primary_key)]` is implied by `#[rorm(id)]`",
+                            "`#[rorm(primary_key)]` is implied by `#[rorm(id)]`. Please remove one of them.",
                         )
                         .with_span(&ident),
                     );
@@ -73,7 +74,7 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
                 if auto_increment {
                     errors.push(
                         darling::Error::custom(
-                            "`#[rorm(auto_increment)]` is implied by `#[rorm(id)]`",
+                            "`#[rorm(auto_increment)]` is implied by `#[rorm(id)]`. Please remove one of them.",
                         )
                         .with_span(&ident),
                     );
@@ -114,12 +115,17 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
     let mut primary_key = usize::MAX; // will only be returned if it is set properly
     match primary_keys.as_slice() {
         [(index, _)] => primary_key = *index,
-        [] => errors.push(darling::Error::custom("Model misses a primary key").with_span(&ident)),
+        [] => errors.push(
+            darling::Error::custom(format!(
+                "Model misses a primary key. Try adding the default one:\n\n#[rorm(id)]\n{vis}id: i64,", vis = vis_to_display(&vis),
+            ))
+            .with_span(&ident),
+        ),
         _ => errors.push(darling::Error::multiple(
             primary_keys
                 .into_iter()
                 .map(|(_, field)| {
-                    darling::Error::custom("Model has more than one primary key")
+                    darling::Error::custom("Model has more than one primary key. Please remove all but one of them.")
                         .with_span(&field.ident)
                 })
                 .collect(),
