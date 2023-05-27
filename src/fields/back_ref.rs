@@ -43,13 +43,13 @@ impl<FMF: Field<kind::ForeignModel>> BackRef<FMF> {
 impl<FMF: Field<kind::ForeignModel>> FieldType for BackRef<FMF> {
     type Kind = kind::BackRef;
 
-    type Columns<'a> = [Value<'a>; 0];
+    type Columns<T> = [T; 0];
 
-    fn into_values(self) -> Self::Columns<'static> {
+    fn into_values(self) -> Self::Columns<Value<'static>> {
         []
     }
 
-    fn as_values(&self) -> Self::Columns<'_> {
+    fn as_values(&self) -> Self::Columns<Value<'_>> {
         []
     }
 

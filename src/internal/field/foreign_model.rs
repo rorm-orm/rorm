@@ -27,16 +27,16 @@ where
 {
     type Kind = kind::ForeignModel;
 
-    type Columns<'a> = [Value<'a>; 1];
+    type Columns<T> = [T; 1];
 
-    fn into_values(self) -> Self::Columns<'static> {
+    fn into_values(self) -> Self::Columns<Value<'static>> {
         [FF::new().into_value(match self {
             ForeignModelByField::Key(value) => value,
             ForeignModelByField::Instance(model) => model.get_field(),
         })]
     }
 
-    fn as_values(&self) -> Self::Columns<'_> {
+    fn as_values(&self) -> Self::Columns<Value<'_>> {
         [FF::new().as_value(match self {
             ForeignModelByField::Key(value) => value,
             ForeignModelByField::Instance(model) => model.borrow_field(),
@@ -54,16 +54,16 @@ where
 {
     type Kind = kind::ForeignModel;
 
-    type Columns<'a> = [Value<'a>; 1];
+    type Columns<T> = [T; 1];
 
-    fn into_values(self) -> Self::Columns<'static> {
+    fn into_values(self) -> Self::Columns<Value<'static>> {
         self.map(ForeignModelByField::into_values)
             .unwrap_or([Value::Null(
                 <<Option<FF::Type> as AsDbType>::DbType>::NULL_TYPE,
             )])
     }
 
-    fn as_values(&self) -> Self::Columns<'_> {
+    fn as_values(&self) -> Self::Columns<Value<'_>> {
         self.as_ref()
             .map(ForeignModelByField::as_values)
             .unwrap_or([Value::Null(

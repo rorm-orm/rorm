@@ -50,15 +50,15 @@ new_converting_decoder!(
 );
 impl<T: Serialize + DeserializeOwned> FieldType for Json<T> {
     type Kind = kind::AsDbType;
-    type Columns<'a> = [Value<'a>; 1];
+    type Columns<C> = [C; 1];
 
-    fn into_values(self) -> Self::Columns<'static> {
+    fn into_values(self) -> Self::Columns<Value<'static>> {
         [Value::Binary(Cow::Owned(
             serde_json::to_vec(&self.0).unwrap(),
         ))] // TODO propagate error?
     }
 
-    fn as_values(&self) -> Self::Columns<'_> {
+    fn as_values(&self) -> Self::Columns<Value<'_>> {
         [Value::Binary(Cow::Owned(
             serde_json::to_vec(&self.0).unwrap(),
         ))] // TODO propagate error?
@@ -89,14 +89,14 @@ new_converting_decoder!(
 );
 impl<T: Serialize + DeserializeOwned> FieldType for Option<Json<T>> {
     type Kind = kind::AsDbType;
-    type Columns<'a> = [Value<'a>; 1];
+    type Columns<C> = [C; 1];
 
-    fn into_values(self) -> Self::Columns<'static> {
+    fn into_values(self) -> Self::Columns<Value<'static>> {
         self.map(Json::into_values)
             .unwrap_or([Value::Null(VarBinary::NULL_TYPE)])
     }
 
-    fn as_values(&self) -> Self::Columns<'_> {
+    fn as_values(&self) -> Self::Columns<Value<'_>> {
         self.as_ref()
             .map(Json::as_values)
             .unwrap_or([Value::Null(VarBinary::NULL_TYPE)])

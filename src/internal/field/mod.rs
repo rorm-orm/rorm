@@ -127,13 +127,13 @@ pub trait FieldType {
     type Kind: FieldKind;
 
     /// Array with length specific to the field type
-    type Columns<'a>: IntoIterator<Item = Value<'a>>;
+    type Columns<T>: IntoIterator<Item = T>;
 
     /// Construct an array of [`Value`] representing `self` in the database via ownership
-    fn into_values(self) -> Self::Columns<'static>;
+    fn into_values(self) -> Self::Columns<Value<'static>>;
 
     /// Construct an array of [`Value`] representing `self` in the database via borrowing
-    fn as_values(&self) -> Self::Columns<'_>;
+    fn as_values(&self) -> Self::Columns<Value<'_>>;
 
     /// [`FieldDecoder`] to use for fields of this type
     type Decoder: FieldDecoder<Result = Self>;

@@ -14,13 +14,13 @@ new_converting_decoder!(UuidDecoder, |value: Vec<u8>| -> Uuid {
 });
 impl FieldType for Uuid {
     type Kind = kind::AsDbType;
-    type Columns<'a> = [Value<'a>; 1];
+    type Columns<T> = [T; 1];
 
-    fn into_values(self) -> Self::Columns<'static> {
+    fn into_values(self) -> Self::Columns<Value<'static>> {
         [Value::Binary(Cow::Owned(self.into_bytes().to_vec()))]
     }
 
-    fn as_values(&self) -> Self::Columns<'_> {
+    fn as_values(&self) -> Self::Columns<Value<'_>> {
         [Value::Binary(Cow::Borrowed(self.as_bytes().as_slice()))]
     }
 

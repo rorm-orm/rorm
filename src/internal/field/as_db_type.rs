@@ -39,14 +39,14 @@ macro_rules! impl_option_as_db_type {
     ($type:ty, $decoder:ty) => {
         impl FieldType for Option<$type> {
             type Kind = kind::AsDbType;
-            type Columns<'a> = [Value<'a>; 1];
+            type Columns<T> = [T; 1];
 
-            fn into_values(self) -> Self::Columns<'static> {
+            fn into_values(self) -> Self::Columns<Value<'static>> {
                 self.map(<$type>::into_values)
                     .unwrap_or([Value::Null(<<$type as AsDbType>::DbType as $crate::internal::hmr::db_type::DbType>::NULL_TYPE)])
             }
 
-            fn as_values(&self) -> Self::Columns<'_> {
+            fn as_values(&self) -> Self::Columns<Value<'_>> {
                 self.as_ref()
                     .map(<$type>::as_values)
                     .unwrap_or([Value::Null(<<$type as AsDbType>::DbType as $crate::internal::hmr::db_type::DbType>::NULL_TYPE)])
@@ -79,7 +79,7 @@ macro_rules! impl_as_db_type {
     ($type:ty, $db_type:ident, $value_variant:ident $(using $method:ident)?) => {
         impl FieldType for $type {
             type Kind = kind::AsDbType;
-            type Columns<'a> = [Value<'a>; 1];
+            type Columns<T> = [T; 1];
 
             impl_as_db_type!(impl_as_primitive, $type, $db_type, $value_variant $(using $method)?);
 
@@ -101,23 +101,23 @@ macro_rules! impl_as_db_type {
     };
     (impl_as_primitive, $type:ty, $db_type:ident, $value_variant:ident) => {
         #[inline(always)]
-        fn as_values(&self) -> Self::Columns<'_> {
+        fn as_values(&self) -> Self::Columns<Value<'_>> {
             [Value::$value_variant(*self)]
         }
 
         #[inline(always)]
-        fn into_values(self) -> Self::Columns<'static> {
+        fn into_values(self) -> Self::Columns<Value<'static>> {
             [Value::$value_variant(self)]
         }
     };
     (impl_as_primitive, $type:ty, $db_type:ident, $value_variant:ident using $method:ident) => {
         #[inline(always)]
-        fn as_values(&self) -> Self::Columns<'_> {
+        fn as_values(&self) -> Self::Columns<Value<'_>> {
             [Value::$value_variant(Cow::Borrowed(self.$method()))]
         }
 
         #[inline(always)]
-        fn into_values(self) -> Self::Columns<'static> {
+        fn into_values(self) -> Self::Columns<Value<'static>> {
             [Value::$value_variant(Cow::Owned(self))]
         }
     };
@@ -142,13 +142,13 @@ new_converting_decoder!(
 impl FieldType for chrono::DateTime<Utc> {
     type Kind = kind::AsDbType;
 
-    type Columns<'a> = [Value<'a>; 1];
+    type Columns<T> = [T; 1];
 
-    fn into_values(self) -> Self::Columns<'static> {
+    fn into_values(self) -> Self::Columns<Value<'static>> {
         [Value::NaiveDateTime(self.naive_utc())]
     }
 
-    fn as_values(&self) -> Self::Columns<'_> {
+    fn as_values(&self) -> Self::Columns<Value<'_>> {
         [Value::NaiveDateTime(self.naive_utc())]
     }
 

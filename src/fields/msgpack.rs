@@ -50,15 +50,15 @@ new_converting_decoder!(
 );
 impl<T: Serialize + DeserializeOwned> FieldType for MsgPack<T> {
     type Kind = kind::AsDbType;
-    type Columns<'a> = [Value<'a>; 1];
+    type Columns<C> = [C; 1];
 
-    fn into_values(self) -> Self::Columns<'static> {
+    fn into_values(self) -> Self::Columns<Value<'static>> {
         [Value::Binary(Cow::Owned(
             rmp_serde::to_vec(&self.0).unwrap(), // TODO propagate error?
         ))]
     }
 
-    fn as_values(&self) -> Self::Columns<'_> {
+    fn as_values(&self) -> Self::Columns<Value<'_>> {
         [Value::Binary(Cow::Owned(
             rmp_serde::to_vec(&self.0).unwrap(), // TODO propagate error?
         ))]
@@ -89,14 +89,14 @@ new_converting_decoder!(
 );
 impl<T: Serialize + DeserializeOwned> FieldType for Option<MsgPack<T>> {
     type Kind = kind::AsDbType;
-    type Columns<'a> = [Value<'a>; 1];
+    type Columns<C> = [C; 1];
 
-    fn into_values(self) -> Self::Columns<'static> {
+    fn into_values(self) -> Self::Columns<Value<'static>> {
         self.map(MsgPack::into_values)
             .unwrap_or([Value::Null(VarBinary::NULL_TYPE)])
     }
 
-    fn as_values(&self) -> Self::Columns<'_> {
+    fn as_values(&self) -> Self::Columns<Value<'_>> {
         self.as_ref()
             .map(MsgPack::as_values)
             .unwrap_or([Value::Null(VarBinary::NULL_TYPE)])

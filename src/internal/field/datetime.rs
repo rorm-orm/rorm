@@ -32,13 +32,13 @@ new_converting_decoder!(
 impl FieldType for FixedOffset {
     type Kind = kind::AsDbType;
 
-    type Columns<'a> = [Value<'a>; 1];
+    type Columns<T> = [T; 1];
 
-    fn into_values(self) -> Self::Columns<'static> {
+    fn into_values(self) -> Self::Columns<Value<'static>> {
         [Value::I32(self.local_minus_utc())]
     }
 
-    fn as_values(&self) -> Self::Columns<'_> {
+    fn as_values(&self) -> Self::Columns<Value<'_>> {
         [Value::I32(self.local_minus_utc())]
     }
 
@@ -69,14 +69,14 @@ impl_option_as_db_type!(FixedOffset, OptionFixedOffsetDecoder);
 impl FieldType for DateTime<FixedOffset> {
     type Kind = kind::DateTime;
 
-    type Columns<'a> = [Value<'a>; 2];
+    type Columns<T> = [T; 2];
 
-    fn into_values(self) -> Self::Columns<'static> {
+    fn into_values(self) -> Self::Columns<Value<'static>> {
         let [offset] = self.offset().into_values();
         [offset, Value::NaiveDateTime(self.naive_utc())]
     }
 
-    fn as_values(&self) -> Self::Columns<'_> {
+    fn as_values(&self) -> Self::Columns<Value<'_>> {
         let [offset] = self.offset().as_values();
         [offset, Value::NaiveDateTime(self.naive_utc())]
     }
