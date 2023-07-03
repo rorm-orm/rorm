@@ -3,6 +3,7 @@
 //! But since the derive macros need to have access to its content it is all public.
 //! Anyway feel free to look at and maybe even use it.
 
+pub mod array_utils;
 pub mod const_concat;
 pub mod field;
 pub mod hmr;

@@ -13,7 +13,7 @@ use crate::crud::decoder::NoopDecoder;
 use crate::fields::ForeignModelByField;
 use crate::internal::field::foreign_model::ForeignModelTrait;
 use crate::internal::field::{
-    foreign_model, kind, AbstractField, Field, FieldProxy, FieldType, RawField,
+    foreign_model, kind, AbstractField, Field, FieldProxy, FieldType, RawField, SingleColumnField,
 };
 use crate::model::GetField;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
@@ -74,6 +74,7 @@ where
     FMF: Field<kind::ForeignModel> + Field,
     FMF::Type: ForeignModelTrait,
     FMF::Model: GetField<FMF>, // always true
+    foreign_model::RF<FMF>: SingleColumnField,
 {
     fn model_as_condition<BRP>(patch: &BRP) -> impl Condition
     where
@@ -83,7 +84,7 @@ where
         Binary {
             operator: BinaryOperator::Equals,
             fst_arg: Column::<FMF, FMF::Model>::new(),
-            snd_arg: foreign_model::RF::<FMF>::new().as_value(patch.borrow_field()),
+            snd_arg: foreign_model::RF::<FMF>::type_as_value(patch.borrow_field()),
         }
     }
 

@@ -87,6 +87,7 @@ pub mod foreign_model;
 
 use as_db_type::AsDbType;
 
+use crate::internal::array_utils::{Array, IntoArray};
 use crate::internal::field::decoder::FieldDecoder;
 
 /// Marker trait for various kinds of fields
@@ -127,7 +128,7 @@ pub trait FieldType {
     type Kind: FieldKind;
 
     /// Array with length specific to the field type
-    type Columns<T>: IntoIterator<Item = T>;
+    type Columns<T>: Array<Item = T>;
 
     /// Construct an array of [`Value`] representing `self` in the database via ownership
     fn into_values(self) -> Self::Columns<Value<'static>>;
@@ -171,6 +172,30 @@ pub trait RawField: 'static + Copy {
     /// Since `Self` is always a zero sized type, this is a noop.
     /// It exists to enable accessing field method through [`FieldProxy`] without having to forward every one.
     fn new() -> Self;
+}
+
+/// A field which is stored in db via a single column
+pub trait SingleColumnField: RawField {
+    /// Borrow an instance of the field's type as a [`Value`]
+    fn type_as_value(field: &Self::Type) -> Value;
+
+    /// Convert an instance of the field's type into a static [`Value`]
+    fn type_into_value(field: Self::Type) -> Value<'static>;
+}
+impl<F> SingleColumnField for F
+where
+    F: RawField,
+    for<'a> <F::Type as FieldType>::Columns<Value<'a>>: IntoArray<1>,
+{
+    fn type_as_value(field: &Self::Type) -> Value {
+        let [value] = field.as_values().into_array();
+        value
+    }
+
+    fn type_into_value(field: Self::Type) -> Value<'static> {
+        let [value] = field.into_values().into_array();
+        value
+    }
 }
 
 /// A [`RawField`] which represents a single column in the database
@@ -224,26 +249,6 @@ pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
     /// Convert the associated primitive type into [`Self::Type`](RawField::Type).
     #[allow(clippy::wrong_self_convention)] // Self is not part of the conversion and just there for easier access via macros
     fn from_primitive(self, primitive: Self::Primitive) -> Self::Type;
-
-    /// The [`Field`] contract requires [`FieldType::into_values`] to only return a single value
-    ///
-    /// This method is a shorthand to access this value
-    fn into_value(self, value: Self::Type) -> Value<'static> {
-        let Some(value) = extract_value(value.into_values()) else {
-            unreachable!("A `Field` may only contain one column")
-        };
-        value
-    }
-
-    /// The [`Field`] contract requires [`FieldType::as_values`] to only return a single value
-    ///
-    /// This method is a shorthand to access this value
-    fn as_value(self, value: &Self::Type) -> Value {
-        let Some(value) = extract_value(value.as_values()) else {
-            unreachable!("A `Field` may only contain one column")
-        };
-        value
-    }
 }
 
 impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDbType> for F {
@@ -440,17 +445,4 @@ where
 {
     type Target =
         <<ResolvedRelatedField<F, P> as RawField>::Model as Model>::Fields<PathStep<F, P>>;
-}
-
-/// Check if a container of [`Values`] contains a single value and returns it.
-///
-/// If it doesn't, returns nothing
-fn extract_value<'a>(values: impl IntoIterator<Item = Value<'a>>) -> Option<Value<'a>> {
-    let mut values = values.into_iter();
-    let value = values.next()?;
-    if values.next().is_none() {
-        Some(value)
-    } else {
-        None
-    }
 }

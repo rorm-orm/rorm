@@ -10,7 +10,7 @@ use crate::crud::decoder::Decoder;
 use crate::fields::ForeignModelByField;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::{kind, Field, FieldProxy, FieldType, RawField};
+use crate::internal::field::{kind, Field, FieldProxy, FieldType, RawField, SingleColumnField};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::DbType;
@@ -24,20 +24,21 @@ impl<FF> FieldType for ForeignModelByField<FF>
 where
     FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
     FF::Model: GetField<FF>, // always true
+    FF: SingleColumnField,
 {
     type Kind = kind::ForeignModel;
 
     type Columns<T> = [T; 1];
 
     fn into_values(self) -> Self::Columns<Value<'static>> {
-        [FF::new().into_value(match self {
+        [FF::type_into_value(match self {
             ForeignModelByField::Key(value) => value,
             ForeignModelByField::Instance(model) => model.get_field(),
         })]
     }
 
     fn as_values(&self) -> Self::Columns<Value<'_>> {
-        [FF::new().as_value(match self {
+        [FF::type_as_value(match self {
             ForeignModelByField::Key(value) => value,
             ForeignModelByField::Instance(model) => model.borrow_field(),
         })]
@@ -50,6 +51,7 @@ impl<FF> FieldType for Option<ForeignModelByField<FF>>
 where
     FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
     FF::Model: GetField<FF>, // always true
+    FF: SingleColumnField,
     Option<FF::Type>: AsDbType,
 {
     type Kind = kind::ForeignModel;
@@ -90,6 +92,7 @@ impl<FF> ForeignModelTrait for ForeignModelByField<FF>
 where
     FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
     FF::Model: GetField<FF>, // always true
+    FF: SingleColumnField,
 {
     sealed!(impl);
 
@@ -113,6 +116,7 @@ impl<FF: Field<kind::AsDbType>> ForeignModelTrait for Option<ForeignModelByField
 where
     FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
     FF::Model: GetField<FF>, // always true
+    FF: SingleColumnField,
     Option<FF::Type>: AsDbType,
 {
     sealed!(impl);

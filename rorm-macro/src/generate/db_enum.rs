@@ -16,9 +16,9 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
             impl ::rorm::internal::field::FieldType for #ident {
                 type Kind = ::rorm::internal::field::kind::AsDbType;
 
-                type Columns<'a> = [::rorm::conditions::Value<'a>; 1];
+                type Columns<T> = [T; 1];
 
-                fn into_values(self) -> Self::Columns<'static> {
+                fn into_values(self) -> Self::Columns<::rorm::conditions::Value<'static>> {
                     [::rorm::conditions::Value::Choice(::std::borrow::Cow::Borrowed(match self {
                         #(
                             Self::#variants => stringify!(#variants),
@@ -26,7 +26,7 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
                     }))]
                 }
 
-                fn as_values(&self) -> Self::Columns<'_> {
+                fn as_values(&self) -> Self::Columns<::rorm::conditions::Value<'_>> {
                     [::rorm::conditions::Value::Choice(::std::borrow::Cow::Borrowed(match self {
                         #(
                             Self::#variants => stringify!(#variants),
