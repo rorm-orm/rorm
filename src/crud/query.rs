@@ -32,11 +32,7 @@ use crate::sealed;
 ///
 ///     The executor to query with.
 ///
-/// - `M`: [`Model`]
-///
-///     The model from whose table to select.
-///
-/// - `S`: [`Selectable<Model = M>`]
+/// - `S`: [`Selectable`]
 ///
 ///     The columns to be selected and a type to convert the rows into.
 ///
@@ -48,22 +44,20 @@ use crate::sealed;
 ///
 ///     An optional limit and or offset to control the amount of queried rows.
 #[must_use]
-pub struct QueryBuilder<'rf, E, M, S, C, LO> {
+pub struct QueryBuilder<'rf, E, S, C, LO> {
     executor: E,
     ctx: QueryContext,
     selector: S,
-    _phantom: PhantomData<&'rf M>,
-
+    phantom: PhantomData<&'rf ()>,
     condition: C,
     lim_off: LO,
     ordering: Vec<OrderByEntry<'static>>,
 }
 
-impl<'ex, 'rf, E, M, S> QueryBuilder<'rf, E, M, S, (), ()>
+impl<'ex, 'rf, E, S> QueryBuilder<'rf, E, S, (), ()>
 where
     E: Executor<'ex>,
-    M: Model,
-    S: Selector<Model = M>,
+    S: Selector,
 {
     /// Start building a query using a generic [`Selector`](Selector)
     pub fn new(executor: E, selector: S) -> Self {
@@ -71,8 +65,7 @@ where
             executor,
             ctx: QueryContext::new(),
             selector,
-            _phantom: PhantomData,
-
+            phantom: PhantomData,
             condition: (),
             lim_off: (),
             ordering: Vec::new(),
@@ -80,65 +73,68 @@ where
     }
 }
 
-impl<'rf, E, M, S, LO> QueryBuilder<'rf, E, M, S, (), LO> {
+impl<'rf, E, S, LO> QueryBuilder<'rf, E, S, (), LO> {
     /// Add a condition to the query
-    pub fn condition<C: Condition<'rf>>(self, condition: C) -> QueryBuilder<'rf, E, M, S, C, LO> {
+    pub fn condition<C: Condition<'rf>>(self, condition: C) -> QueryBuilder<'rf, E, S, C, LO> {
         #[rustfmt::skip]
-        let QueryBuilder { executor, ctx, selector, _phantom, lim_off, ordering, .. } = self;
+        let QueryBuilder { executor, ctx, selector, phantom, lim_off, ordering, .. } = self;
         #[rustfmt::skip]
-        return QueryBuilder { executor, ctx, selector, _phantom, condition, lim_off, ordering, };
+        return QueryBuilder { executor, ctx, selector, phantom, condition, lim_off, ordering, };
     }
 }
 
-impl<'rf, E, M, S, C, O> QueryBuilder<'rf, E, M, S, C, O>
+impl<'rf, E, S, C, O> QueryBuilder<'rf, E, S, C, O>
 where
     O: OffsetMarker,
 {
     /// Add a limit to the query
-    pub fn limit(self, limit: u64) -> QueryBuilder<'rf, E, M, S, C, Limit<O>> {
+    pub fn limit(self, limit: u64) -> QueryBuilder<'rf, E, S, C, Limit<O>> {
         #[rustfmt::skip]
-        let QueryBuilder { executor, ctx, selector, _phantom, condition,  lim_off, ordering, } = self;
+        let QueryBuilder { executor, ctx, selector, phantom, condition,  lim_off, ordering, } = self;
         #[rustfmt::skip]
-        return QueryBuilder { executor, ctx, selector, _phantom, condition, lim_off: Limit { limit, offset: lim_off }, ordering, };
+        return QueryBuilder { executor, ctx, selector, phantom, condition, lim_off: Limit { limit, offset: lim_off }, ordering, };
     }
 }
 
-impl<'rf, E, M, S, C, LO> QueryBuilder<'rf, E, M, S, C, LO>
+impl<'rf, E, S, C, LO> QueryBuilder<'rf, E, S, C, LO>
 where
     LO: AcceptsOffset,
 {
     /// Add a offset to the query
-    pub fn offset(self, offset: u64) -> QueryBuilder<'rf, E, M, S, C, LO::Result> {
+    pub fn offset(self, offset: u64) -> QueryBuilder<'rf, E, S, C, LO::Result> {
         #[rustfmt::skip]
-        let QueryBuilder { executor, ctx, selector, _phantom, condition, lim_off, ordering, .. } = self;
+        let QueryBuilder { executor, ctx, selector, phantom, condition, lim_off, ordering, .. } = self;
         let lim_off = lim_off.add_offset(offset);
         #[rustfmt::skip]
-        return QueryBuilder { executor, ctx, selector, _phantom, condition, lim_off, ordering, };
+        return QueryBuilder { executor, ctx, selector, phantom, condition, lim_off, ordering, };
     }
 }
 
-impl<'rf, E, M, S, C> QueryBuilder<'rf, E, M, S, C, ()> {
+impl<'rf, E, S, C> QueryBuilder<'rf, E, S, C, ()> {
     /// Add a offset to the query
-    pub fn range(self, range: impl FiniteRange<u64>) -> QueryBuilder<'rf, E, M, S, C, Limit<u64>> {
+    pub fn range(self, range: impl FiniteRange<u64>) -> QueryBuilder<'rf, E, S, C, Limit<u64>> {
         #[rustfmt::skip]
-        let QueryBuilder { executor, ctx, selector, _phantom, condition, ordering,  .. } = self;
+        let QueryBuilder { executor, ctx, selector, phantom, condition, ordering,  .. } = self;
         let limit = Limit {
             limit: range.len(),
             offset: range.start(),
         };
         #[rustfmt::skip]
-        return QueryBuilder { executor, ctx, selector, _phantom, condition, lim_off: limit, ordering, };
+        return QueryBuilder { executor, ctx, selector, phantom, condition, lim_off: limit, ordering, };
     }
 }
 
-impl<'rf, E, M, S, C, LO> QueryBuilder<'rf, E, M, S, C, LO> {
+impl<'rf, E, S, C, LO> QueryBuilder<'rf, E, S, C, LO>
+where
+    S: Selector,
+{
     /// Order the query by a field
     ///
     /// You can add multiple orderings from most to least significant.
     pub fn order_by<F, P>(mut self, _field: FieldProxy<F, P>, order: Ordering) -> Self
     where
         F: RawField,
-        P: Path<Origin = M>,
+        P: Path<Origin = S::Model>,
     {
         P::add_to_context(&mut self.ctx);
         self.ordering.push(OrderByEntry {
@@ -155,7 +151,7 @@ impl<'rf, E, M, S, C, LO> QueryBuilder<'rf, E, M, S, C, LO> {
     pub fn order_asc<F, P>(self, field: FieldProxy<F, P>) -> Self
     where
         F: RawField,
-        P: Path<Origin = M>,
+        P: Path<Origin = S::Model>,
     {
         self.order_by(field, Ordering::Asc)
     }
@@ -166,18 +162,17 @@ impl<'rf, E, M, S, C, LO> QueryBuilder<'rf, E, M, S, C, LO> {
     pub fn order_desc<F, P>(self, field: FieldProxy<F, P>) -> Self
     where
         F: RawField,
-        P: Path<Origin = M>,
+        P: Path<Origin = S::Model>,
     {
         self.order_by(field, Ordering::Desc)
     }
 }
 
-impl<'ex, 'rf, E, M, S, C, LO> QueryBuilder<'rf, E, M, S, C, LO>
+impl<'ex, 'rf, E, S, C, LO> QueryBuilder<'rf, E, S, C, LO>
 where
     'ex: 'rf,
     E: Executor<'ex>,
-    M: Model,
-    S: Selector<Model = M>,
+    S: Selector,
     C: ConditionMarker<'rf>,
 {
     /// Retrieve and decode all matching rows
@@ -198,7 +193,7 @@ where
 
         database::query::<All>(
             self.executor,
-            M::TABLE,
+            S::Model::TABLE,
             &columns,
             &joins,
             condition.as_ref(),
@@ -232,7 +227,7 @@ where
             move |conditions, columns, joins| {
                 database::query::<Stream>(
                     self.executor,
-                    M::TABLE,
+                    S::Model::TABLE,
                     columns,
                     joins,
                     conditions,
@@ -263,7 +258,7 @@ where
 
         let row = database::query::<One>(
             self.executor,
-            M::TABLE,
+            S::Model::TABLE,
             &columns,
             &joins,
             condition.as_ref(),
@@ -294,7 +289,7 @@ where
 
         let row = database::query::<Optional>(
             self.executor,
-            M::TABLE,
+            S::Model::TABLE,
             &columns,
             &joins,
             condition.as_ref(),
