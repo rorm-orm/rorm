@@ -408,7 +408,6 @@ mod query_stream {
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
-    use ouroboros::macro_help::AliasableBox;
     use rorm_db::executor::{QueryStrategyResult, Stream};
     use rorm_db::Error;
 
@@ -421,9 +420,9 @@ mod query_stream {
     pub struct QueryStream<'rf, D> {
         decoder: D,
 
-        ctx: AliasableBox<QueryContext>,
+        ctx: Box<QueryContext>,
 
-        condition: Option<AliasableBox<dyn Condition<'rf>>>,
+        condition: Option<Box<dyn Condition<'rf>>>,
 
         #[pin]
         stream: <Stream as QueryStrategyResult>::Result<'rf>,
@@ -450,10 +449,9 @@ mod query_stream {
             }
 
             unsafe {
-                let ctx = AliasableBox::from_unique(Box::new(ctx));
+                let ctx = Box::new(ctx);
                 let ctx_ref: &'stream QueryContext = change_lifetime(ctx.as_ref());
 
-                let condition = condition.map(AliasableBox::from_unique);
                 let condition_ref: Option<&'stream dyn Condition<'stream>> = condition
                     .as_deref()
                     .map(|condition| change_lifetime(condition));

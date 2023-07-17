@@ -44,12 +44,8 @@ linkme = { version = "~0.3" }
 # Time and date library
 chrono = { version = ">=0.4.20", default-features = false }
 
-# self referencing struct (currently JoinBuilder)
-ouroboros = { version = "~0.15" }
-
 # Allow wrapping futures and streams
 pin-project = { version = "~1" }
-
 
 rorm-db = { version = "~0.8", path = "./rorm-db" }
 rorm-macro = { version = "0.6.0", path = "./rorm-macro" }

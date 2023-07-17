@@ -3,7 +3,6 @@
 use std::borrow::Cow;
 use std::collections::HashSet;
 
-use ouroboros::self_referencing;
 use rorm_db::sql::conditional::{BinaryCondition, Condition};
 use rorm_db::sql::value::Value;
 
@@ -165,14 +164,6 @@ enum TempJoinData {
 
         fields: [[&'static str; 2]; 2],
     },
-    #[allow(dead_code)]
-    Dynamic {
-        alias: usize,
-
-        table_name: &'static str,
-
-        fields: [String; 2],
-    },
 }
 
 #[derive(Debug)]
@@ -182,18 +173,11 @@ enum Join {
         join_alias: &'static str,
         join_condition: Condition<'static>,
     },
-    #[allow(dead_code)]
-    Dynamic(DynamicJoin),
 }
 
 impl Join {
     fn as_db_format(&self) -> rorm_db::database::JoinTable {
         let (table_name, join_alias, join_condition): (&str, &str, &Condition) = match self {
-            Join::Dynamic(join) => (
-                join.borrow_table_name(),
-                join.borrow_alias(),
-                join.borrow_condition(),
-            ),
             Join::Static {
                 table_name,
                 join_alias,
@@ -229,47 +213,6 @@ impl From<TempJoinData> for Join {
                     }),
                 ]))),
             },
-            TempJoinData::Dynamic {
-                alias,
-                table_name,
-                fields,
-            } => Join::Dynamic(
-                DynamicJoinBuilder {
-                    table_name,
-                    alias: format!("_{alias}"),
-                    fields,
-                    condition_builder: |fields: &[String; 2]| {
-                        Condition::BinaryCondition(BinaryCondition::Equals(Box::new([
-                            Condition::Value(Value::Ident(fields[0].as_str())),
-                            Condition::Value(Value::Ident(fields[1].as_str())),
-                        ])))
-                    },
-                }
-                .build(),
-            ),
         }
     }
-}
-
-#[self_referencing]
-#[derive(Debug)]
-struct DynamicJoin {
-    /// The foreign model's table name
-    pub table_name: &'static str,
-
-    /// Alias to join the table as
-    pub alias: String,
-
-    /// Fields' names required in the join condition
-    pub fields: [String; 2],
-
-    /// Condition comparing two fields for equality
-    #[borrows(fields)]
-    #[covariant]
-    pub condition: Condition<'this>,
-}
-
-#[allow(dead_code)]
-fn _fix_ouroboros(join: &DynamicJoin) {
-    join.borrow_fields();
 }
