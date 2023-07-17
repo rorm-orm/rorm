@@ -11,7 +11,6 @@ pub type ForeignModel<M> = ForeignModelByField<<M as Model>::Primary>;
 /// Stores a link to another model in a field.
 ///
 /// In database language, this is a many to one relation.
-#[derive(Clone)]
 pub enum ForeignModelByField<FF: Field<kind::AsDbType>> {
     /// The other model's primary key which can be used to query it later.
     Key(FF::Type),
@@ -56,6 +55,21 @@ where
                 .debug_tuple("ForeignModelByField::Instance")
                 .field(instance)
                 .finish(),
+        }
+    }
+}
+impl<FF> Clone for ForeignModelByField<FF>
+where
+    FF: Field<kind::AsDbType>,
+    FF::Model: Clone,
+    FF::Type: Clone,
+{
+    fn clone(&self) -> Self {
+        match self {
+            ForeignModelByField::Key(key) => ForeignModelByField::Key(key.clone()),
+            ForeignModelByField::Instance(instance) => {
+                ForeignModelByField::Instance(instance.clone())
+            }
         }
     }
 }
