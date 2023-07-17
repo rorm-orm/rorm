@@ -185,16 +185,12 @@ where
 
 impl<'ex, 'rf, E, M, C> UpdateBuilder<'rf, E, M, Vec<(&'static str, Value<'rf>)>, C>
 where
-    E: Executor<'ex> + 'ex,
+    E: Executor<'ex>,
     M: Model,
     C: ConditionMarker<'rf>,
 {
     /// Perform the update operation
-    pub async fn exec<'fut>(self) -> Result<u64, Error>
-    where
-        'ex: 'fut,
-        'rf: 'fut,
-    {
+    pub async fn exec(self) -> Result<u64, Error> {
         let context = QueryContext::new();
         let columns: Vec<_> = self
             .columns
@@ -213,7 +209,7 @@ where
 
 impl<'rf, E, M, C> IntoFuture for UpdateBuilder<'rf, E, M, Vec<(&'static str, Value<'rf>)>, C>
 where
-    E: Executor<'rf> + 'rf + Send,
+    E: Executor<'rf> + Send + 'rf,
     M: Model + Sync,
     C: ConditionMarker<'rf>,
 {
