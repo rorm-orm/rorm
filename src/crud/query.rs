@@ -222,15 +222,15 @@ where
         QueryStream::new(
             decoder,
             self.ctx,
-            |ctx| ctx.get_joins(),
             self.condition.into_option(),
-            move |conditions, columns, joins| {
+            move |ctx, conditions| {
+                let condition = conditions.map(|c| c.as_sql(ctx));
                 database::query::<Stream>(
                     self.executor,
                     S::Model::TABLE,
-                    columns,
-                    joins,
-                    conditions,
+                    ctx.get_selects().as_slice(),
+                    ctx.get_joins().as_slice(),
+                    condition.as_ref(),
                     self.ordering.as_slice(),
                     self.lim_off.into_option(),
                 )
@@ -408,10 +408,8 @@ mod query_stream {
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
-    use ouroboros::macro_help::{aliasable_boxed, change_lifetime, AliasableBox};
-    use rorm_db::database::{ColumnSelector, JoinTable};
+    use ouroboros::macro_help::AliasableBox;
     use rorm_db::executor::{QueryStrategyResult, Stream};
-    use rorm_db::sql::conditional::Condition as SqlCondition;
     use rorm_db::Error;
 
     use crate::conditions::Condition;
@@ -421,14 +419,11 @@ mod query_stream {
     #[pin_project::pin_project]
     #[allow(dead_code)] // The field's are never "read" because they are aliased before being assigned to the struct
     pub struct QueryStream<'rf, D> {
+        decoder: D,
+
         ctx: AliasableBox<QueryContext>,
 
-        owned_condition: AliasableBox<Option<Box<dyn Condition<'rf>>>>,
-        sql_condition: AliasableBox<Option<SqlCondition<'rf>>>,
-        columns: AliasableBox<Vec<ColumnSelector<'rf>>>,
-        joins: AliasableBox<Vec<JoinTable<'rf, 'rf>>>,
-
-        decoder: D,
+        condition: Option<AliasableBox<dyn Condition<'rf>>>,
 
         #[pin]
         stream: <Stream as QueryStrategyResult>::Result<'rf>,
@@ -438,53 +433,36 @@ mod query_stream {
         pub(crate) fn new<'until_build>(
             decoder: D,
             ctx: QueryContext,
-            joins_builder: impl FnOnce(&'stream QueryContext) -> Vec<JoinTable<'stream, 'stream>>
-                + 'until_build,
             condition: Option<Box<dyn Condition<'stream>>>,
             stream_builder: impl FnOnce(
-                    Option<&'stream SqlCondition<'stream>>,
-                    &'stream Vec<ColumnSelector<'stream>>,
-                    &'stream Vec<JoinTable<'stream, 'stream>>,
+                    &'stream QueryContext,
+                    Option<&'stream dyn Condition<'stream>>,
                 ) -> <Stream as QueryStrategyResult>::Result<'stream>
                 + 'until_build,
         ) -> Self
         where
             'stream: 'until_build,
         {
+            unsafe fn change_lifetime<'old, 'new: 'old, T: 'new + ?Sized>(
+                data: &'old T,
+            ) -> &'new T {
+                &*(data as *const _)
+            }
+
             unsafe {
-                let ctx = aliasable_boxed(ctx);
-                let ctx_illegal_static_reference = change_lifetime(&*ctx);
+                let ctx = AliasableBox::from_unique(Box::new(ctx));
+                let ctx_ref: &'stream QueryContext = change_lifetime(ctx.as_ref());
 
-                let columns = ctx_illegal_static_reference.get_selects();
-                let columns = aliasable_boxed(columns);
-                let columns_illegal_static_reference = change_lifetime(&*columns);
+                let condition = condition.map(AliasableBox::from_unique);
+                let condition_ref: Option<&'stream dyn Condition<'stream>> = condition
+                    .as_deref()
+                    .map(|condition| change_lifetime(condition));
 
-                let joins = joins_builder(ctx_illegal_static_reference);
-                let joins = aliasable_boxed(joins);
-                let joins_illegal_static_reference = change_lifetime(&*joins);
-
-                let owned_condition = aliasable_boxed(condition);
-                let owned_condition_illegal_static_reference = change_lifetime(&*owned_condition);
-
-                let sql_condition = aliasable_boxed(
-                    owned_condition_illegal_static_reference
-                        .as_ref()
-                        .map(|cond| cond.as_sql(ctx_illegal_static_reference)),
-                );
-                let sql_condition_illegal_static_reference = change_lifetime(&*sql_condition);
-
-                let stream = stream_builder(
-                    sql_condition_illegal_static_reference.as_ref(),
-                    columns_illegal_static_reference,
-                    joins_illegal_static_reference,
-                );
+                let stream = stream_builder(ctx_ref, condition_ref);
 
                 Self {
                     ctx,
-                    columns,
-                    joins,
-                    owned_condition,
-                    sql_condition,
+                    condition,
                     decoder,
                     stream,
                 }
