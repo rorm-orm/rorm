@@ -5,6 +5,7 @@ Since 0.5.1
 - `query!`
   - Select a foreign model as an entire patch using `as` keyword
 - sealed traits are actually sealed now
+- removed ouroboros from dependencies
 
 Notes for publishing
 --------------------
