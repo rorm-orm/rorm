@@ -88,6 +88,56 @@ where
         }
     }
 
+    /// Returns a reference to the [`BackRef`]'s cache after populating it if not done already.
+    pub async fn get_or_query<'p, BRP>(
+        &self,
+        executor: impl Executor<'_>,
+        patch: &'p mut BRP,
+    ) -> Result<&'p mut [FMF::Model], Error>
+    where
+        BRP: Patch<Model = BRF::Model>,
+        BRP: GetField<BRF>,
+        BRP: GetField<foreign_model::RF<FMF>>,
+    {
+        if <BRP as GetField<BRF>>::borrow_field_mut(patch)
+            .cached
+            .is_none()
+        {
+            self.populate(executor, patch).await?;
+        }
+        Ok(<BRP as GetField<BRF>>::borrow_field_mut(patch)
+            .cached
+            .as_mut()
+            .expect("The cache should have been populated"))
+    }
+
+    /// Takes the [`BackRef`]'s cache leaving it unpopulated again or just queries it.
+    ///
+    /// This function is similar to [`get_or_query`](Self::get_or_query) but returns ownership
+    /// and therefore has to clear the cache.
+    pub async fn take_or_query<BRP>(
+        &self,
+        executor: impl Executor<'_>,
+        patch: &mut BRP,
+    ) -> Result<Vec<FMF::Model>, Error>
+    where
+        BRP: Patch<Model = BRF::Model>,
+        BRP: GetField<BRF>,
+        BRP: GetField<foreign_model::RF<FMF>>,
+    {
+        if let Some(models) = <BRP as GetField<BRF>>::borrow_field_mut(patch)
+            .cached
+            .take()
+        {
+            Ok(models)
+        } else {
+            query!(executor, FMF::Model)
+                .condition(Self::model_as_condition(patch))
+                .all()
+                .await
+        }
+    }
+
     /// Populate the [`BackRef`]'s cached field.
     ///
     /// This method doesn't check whether it already has been populated.
