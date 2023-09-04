@@ -5,6 +5,9 @@ use crate::internal::array_utils::Array;
 use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::FieldKind;
 
+mod cmp;
+pub use cmp::*;
+
 /// The type of field allowed on models
 pub trait FieldType {
     /// The kind of field this type declares

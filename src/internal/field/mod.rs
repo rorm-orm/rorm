@@ -89,8 +89,7 @@ pub mod foreign_model;
 use crate::fields::traits::FieldType;
 use as_db_type::AsDbType;
 
-use crate::internal::array_utils::{Array, IntoArray};
-use crate::internal::field::decoder::FieldDecoder;
+use crate::internal::array_utils::IntoArray;
 
 /// Marker trait for various kinds of fields
 pub trait FieldKind {
