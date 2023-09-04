@@ -49,7 +49,7 @@ new_converting_decoder!(
             .map_err(|err| DecodeError(format!("Couldn't decode msg pack: {err}")))
     }
 );
-impl<T: Serialize + DeserializeOwned> FieldType for MsgPack<T> {
+impl<T: Serialize + DeserializeOwned + 'static> FieldType for MsgPack<T> {
     type Kind = kind::AsDbType;
     type Columns<C> = [C; 1];
 
@@ -67,7 +67,7 @@ impl<T: Serialize + DeserializeOwned> FieldType for MsgPack<T> {
 
     type Decoder = MsgPackDecoder<T>;
 }
-impl<T: Serialize + DeserializeOwned> AsDbType for MsgPack<T> {
+impl<T: Serialize + DeserializeOwned + 'static> AsDbType for MsgPack<T> {
     type Primitive = Vec<u8>;
     type DbType = VarBinary;
 
@@ -88,7 +88,7 @@ new_converting_decoder!(
             .transpose()
     }
 );
-impl<T: Serialize + DeserializeOwned> FieldType for Option<MsgPack<T>> {
+impl<T: Serialize + DeserializeOwned + 'static> FieldType for Option<MsgPack<T>> {
     type Kind = kind::AsDbType;
     type Columns<C> = [C; 1];
 
@@ -105,7 +105,7 @@ impl<T: Serialize + DeserializeOwned> FieldType for Option<MsgPack<T>> {
 
     type Decoder = OptionMsgPackDecoder<T>;
 }
-impl<T: Serialize + DeserializeOwned> AsDbType for Option<MsgPack<T>> {
+impl<T: Serialize + DeserializeOwned + 'static> AsDbType for Option<MsgPack<T>> {
     type Primitive = Option<Vec<u8>>;
     type DbType = VarBinary;
 

@@ -218,12 +218,12 @@ where
 ///
 /// # Basic usage
 /// ```no_run
-/// # use rorm::{Model, Database, update};
+/// # use rorm::{Model, Database, update, FieldAccess};
 /// # #[derive(Model)] struct User { #[rorm(id)] id: i64, #[rorm(max_length = 255)] password: String, }
 /// pub async fn set_good_password(db: &Database) {
 ///     update!(db, User)
-///         .set(User::F.password, "I am way more secure™")
-///         .condition(User::F.password.equals("password"))
+///         .set(User::F.password, "I am way more secure™".to_string())
+///         .condition(User::F.password.eq("password"))
 ///         .await
 ///         .unwrap();
 /// }
@@ -237,21 +237,21 @@ where
 /// # Dynamic number of [`set`](UpdateBuilder::set)
 /// ```no_run
 /// # use std::collections::HashMap;
-/// # use rorm::{Model, Database, update};
+/// # use rorm::{Model, Database, update, FieldAccess};
 /// # #[derive(Model)] struct User { #[rorm(id)] id: i64, #[rorm(max_length = 255)] nickname: String, #[rorm(max_length = 255)] password: String, }
 /// /// POST endpoint allowing a user to change its nickname or password
 /// pub async fn update_user(db: &Database, id: i64, post_params: HashMap<String, String>) {
 ///     let mut builder = update!(db, User).begin_dyn_set();
 ///
 ///     if let Some(password) = post_params.get("password") {
-///         builder = builder.set(User::F.password, password);
+///         builder = builder.set(User::F.password, password.clone());
 ///     }
 ///     if let Some(nickname) = post_params.get("nickname") {
-///         builder = builder.set(User::F.nickname, nickname)
+///         builder = builder.set(User::F.nickname, nickname.clone())
 ///     }
 ///
 ///     if let Ok(builder) = builder.finish_dyn_set() {
-///         builder.condition(User::F.id.equals(id)).await.unwrap();
+///         builder.condition(User::F.id.eq(id)).await.unwrap();
 ///     } else {
 ///         panic!("Invalid POST request: missing fields to update")
 ///     }

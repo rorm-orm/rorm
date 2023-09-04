@@ -16,6 +16,8 @@ use std::borrow::Cow;
 use super::FieldType;
 use crate::conditions::{Binary, BinaryOperator, Column, Condition, Value};
 use crate::internal::field::access::FieldAccess;
+use crate::internal::field::{FieldProxy, RawField, SingleColumnField};
+use crate::internal::relation_path::Path;
 
 /// Trait for equality comparisons.
 ///
@@ -99,6 +101,13 @@ pub trait FieldRegexp<'rhs, Rhs: 'rhs> {
 
 // TODO: null check, BETWEEN, IN
 
+/// Provides the "default" implementation of [`FieldEq`].
+///
+/// It takes
+/// - the left hand side type i.e. type to implement on
+/// - the right hand side (use `'rhs` a lifetime if required)
+/// - a closure to convert the right hand side into a [`Value`]
+#[allow(non_snake_case)] // makes it clearer that a trait and which trait is meant
 macro_rules! impl_FieldEq {
     ($lhs:ty, $rhs:ty, $into_value:expr) => {
         impl<'rhs> FieldEq<'rhs, $rhs> for $lhs {
@@ -131,5 +140,150 @@ impl_FieldEq!(i32, i32, Value::I32);
 impl_FieldEq!(i64, i64, Value::I64);
 impl_FieldEq!(f32, f32, Value::F32);
 impl_FieldEq!(f64, f64, Value::F64);
-impl_FieldEq!(String, String, |string| Value::String(Cow::Owned(string)));
-impl_FieldEq!(Vec<u8>, Vec<u8>, |vec| Value::Binary(Cow::Owned(vec)));
+
+impl_FieldEq!(String, &'rhs str, |s| Value::String(Cow::Borrowed(s)));
+impl_FieldEq!(String, String, |s| Value::String(Cow::Owned(s)));
+impl_FieldEq!(String, Cow<'rhs, str>, Value::String);
+
+impl_FieldEq!(Vec<u8>, &'rhs [u8], |b| Value::Binary(Cow::Borrowed(b)));
+impl_FieldEq!(Vec<u8>, Vec<u8>, |b| Value::Binary(Cow::Owned(b)));
+impl_FieldEq!(Vec<u8>, Cow<'rhs, [u8]>, Value::Binary);
+
+// Impl FieldEq<FieldProxy> iff FieldEq<Self>
+impl<'rhs, F, P, T> FieldEq<'rhs, FieldProxy<F, P>> for T
+where
+    T: FieldEq<'rhs, T>,
+    F: RawField<Type = T> + SingleColumnField,
+    P: Path,
+{
+    type EqCond<A: FieldAccess> = Binary<Column<A>, Column<FieldProxy<F, P>>>;
+
+    fn field_equals<A: FieldAccess>(access: A, value: FieldProxy<F, P>) -> Self::EqCond<A> {
+        Binary {
+            operator: BinaryOperator::Equals,
+            fst_arg: Column(access),
+            snd_arg: Column(value),
+        }
+    }
+
+    type NeCond<A: FieldAccess> = Binary<Column<A>, Column<FieldProxy<F, P>>>;
+
+    fn field_not_equals<A: FieldAccess>(access: A, value: FieldProxy<F, P>) -> Self::NeCond<A> {
+        Binary {
+            operator: BinaryOperator::NotEquals,
+            fst_arg: Column(access),
+            snd_arg: Column(value),
+        }
+    }
+}
+
+/// Provides the "default" implementation of [`FieldOrd`].
+///
+/// It takes
+/// - the left hand side type i.e. type to implement on
+/// - the right hand side (use `'rhs` a lifetime if required)
+/// - a closure to convert the right hand side into a [`Value`]
+#[allow(non_snake_case)] // makes it clearer that a trait and which trait is meant
+macro_rules! impl_FieldOrd {
+    ($lhs:ty, $rhs:ty, $into_value:expr) => {
+        impl<'rhs> FieldOrd<'rhs, $rhs> for $lhs {
+            type LtCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
+            fn field_less_than<A: FieldAccess>(access: A, value: $rhs) -> Self::LtCond<A> {
+                Binary {
+                    operator: BinaryOperator::Less,
+                    fst_arg: Column(access),
+                    #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
+                    snd_arg: $into_value(value),
+                }
+            }
+
+            type LeCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
+            fn field_less_equals<A: FieldAccess>(access: A, value: $rhs) -> Self::LeCond<A> {
+                Binary {
+                    operator: BinaryOperator::LessOrEquals,
+                    fst_arg: Column(access),
+                    #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
+                    snd_arg: $into_value(value),
+                }
+            }
+
+            type GtCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
+            fn field_greater_than<A: FieldAccess>(access: A, value: $rhs) -> Self::GtCond<A> {
+                Binary {
+                    operator: BinaryOperator::Greater,
+                    fst_arg: Column(access),
+                    #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
+                    snd_arg: $into_value(value),
+                }
+            }
+
+            type GeCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
+            fn field_greater_equals<A: FieldAccess>(access: A, value: $rhs) -> Self::GeCond<A> {
+                Binary {
+                    operator: BinaryOperator::GreaterOrEquals,
+                    fst_arg: Column(access),
+                    #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
+                    snd_arg: $into_value(value),
+                }
+            }
+        }
+    };
+}
+
+impl_FieldOrd!(i16, i16, Value::I16);
+impl_FieldOrd!(i32, i32, Value::I32);
+impl_FieldOrd!(i64, i64, Value::I64);
+impl_FieldOrd!(f32, f32, Value::F32);
+impl_FieldOrd!(f64, f64, Value::F64);
+
+impl_FieldOrd!(String, &'rhs str, |s| Value::String(Cow::Borrowed(s)));
+impl_FieldOrd!(String, String, |s| Value::String(Cow::Owned(s)));
+impl_FieldOrd!(String, Cow<'rhs, str>, Value::String);
+
+impl_FieldOrd!(Vec<u8>, &'rhs [u8], |b| Value::Binary(Cow::Borrowed(b)));
+impl_FieldOrd!(Vec<u8>, Vec<u8>, |b| Value::Binary(Cow::Owned(b)));
+impl_FieldOrd!(Vec<u8>, Cow<'rhs, [u8]>, Value::Binary);
+
+// Impl FieldOrd<FieldProxy> iff FieldOrd<Self>
+impl<'rhs, F, P, T> FieldOrd<'rhs, FieldProxy<F, P>> for T
+where
+    T: FieldOrd<'rhs, T>,
+    F: RawField<Type = T> + SingleColumnField,
+    P: Path,
+{
+    type LtCond<A: FieldAccess> = Binary<Column<A>, Column<FieldProxy<F, P>>>;
+    fn field_less_than<A: FieldAccess>(access: A, value: FieldProxy<F, P>) -> Self::LtCond<A> {
+        Binary {
+            operator: BinaryOperator::Less,
+            fst_arg: Column(access),
+            snd_arg: Column(value),
+        }
+    }
+
+    type LeCond<A: FieldAccess> = Binary<Column<A>, Column<FieldProxy<F, P>>>;
+    fn field_less_equals<A: FieldAccess>(access: A, value: FieldProxy<F, P>) -> Self::LeCond<A> {
+        Binary {
+            operator: BinaryOperator::LessOrEquals,
+            fst_arg: Column(access),
+            snd_arg: Column(value),
+        }
+    }
+
+    type GtCond<A: FieldAccess> = Binary<Column<A>, Column<FieldProxy<F, P>>>;
+    fn field_greater_than<A: FieldAccess>(access: A, value: FieldProxy<F, P>) -> Self::GtCond<A> {
+        Binary {
+            operator: BinaryOperator::Greater,
+            fst_arg: Column(access),
+            snd_arg: Column(value),
+        }
+    }
+
+    type GeCond<A: FieldAccess> = Binary<Column<A>, Column<FieldProxy<F, P>>>;
+    fn field_greater_equals<A: FieldAccess>(access: A, value: FieldProxy<F, P>) -> Self::GeCond<A> {
+        Binary {
+            operator: BinaryOperator::GreaterOrEquals,
+            fst_arg: Column(access),
+            snd_arg: Column(value),
+        }
+    }
+}

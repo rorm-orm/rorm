@@ -9,7 +9,7 @@ mod cmp;
 pub use cmp::*;
 
 /// Base trait for types which are allowed as fields in models
-pub trait FieldType {
+pub trait FieldType: 'static {
     /// The kind of field this type declares
     type Kind: FieldKind;
 
