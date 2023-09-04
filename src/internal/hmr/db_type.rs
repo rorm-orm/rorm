@@ -74,16 +74,16 @@ impl_db_types!(
     Bool,
     /// Type level version of [`imr::DbType::Date`]
     Date,
-    NaiveDate,
+    ChronoNaiveDate,
     /// Type level version of [`imr::DbType::DateTime`]
     DateTime,
-    NaiveDateTime,
+    ChronoNaiveDateTime,
     /// Type level version of [`imr::DbType::Timestamp`]
     Timestamp,
     I64,
     /// Type level version of [`imr::DbType::Time`]
     Time,
-    NaiveTime,
+    ChronoNaiveTime,
     /// Type level version of [`imr::DbType::Choices`]
     Choices,
     Choice, // TODO requires choices

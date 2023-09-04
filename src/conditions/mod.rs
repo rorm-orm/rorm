@@ -99,9 +99,9 @@ impl<'a> Value<'a> {
             Value::F64(v) => value::Value::F64(*v),
             Value::F32(v) => value::Value::F32(*v),
             Value::Binary(v) => value::Value::Binary(v.as_ref()),
-            Value::NaiveTime(v) => value::Value::NaiveTime(*v),
-            Value::NaiveDate(v) => value::Value::NaiveDate(*v),
-            Value::NaiveDateTime(v) => value::Value::NaiveDateTime(*v),
+            Value::NaiveTime(v) => value::Value::ChronoNaiveTime(*v),
+            Value::NaiveDate(v) => value::Value::ChronoNaiveDate(*v),
+            Value::NaiveDateTime(v) => value::Value::ChronoNaiveDateTime(*v),
         }
     }
 }
