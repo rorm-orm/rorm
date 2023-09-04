@@ -8,8 +8,9 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::conditions::Value;
+use crate::fields::traits::FieldType;
 use crate::internal::field::as_db_type::AsDbType;
-use crate::internal::field::{kind, FieldType};
+use crate::internal::field::kind;
 use crate::internal::hmr::db_type::{DbType, VarBinary};
 use crate::new_converting_decoder;
 

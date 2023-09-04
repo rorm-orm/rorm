@@ -86,6 +86,7 @@ pub mod datetime;
 pub mod decoder;
 pub mod foreign_model;
 
+use crate::fields::traits::FieldType;
 use as_db_type::AsDbType;
 
 use crate::internal::array_utils::{Array, IntoArray};
@@ -121,24 +122,6 @@ pub mod kind {
     impl FieldKind for DateTime {
         sealed!(impl);
     }
-}
-
-/// The type of field allowed on models
-pub trait FieldType {
-    /// The kind of field this type declares
-    type Kind: FieldKind;
-
-    /// Array with length specific to the field type
-    type Columns<T>: Array<Item = T>;
-
-    /// Construct an array of [`Value`] representing `self` in the database via ownership
-    fn into_values(self) -> Self::Columns<Value<'static>>;
-
-    /// Construct an array of [`Value`] representing `self` in the database via borrowing
-    fn as_values(&self) -> Self::Columns<Value<'_>>;
-
-    /// [`FieldDecoder`] to use for fields of this type
-    type Decoder: FieldDecoder<Result = Self>;
 }
 
 /// This trait is implemented by the `#[derive(Model)]` macro on unique unit struct for each of a model's fields.

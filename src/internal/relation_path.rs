@@ -2,7 +2,7 @@
 
 use std::marker::PhantomData;
 
-use crate::fields::{BackRef, ForeignModelByField};
+use crate::fields::types::{BackRef, ForeignModelByField};
 use crate::internal::field::foreign_model::ForeignModelTrait;
 use crate::internal::field::{kind, AbstractField, Field, RawField};
 use crate::internal::query_context::QueryContext;

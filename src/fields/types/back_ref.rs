@@ -10,10 +10,11 @@ use rorm_db::Error;
 use crate::conditions::collections::CollectionOperator::Or;
 use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection, Value};
 use crate::crud::decoder::NoopDecoder;
-use crate::fields::ForeignModelByField;
+use crate::fields::traits::FieldType;
+use crate::fields::types::ForeignModelByField;
 use crate::internal::field::foreign_model::ForeignModelTrait;
 use crate::internal::field::{
-    foreign_model, kind, AbstractField, Field, FieldProxy, FieldType, RawField, SingleColumnField,
+    foreign_model, kind, AbstractField, Field, FieldProxy, RawField, SingleColumnField,
 };
 use crate::model::GetField;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model

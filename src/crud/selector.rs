@@ -4,9 +4,10 @@ use std::marker::PhantomData;
 
 use crate::aggregate::{AggregatedColumn, AggregationFunc};
 use crate::crud::decoder::{Decoder, DirectDecoder};
+use crate::fields::traits::FieldType;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::{Field, FieldProxy, FieldType, RawField};
+use crate::internal::field::{Field, FieldProxy, RawField};
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::{Path, PathImpl, PathStep, ResolvedRelatedField};
 use crate::model::{Model, PatchSelector};

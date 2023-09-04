@@ -3,8 +3,9 @@ use std::borrow::Cow;
 use uuid::Uuid;
 
 use crate::conditions::Value;
+use crate::fields::traits::FieldType;
 use crate::internal::field::as_db_type::AsDbType;
-use crate::internal::field::{kind, FieldType};
+use crate::internal::field::kind;
 use crate::internal::hmr::db_type;
 use crate::Error::DecodeError;
 use crate::{impl_option_as_db_type, new_converting_decoder};

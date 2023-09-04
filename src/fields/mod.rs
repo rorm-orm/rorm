@@ -12,10 +12,10 @@
 //! - [`Option<T>`] where `T` is on this list
 //!
 //! # Our types
-//! - [`ForeignModel<M>`]
-//! - [`BackRef<M>`] (doesn't work inside an [`Option<T>`])
-//! - [`Json<T>`]
-//! - [`MsgPack<T>`] (requires the "msgpack" feature)
+//! - [`ForeignModel<M>`](types::ForeignModel)
+//! - [`BackRef<M>`](types::BackRef) (doesn't work inside an [`Option<T>`])
+//! - [`Json<T>`](types::Json)
+//! - [`MsgPack<T>`](types::MsgPack) (requires the "msgpack" feature)
 //!
 //! # chrono types
 //! - [`NaiveDateTime`](chrono::NaiveDateTime)
@@ -32,7 +32,7 @@
 //! ```no_run
 //! use serde::{Deserialize, Serialize};
 //! use rorm::{Model, field};
-//! use rorm::fields::*;
+//! use rorm::fields::types::*;
 //!
 //! #[derive(Model)]
 //! pub struct SomeModel {
@@ -78,16 +78,5 @@
 //! }
 //! ```
 
-mod back_ref;
-mod foreign_model;
-mod json;
-#[cfg(feature = "msgpack")]
-mod msgpack;
-#[cfg(feature = "uuid")]
-mod uuid;
-
-pub use back_ref::BackRef;
-pub use foreign_model::{ForeignModel, ForeignModelByField};
-pub use json::Json;
-#[cfg(feature = "msgpack")]
-pub use msgpack::MsgPack;
+pub mod traits;
+pub mod types;

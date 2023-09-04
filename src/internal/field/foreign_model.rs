@@ -7,7 +7,7 @@ use rorm_db::{Error, Row};
 
 use crate::conditions::Value;
 use crate::crud::decoder::Decoder;
-use crate::fields::ForeignModelByField;
+use crate::fields::types::ForeignModelByField;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::{kind, Field, FieldProxy, FieldType, RawField, SingleColumnField};
