@@ -71,7 +71,7 @@ impl<BRF, FMF> FieldProxy<BRF, BRF::Model>
 where
     BRF: AbstractField<Type = BackRef<FMF>>,
 
-    FMF: Field<kind::ForeignModel> + Field,
+    FMF: Field<kind::ForeignModel> + Field + SingleColumnField,
     FMF::Type: ForeignModelTrait,
     FMF::Model: GetField<FMF>, // always true
     foreign_model::RF<FMF>: SingleColumnField,
@@ -83,7 +83,7 @@ where
     {
         Binary {
             operator: BinaryOperator::Equals,
-            fst_arg: Column::<FMF, FMF::Model>::new(),
+            fst_arg: Column(FieldProxy::<FMF, FMF::Model>::new()),
             snd_arg: foreign_model::RF::<FMF>::type_as_value(patch.borrow_field()),
         }
     }

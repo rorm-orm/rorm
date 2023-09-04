@@ -80,6 +80,7 @@ use crate::internal::relation_path::{Path, PathImpl, PathStep, ResolvedRelatedFi
 use crate::model::{ConstNew, Model};
 use crate::{const_panic, sealed};
 
+pub mod access;
 pub mod as_db_type;
 pub mod datetime;
 pub mod decoder;
@@ -371,6 +372,11 @@ impl_abstract_from_field!(kind::ForeignModel);
 /// Id::Type::from_primitive ~ User::F.id.convert_primitive
 /// ```
 pub struct FieldProxy<Field, Path>(PhantomData<ManuallyDrop<(Field, Path)>>);
+
+// SAFETY:
+// struct contains no data
+unsafe impl<F, P> Send for FieldProxy<F, P> {}
+
 impl<F: RawField, P> FieldProxy<F, P> {
     /// Create a new instance
     pub const fn new() -> Self {

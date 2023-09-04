@@ -3,20 +3,19 @@
 //! It is basically a generic version of the [`rorm_db::Condition`](conditional::Condition) tree.
 
 use std::borrow::Cow;
-use std::marker::PhantomData;
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use rorm_db::sql::{conditional, value};
 
-use crate::internal::field::{Field, FieldProxy};
-use crate::internal::hmr::db_type::{
-    Boolean, Date, DateTime, DbType, Double, Float, Int16, Int32, Int64, Time, VarBinary, VarChar,
-};
+use crate::internal::field::RawField;
 use crate::internal::query_context::QueryContext;
-use crate::internal::relation_path::Path;
+use crate::internal::relation_path::{JoinAlias, Path};
 
 pub mod collections;
+
 pub use collections::{DynamicCollection, StaticCollection};
+
+use crate::internal::field::access::FieldAccess;
 
 /// A [`Condition`] in a box.
 pub type BoxedCondition<'a> = Box<dyn Condition<'a>>;
@@ -116,32 +115,17 @@ impl<'a> Condition<'a> for Value<'a> {
 
 /// A column name
 #[derive(Copy, Clone)]
-pub struct Column<F, P> {
-    pub(crate) field: PhantomData<F>,
-    pub(crate) path: PhantomData<P>,
-}
+pub struct Column<A: FieldAccess>(pub A);
 
-// Safe because column contains no runtime data
-unsafe impl<F, P> Send for Column<F, P> {}
-
-impl<F: Field, P: Path> Column<F, P> {
-    /// Construct a new instance
-    pub const fn new() -> Self {
-        Column {
-            field: PhantomData,
-            path: PhantomData,
-        }
-    }
-}
-impl<'a, F: Field, P: Path> Condition<'a> for Column<F, P> {
+impl<'a, A: FieldAccess> Condition<'a> for Column<A> {
     fn add_to_context(&self, context: &mut QueryContext) {
-        P::add_to_context(context);
+        A::Path::add_to_context(context);
     }
 
     fn as_sql(&self, _context: &QueryContext) -> conditional::Condition {
         conditional::Condition::Value(value::Value::Column {
-            table_name: Some(P::ALIAS),
-            column_name: F::NAME,
+            table_name: Some(<A::Path as JoinAlias>::ALIAS),
+            column_name: <A::Field as RawField>::NAME,
         })
     }
 }
