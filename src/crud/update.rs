@@ -8,9 +8,9 @@ use rorm_db::database;
 use rorm_db::error::Error;
 use rorm_db::executor::Executor;
 
-use crate::conditions::{Condition, IntoSingleValue, Value};
+use crate::conditions::{Condition, Value};
 use crate::crud::builder::ConditionMarker;
-use crate::internal::field::{Field, FieldProxy};
+use crate::internal::field::{FieldProxy, SingleColumnField};
 use crate::internal::query_context::QueryContext;
 use crate::Model;
 
@@ -100,23 +100,19 @@ impl<'rf, E, M, C> UpdateBuilder<'rf, E, M, OptionalColumns<'rf>, C> {
     /// Add a column to update.
     ///
     /// Can be called multiple times.
-    pub fn set<F: Field>(
-        self,
-        _field: FieldProxy<F, M>,
-        value: impl IntoSingleValue<'rf, <F as Field>::DbType, Condition = Value<'rf>>,
-    ) -> Self {
+    pub fn set<F: SingleColumnField>(self, _field: FieldProxy<F, M>, value: F::Type) -> Self {
         let mut builder = self;
-        builder.columns.0.push((F::NAME, value.into_condition()));
+        builder.columns.0.push((F::NAME, F::type_into_value(value)));
         builder
     }
 
     /// Add a column to update if `value` is `Some`
     ///
     /// Can be called multiple times.
-    pub fn set_if<F: Field>(
+    pub fn set_if<F: SingleColumnField>(
         self,
         field: FieldProxy<F, M>,
-        value: Option<impl IntoSingleValue<'rf, <F as Field>::DbType, Condition = Value<'rf>>>,
+        value: Option<F::Type>,
     ) -> Self {
         if let Some(value) = value {
             self.set(field, value)
@@ -153,15 +149,15 @@ where
     /// Add a column to update.
     ///
     /// Can be called multiple times.
-    pub fn set<F: Field>(
+    pub fn set<F: SingleColumnField>(
         self,
         _field: FieldProxy<F, M>,
-        value: impl IntoSingleValue<'rf, <F as Field>::DbType, Condition = Value<'rf>>,
+        value: F::Type,
     ) -> UpdateBuilder<'rf, E, M, Vec<(&'static str, Value<'rf>)>, C> {
         #[rustfmt::skip]
         let UpdateBuilder { executor, _phantom, condition, .. } = self;
         #[rustfmt::skip]
-        return UpdateBuilder { executor, columns: vec![(F::NAME, value.into_condition())], _phantom, condition, };
+        return UpdateBuilder { executor, columns: vec![(F::NAME, F::type_into_value(value))], _phantom, condition, };
     }
 }
 
@@ -172,13 +168,9 @@ where
     /// Add a column to update.
     ///
     /// Can be called multiple times.
-    pub fn set<F: Field>(
-        self,
-        _field: FieldProxy<F, M>,
-        value: impl IntoSingleValue<'rf, <F as Field>::DbType, Condition = Value<'rf>>,
-    ) -> Self {
+    pub fn set<F: SingleColumnField>(self, _field: FieldProxy<F, M>, value: F::Type) -> Self {
         let mut builder = self;
-        builder.columns.push((F::NAME, value.into_condition()));
+        builder.columns.push((F::NAME, F::type_into_value(value)));
         builder
     }
 }
