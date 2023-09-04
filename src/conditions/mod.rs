@@ -133,9 +133,14 @@ impl<'a, A: FieldAccess> Condition<'a> for Column<A> {
 /// A binary expression
 #[derive(Copy, Clone)]
 pub struct Binary<A, B> {
-    pub(crate) operator: BinaryOperator,
-    pub(crate) fst_arg: A,
-    pub(crate) snd_arg: B,
+    /// SQL operator to use
+    pub operator: BinaryOperator,
+
+    /// The expression's first argument
+    pub fst_arg: A,
+
+    /// The expression's second argument
+    pub snd_arg: B,
 }
 /// A binary operator
 #[derive(Copy, Clone)]
@@ -189,10 +194,17 @@ impl<'a, A: Condition<'a>, B: Condition<'a>> Condition<'a> for Binary<A, B> {
 /// A ternary expression
 #[derive(Copy, Clone)]
 pub struct Ternary<A, B, C> {
-    pub(crate) operator: TernaryOperator,
-    pub(crate) fst_arg: A,
-    pub(crate) snd_arg: B,
-    pub(crate) trd_arg: C,
+    /// SQL operator to use
+    pub operator: TernaryOperator,
+
+    /// The expression's first argument
+    pub fst_arg: A,
+
+    /// The expression's second argument
+    pub snd_arg: B,
+
+    /// The expression's third argument
+    pub trd_arg: C,
 }
 /// A ternary operator
 #[derive(Copy, Clone)]
@@ -224,8 +236,11 @@ impl<'a, A: Condition<'a>, B: Condition<'a>, C: Condition<'a>> Condition<'a> for
 /// A unary expression
 #[derive(Copy, Clone)]
 pub struct Unary<A> {
-    pub(crate) operator: UnaryOperator,
-    pub(crate) fst_arg: A,
+    /// SQL operator to use
+    pub operator: UnaryOperator,
+
+    /// The expression's first argument
+    pub fst_arg: A,
 }
 /// A unary operator
 #[derive(Copy, Clone)]

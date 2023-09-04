@@ -13,7 +13,7 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
                 #(stringify!(#variants)),*
             ];
 
-            impl ::rorm::internal::field::FieldType for #ident {
+            impl ::rorm::fields::traits::FieldType for #ident {
                 type Kind = ::rorm::internal::field::kind::AsDbType;
 
                 type Columns<T> = [T; 1];
@@ -67,15 +67,25 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
                     }
                 }
             }
-            impl<'a> ::rorm::conditions::IntoSingleValue<'a, ::rorm::internal::hmr::db_type::Choices> for #ident {
-                type Condition = ::rorm::conditions::Value<'a>;
+            impl<'rhs> ::rorm::fields::traits::FieldEq<'rhs, #ident> for #ident {
+                type EqCond<A: ::rorm::FieldAccess> = ::rorm::conditions::Binary<::rorm::conditions::Column<A>, ::rorm::conditions::Value<'rhs>>;
+                fn field_equals<A: ::rorm::FieldAccess>(access: A, value: #ident) -> Self::EqCond<A> {
+                    let [value] = <#ident as ::rorm::fields::traits::FieldType>::into_values(value);
+                    ::rorm::conditions::Binary {
+                        operator: ::rorm::conditions::BinaryOperator::Equals,
+                        fst_arg: ::rorm::conditions::Column(access),
+                        snd_arg: value,
+                    }
+                }
 
-                fn into_condition(self) -> Self::Condition {
-                    ::rorm::conditions::Value::Choice(::std::borrow::Cow::Borrowed(match self {
-                        #(
-                            Self::#variants => stringify!(#variants),
-                        )*
-                    }))
+                type NeCond<A: ::rorm::FieldAccess> = ::rorm::conditions::Binary<::rorm::conditions::Column<A>, ::rorm::conditions::Value<'rhs>>;
+                fn field_not_equals<A: ::rorm::FieldAccess>(access: A, value: #ident) -> Self::NeCond<A> {
+                    let [value] = <#ident as ::rorm::fields::traits::FieldType>::into_values(value);
+                    ::rorm::conditions::Binary {
+                        operator: ::rorm::conditions::BinaryOperator::NotEquals,
+                        fst_arg: ::rorm::conditions::Column(access),
+                        snd_arg: value,
+                    }
                 }
             }
         };
