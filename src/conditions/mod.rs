@@ -4,7 +4,7 @@
 
 use std::borrow::Cow;
 
-use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+// use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use rorm_db::sql::{conditional, value};
 
 use crate::internal::field::RawField;
@@ -79,11 +79,29 @@ pub enum Value<'a> {
     /// binary representation
     Binary(Cow<'a, [u8]>),
     /// Naive Time representation
-    NaiveTime(NaiveTime),
+    #[cfg(feature = "chrono")]
+    ChronoNaiveTime(chrono::NaiveTime),
     /// Naive Date representation
-    NaiveDate(NaiveDate),
+    #[cfg(feature = "chrono")]
+    ChronoNaiveDate(chrono::NaiveDate),
     /// Naive DateTime representation
-    NaiveDateTime(NaiveDateTime),
+    #[cfg(feature = "chrono")]
+    ChronoNaiveDateTime(chrono::NaiveDateTime),
+    /// DateTime representation
+    #[cfg(feature = "chrono")]
+    ChronoDateTime(chrono::DateTime<chrono::Utc>),
+    /// time's date representation
+    #[cfg(feature = "time")]
+    TimeDate(time::Date),
+    /// time's time representation
+    #[cfg(feature = "time")]
+    TimeTime(time::Time),
+    /// time's offset datetime representation
+    #[cfg(feature = "time")]
+    TimeOffsetDateTime(time::OffsetDateTime),
+    /// time's primitive datetime representation
+    #[cfg(feature = "time")]
+    TimePrimitiveDateTime(time::PrimitiveDateTime),
 }
 impl<'a> Value<'a> {
     /// Convert into an [`sql::Value`](value::Value) instead of an [`sql::Condition`](conditional::Condition) directly.
@@ -99,9 +117,22 @@ impl<'a> Value<'a> {
             Value::F64(v) => value::Value::F64(*v),
             Value::F32(v) => value::Value::F32(*v),
             Value::Binary(v) => value::Value::Binary(v.as_ref()),
-            Value::NaiveTime(v) => value::Value::ChronoNaiveTime(*v),
-            Value::NaiveDate(v) => value::Value::ChronoNaiveDate(*v),
-            Value::NaiveDateTime(v) => value::Value::ChronoNaiveDateTime(*v),
+            #[cfg(feature = "chrono")]
+            Value::ChronoNaiveTime(v) => value::Value::ChronoNaiveTime(*v),
+            #[cfg(feature = "chrono")]
+            Value::ChronoNaiveDate(v) => value::Value::ChronoNaiveDate(*v),
+            #[cfg(feature = "chrono")]
+            Value::ChronoNaiveDateTime(v) => value::Value::ChronoNaiveDateTime(*v),
+            #[cfg(feature = "chrono")]
+            Value::ChronoDateTime(v) => value::Value::ChronoDateTime(*v),
+            #[cfg(feature = "time")]
+            Value::TimeDate(v) => value::Value::TimeDate(*v),
+            #[cfg(feature = "time")]
+            Value::TimeTime(v) => value::Value::TimeTime(*v),
+            #[cfg(feature = "time")]
+            Value::TimeOffsetDateTime(v) => value::Value::TimeOffsetDateTime(*v),
+            #[cfg(feature = "time")]
+            Value::TimePrimitiveDateTime(v) => value::Value::TimePrimitiveDateTime(*v),
         }
     }
 }

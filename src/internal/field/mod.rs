@@ -82,7 +82,6 @@ use crate::{const_panic, sealed};
 
 pub mod access;
 pub mod as_db_type;
-pub mod datetime;
 pub mod decoder;
 pub mod foreign_model;
 

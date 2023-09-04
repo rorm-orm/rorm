@@ -42,7 +42,8 @@ uuid = { version = "~1", optional = true }
 linkme = { version = "~0.3" }
 
 # Time and date library
-chrono = { version = ">=0.4.20", default-features = false }
+chrono = { version = ">=0.4.20", default-features = false, optional = true }
+time = { version = "~0.3", optional = true }
 
 # Allow wrapping futures and streams
 pin-project = { version = "~1" }

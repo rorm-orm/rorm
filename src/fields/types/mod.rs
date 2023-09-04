@@ -3,10 +3,14 @@
 //! See [`rorm::fields`](crate::fields) for full list of supported field types
 
 mod back_ref;
+#[cfg(feature = "chrono")]
+mod chrono;
 mod foreign_model;
 mod json;
 #[cfg(feature = "msgpack")]
 mod msgpack;
+#[cfg(feature = "time")]
+mod time;
 #[cfg(feature = "uuid")]
 mod uuid;
 

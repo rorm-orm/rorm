@@ -2,16 +2,13 @@
 
 use std::borrow::Cow;
 
-use chrono::{TimeZone, Utc};
 use rorm_db::row::DecodeOwned;
 
 use crate::conditions::Value;
-use crate::crud::decoder::DirectDecoder;
 use crate::internal::field::{kind, FieldType};
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type;
 use crate::internal::hmr::db_type::DbType;
-use crate::new_converting_decoder;
 
 /// This trait maps rust types to database types
 ///
@@ -33,34 +30,43 @@ pub trait AsDbType: FieldType<Kind = kind::AsDbType> + Sized {
     fn from_primitive(primitive: Self::Primitive) -> Self;
 }
 
-#[doc(hidden)]
+/// Provides the "default" implementation of [`AsDbType`] and [`FieldType`] of kind `AsDbType`.
+///
+/// ## Usages
+/// - `impl_as_db_type!(RustType, DbType, into_value, as_value);`
+///     - `RustType` is the type to implement the traits on.
+///     - `DbType` is the database type to associate with (must implement [`DbType`]).
+///     - `into_value` is used to convert `RustType` into a [`Value<'static>`] (must implement `Fn(RustType) -> Value<'static>`).
+///     - `as_value` is used to convert `&'a RustType` into a [`Value<'a>`] (must implement `Fn(&'_ RustType) -> Value<'_>`).
+///       If `RustType` implements `Copy`, `as_value` can be omitted and will use `into_value` instead.
+#[allow(non_snake_case)]
 #[macro_export]
-macro_rules! impl_option_as_db_type {
-    ($type:ty, $decoder:ty) => {
-        impl FieldType for Option<$type> {
-            type Kind = kind::AsDbType;
+macro_rules! impl_AsDbType {
+    (Option<$type:ty>, $decoder:ty) => {
+        impl $crate::fields::traits::FieldType for Option<$type> {
+            type Kind = $crate::internal::field::kind::AsDbType;
             type Columns<T> = [T; 1];
 
-            fn into_values(self) -> Self::Columns<Value<'static>> {
+            fn into_values(self) -> Self::Columns<$crate::conditions::Value<'static>> {
                 self.map(<$type>::into_values)
-                    .unwrap_or([Value::Null(<<$type as AsDbType>::DbType as $crate::internal::hmr::db_type::DbType>::NULL_TYPE)])
+                    .unwrap_or([Value::Null(<<$type as $crate::internal::field::as_db_type::AsDbType>::DbType as $crate::internal::hmr::db_type::DbType>::NULL_TYPE)])
             }
 
-            fn as_values(&self) -> Self::Columns<Value<'_>> {
+            fn as_values(&self) -> Self::Columns<$crate::conditions::Value<'_>> {
                 self.as_ref()
                     .map(<$type>::as_values)
-                    .unwrap_or([Value::Null(<<$type as AsDbType>::DbType as $crate::internal::hmr::db_type::DbType>::NULL_TYPE)])
+                    .unwrap_or([Value::Null(<<$type as $crate::internal::field::as_db_type::AsDbType>::DbType as $crate::internal::hmr::db_type::DbType>::NULL_TYPE)])
             }
 
             type Decoder = $decoder;
         }
 
-        impl AsDbType for Option<$type> {
-            type Primitive = Option<<$type as AsDbType>::Primitive>;
-            type DbType = <$type as AsDbType>::DbType;
+        impl $crate::internal::field::as_db_type::AsDbType for Option<$type> {
+            type Primitive = Option<<$type as $crate::internal::field::as_db_type::AsDbType>::Primitive>;
+            type DbType = <$type as $crate::internal::field::as_db_type::AsDbType>::DbType;
 
             const IMPLICIT: Option<$crate::internal::hmr::annotations::Annotations> = {
-                let mut annos = if let Some(annos) = <$type as AsDbType>::IMPLICIT {
+                let mut annos = if let Some(annos) = <$type as $crate::internal::field::as_db_type::AsDbType>::IMPLICIT {
                     annos
                 } else {
                     $crate::internal::hmr::annotations::Annotations::empty()
@@ -70,26 +76,34 @@ macro_rules! impl_option_as_db_type {
             };
 
             fn from_primitive(primitive: Self::Primitive) -> Self {
-                primitive.map(<$type as AsDbType>::from_primitive)
+                primitive.map(<$type as $crate::internal::field::as_db_type::AsDbType>::from_primitive)
             }
         }
     };
-}
-macro_rules! impl_as_db_type {
-    ($type:ty, $db_type:ident, $value_variant:ident $(using $method:ident)?) => {
-        impl FieldType for $type {
-            type Kind = kind::AsDbType;
+    ($type:ty, $db_type:ty, $into_value:expr) => {
+        impl_AsDbType!($type, $db_type, $into_value, |&value| $into_value(value));
+    };
+    ($type:ty, $db_type:ty, $into_value:expr, $as_value:expr) => {
+        impl $crate::fields::traits::FieldType for $type {
+            type Kind = $crate::internal::field::kind::AsDbType;
             type Columns<T> = [T; 1];
 
-            impl_as_db_type!(impl_as_primitive, $type, $db_type, $value_variant $(using $method)?);
+            #[inline(always)]
+            fn as_values(&self) -> Self::Columns<$crate::conditions::Value<'_>> {
+                [$as_value(self)]
+            }
 
-            type Decoder = DirectDecoder<Self>;
+            fn into_values(self) -> Self::Columns<$crate::conditions::Value<'static>> {
+                [$into_value(self)]
+            }
+
+            type Decoder = $crate::crud::decoder::DirectDecoder<Self>;
         }
 
-        impl AsDbType for $type {
+        impl $crate::internal::field::as_db_type::AsDbType for $type {
             type Primitive = Self;
 
-            type DbType = db_type::$db_type;
+            type DbType = $db_type;
 
             #[inline(always)]
             fn from_primitive(primitive: Self::Primitive) -> Self {
@@ -97,76 +111,24 @@ macro_rules! impl_as_db_type {
             }
         }
 
-        impl_option_as_db_type!($type, DirectDecoder<Self>);
-    };
-    (impl_as_primitive, $type:ty, $db_type:ident, $value_variant:ident) => {
-        #[inline(always)]
-        fn as_values(&self) -> Self::Columns<Value<'_>> {
-            [Value::$value_variant(*self)]
-        }
-
-        #[inline(always)]
-        fn into_values(self) -> Self::Columns<Value<'static>> {
-            [Value::$value_variant(self)]
-        }
-    };
-    (impl_as_primitive, $type:ty, $db_type:ident, $value_variant:ident using $method:ident) => {
-        #[inline(always)]
-        fn as_values(&self) -> Self::Columns<Value<'_>> {
-            [Value::$value_variant(Cow::Borrowed(self.$method()))]
-        }
-
-        #[inline(always)]
-        fn into_values(self) -> Self::Columns<Value<'static>> {
-            [Value::$value_variant(Cow::Owned(self))]
-        }
+        impl_AsDbType!(Option<$type>, $crate::crud::decoder::DirectDecoder<Self>);
     };
 }
-impl_as_db_type!(chrono::NaiveTime, Time, NaiveTime);
-impl_as_db_type!(chrono::NaiveDateTime, DateTime, NaiveDateTime);
-impl_as_db_type!(chrono::NaiveDate, Date, NaiveDate);
-impl_as_db_type!(i16, Int16, I16);
-impl_as_db_type!(i32, Int32, I32);
-impl_as_db_type!(i64, Int64, I64);
-impl_as_db_type!(f32, Float, F32);
-impl_as_db_type!(f64, Double, F64);
-impl_as_db_type!(bool, Boolean, Bool);
-impl_as_db_type!(Vec<u8>, VarBinary, Binary using as_slice);
-impl_as_db_type!(String, VarChar, String using as_str);
-
-new_converting_decoder!(
-    /// [`FieldDecoder`](crate::internal::field::decoder::FieldDecoder) for [`chrono::DateTime<Utc>`]
-    UtcDateTimeDecoder,
-    |value: chrono::NaiveDateTime| -> chrono::DateTime<Utc> { Ok(Utc.from_utc_datetime(&value)) }
+impl_AsDbType!(i16, db_type::Int16, Value::I16);
+impl_AsDbType!(i32, db_type::Int32, Value::I32);
+impl_AsDbType!(i64, db_type::Int64, Value::I64);
+impl_AsDbType!(f32, db_type::Float, Value::F32);
+impl_AsDbType!(f64, db_type::Double, Value::F64);
+impl_AsDbType!(bool, db_type::Boolean, Value::Bool);
+impl_AsDbType!(
+    Vec<u8>,
+    db_type::VarBinary,
+    |b| Value::Binary(Cow::Owned(b)),
+    |b| { Value::Binary(Cow::Borrowed(b)) }
 );
-impl FieldType for chrono::DateTime<Utc> {
-    type Kind = kind::AsDbType;
-
-    type Columns<T> = [T; 1];
-
-    fn into_values(self) -> Self::Columns<Value<'static>> {
-        [Value::NaiveDateTime(self.naive_utc())]
-    }
-
-    fn as_values(&self) -> Self::Columns<Value<'_>> {
-        [Value::NaiveDateTime(self.naive_utc())]
-    }
-
-    type Decoder = UtcDateTimeDecoder;
-}
-impl AsDbType for chrono::DateTime<Utc> {
-    type Primitive = chrono::NaiveDateTime;
-    type DbType = db_type::DateTime;
-
-    fn from_primitive(primitive: Self::Primitive) -> Self {
-        Utc.from_utc_datetime(&primitive)
-    }
-}
-new_converting_decoder!(
-    /// [`FieldDecoder`](crate::internal::field::decoder::FieldDecoder) for [`Option<chrono::DateTime<Utc>>`](chrono::DateTime)
-    OptionUtcDateTimeDecoder,
-    |value: Option<chrono::NaiveDateTime>| -> Option<chrono::DateTime<Utc>> {
-        Ok(value.map(|value| Utc.from_utc_datetime(&value)))
-    }
+impl_AsDbType!(
+    String,
+    db_type::VarChar,
+    |s| Value::String(Cow::Owned(s)),
+    |s| { Value::String(Cow::Borrowed(s)) }
 );
-impl_option_as_db_type!(chrono::DateTime<Utc>, OptionUtcDateTimeDecoder);

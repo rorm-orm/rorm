@@ -8,7 +8,7 @@ use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::kind;
 use crate::internal::hmr::db_type;
 use crate::Error::DecodeError;
-use crate::{impl_option_as_db_type, new_converting_decoder};
+use crate::{impl_AsDbType, new_converting_decoder};
 
 new_converting_decoder!(UuidDecoder, |value: Vec<u8>| -> Uuid {
     Uuid::from_slice(&value).map_err(|err| DecodeError(format!("Couldn't decode uuid: {err}")))
@@ -48,4 +48,4 @@ new_converting_decoder!(
             .transpose()
     }
 );
-impl_option_as_db_type!(Uuid, OptionUuidDecoder);
+impl_AsDbType!(Option<Uuid>, OptionUuidDecoder);
