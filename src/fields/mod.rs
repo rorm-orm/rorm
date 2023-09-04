@@ -17,15 +17,21 @@
 //! - [`Json<T>`](types::Json)
 //! - [`MsgPack<T>`](types::MsgPack) (requires the "msgpack" feature)
 //!
-//! # chrono types
+//! # chrono types (requires the "chrono" feature)
 //! - [`NaiveDateTime`](chrono::NaiveDateTime)
 //! - [`NaiveTime`](chrono::NaiveTime)
 //! - [`NaiveDate`](chrono::NaiveDate)
 //! - [`DateTime<Utc>`](chrono::DateTime)
 //! - [`DateTime<FixedOffset>`](chrono::DateTime) **WIP** (todo annotations)
 //!
-//! # uuid types
-//! - [`Uuid`](::uuid::Uuid) (requires the "uuid" feature)
+//! # time types (requires the "time" feature)
+//! - [`PrimitiveDateTime`](time::PrimitiveDateTime)
+//! - [`Time`](time::Time)
+//! - [`Date`](time::Date)
+//! - [`OffsetDateTime<Utc>`](time::OffsetDateTime)
+//!
+//! # uuid types (requires the "uuid" feature)
+//! - [`Uuid`](uuid::Uuid)
 //!
 //! ---
 //!

@@ -66,6 +66,7 @@ default = [
 	"rorm-db/all-driver",
 	"chrono",
 	"time",
+	"uuid",
 ]
 
 msgpack = ["rmp-serde"]

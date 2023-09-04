@@ -102,6 +102,9 @@ pub enum Value<'a> {
     /// time's primitive datetime representation
     #[cfg(feature = "time")]
     TimePrimitiveDateTime(time::PrimitiveDateTime),
+    /// Uuid representation
+    #[cfg(feature = "uuid")]
+    Uuid(uuid::Uuid),
 }
 impl<'a> Value<'a> {
     /// Convert into an [`sql::Value`](value::Value) instead of an [`sql::Condition`](conditional::Condition) directly.
@@ -133,6 +136,8 @@ impl<'a> Value<'a> {
             Value::TimeOffsetDateTime(v) => value::Value::TimeOffsetDateTime(*v),
             #[cfg(feature = "time")]
             Value::TimePrimitiveDateTime(v) => value::Value::TimePrimitiveDateTime(*v),
+            #[cfg(feature = "uuid")]
+            Value::Uuid(v) => value::Value::Uuid(*v),
         }
     }
 }
