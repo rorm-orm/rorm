@@ -91,7 +91,7 @@ where
 ///
 /// # Usage
 /// ```no_run
-/// # use rorm::{Model, Patch, Database, delete};
+/// # use rorm::{Model, Patch, Database, delete, FieldAccess};
 /// # #[derive(Model)] pub struct User { #[rorm(id)] id: i64, age: i32, }
 /// # #[derive(Patch)] #[rorm(model = "User")] pub struct UserPatch { id: i64, }
 /// pub async fn delete_single_user(db: &Database, user: &UserPatch) {
@@ -108,7 +108,7 @@ where
 /// }
 /// pub async fn delete_underage(db: &Database) {
 ///     let num_deleted: u64 = delete!(db, User)
-///         .condition(User::F.age.less(18))
+///         .condition(User::F.age.le(18))
 ///         .await
 ///         .unwrap();
 /// }

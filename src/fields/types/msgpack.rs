@@ -21,7 +21,7 @@ use crate::new_converting_decoder;
 /// ```no_run
 /// # use std::collections::HashMap;
 /// use rorm::Model;
-/// use rorm::fields::MsgPack;
+/// use rorm::fields::types::MsgPack;
 ///
 /// #[derive(Model)]
 /// pub struct Session {

@@ -58,12 +58,13 @@ pub fn partially_generate_patch<'a>(
     let [fields_1, fields_2, fields_3, fields_4, fields_5, fields_6, fields_7] =
         array::from_fn(|_| fields.clone());
     quote! {
-        use ::rorm::internal::field::{AbstractField, FieldType};
+        use ::rorm::internal::field::AbstractField;
         use ::rorm::internal::field::decoder::FieldDecoder;
+        use ::rorm::fields::traits::FieldType;
 
         #vis struct #decoder {
             #(
-                #fields_1: <#types as ::rorm::internal::field::FieldType>::Decoder,
+                #fields_1: <#types as ::rorm::fields::traits::FieldType>::Decoder,
             )*
         }
         impl ::rorm::crud::decoder::Decoder for #decoder {

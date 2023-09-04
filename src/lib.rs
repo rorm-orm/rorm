@@ -43,6 +43,8 @@
 ))]
 compile_error!("Using multiple runtime / tls configurations at the same time is not allowed");
 
+/// Re-export
+pub use internal::field::access::FieldAccess;
 /// Expose linkme to be used by the [`Model`](rorm_macro::Model) macro
 #[doc(hidden)]
 pub use linkme;

@@ -352,7 +352,7 @@ where
 ///
 /// Example:
 /// ```no_run
-/// # use rorm::{Model, Database, query};
+/// # use rorm::{Model, Database, query, FieldAccess};
 /// #
 /// # #[derive(Model)]
 /// # struct User {
@@ -373,7 +373,7 @@ where
 ///     for (id, password) in query!(db, (User::F.id, User::F.password)).all().await.unwrap() {
 ///         if password == "password" {
 ///             let user = query!(db, User)
-///                 .condition(User::F.id.equals(id))
+///                 .condition(User::F.id.eq(id))
 ///                 .one()
 ///                 .await
 ///                 .unwrap();

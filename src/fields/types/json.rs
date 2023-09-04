@@ -21,7 +21,7 @@ use crate::Error::DecodeError;
 /// ```no_run
 /// # use std::collections::HashMap;
 /// use rorm::Model;
-/// use rorm::fields::Json;
+/// use rorm::fields::types::Json;
 ///
 /// #[derive(Model)]
 /// pub struct Session {

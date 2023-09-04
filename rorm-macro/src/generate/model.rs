@@ -150,7 +150,7 @@ fn generate_fields(model: &AnalyzedModel) -> TokenStream {
             }
             impl ::std::marker::Copy for #unit {}
             impl ::rorm::internal::field::RawField for #unit {
-                type Kind = <#ty as ::rorm::internal::field::FieldType>::Kind;
+                type Kind = <#ty as ::rorm::fields::traits::FieldType>::Kind;
                 type Type = #ty;
                 type Model = #model_ident;
                 const INDEX: usize = #index;
