@@ -14,25 +14,28 @@ macro_rules! FieldType {
 /// Trait only implemented by [`FieldProxy`] to reduce the amount of generics when using them.
 ///
 /// ## Why
-/// ```no-run
+/// ```no_run
+/// # use rorm::internal::field::{FieldProxy, RawField, access::FieldAccess};
+/// # use rorm::internal::relation_path::Path;
+///
 /// // function using FieldProxy
-/// fn do_something<F, P>(proxy: FieldProxy<F, P>) {...}
+/// fn do_something<F, P>(proxy: FieldProxy<F, P>) {/* ... */}
 ///
 /// // but in order to do useful things with the proxy, you will need bounds:
-/// fn do_useful<F: RawField, P: Path>(proxy: FieldProxy<F, P>) {...}
+/// fn do_useful<F: RawField, P: Path>(proxy: FieldProxy<F, P>) {/* ... */}
 ///
 /// // function using FieldAccess
-/// fn do_something<A: FieldAccess>(proxy: A) {...}
+/// fn do_something_else<A: FieldAccess>(proxy: A) {/* ... */}
 ///
 /// // the above already covers the useful part, but depending on your usage you could also use the `impl` sugar:
-/// fn do_sugared(proxy: FieldAccess) {...}
+/// fn do_sugared(proxy: impl FieldAccess) {/* ... */}
 /// ```
 ///
 /// ## Comparison operations
-/// This trait also adds methods for comparing fields which just wrap their underlying [comparison traits](crate::fields::traits::cmp).
-/// ```no-run
+/// This trait also adds methods for comparing fields which just wrap their underlying [comparison traits](crate::fields::traits).
+/// ```no_run
 /// use rorm::Model;
-/// use rorm::internal::field::FieldAccess;
+/// use rorm::internal::field::access::FieldAccess;
 ///
 /// #[derive(Model)]
 /// struct User {

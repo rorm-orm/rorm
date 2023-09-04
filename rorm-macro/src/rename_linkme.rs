@@ -90,6 +90,6 @@ pub fn rename_path(path: &mut syn::Path) {
         arguments: syn::PathArguments::None,
     }]
     .into_iter()
-    .chain(segments.into_iter())
+    .chain(segments)
     .collect();
 }

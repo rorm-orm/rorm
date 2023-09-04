@@ -17,7 +17,7 @@ use rorm_db::{Error, Row};
 ///
 /// These concerns are delegated to further sub-traits, namely:
 /// - [`Selector`](super::selector::Selector) which constructs a [`Decoder`] and configures the [`QueryContext`](crate::internal::query_context::QueryContext) appropriately
-/// - [`FieldDecoder`](crate::internal::field::decoder::FieldDecoder) which decodes and is associated to single fields through [`FieldType::Decoder`](crate::internal::field::FieldType::Decoder)
+/// - [`FieldDecoder`](crate::internal::field::decoder::FieldDecoder) which decodes and is associated to single fields through [`FieldType::Decoder`](crate::fields::traits::FieldType::Decoder)
 pub trait Decoder {
     /// The value decoded from a row
     type Result;

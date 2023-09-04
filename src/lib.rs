@@ -124,7 +124,7 @@ macro_rules! get_field {
 
 /// Get the type for a model's field
 ///
-/// Use this macro for generic parameter in [`ForeignModelByField`](fields::ForeignModelByField) and [`BackRef`](fields::BackRef).
+/// Use this macro for generic parameter in [`ForeignModelByField`](fields::types::ForeignModelByField) and [`BackRef`](fields::types::BackRef).
 #[macro_export]
 macro_rules! field {
     ($model:ident::F.$field:ident) => {

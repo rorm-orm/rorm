@@ -251,7 +251,7 @@ where
 struct FakeFieldType<T, F>(PhantomData<(T, F)>);
 impl<T, F> Clone for FakeFieldType<T, F> {
     fn clone(&self) -> Self {
-        Self(PhantomData)
+        *self
     }
 }
 impl<T, F> Copy for FakeFieldType<T, F> {}

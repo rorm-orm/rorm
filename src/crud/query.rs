@@ -32,7 +32,7 @@ use crate::sealed;
 ///
 ///     The executor to query with.
 ///
-/// - `S`: [`Selectable`]
+/// - `S`: [`Selector`]
 ///
 ///     The columns to be selected and a type to convert the rows into.
 ///

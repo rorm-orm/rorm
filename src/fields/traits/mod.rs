@@ -8,7 +8,7 @@ use crate::internal::field::FieldKind;
 mod cmp;
 pub use cmp::*;
 
-/// The type of field allowed on models
+/// Base trait for types which are allowed as fields in models
 pub trait FieldType {
     /// The kind of field this type declares
     type Kind: FieldKind;

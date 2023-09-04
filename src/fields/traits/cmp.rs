@@ -107,6 +107,7 @@ macro_rules! impl_FieldEq {
                 Binary {
                     operator: BinaryOperator::Equals,
                     fst_arg: Column(access),
+                    #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
                     snd_arg: $into_value(value),
                 }
             }
@@ -116,6 +117,7 @@ macro_rules! impl_FieldEq {
                 Binary {
                     operator: BinaryOperator::NotEquals,
                     fst_arg: Column(access),
+                    #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
                     snd_arg: $into_value(value),
                 }
             }

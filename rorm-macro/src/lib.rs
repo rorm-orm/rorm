@@ -93,8 +93,12 @@ pub fn impl_tuple(args: TokenStream) -> TokenStream {
     // handwritten without dependencies just for fun
     use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenTree as TT};
 
-    let args = Vec::from_iter(args.into_iter());
-    let [TT::Ident(macro_ident), TT::Punct(comma), TT::Literal(start), TT::Punct(fst_dot), TT::Punct(snd_dot), TT::Literal(end)] = &args[..] else {panic!()};
+    let args = Vec::from_iter(args);
+    let [TT::Ident(macro_ident), TT::Punct(comma), TT::Literal(start), TT::Punct(fst_dot), TT::Punct(snd_dot), TT::Literal(end)] =
+        &args[..]
+    else {
+        panic!()
+    };
     if *comma != ','
         || *fst_dot != '.'
         || *snd_dot != '.' && matches!(fst_dot.spacing(), Spacing::Alone)
