@@ -63,7 +63,9 @@ features = ["msgpack", "uuid", "cli"]
 
 [features]
 default = [
-	"rorm-db/all-driver"
+	"rorm-db/all-driver",
+	"chrono",
+	"time",
 ]
 
 msgpack = ["rmp-serde"]

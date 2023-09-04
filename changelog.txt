@@ -7,6 +7,9 @@ Since 0.5.1
 - sealed traits are actually sealed now
 - removed ouroboros from dependencies
 - added `get_or_query` and `take_or_query` helper functions for `BackRef`
+- updated `sqlx` to v0.7
+- replaced `IntoSingleValue` with `FieldEq` and others
+- added support for `time`
 
 Notes for publishing
 --------------------
