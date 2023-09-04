@@ -52,7 +52,7 @@ rorm-macro = { version = "0.6.0", path = "./rorm-macro" }
 rorm-declaration = { version = "~0.3", path = "./rorm-declaration" }
 
 # rorm-cli exposes interfaces to integrate the cli as library
-rorm-cli = { version = ">=0.7.3", default-features = false, optional = true }
+rorm-cli = { version = ">=0.7.3", path = "./rorm-cli", default-features = false, optional = true }
 
 [build-dependencies]
 rustc_version = "0.4.0"
@@ -73,14 +73,9 @@ sqlite = ["rorm-db/sqlite"]
 mysql = ["rorm-db/mysql"]
 postgres = ["rorm-db/postgres"]
 
-tokio-rustls = ["rorm-db/tokio-rustls"]
-tokio-native-tls = ["rorm-db/tokio-native-tls"]
+tokio = ["rorm-db/tokio"]
 
-async-std-rustls = ["rorm-db/async-std-rustls"]
-async-std-native-tls = ["rorm-db/async-std-native-tls"]
-
-actix-rustls = ["rorm-db/actix-rustls"]
-actix-native-tls = ["rorm-db/actix-native-tls"]
+async-std = ["rorm-db/async-std"]
 
 [profile.release-lto]
 inherits = "release"
