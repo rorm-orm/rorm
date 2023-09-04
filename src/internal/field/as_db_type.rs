@@ -39,6 +39,7 @@ pub trait AsDbType: FieldType<Kind = kind::AsDbType> + Sized {
 ///     - `into_value` is used to convert `RustType` into a [`Value<'static>`] (must implement `Fn(RustType) -> Value<'static>`).
 ///     - `as_value` is used to convert `&'a RustType` into a [`Value<'a>`] (must implement `Fn(&'_ RustType) -> Value<'_>`).
 ///       If `RustType` implements `Copy`, `as_value` can be omitted and will use `into_value` instead.
+#[doc(hidden)]
 #[allow(non_snake_case)]
 #[macro_export]
 macro_rules! impl_AsDbType {

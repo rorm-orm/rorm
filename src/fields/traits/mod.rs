@@ -5,7 +5,7 @@ use crate::internal::array_utils::Array;
 use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::FieldKind;
 
-mod cmp;
+pub mod cmp;
 pub use cmp::*;
 
 /// Base trait for types which are allowed as fields in models

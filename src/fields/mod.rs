@@ -1,4 +1,4 @@
-//! All types valid as model fields
+//! All types valid as model fields and traits to make them valid.
 //!
 //! # Std types
 //! - [`bool`]

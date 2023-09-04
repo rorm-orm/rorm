@@ -43,24 +43,25 @@
 ))]
 compile_error!("Using multiple runtime / tls configurations at the same time is not allowed");
 
-/// Re-export
-pub use internal::field::access::FieldAccess;
-/// Expose linkme to be used by the [`Model`](rorm_macro::Model) macro
-#[doc(hidden)]
-pub use linkme;
-/// Re-export
-pub use model::{Model, Patch};
+pub use crate::internal::field::access::FieldAccess;
+pub use crate::model::{Model, Patch};
+pub use rorm_db::{Database, DatabaseConfiguration, Error, Row};
+
 /// Re-export of [rorm-cli](rorm_cli)
 #[cfg(feature = "cli")]
 pub mod cli {
     pub use rorm_cli::*;
 }
-/// Re-export [rorm-db](rorm_db)
-pub use rorm_db::*;
-pub use rorm_db::{Database, DatabaseConfiguration};
+/// Re-export of [rorm-db](rorm_db)
+pub mod db {
+    pub use rorm_db::*;
+}
 /// Re-exported for use in parser structs of user
 pub use rorm_declaration::config;
-/// Re-export to be used by [macros](rorm_macro)
+
+#[doc(hidden)] // used by macros
+pub use linkme;
+#[doc(hidden)] // used by macros
 pub use rorm_declaration::imr;
 
 pub mod aggregate;
