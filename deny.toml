@@ -1,4 +1,4 @@
-features = ["tokio-rustls", "tokio-native-tls", "actix-rustls", "actix-native-tls", "async-std-rustls", "async-std-native-tls", "uuid", "msgpack", "cli"]
+features = ["default", "tokio", "async-std", "msgpack", "rustls", "native-tls"]
 
 [advisories]
 # The path where the advisory database is cloned/fetched into
@@ -10,10 +10,7 @@ vulnerability = "deny"
 unmaintained = "warn"
 yanked = "warn"
 notice = "warn"
-ignore = [
-    # Waiting on sqlx release
-    "RUSTSEC-2022-0090"
-]
+ignore = []
 
 [licenses]
 
