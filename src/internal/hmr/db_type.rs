@@ -51,8 +51,8 @@ impl_db_types!(
     VarChar,
     String,
     requires[AnnotationIndex::MaxLength],
-    /// Type level version of [`imr::DbType::VarBinary`]
-    VarBinary,
+    /// Type level version of [`imr::DbType::Binary`]
+    Binary,
     Binary,
     /// Type level version of [`imr::DbType::Int16`]
     Int16,
@@ -87,4 +87,7 @@ impl_db_types!(
     /// Type level version of [`imr::DbType::Choices`]
     Choices,
     Choice, // TODO requires choices
+    /// Uuid representation
+    Uuid,
+    Uuid,
 );

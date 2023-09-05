@@ -123,7 +123,7 @@ impl_AsDbType!(f64, db_type::Double, Value::F64);
 impl_AsDbType!(bool, db_type::Boolean, Value::Bool);
 impl_AsDbType!(
     Vec<u8>,
-    db_type::VarBinary,
+    db_type::Binary,
     |b| Value::Binary(Cow::Owned(b)),
     |b| { Value::Binary(Cow::Borrowed(b)) }
 );

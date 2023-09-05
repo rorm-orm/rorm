@@ -10,7 +10,7 @@ use crate::conditions::Value;
 use crate::fields::traits::FieldType;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::kind;
-use crate::internal::hmr::db_type::{DbType, VarBinary};
+use crate::internal::hmr::db_type::{Binary, DbType};
 use crate::new_converting_decoder;
 use crate::Error::DecodeError;
 
@@ -69,7 +69,7 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Json<T> {
 }
 impl<T: Serialize + DeserializeOwned + 'static> AsDbType for Json<T> {
     type Primitive = Vec<u8>;
-    type DbType = VarBinary;
+    type DbType = Binary;
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         Self(serde_json::from_slice(&primitive).unwrap()) // TODO propagate error?
@@ -94,20 +94,20 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Option<Json<T>> {
 
     fn into_values(self) -> Self::Columns<Value<'static>> {
         self.map(Json::into_values)
-            .unwrap_or([Value::Null(VarBinary::NULL_TYPE)])
+            .unwrap_or([Value::Null(Binary::NULL_TYPE)])
     }
 
     fn as_values(&self) -> Self::Columns<Value<'_>> {
         self.as_ref()
             .map(Json::as_values)
-            .unwrap_or([Value::Null(VarBinary::NULL_TYPE)])
+            .unwrap_or([Value::Null(Binary::NULL_TYPE)])
     }
 
     type Decoder = OptionJsonDecoder<T>;
 }
 impl<T: Serialize + DeserializeOwned + 'static> AsDbType for Option<Json<T>> {
     type Primitive = Option<Vec<u8>>;
-    type DbType = VarBinary;
+    type DbType = Binary;
 
     fn from_primitive(primitive: Self::Primitive) -> Self {
         primitive.map(Json::<T>::from_primitive)
