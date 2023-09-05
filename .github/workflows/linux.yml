@@ -28,22 +28,22 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Install dependencies
-        run: |
-          rustup component add clippy
-          cargo install clippy-sarif sarif-fmt cargo-deny
-
       - name: Build rorm with tokio
         run: cargo build -p rorm -F tokio
 
       - name: Build rorm with async-std
         run: cargo build -p rorm -F async-std
 
-      - name: Run cargo deny check
-        run: cargo deny check --hide-inclusion-graph
-
       - name: Run cargo test
         run: cargo test --all
+
+      - name: Install additional dependencies
+        run: |
+          rustup component add clippy
+          cargo install clippy-sarif sarif-fmt cargo-deny
+
+      - name: Run cargo deny check
+        run: cargo deny check --hide-inclusion-graph
 
       - name: Run rust-clippy
         run: cargo clippy --workspace --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
