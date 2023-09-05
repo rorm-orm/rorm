@@ -103,16 +103,16 @@ pub trait FieldRegexp<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
 
 /// Provides the "default" implementation of [`FieldEq`].
 ///
-/// It takes
-/// - the left hand side type i.e. type to implement on
-/// - the right hand side (use `'rhs` a lifetime if required)
-/// - a closure to convert the right hand side into a [`Value`]
+/// It expects a "usual" impl block
+/// whose body is a closure which converts the `Rhs` into a [`Value`]
 #[doc(hidden)]
 #[allow(non_snake_case)] // makes it clearer that a trait and which trait is meant
 #[macro_export]
 macro_rules! impl_FieldEq {
-    ($lhs:ty, $rhs:ty, $into_value:expr) => {
-        impl<'rhs> $crate::fields::traits::cmp::FieldEq<'rhs, $rhs> for $lhs {
+    (impl<'rhs $(, $($generics:ident),+)?> FieldEq<'rhs, $rhs:ty $(, $any:ty)?> for $lhs:ty $(where $( $bound_left:path : $bound_right:path ,)*)? { $into_value:expr }) => {
+        impl<'rhs $(, $($generics),+)?> $crate::fields::traits::cmp::FieldEq<'rhs, $rhs $(, $any)?> for $lhs
+        $(where $( $bound_left : $bound_right ,)*)?
+        {
             type EqCond<A: $crate::FieldAccess> = $crate::conditions::Binary<$crate::conditions::Column<A>, $crate::conditions::Value<'rhs>>;
             fn field_equals<A: $crate::FieldAccess>(access: A, value: $rhs) -> Self::EqCond<A> {
                 $crate::conditions::Binary {
@@ -136,25 +136,25 @@ macro_rules! impl_FieldEq {
     };
 }
 
-impl_FieldEq!(bool, bool, Value::Bool);
-impl_FieldEq!(i16, i16, Value::I16);
-impl_FieldEq!(i32, i32, Value::I32);
-impl_FieldEq!(i64, i64, Value::I64);
-impl_FieldEq!(f32, f32, Value::F32);
-impl_FieldEq!(f64, f64, Value::F64);
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, bool> for bool { Value::Bool });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, i16> for i16 { Value::I16 });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, i32> for i32 { Value::I32 });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, i64> for i64 { Value::I64 });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, f32> for f32 { Value::F32 });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, f64> for f64 { Value::F64 });
 
-impl_FieldEq!(String, &'rhs str, |s| Value::String(Cow::Borrowed(s)));
-impl_FieldEq!(String, &'rhs String, |s| Value::String(Cow::Borrowed(s)));
-impl_FieldEq!(String, String, |s| Value::String(Cow::Owned(s)));
-impl_FieldEq!(String, Cow<'rhs, str>, Value::String);
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs str> for String { |s| Value::String(Cow::Borrowed(s)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs String> for String { |s| Value::String(Cow::Borrowed(s)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, String> for String { |s| Value::String(Cow::Owned(s)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Cow<'rhs, str>> for String { Value::String });
 
-impl_FieldEq!(Vec<u8>, &'rhs [u8], |b| Value::Binary(Cow::Borrowed(b)));
-impl_FieldEq!(String, &'rhs Vec<u8>, |s| Value::Binary(Cow::Borrowed(s)));
-impl_FieldEq!(Vec<u8>, Vec<u8>, |b| Value::Binary(Cow::Owned(b)));
-impl_FieldEq!(Vec<u8>, Cow<'rhs, [u8]>, Value::Binary);
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs [u8]> for Vec<u8> { |b| Value::Binary(Cow::Borrowed(b)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs Vec<u8>> for Vec<u8> { |b| Value::Binary(Cow::Borrowed(b)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Vec<u8>> for Vec<u8> { |b| Value::Binary(Cow::Owned(b)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Cow<'rhs, [u8]>> for Vec<u8> { Value::Binary });
 
 // Impl FieldEq<FieldProxy> iff FieldEq<Self>
-impl<'rhs, F, P, T> FieldEq<'rhs, FieldProxy<F, P>, Proxy> for T
+impl<'rhs, F, P, T> FieldEq<'rhs, FieldProxy<F, P>> for T
 where
     T: FieldEq<'rhs, T>,
     F: RawField<Type = T> + SingleColumnField,
@@ -251,7 +251,7 @@ impl_FieldOrd!(Vec<u8>, Vec<u8>, |b| Value::Binary(Cow::Owned(b)));
 impl_FieldOrd!(Vec<u8>, Cow<'rhs, [u8]>, Value::Binary);
 
 // Impl FieldOrd<FieldProxy> iff FieldOrd<Self>
-impl<'rhs, F, P, T> FieldOrd<'rhs, FieldProxy<F, P>, Proxy> for T
+impl<'rhs, F, P, T> FieldOrd<'rhs, FieldProxy<F, P>> for T
 where
     T: FieldOrd<'rhs, T>,
     F: RawField<Type = T> + SingleColumnField,
@@ -293,5 +293,3 @@ where
         }
     }
 }
-
-struct Proxy;

@@ -5,9 +5,8 @@ use std::marker::PhantomData;
 use rorm_db::row::DecodeOwned;
 use rorm_db::{Error, Row};
 
-use crate::conditions::{Binary, BinaryOperator, Column, Value};
+use crate::conditions::Value;
 use crate::crud::decoder::Decoder;
-use crate::fields::traits::FieldEq;
 use crate::fields::types::ForeignModelByField;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
@@ -19,7 +18,7 @@ use crate::internal::hmr::Source;
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
 use crate::model::{GetField, Model};
-use crate::{sealed, FieldAccess};
+use crate::{impl_FieldEq, sealed};
 
 impl<FF> FieldType for ForeignModelByField<FF>
 where
@@ -273,57 +272,49 @@ where
     }
 }
 
-impl<'rhs, FF> FieldEq<'rhs, FF::Type> for ForeignModelByField<FF>
-where
-    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
-    FF::Model: GetField<FF>, // always true
-    FF: SingleColumnField,
-{
-    type EqCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
+impl_FieldEq!(
+    impl<'rhs, FF> FieldEq<'rhs, FF::Type, FieldEq_ForeignModelByField_Owned> for ForeignModelByField<FF>
+    where
+        FF: RawField<Kind = kind::AsDbType>,
+        FF: Field<kind::AsDbType>,
+        FF: SingleColumnField,
+        FF::Model: GetField<FF>, // always true
+    { <FF as SingleColumnField>::type_into_value }
+);
+impl_FieldEq!(
+    impl<'rhs, FF> FieldEq<'rhs, FF::Type, FieldEq_ForeignModelByField_Owned> for Option<ForeignModelByField<FF>>
+    where
+        FF: RawField<Kind = kind::AsDbType>,
+        FF: Field<kind::AsDbType>,
+        FF: SingleColumnField,
+        Option<FF::Type>: AsDbType,
+        FF::Model: GetField<FF>, // always true
+    { <FF as SingleColumnField>::type_into_value }
+);
 
-    fn field_equals<A: FieldAccess>(access: A, value: FF::Type) -> Self::EqCond<A> {
-        Binary {
-            operator: BinaryOperator::Equals,
-            fst_arg: Column(access),
-            snd_arg: <FF as SingleColumnField>::type_into_value(value),
-        }
-    }
+impl_FieldEq!(
+    impl<'rhs, FF> FieldEq<'rhs, &'rhs FF::Type, FieldEq_ForeignModelByField_Borrowed> for ForeignModelByField<FF>
+    where
+        FF: RawField<Kind = kind::AsDbType>,
+        FF: Field<kind::AsDbType>,
+        FF: SingleColumnField,
+        FF::Model: GetField<FF>, // always true
+    { <FF as SingleColumnField>::type_as_value }
+);
+impl_FieldEq!(
+    impl<'rhs, FF> FieldEq<'rhs, &'rhs FF::Type, FieldEq_ForeignModelByField_Borrowed> for Option<ForeignModelByField<FF>>
+    where
+        FF: RawField<Kind = kind::AsDbType>,
+        FF: Field<kind::AsDbType>,
+        FF: SingleColumnField,
+        Option<FF::Type>: AsDbType,
+        FF::Model: GetField<FF>, // always true
+    { <FF as SingleColumnField>::type_as_value }
+);
 
-    type NeCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
-
-    fn field_not_equals<A: FieldAccess>(access: A, value: FF::Type) -> Self::NeCond<A> {
-        Binary {
-            operator: BinaryOperator::Equals,
-            fst_arg: Column(access),
-            snd_arg: <FF as SingleColumnField>::type_into_value(value),
-        }
-    }
-}
-
-impl<'rhs, FF> FieldEq<'rhs, FF::Type> for Option<ForeignModelByField<FF>>
-where
-    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
-    FF::Model: GetField<FF>, // always true
-    FF: SingleColumnField,
-    Option<FF::Type>: AsDbType,
-{
-    type EqCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
-
-    fn field_equals<A: FieldAccess>(access: A, value: FF::Type) -> Self::EqCond<A> {
-        Binary {
-            operator: BinaryOperator::Equals,
-            fst_arg: Column(access),
-            snd_arg: <FF as SingleColumnField>::type_into_value(value),
-        }
-    }
-
-    type NeCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
-
-    fn field_not_equals<A: FieldAccess>(access: A, value: FF::Type) -> Self::NeCond<A> {
-        Binary {
-            operator: BinaryOperator::Equals,
-            fst_arg: Column(access),
-            snd_arg: <FF as SingleColumnField>::type_into_value(value),
-        }
-    }
-}
+#[doc(hidden)]
+#[allow(non_camel_case_types)]
+pub struct FieldEq_ForeignModelByField_Owned;
+#[doc(hidden)]
+#[allow(non_camel_case_types)]
+pub struct FieldEq_ForeignModelByField_Borrowed;

@@ -45,7 +45,7 @@ compile_error!("Using multiple runtime / tls configurations at the same time is 
 
 pub use crate::internal::field::access::FieldAccess;
 pub use crate::model::{Model, Patch};
-pub use rorm_db::{Database, DatabaseConfiguration, Error, Row};
+pub use rorm_db::{Database, DatabaseConfiguration, DatabaseDriver, Error, Row};
 
 /// Re-export of [rorm-cli](rorm_cli)
 #[cfg(feature = "cli")]
