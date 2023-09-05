@@ -4,48 +4,22 @@
 #![cfg_attr(all(doc, CHANNEL_NIGHTLY), feature(doc_auto_cfg))]
 #![warn(missing_docs)]
 
+#[cfg(all(not(doc_auto_cfg), all(feature = "tokio", feature = "async-std")))]
+compile_error!("Using multiple runtimes at the same time is not allowed");
+
+#[cfg(all(not(doc_auto_cfg), all(feature = "native-tls", feature = "rustls")))]
+compile_error!("Using multiple tls configurations at the same time is not allowed");
+
 #[cfg(all(
     not(doc_auto_cfg),
-    any(
-        all(
-            feature = "actix-rustls",
-            any(
-                feature = "actix-native-tls",
-                feature = "tokio-native-tls",
-                feature = "tokio-rustls",
-                feature = "async-std-native-tls",
-                feature = "async-std-rustls"
-            )
-        ),
-        all(
-            feature = "actix-native-tls",
-            any(
-                feature = "tokio-native-tls",
-                feature = "tokio-rustls",
-                feature = "async-std-native-tls",
-                feature = "async-std-rustls"
-            )
-        ),
-        all(
-            feature = "tokio-rustls",
-            any(
-                feature = "tokio-native-tls",
-                feature = "async-std-native-tls",
-                feature = "async-std-rustls"
-            )
-        ),
-        all(
-            feature = "tokio-native-tls",
-            any(feature = "async-std-native-tls", feature = "async-std-rustls")
-        ),
-        all(feature = "async-std-native-tls", feature = "async-std-rustls")
-    )
+    all(feature = "all-drivers", feature = "postgres-only")
 ))]
-compile_error!("Using multiple runtime / tls configurations at the same time is not allowed");
+compile_error!("You cannot enable postgres-only with other drivers active");
+
+pub use rorm_db::{Database, DatabaseConfiguration, DatabaseDriver, Error, Row};
 
 pub use crate::internal::field::access::FieldAccess;
 pub use crate::model::{Model, Patch};
-pub use rorm_db::{Database, DatabaseConfiguration, DatabaseDriver, Error, Row};
 
 /// Re-export of [rorm-cli](rorm_cli)
 #[cfg(feature = "cli")]
@@ -56,11 +30,10 @@ pub mod cli {
 pub mod db {
     pub use rorm_db::*;
 }
-/// Re-exported for use in parser structs of user
-pub use rorm_declaration::config;
-
 #[doc(hidden)] // used by macros
 pub use linkme;
+/// Re-exported for use in parser structs of user
+pub use rorm_declaration::config;
 #[doc(hidden)] // used by macros
 pub use rorm_declaration::imr;
 

@@ -48,7 +48,7 @@ time = { version = "~0.3", optional = true }
 # Allow wrapping futures and streams
 pin-project = { version = "~1" }
 
-rorm-db = { version = "~0.8", path = "./rorm-db" }
+rorm-db = { version = "~0.8", path = "./rorm-db", features = ["serde"] }
 rorm-macro = { version = "0.6.0", path = "./rorm-macro" }
 rorm-declaration = { version = "~0.3", path = "./rorm-declaration" }
 
@@ -59,27 +59,35 @@ rorm-cli = { version = ">=0.7.3", path = "./rorm-cli", default-features = false,
 rustc_version = "0.4.0"
 
 [package.metadata.docs.rs]
-features = ["msgpack", "uuid", "cli"]
+features = ["msgpack", "cli", "tokio", "async-std"]
 
 [features]
 default = [
-	"rorm-db/all-driver",
+	"all-drivers",
 	"chrono",
 	"time",
 	"uuid",
 ]
 
-msgpack = ["rmp-serde"]
+# Drivers
+all-drivers = ["rorm-db/all-driver"]
+postgres-only = ["rorm-db/postgres-only"]
 
-cli = ["rorm-cli"]
+# Extensions
+chrono = ["dep:chrono"]
+time = ["dep:time"]
+uuid = ["dep:uuid"]
 
-sqlite = ["rorm-db/sqlite"]
-mysql = ["rorm-db/mysql"]
-postgres = ["rorm-db/postgres"]
+msgpack = ["dep:rmp-serde"]
+cli = ["dep:rorm-cli"]
 
+# Available Runtimes
 tokio = ["rorm-db/tokio"]
-
 async-std = ["rorm-db/async-std"]
+
+# TLS libraries
+rustls = ["rorm-db/rustls"]
+native-tls = ["rorm-db/native-tls"]
 
 [profile.release-lto]
 inherits = "release"
