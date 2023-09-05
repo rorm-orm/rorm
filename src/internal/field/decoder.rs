@@ -52,9 +52,9 @@ where
 #[doc(hidden)]
 #[macro_export]
 macro_rules! new_converting_decoder {
-    ($(#[$attr:meta])* $decoder:ident$(<$($generic:ident$(: $bound1:ident $(+ $boundN:ident)*)?),+>)?, |$convert_arg:ident: $primitive:ty| -> $result:ty $convert_block:block) => {
+    ($(#[$attr:meta])* $vis:vis $decoder:ident$(<$($generic:ident$(: $bound1:ident $(+ $boundN:ident)*)?),+>)?, |$convert_arg:ident: $primitive:ty| -> $result:ty $convert_block:block) => {
         $(#[$attr])*
-        pub struct $decoder$(<$($generic),+>)? {
+        $vis struct $decoder$(<$($generic),+>)? {
             column: String,
             index: usize,
             $(generics: ::std::marker::PhantomData<($($generic,)+)>)?

@@ -50,7 +50,7 @@ impl_FieldOrd!(Option<DateTime<Utc>>, Option<DateTime<Utc>>, |option: Self| opti
 const _: () = {
     new_converting_decoder!(
         /// [`FieldDecoder`] for [`FixedOffset`]
-        FixedOffsetDecoder,
+        pub FixedOffsetDecoder,
         |value: i32| -> FixedOffset {
             FixedOffset::east_opt(value)
                 .ok_or_else(|| DecodeError(format!("Couldn't decode fixed offset: {value}")))
@@ -81,7 +81,7 @@ const _: () = {
     }
     new_converting_decoder!(
         /// [`FieldDecoder`] for [`Option<FixedOffset>`](FixedOffset)
-        OptionFixedOffsetDecoder,
+        pub OptionFixedOffsetDecoder,
         |value: Option<i32>| -> Option<FixedOffset> {
             value
                 .map(|value| {

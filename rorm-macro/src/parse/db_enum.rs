@@ -1,13 +1,13 @@
 use darling::FromAttributes;
 use proc_macro2::{Ident, TokenStream};
-use syn::{ItemEnum, Variant};
+use syn::{ItemEnum, Variant, Visibility};
 
 use crate::parse::annotations::NoAnnotations;
 
 pub fn parse_db_enum(tokens: TokenStream) -> darling::Result<ParsedDbEnum> {
     let ItemEnum {
         attrs,
-        vis: _,
+        vis,
         enum_token: _,
         ident,
         generics,
@@ -52,12 +52,14 @@ pub fn parse_db_enum(tokens: TokenStream) -> darling::Result<ParsedDbEnum> {
     }
 
     errors.finish_with(ParsedDbEnum {
+        vis,
         ident,
         variants: parsed_variants,
     })
 }
 
 pub struct ParsedDbEnum {
+    pub vis: Visibility,
     pub ident: Ident,
     pub variants: Vec<Ident>,
 }

@@ -223,7 +223,7 @@ where
 /// pub async fn set_good_password(db: &Database) {
 ///     update!(db, User)
 ///         .set(User::F.password, "I am way more secure™".to_string())
-///         .condition(User::F.password.eq("password"))
+///         .condition(User::F.password.equals("password"))
 ///         .await
 ///         .unwrap();
 /// }
@@ -251,7 +251,7 @@ where
 ///     }
 ///
 ///     if let Ok(builder) = builder.finish_dyn_set() {
-///         builder.condition(User::F.id.eq(id)).await.unwrap();
+///         builder.condition(User::F.id.equals(id)).await.unwrap();
 ///     } else {
 ///         panic!("Invalid POST request: missing fields to update")
 ///     }

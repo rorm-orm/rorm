@@ -42,7 +42,7 @@ impl<T: Serialize + DeserializeOwned> Json<T> {
 }
 
 new_converting_decoder!(
-    JsonDecoder<T: Serialize + DeserializeOwned>,
+    pub JsonDecoder<T: Serialize + DeserializeOwned>,
     |value: Vec<u8>| -> Json<T> {
         serde_json::from_slice(&value)
             .map(Json)
@@ -77,7 +77,7 @@ impl<T: Serialize + DeserializeOwned + 'static> AsDbType for Json<T> {
 }
 
 new_converting_decoder!(
-    OptionJsonDecoder<T: Serialize + DeserializeOwned>,
+    pub OptionJsonDecoder<T: Serialize + DeserializeOwned>,
     |value: Option<Vec<u8>>| -> Option<Json<T>> {
         value
             .map(|value| {

@@ -4,7 +4,11 @@ use quote::{format_ident, quote};
 use crate::parse::db_enum::ParsedDbEnum;
 
 pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
-    let ParsedDbEnum { ident, variants } = parsed;
+    let ParsedDbEnum {
+        vis,
+        ident,
+        variants,
+    } = parsed;
     let decoder = format_ident!("__{ident}_Decoder");
 
     quote! {
@@ -38,7 +42,7 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
             }
             ::rorm::new_converting_decoder!(
                 #[doc(hidden)]
-                #decoder,
+                #vis #decoder,
                 |value: ::rorm::db::choice::Choice| -> #ident {
                     let value: String = value.0;
                     match value.as_str() {
@@ -67,27 +71,9 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
                     }
                 }
             }
-            impl<'rhs> ::rorm::fields::traits::FieldEq<'rhs, #ident> for #ident {
-                type EqCond<A: ::rorm::FieldAccess> = ::rorm::conditions::Binary<::rorm::conditions::Column<A>, ::rorm::conditions::Value<'rhs>>;
-                fn field_equals<A: ::rorm::FieldAccess>(access: A, value: #ident) -> Self::EqCond<A> {
-                    let [value] = <#ident as ::rorm::fields::traits::FieldType>::into_values(value);
-                    ::rorm::conditions::Binary {
-                        operator: ::rorm::conditions::BinaryOperator::Equals,
-                        fst_arg: ::rorm::conditions::Column(access),
-                        snd_arg: value,
-                    }
-                }
-
-                type NeCond<A: ::rorm::FieldAccess> = ::rorm::conditions::Binary<::rorm::conditions::Column<A>, ::rorm::conditions::Value<'rhs>>;
-                fn field_not_equals<A: ::rorm::FieldAccess>(access: A, value: #ident) -> Self::NeCond<A> {
-                    let [value] = <#ident as ::rorm::fields::traits::FieldType>::into_values(value);
-                    ::rorm::conditions::Binary {
-                        operator: ::rorm::conditions::BinaryOperator::NotEquals,
-                        fst_arg: ::rorm::conditions::Column(access),
-                        snd_arg: value,
-                    }
-                }
-            }
+            ::rorm::impl_FieldEq!(impl<'rhs> FieldEq<'rhs, #ident> for #ident {
+                |value: #ident| { let [value] = <#ident as ::rorm::fields::traits::FieldType>::into_values(value); value }
+            });
         };
     }
 }

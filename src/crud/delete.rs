@@ -108,7 +108,7 @@ where
 /// }
 /// pub async fn delete_underage(db: &Database) {
 ///     let num_deleted: u64 = delete!(db, User)
-///         .condition(User::F.age.le(18))
+///         .condition(User::F.age.less_equals(18))
 ///         .await
 ///         .unwrap();
 /// }

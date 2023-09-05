@@ -47,7 +47,7 @@ macro_rules! FieldType {
 /// }
 ///
 /// // Uses the `FieldEq` impl of `String`
-/// let condition = User::F.name.eq("Bob".to_string());
+/// let condition = User::F.name.equals("Bob".to_string());
 /// ```
 pub trait FieldAccess: Sized + Send + 'static {
     /// Field which is accessed
