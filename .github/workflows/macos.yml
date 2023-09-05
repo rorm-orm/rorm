@@ -28,35 +28,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Install dependencies
-        run: |
-          rustup component add clippy
-          cargo install clippy-sarif sarif-fmt
+      - name: Build rorm with tokio
+        run: cargo build -p rorm -F tokio
 
-      - name: Build rorm with tokio-rustls
-        run: cargo build -p rorm -F tokio-rustls
-
-      - name: Build rorm with tokio-native-tls
-        run: cargo build -p rorm -F tokio-native-tls
-
-      - name: Build rorm with async-std-rustls
-        run: cargo build -p rorm -F async-std-rustls
-
-      - name: Build rorm with async-std-native-tls
-        run: cargo build -p rorm -F async-std-native-tls
-
-      - name: Build rorm with actix-rustls
-        run: cargo build -p rorm -F actix-rustls
-
-      - name: Build rorm with actix-native-tls
-        run: cargo build -p rorm -F actix-native-tls
-
-      - name: Run rust-clippy
-        run: cargo clippy --workspace --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
-        continue-on-error: true
-
-      - name: Upload clippy analysis results to GitHub
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: rust-clippy-results.sarif
-          wait-for-processing: true
+      - name: Build rorm with async-std
+        run: cargo build -p rorm -F async-std

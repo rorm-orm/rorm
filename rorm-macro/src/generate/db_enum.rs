@@ -39,7 +39,7 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
             ::rorm::new_converting_decoder!(
                 #[doc(hidden)]
                 #decoder,
-                |value: ::rorm::choice::Choice| -> #ident {
+                |value: ::rorm::db::choice::Choice| -> #ident {
                     let value: String = value.0;
                     match value.as_str() {
                         #(
@@ -50,7 +50,7 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
                 }
             );
             impl ::rorm::internal::field::as_db_type::AsDbType for #ident {
-                type Primitive = ::rorm::choice::Choice;
+                type Primitive = ::rorm::db::choice::Choice;
                 type DbType = ::rorm::internal::hmr::db_type::Choices;
 
                 const IMPLICIT: Option<::rorm::internal::hmr::annotations::Annotations> = Some({
