@@ -70,13 +70,13 @@ pub fn partially_generate_patch<'a>(
         impl ::rorm::crud::decoder::Decoder for #decoder {
             type Result = #patch;
 
-            fn by_name(&self, row: &::rorm::row::Row) -> Result<Self::Result, ::rorm::Error> {
+            fn by_name(&self, row: &::rorm::db::Row) -> Result<Self::Result, ::rorm::Error> {
                 Ok(#patch {#(
                     #fields_2: self.#fields_2.by_name(row)?,
                 )*})
             }
 
-            fn by_index(&self, row: &::rorm::row::Row) -> Result<Self::Result, ::rorm::Error> {
+            fn by_index(&self, row: &::rorm::db::Row) -> Result<Self::Result, ::rorm::Error> {
                 Ok(#patch {#(
                     #fields_3: self.#fields_3.by_index(row)?,
                 )*})
