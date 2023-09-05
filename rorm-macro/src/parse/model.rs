@@ -37,7 +37,9 @@ pub fn parse_model(tokens: TokenStream) -> darling::Result<ParsedModel> {
                 colon_token: _,
                 ty,
             } = field;
-            let Some(annos) = errors.handle(ModelFieldAnnotations::from_attributes(&attrs)) else {continue;};
+            let Some(annos) = errors.handle(ModelFieldAnnotations::from_attributes(&attrs)) else {
+                continue;
+            };
             let ident = ident.expect("Fields::Named should contain named fields");
             parsed_fields.push(ParsedField {
                 vis,
@@ -107,7 +109,7 @@ pub struct ModelFieldAnnotations {
     pub rename: Option<LitStr>,
 
     /// `#[rorm(ignore)]`
-    pub ignore: bool,
+    //pub ignore: bool,
 
     /// Parse the `#[rorm(default = ..)]` annotation.
     ///

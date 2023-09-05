@@ -15,7 +15,6 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
         vis,
         ident,
         table,
-        ignored: _, // TODO
         fields,
         primary_key,
     } = model;

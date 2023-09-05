@@ -23,7 +23,6 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
     }
 
     // Analyze fields
-    let mut ignored = Vec::new();
     let mut analyzed_fields = Vec::with_capacity(
         /* assuming most fields won't be ignored */
         fields.len(),
@@ -45,64 +44,60 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
                     on_delete,
                     on_update,
                     rename,
-                    ignore,
+                    //ignore,
                     default,
                     max_length,
                     index,
                 },
         } = field;
-        if ignore {
-            ignored.push(ident);
-        } else {
-            // Get column name
-            let column =
-                rename.unwrap_or_else(|| LitStr::new(&to_db_name(ident.to_string()), ident.span()));
-            if column.value().contains("__") {
-                errors.push(darling::Error::custom("Column names can't contain a double underscore. If you need to name your field like this, consider using `#[rorm(rename = \"...\")]`.").with_span(&column));
-            }
+        // Get column name
+        let column =
+            rename.unwrap_or_else(|| LitStr::new(&to_db_name(ident.to_string()), ident.span()));
+        if column.value().contains("__") {
+            errors.push(darling::Error::custom("Column names can't contain a double underscore. If you need to name your field like this, consider using `#[rorm(rename = \"...\")]`.").with_span(&column));
+        }
 
-            // Handle #[rorm(id)] annotation
-            if id {
-                if primary_key {
-                    errors.push(
+        // Handle #[rorm(id)] annotation
+        if id {
+            if primary_key {
+                errors.push(
                         darling::Error::custom(
                             "`#[rorm(primary_key)]` is implied by `#[rorm(id)]`. Please remove one of them.",
                         )
                         .with_span(&ident),
                     );
-                }
-                if auto_increment {
-                    errors.push(
+            }
+            if auto_increment {
+                errors.push(
                         darling::Error::custom(
                             "`#[rorm(auto_increment)]` is implied by `#[rorm(id)]`. Please remove one of them.",
                         )
                         .with_span(&ident),
                     );
-                }
-                primary_key = true;
-                auto_increment = true;
             }
-
-            analyzed_fields.push(AnalyzedField {
-                vis,
-                unit: format_ident!("__{}_{}", model_ident, ident),
-                ident,
-                column,
-                ty,
-                annos: AnalyzedModelFieldAnnotations {
-                    auto_create_time,
-                    auto_update_time,
-                    auto_increment,
-                    primary_key,
-                    unique,
-                    on_delete,
-                    on_update,
-                    default,
-                    max_length,
-                    index,
-                },
-            });
+            primary_key = true;
+            auto_increment = true;
         }
+
+        analyzed_fields.push(AnalyzedField {
+            vis,
+            unit: format_ident!("__{}_{}", model_ident, ident),
+            ident,
+            column,
+            ty,
+            annos: AnalyzedModelFieldAnnotations {
+                auto_create_time,
+                auto_update_time,
+                auto_increment,
+                primary_key,
+                unique,
+                on_delete,
+                on_update,
+                default,
+                max_length,
+                index,
+            },
+        });
     }
 
     // Find the unique primary key
@@ -136,7 +131,6 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
         vis,
         ident,
         table,
-        ignored,
         fields: analyzed_fields,
         primary_key,
     })
@@ -146,7 +140,6 @@ pub struct AnalyzedModel {
     pub vis: Visibility,
     pub ident: Ident,
     pub table: LitStr,
-    pub ignored: Vec<Ident>,
     pub fields: Vec<AnalyzedField>,
     /// the primary key's index
     pub primary_key: usize,
