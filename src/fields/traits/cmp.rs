@@ -13,6 +13,8 @@
 
 use std::borrow::Cow;
 
+use rorm_db::sql::value::NullType;
+
 use super::FieldType;
 use crate::conditions::{Binary, BinaryOperator, Column, Condition, Value};
 use crate::internal::field::access::FieldAccess;
@@ -142,16 +144,36 @@ impl_FieldEq!(impl<'rhs> FieldEq<'rhs, i32> for i32 { Value::I32 });
 impl_FieldEq!(impl<'rhs> FieldEq<'rhs, i64> for i64 { Value::I64 });
 impl_FieldEq!(impl<'rhs> FieldEq<'rhs, f32> for f32 { Value::F32 });
 impl_FieldEq!(impl<'rhs> FieldEq<'rhs, f64> for f64 { Value::F64 });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<bool>> for Option<bool> { |option: Self| option.map(Value::Bool).unwrap_or(Value::Null(NullType::Bool)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<i16>> for Option<i16>   { |option: Self| option.map(Value::I16).unwrap_or(Value::Null(NullType::I16)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<i32>> for Option<i32>   { |option: Self| option.map(Value::I32).unwrap_or(Value::Null(NullType::I32)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<i64>> for Option<i64>   { |option: Self| option.map(Value::I64).unwrap_or(Value::Null(NullType::I64)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<f32>> for Option<f32>   { |option: Self| option.map(Value::F32).unwrap_or(Value::Null(NullType::F32)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<f64>> for Option<f64>   { |option: Self| option.map(Value::F64).unwrap_or(Value::Null(NullType::F64)) });
 
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs str> for String { |s| Value::String(Cow::Borrowed(s)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs String> for String { |s| Value::String(Cow::Borrowed(s)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, String> for String { |s| Value::String(Cow::Owned(s)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Cow<'rhs, str>> for String { Value::String });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs str> for String      { conv_string });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs String> for String   { conv_string });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, String> for String         { conv_string });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Cow<'rhs, str>> for String { conv_string });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<&'rhs str>> for Option<String>      { |option: Option<_>| option.map(conv_string).unwrap_or(Value::Null(NullType::String)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<&'rhs String>> for Option<String>   { |option: Option<_>| option.map(conv_string).unwrap_or(Value::Null(NullType::String)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<String>> for Option<String>         { |option: Option<_>| option.map(conv_string).unwrap_or(Value::Null(NullType::String)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<Cow<'rhs, str>>> for Option<String> { |option: Option<_>| option.map(conv_string).unwrap_or(Value::Null(NullType::String)) });
+fn conv_string<'a>(value: impl Into<Cow<'a, str>>) -> Value<'a> {
+    Value::String(value.into())
+}
 
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs [u8]> for Vec<u8> { |b| Value::Binary(Cow::Borrowed(b)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs Vec<u8>> for Vec<u8> { |b| Value::Binary(Cow::Borrowed(b)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Vec<u8>> for Vec<u8> { |b| Value::Binary(Cow::Owned(b)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Cow<'rhs, [u8]>> for Vec<u8> { Value::Binary });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs [u8]> for Vec<u8>      { conv_bytes });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs Vec<u8>> for Vec<u8>   { conv_bytes });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Vec<u8>> for Vec<u8>         { conv_bytes });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Cow<'rhs, [u8]>> for Vec<u8> { conv_bytes });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<&'rhs [u8]>> for Option<Vec<u8>>      { |option: Option<_>| option.map(conv_bytes).unwrap_or(Value::Null(NullType::Binary)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<&'rhs Vec<u8>>> for Option<Vec<u8>>   { |option: Option<_>| option.map(conv_bytes).unwrap_or(Value::Null(NullType::Binary)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<Vec<u8>>> for Option<Vec<u8>>         { |option: Option<_>| option.map(conv_bytes).unwrap_or(Value::Null(NullType::Binary)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<Cow<'rhs, [u8]>>> for Option<Vec<u8>> { |option: Option<_>| option.map(conv_bytes).unwrap_or(Value::Null(NullType::Binary)) });
+fn conv_bytes<'a>(value: impl Into<Cow<'a, [u8]>>) -> Value<'a> {
+    Value::Binary(value.into())
+}
 
 // Impl FieldEq<FieldProxy> iff FieldEq<Self>
 impl<'rhs, F, P, T> FieldEq<'rhs, FieldProxy<F, P>> for T
@@ -193,41 +215,41 @@ where
 macro_rules! impl_FieldOrd {
     ($lhs:ty, $rhs:ty, $into_value:expr) => {
         impl<'rhs> $crate::fields::traits::cmp::FieldOrd<'rhs, $rhs> for $lhs {
-            type LtCond<A: $crate::FieldAccess> = Binary<Column<A>, Value<'rhs>>;
+            type LtCond<A: $crate::FieldAccess> = $crate::conditions::Binary<$crate::conditions::Column<A>, $crate::conditions::Value<'rhs>>;
             fn field_less_than<A: $crate::FieldAccess>(access: A, value: $rhs) -> Self::LtCond<A> {
-                Binary {
-                    operator: BinaryOperator::Less,
-                    fst_arg: Column(access),
+                $crate::conditions::Binary {
+                    operator: $crate::conditions::BinaryOperator::Less,
+                    fst_arg: $crate::conditions::Column(access),
                     #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
                     snd_arg: $into_value(value),
                 }
             }
 
-            type LeCond<A: $crate::FieldAccess> = Binary<Column<A>, Value<'rhs>>;
+            type LeCond<A: $crate::FieldAccess> = $crate::conditions::Binary<$crate::conditions::Column<A>, $crate::conditions::Value<'rhs>>;
             fn field_less_equals<A: $crate::FieldAccess>(access: A, value: $rhs) -> Self::LeCond<A> {
-                Binary {
-                    operator: BinaryOperator::LessOrEquals,
-                    fst_arg: Column(access),
+                $crate::conditions::Binary {
+                    operator: $crate::conditions::BinaryOperator::LessOrEquals,
+                    fst_arg: $crate::conditions::Column(access),
                     #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
                     snd_arg: $into_value(value),
                 }
             }
 
-            type GtCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
-            fn field_greater_than<A: FieldAccess>(access: A, value: $rhs) -> Self::GtCond<A> {
-                Binary {
-                    operator: BinaryOperator::Greater,
-                    fst_arg: Column(access),
+            type GtCond<A: $crate::FieldAccess> = $crate::conditions::Binary<$crate::conditions::Column<A>, $crate::conditions::Value<'rhs>>;
+            fn field_greater_than<A: $crate::FieldAccess>(access: A, value: $rhs) -> Self::GtCond<A> {
+                $crate::conditions::Binary {
+                    operator: $crate::conditions::BinaryOperator::Greater,
+                    fst_arg: $crate::conditions::Column(access),
                     #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
                     snd_arg: $into_value(value),
                 }
             }
 
-            type GeCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
-            fn field_greater_equals<A: FieldAccess>(access: A, value: $rhs) -> Self::GeCond<A> {
-                Binary {
-                    operator: BinaryOperator::GreaterOrEquals,
-                    fst_arg: Column(access),
+            type GeCond<A: $crate::FieldAccess> = $crate::conditions::Binary<$crate::conditions::Column<A>, $crate::conditions::Value<'rhs>>;
+            fn field_greater_equals<A: $crate::FieldAccess>(access: A, value: $rhs) -> Self::GeCond<A> {
+                $crate::conditions::Binary {
+                    operator: $crate::conditions::BinaryOperator::GreaterOrEquals,
+                    fst_arg: $crate::conditions::Column(access),
                     #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
                     snd_arg: $into_value(value),
                 }
