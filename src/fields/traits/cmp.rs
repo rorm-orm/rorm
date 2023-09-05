@@ -107,25 +107,27 @@ pub trait FieldRegexp<'rhs, Rhs: 'rhs> {
 /// - the left hand side type i.e. type to implement on
 /// - the right hand side (use `'rhs` a lifetime if required)
 /// - a closure to convert the right hand side into a [`Value`]
+#[doc(hidden)]
 #[allow(non_snake_case)] // makes it clearer that a trait and which trait is meant
+#[macro_export]
 macro_rules! impl_FieldEq {
     ($lhs:ty, $rhs:ty, $into_value:expr) => {
-        impl<'rhs> FieldEq<'rhs, $rhs> for $lhs {
-            type EqCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
-            fn field_equals<A: FieldAccess>(access: A, value: $rhs) -> Self::EqCond<A> {
-                Binary {
-                    operator: BinaryOperator::Equals,
-                    fst_arg: Column(access),
+        impl<'rhs> $crate::fields::traits::cmp::FieldEq<'rhs, $rhs> for $lhs {
+            type EqCond<A: $crate::FieldAccess> = $crate::conditions::Binary<$crate::conditions::Column<A>, $crate::conditions::Value<'rhs>>;
+            fn field_equals<A: $crate::FieldAccess>(access: A, value: $rhs) -> Self::EqCond<A> {
+                $crate::conditions::Binary {
+                    operator: $crate::conditions::BinaryOperator::Equals,
+                    fst_arg: $crate::conditions::Column(access),
                     #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
                     snd_arg: $into_value(value),
                 }
             }
 
-            type NeCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
-            fn field_not_equals<A: FieldAccess>(access: A, value: $rhs) -> Self::NeCond<A> {
-                Binary {
-                    operator: BinaryOperator::NotEquals,
-                    fst_arg: Column(access),
+            type NeCond<A: $crate::FieldAccess> = $crate::conditions::Binary<$crate::conditions::Column<A>, $crate::conditions::Value<'rhs>>;
+            fn field_not_equals<A: $crate::FieldAccess>(access: A, value: $rhs) -> Self::NeCond<A> {
+                $crate::conditions::Binary {
+                    operator: $crate::conditions::BinaryOperator::NotEquals,
+                    fst_arg: $crate::conditions::Column(access),
                     #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
                     snd_arg: $into_value(value),
                 }
@@ -142,10 +144,12 @@ impl_FieldEq!(f32, f32, Value::F32);
 impl_FieldEq!(f64, f64, Value::F64);
 
 impl_FieldEq!(String, &'rhs str, |s| Value::String(Cow::Borrowed(s)));
+impl_FieldEq!(String, &'rhs String, |s| Value::String(Cow::Borrowed(s)));
 impl_FieldEq!(String, String, |s| Value::String(Cow::Owned(s)));
 impl_FieldEq!(String, Cow<'rhs, str>, Value::String);
 
 impl_FieldEq!(Vec<u8>, &'rhs [u8], |b| Value::Binary(Cow::Borrowed(b)));
+impl_FieldEq!(String, &'rhs Vec<u8>, |s| Value::Binary(Cow::Borrowed(s)));
 impl_FieldEq!(Vec<u8>, Vec<u8>, |b| Value::Binary(Cow::Owned(b)));
 impl_FieldEq!(Vec<u8>, Cow<'rhs, [u8]>, Value::Binary);
 
@@ -183,12 +187,14 @@ where
 /// - the left hand side type i.e. type to implement on
 /// - the right hand side (use `'rhs` a lifetime if required)
 /// - a closure to convert the right hand side into a [`Value`]
+#[doc(hidden)]
 #[allow(non_snake_case)] // makes it clearer that a trait and which trait is meant
+#[macro_export]
 macro_rules! impl_FieldOrd {
     ($lhs:ty, $rhs:ty, $into_value:expr) => {
-        impl<'rhs> FieldOrd<'rhs, $rhs> for $lhs {
-            type LtCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
-            fn field_less_than<A: FieldAccess>(access: A, value: $rhs) -> Self::LtCond<A> {
+        impl<'rhs> $crate::fields::traits::cmp::FieldOrd<'rhs, $rhs> for $lhs {
+            type LtCond<A: $crate::FieldAccess> = Binary<Column<A>, Value<'rhs>>;
+            fn field_less_than<A: $crate::FieldAccess>(access: A, value: $rhs) -> Self::LtCond<A> {
                 Binary {
                     operator: BinaryOperator::Less,
                     fst_arg: Column(access),
@@ -197,8 +203,8 @@ macro_rules! impl_FieldOrd {
                 }
             }
 
-            type LeCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
-            fn field_less_equals<A: FieldAccess>(access: A, value: $rhs) -> Self::LeCond<A> {
+            type LeCond<A: $crate::FieldAccess> = Binary<Column<A>, Value<'rhs>>;
+            fn field_less_equals<A: $crate::FieldAccess>(access: A, value: $rhs) -> Self::LeCond<A> {
                 Binary {
                     operator: BinaryOperator::LessOrEquals,
                     fst_arg: Column(access),
