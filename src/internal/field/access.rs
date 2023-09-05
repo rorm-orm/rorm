@@ -61,7 +61,7 @@ pub trait FieldAccess: Sized + Send + 'static {
     type Path: Path;
 
     /// Compare the field to another value using `==`
-    fn eq<'rhs, Rhs: 'rhs>(self, rhs: Rhs) -> <FieldType!() as FieldEq<'rhs, Rhs>>::EqCond<Self>
+    fn equals<'rhs, Rhs: 'rhs>(self, rhs: Rhs) -> <FieldType!() as FieldEq<'rhs, Rhs>>::EqCond<Self>
     where
         FieldType!(): FieldEq<'rhs, Rhs>,
     {
@@ -69,7 +69,10 @@ pub trait FieldAccess: Sized + Send + 'static {
     }
 
     /// Compare the field to another value using `!=`
-    fn ne<'rhs, Rhs: 'rhs>(self, rhs: Rhs) -> <FieldType!() as FieldEq<'rhs, Rhs>>::NeCond<Self>
+    fn not_equals<'rhs, Rhs: 'rhs>(
+        self,
+        rhs: Rhs,
+    ) -> <FieldType!() as FieldEq<'rhs, Rhs>>::NeCond<Self>
     where
         FieldType!(): FieldEq<'rhs, Rhs>,
     {
@@ -77,7 +80,10 @@ pub trait FieldAccess: Sized + Send + 'static {
     }
 
     /// Compare the field to another value using `<`
-    fn lt<'rhs, Rhs: 'rhs>(self, rhs: Rhs) -> <FieldType!() as FieldOrd<'rhs, Rhs>>::LtCond<Self>
+    fn less_than<'rhs, Rhs: 'rhs>(
+        self,
+        rhs: Rhs,
+    ) -> <FieldType!() as FieldOrd<'rhs, Rhs>>::LtCond<Self>
     where
         FieldType!(): FieldOrd<'rhs, Rhs>,
     {
@@ -85,7 +91,10 @@ pub trait FieldAccess: Sized + Send + 'static {
     }
 
     /// Compare the field to another value using `<=`
-    fn le<'rhs, Rhs: 'rhs>(self, rhs: Rhs) -> <FieldType!() as FieldOrd<'rhs, Rhs>>::LeCond<Self>
+    fn less_equals<'rhs, Rhs: 'rhs>(
+        self,
+        rhs: Rhs,
+    ) -> <FieldType!() as FieldOrd<'rhs, Rhs>>::LeCond<Self>
     where
         FieldType!(): FieldOrd<'rhs, Rhs>,
     {
@@ -93,7 +102,10 @@ pub trait FieldAccess: Sized + Send + 'static {
     }
 
     /// Compare the field to another value using `<`
-    fn gt<'rhs, Rhs: 'rhs>(self, rhs: Rhs) -> <FieldType!() as FieldOrd<'rhs, Rhs>>::GtCond<Self>
+    fn greater_than<'rhs, Rhs: 'rhs>(
+        self,
+        rhs: Rhs,
+    ) -> <FieldType!() as FieldOrd<'rhs, Rhs>>::GtCond<Self>
     where
         FieldType!(): FieldOrd<'rhs, Rhs>,
     {
@@ -101,7 +113,10 @@ pub trait FieldAccess: Sized + Send + 'static {
     }
 
     /// Compare the field to another value using `>=`
-    fn ge<'rhs, Rhs: 'rhs>(self, rhs: Rhs) -> <FieldType!() as FieldOrd<'rhs, Rhs>>::GeCond<Self>
+    fn greater_equals<'rhs, Rhs: 'rhs>(
+        self,
+        rhs: Rhs,
+    ) -> <FieldType!() as FieldOrd<'rhs, Rhs>>::GeCond<Self>
     where
         FieldType!(): FieldOrd<'rhs, Rhs>,
     {
