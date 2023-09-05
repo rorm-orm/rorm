@@ -5,8 +5,9 @@ use std::marker::PhantomData;
 use rorm_db::row::DecodeOwned;
 use rorm_db::{Error, Row};
 
-use crate::conditions::Value;
+use crate::conditions::{Binary, BinaryOperator, Column, Value};
 use crate::crud::decoder::Decoder;
+use crate::fields::traits::FieldEq;
 use crate::fields::types::ForeignModelByField;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
@@ -18,7 +19,7 @@ use crate::internal::hmr::Source;
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
 use crate::model::{GetField, Model};
-use crate::sealed;
+use crate::{sealed, FieldAccess};
 
 impl<FF> FieldType for ForeignModelByField<FF>
 where
@@ -269,5 +270,60 @@ where
     const SOURCE: Option<Source> = F::SOURCE;
     fn new() -> Self {
         Self(PhantomData)
+    }
+}
+
+impl<'rhs, FF> FieldEq<'rhs, FF::Type> for ForeignModelByField<FF>
+where
+    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
+    FF::Model: GetField<FF>, // always true
+    FF: SingleColumnField,
+{
+    type EqCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
+
+    fn field_equals<A: FieldAccess>(access: A, value: FF::Type) -> Self::EqCond<A> {
+        Binary {
+            operator: BinaryOperator::Equals,
+            fst_arg: Column(access),
+            snd_arg: <FF as SingleColumnField>::type_into_value(value),
+        }
+    }
+
+    type NeCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
+
+    fn field_not_equals<A: FieldAccess>(access: A, value: FF::Type) -> Self::NeCond<A> {
+        Binary {
+            operator: BinaryOperator::Equals,
+            fst_arg: Column(access),
+            snd_arg: <FF as SingleColumnField>::type_into_value(value),
+        }
+    }
+}
+
+impl<'rhs, FF> FieldEq<'rhs, FF::Type> for Option<ForeignModelByField<FF>>
+where
+    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
+    FF::Model: GetField<FF>, // always true
+    FF: SingleColumnField,
+    Option<FF::Type>: AsDbType,
+{
+    type EqCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
+
+    fn field_equals<A: FieldAccess>(access: A, value: FF::Type) -> Self::EqCond<A> {
+        Binary {
+            operator: BinaryOperator::Equals,
+            fst_arg: Column(access),
+            snd_arg: <FF as SingleColumnField>::type_into_value(value),
+        }
+    }
+
+    type NeCond<A: FieldAccess> = Binary<Column<A>, Value<'rhs>>;
+
+    fn field_not_equals<A: FieldAccess>(access: A, value: FF::Type) -> Self::NeCond<A> {
+        Binary {
+            operator: BinaryOperator::Equals,
+            fst_arg: Column(access),
+            snd_arg: <FF as SingleColumnField>::type_into_value(value),
+        }
     }
 }

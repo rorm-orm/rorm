@@ -61,105 +61,111 @@ pub trait FieldAccess: Sized + Send + 'static {
     type Path: Path;
 
     /// Compare the field to another value using `==`
-    fn equals<'rhs, Rhs: 'rhs>(self, rhs: Rhs) -> <FieldType!() as FieldEq<'rhs, Rhs>>::EqCond<Self>
+    fn equals<'rhs, Rhs: 'rhs, Any>(
+        self,
+        rhs: Rhs,
+    ) -> <FieldType!() as FieldEq<'rhs, Rhs, Any>>::EqCond<Self>
     where
-        FieldType!(): FieldEq<'rhs, Rhs>,
+        FieldType!(): FieldEq<'rhs, Rhs, Any>,
     {
         <FieldType!()>::field_equals(self, rhs)
     }
 
     /// Compare the field to another value using `!=`
-    fn not_equals<'rhs, Rhs: 'rhs>(
+    fn not_equals<'rhs, Rhs: 'rhs, Any>(
         self,
         rhs: Rhs,
-    ) -> <FieldType!() as FieldEq<'rhs, Rhs>>::NeCond<Self>
+    ) -> <FieldType!() as FieldEq<'rhs, Rhs, Any>>::NeCond<Self>
     where
-        FieldType!(): FieldEq<'rhs, Rhs>,
+        FieldType!(): FieldEq<'rhs, Rhs, Any>,
     {
         <FieldType!()>::field_not_equals(self, rhs)
     }
 
     /// Compare the field to another value using `<`
-    fn less_than<'rhs, Rhs: 'rhs>(
+    fn less_than<'rhs, Rhs: 'rhs, Any>(
         self,
         rhs: Rhs,
-    ) -> <FieldType!() as FieldOrd<'rhs, Rhs>>::LtCond<Self>
+    ) -> <FieldType!() as FieldOrd<'rhs, Rhs, Any>>::LtCond<Self>
     where
-        FieldType!(): FieldOrd<'rhs, Rhs>,
+        FieldType!(): FieldOrd<'rhs, Rhs, Any>,
     {
         <FieldType!()>::field_less_than(self, rhs)
     }
 
     /// Compare the field to another value using `<=`
-    fn less_equals<'rhs, Rhs: 'rhs>(
+    fn less_equals<'rhs, Rhs: 'rhs, Any>(
         self,
         rhs: Rhs,
-    ) -> <FieldType!() as FieldOrd<'rhs, Rhs>>::LeCond<Self>
+    ) -> <FieldType!() as FieldOrd<'rhs, Rhs, Any>>::LeCond<Self>
     where
-        FieldType!(): FieldOrd<'rhs, Rhs>,
+        FieldType!(): FieldOrd<'rhs, Rhs, Any>,
     {
         <FieldType!()>::field_less_equals(self, rhs)
     }
 
     /// Compare the field to another value using `<`
-    fn greater_than<'rhs, Rhs: 'rhs>(
+    fn greater_than<'rhs, Rhs: 'rhs, Any>(
         self,
         rhs: Rhs,
-    ) -> <FieldType!() as FieldOrd<'rhs, Rhs>>::GtCond<Self>
+    ) -> <FieldType!() as FieldOrd<'rhs, Rhs, Any>>::GtCond<Self>
     where
-        FieldType!(): FieldOrd<'rhs, Rhs>,
+        FieldType!(): FieldOrd<'rhs, Rhs, Any>,
     {
         <FieldType!()>::field_greater_than(self, rhs)
     }
 
     /// Compare the field to another value using `>=`
-    fn greater_equals<'rhs, Rhs: 'rhs>(
+    fn greater_equals<'rhs, Rhs: 'rhs, Any>(
         self,
         rhs: Rhs,
-    ) -> <FieldType!() as FieldOrd<'rhs, Rhs>>::GeCond<Self>
+    ) -> <FieldType!() as FieldOrd<'rhs, Rhs, Any>>::GeCond<Self>
     where
-        FieldType!(): FieldOrd<'rhs, Rhs>,
+        FieldType!(): FieldOrd<'rhs, Rhs, Any>,
     {
         <FieldType!()>::field_greater_equals(self, rhs)
     }
 
     /// Compare the field to another value using `LIKE`
-    fn like<'rhs, Rhs: 'rhs>(self, rhs: Rhs) -> <FieldType!() as FieldLike<'rhs, Rhs>>::LiCond<Self>
+    fn like<'rhs, Rhs: 'rhs, Any>(
+        self,
+        rhs: Rhs,
+    ) -> <FieldType!() as FieldLike<'rhs, Rhs, Any>>::LiCond<Self>
     where
-        FieldType!(): FieldLike<'rhs, Rhs>,
+        FieldType!(): FieldLike<'rhs, Rhs, Any>,
     {
         <FieldType!()>::field_like(self, rhs)
     }
 
     /// Compare the field to another value using `NOT LIKE`
-    fn not_like<'rhs, Rhs: 'rhs>(
+    fn not_like<'rhs, Rhs: 'rhs, Any>(
         self,
         rhs: Rhs,
-    ) -> <FieldType!() as FieldLike<'rhs, Rhs>>::NlCond<Self>
+    ) -> <FieldType!() as FieldLike<'rhs, Rhs, Any>>::NlCond<Self>
     where
-        FieldType!(): FieldLike<'rhs, Rhs>,
+        FieldType!(): FieldLike<'rhs, Rhs, Any>,
     {
         <FieldType!()>::field_not_like(self, rhs)
     }
 
     /// Compare the field to another value using `>=`
-    fn regexp<'rhs, Rhs: 'rhs>(
+    fn regexp<'rhs, Rhs: 'rhs, Any>(
         self,
         rhs: Rhs,
-    ) -> <FieldType!() as FieldRegexp<'rhs, Rhs>>::ReCond<Self>
+    ) -> <FieldType!() as FieldRegexp<'rhs, Rhs, Any>>::ReCond<Self>
     where
-        FieldType!(): FieldRegexp<'rhs, Rhs>,
+        FieldType!(): FieldRegexp<'rhs, Rhs, Any>,
     {
         <FieldType!()>::field_regexp(self, rhs)
     }
 
     /// Compare the field to another value using `>=`
-    fn not_regexp<'rhs, Rhs: 'rhs>(
+    fn not_regexp<'rhs, Rhs: 'rhs, Any>(
         self,
         rhs: Rhs,
-    ) -> <FieldType!() as FieldRegexp<'rhs, Rhs>>::NrCond<Self>
+    ) -> <FieldType!() as FieldRegexp<'rhs, Rhs, Any>>::NrCond<Self>
     where
-        FieldType!(): FieldRegexp<'rhs, Rhs>,
+        FieldType!(): FieldRegexp<'rhs, Rhs, Any>,
     {
         <FieldType!()>::field_not_regexp(self, rhs)
     }

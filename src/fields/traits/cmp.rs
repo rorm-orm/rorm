@@ -22,7 +22,7 @@ use crate::internal::relation_path::Path;
 /// Trait for equality comparisons.
 ///
 /// **Read module notes, before using.**
-pub trait FieldEq<'rhs, Rhs: 'rhs>: FieldType {
+pub trait FieldEq<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
     /// Condition type returned from [`FieldEq::field_equals`]
     type EqCond<A: FieldAccess>: Condition<'rhs>;
 
@@ -39,7 +39,7 @@ pub trait FieldEq<'rhs, Rhs: 'rhs>: FieldType {
 /// Trait for field types that form an order.
 ///
 /// **Read module notes, before using.**
-pub trait FieldOrd<'rhs, Rhs: 'rhs>: FieldEq<'rhs, Rhs> {
+pub trait FieldOrd<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
     /// Condition type returned from [`FieldOrd::field_less_than`]
     type LtCond<A: FieldAccess>: Condition<'rhs>;
 
@@ -68,7 +68,7 @@ pub trait FieldOrd<'rhs, Rhs: 'rhs>: FieldEq<'rhs, Rhs> {
 /// Trait for field types to implement sql's `LIKE` comparison.
 ///
 /// **Read module notes, before using.**
-pub trait FieldLike<'rhs, Rhs: 'rhs> {
+pub trait FieldLike<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
     /// Condition type returned from [`FieldLike::field_like`]
     type LiCond<A: FieldAccess>: Condition<'rhs>;
 
@@ -85,7 +85,7 @@ pub trait FieldLike<'rhs, Rhs: 'rhs> {
 /// Trait for field types to implement sql's `REGEXP` comparison.
 ///
 /// **Read module notes, before using.**
-pub trait FieldRegexp<'rhs, Rhs: 'rhs> {
+pub trait FieldRegexp<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
     /// Condition type returned from [`FieldRegexp::field_regexp`]
     type ReCond<A: FieldAccess>: Condition<'rhs>;
 
@@ -154,7 +154,7 @@ impl_FieldEq!(Vec<u8>, Vec<u8>, |b| Value::Binary(Cow::Owned(b)));
 impl_FieldEq!(Vec<u8>, Cow<'rhs, [u8]>, Value::Binary);
 
 // Impl FieldEq<FieldProxy> iff FieldEq<Self>
-impl<'rhs, F, P, T> FieldEq<'rhs, FieldProxy<F, P>> for T
+impl<'rhs, F, P, T> FieldEq<'rhs, FieldProxy<F, P>, Proxy> for T
 where
     T: FieldEq<'rhs, T>,
     F: RawField<Type = T> + SingleColumnField,
@@ -251,7 +251,7 @@ impl_FieldOrd!(Vec<u8>, Vec<u8>, |b| Value::Binary(Cow::Owned(b)));
 impl_FieldOrd!(Vec<u8>, Cow<'rhs, [u8]>, Value::Binary);
 
 // Impl FieldOrd<FieldProxy> iff FieldOrd<Self>
-impl<'rhs, F, P, T> FieldOrd<'rhs, FieldProxy<F, P>> for T
+impl<'rhs, F, P, T> FieldOrd<'rhs, FieldProxy<F, P>, Proxy> for T
 where
     T: FieldOrd<'rhs, T>,
     F: RawField<Type = T> + SingleColumnField,
@@ -293,3 +293,5 @@ where
         }
     }
 }
+
+struct Proxy;
