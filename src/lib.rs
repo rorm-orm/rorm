@@ -37,6 +37,15 @@ pub use rorm_declaration::config;
 #[doc(hidden)] // used by macros
 pub use rorm_declaration::imr;
 
+/// A prelude of common types, traits and derive macros that are used by `rorm`
+pub mod prelude {
+    pub use rorm_macro::{DbEnum, Model, Patch};
+
+    pub use crate::fields::types::{BackRef, ForeignModel, ForeignModelByField};
+    pub use crate::internal::field::access::FieldAccess;
+    pub use crate::model::{Model, Patch};
+}
+
 pub mod aggregate;
 pub mod conditions;
 pub mod crud;
