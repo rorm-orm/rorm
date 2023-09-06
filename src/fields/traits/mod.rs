@@ -3,9 +3,11 @@
 use crate::conditions::Value;
 use crate::internal::array_utils::Array;
 use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::FieldKind;
+use crate::internal::field::modifier::AnnotationsModifier;
+use crate::internal::field::{FieldKind, RawField};
 
 pub mod cmp;
+
 pub use cmp::*;
 
 /// Base trait for types which are allowed as fields in models
@@ -24,4 +26,10 @@ pub trait FieldType: 'static {
 
     /// [`FieldDecoder`] to use for fields of this type
     type Decoder: FieldDecoder<Result = Self>;
+
+    /// `const fn<F: RawField>() -> Option<Annotations>`
+    /// to allow modifying the a field's annotations which is of this type
+    ///
+    /// For example can be used to set `nullable` implicitly for `Option<_>`.
+    type AnnotationsModifier<F: RawField<Type = Self>>: AnnotationsModifier<F>;
 }

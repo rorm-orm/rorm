@@ -84,11 +84,13 @@ pub mod access;
 pub mod as_db_type;
 pub mod decoder;
 pub mod foreign_model;
+pub mod modifier;
 
-use crate::fields::traits::FieldType;
 use as_db_type::AsDbType;
 
+use crate::fields::traits::FieldType;
 use crate::internal::array_utils::IntoArray;
+use crate::internal::field::modifier::AnnotationsModifier;
 
 /// Marker trait for various kinds of fields
 pub trait FieldKind {
@@ -146,6 +148,10 @@ pub trait RawField: 'static + Copy {
     /// List of annotations which were set by the user
     const EXPLICIT_ANNOTATIONS: Annotations;
 
+    /// List of annotations which are passed to db, if this field is a single column
+    const EFFECTIVE_ANNOTATIONS: Option<Annotations> =
+        <Self::Type as FieldType>::AnnotationsModifier::<Self>::MODIFIED;
+
     /// Optional definition of the location of field in the source code
     const SOURCE: Option<Source>;
 
@@ -187,18 +193,19 @@ pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
     /// The data type as which this field is stored in the db
     type DbType: DbType;
 
-    /// List of the actual annotations
-    const ANNOTATIONS: Annotations;
-
     /// Entry point for compile time checks on a single field
     ///
     /// It is "used" in [`FieldProxy::new`] to force the compiler to evaluate it.
     const CHECK: usize = {
+        let Some(annotations) = Self::EFFECTIVE_ANNOTATIONS else {
+            panic!()
+        };
+
         // Are required annotations set?
         let mut required = Self::DbType::REQUIRED;
         while let [head, tail @ ..] = required {
             required = tail;
-            if !Self::ANNOTATIONS.is_set(head) {
+            if !annotations.is_set(head) {
                 const_panic!(&[
                     Self::Model::TABLE,
                     ".",
@@ -211,7 +218,7 @@ pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
         }
 
         // Run the annotations lint shared with rorm-cli
-        let annotations = Self::ANNOTATIONS.as_lint();
+        let annotations = annotations.as_lint();
         if let Err(err) = annotations.check() {
             const_panic!(&[
                 Self::Model::TABLE,
@@ -238,27 +245,6 @@ impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDb
 
     type DbType = <T as AsDbType>::DbType;
 
-    const ANNOTATIONS: Annotations = {
-        if let Some(implicit) = Self::Type::IMPLICIT {
-            match Self::EXPLICIT_ANNOTATIONS.merge(implicit) {
-                Ok(annotations) => annotations,
-                Err(duplicate) => {
-                    const_panic!(&[
-                        "The annotation ",
-                        duplicate,
-                        " on ",
-                        Self::Model::TABLE,
-                        ".",
-                        Self::NAME,
-                        " is implied by its type and can't be set explicitly",
-                    ]);
-                }
-            }
-        } else {
-            Self::EXPLICIT_ANNOTATIONS
-        }
-    };
-
     type Primitive = T::Primitive;
 
     fn from_primitive(self, primitive: Self::Primitive) -> Self::Type {
@@ -279,9 +265,6 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
 
     /// The columns' names which store this field
     const COLUMNS: &'static [&'static str] = &[];
-
-    /// The list of annotations, if this field is relevant to the database.
-    const DB_ANNOTATIONS: Option<Annotations> = None;
 }
 macro_rules! impl_abstract_from_field {
     ($kind:ty) => {
@@ -292,18 +275,14 @@ macro_rules! impl_abstract_from_field {
                 imr.push(imr::Field {
                     name: F::NAME.to_string(),
                     db_type: F::DbType::IMR,
-                    annotations: F::ANNOTATIONS.as_imr(),
+                    annotations: Self::EFFECTIVE_ANNOTATIONS
+                        .unwrap_or_else(Annotations::empty)
+                        .as_imr(),
                     source_defined_at: F::SOURCE.map(|s| s.as_imr()),
                 });
             }
 
             const COLUMNS: &'static [&'static str] = &[F::NAME];
-
-            const DB_ANNOTATIONS: Option<Annotations> = {
-                // "Use" the CHECK constant to force the compiler to evaluate it.
-                let _check: usize = F::CHECK;
-                Some(F::ANNOTATIONS)
-            };
         }
     };
 }

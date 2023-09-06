@@ -11,6 +11,7 @@ use crate::crud::decoder::{Decoder, DirectDecoder};
 use crate::fields::traits::FieldType;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
+use crate::internal::field::modifier::{MergeAnnotations, UnchangedAnnotations};
 use crate::internal::field::{kind, AbstractField, ContainerField, FieldProxy, RawField};
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::{db_type, Source};
@@ -70,6 +71,8 @@ const _: () = {
         }
 
         type Decoder = FixedOffsetDecoder;
+
+        type AnnotationsModifier<F: RawField<Type = Self>> = MergeAnnotations<Self>;
     }
     impl AsDbType for FixedOffset {
         type Primitive = i32;
@@ -110,6 +113,8 @@ const _: () = {
         }
 
         type Decoder = DateTimeDecoder;
+
+        type AnnotationsModifier<F: RawField<Type = Self>> = UnchangedAnnotations;
     }
 
     /// [`FieldDecoder`] for [`DateTime<FixedOffset>`]

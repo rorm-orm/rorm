@@ -71,7 +71,8 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
             // Cross field checks
             let mut count_auto_increment = 0;
             #(
-                if let Some(annos) = <#field_structs_2 as ::rorm::internal::field::AbstractField>::DB_ANNOTATIONS {
+                let annos = <#field_structs_2 as ::rorm::internal::field::RawField>::EFFECTIVE_ANNOTATIONS;
+                if let Some(annos) = annos {
                     if annos.auto_increment.is_some() {
                         count_auto_increment += 1;
                     }

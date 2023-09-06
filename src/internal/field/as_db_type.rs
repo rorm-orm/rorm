@@ -60,6 +60,8 @@ macro_rules! impl_AsDbType {
             }
 
             type Decoder = $decoder;
+
+            type AnnotationsModifier<F: $crate::internal::field::RawField<Type = Self>> = $crate::internal::field::modifier::MergeAnnotations<Self>;
         }
 
         impl $crate::internal::field::as_db_type::AsDbType for Option<$type> {
@@ -99,6 +101,8 @@ macro_rules! impl_AsDbType {
             }
 
             type Decoder = $crate::crud::decoder::DirectDecoder<Self>;
+
+            type AnnotationsModifier<F: $crate::internal::field::RawField<Type = Self>> = $crate::internal::field::modifier::MergeAnnotations<Self>;
         }
 
         impl $crate::internal::field::as_db_type::AsDbType for $type {

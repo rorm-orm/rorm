@@ -10,6 +10,7 @@ use crate::crud::decoder::Decoder;
 use crate::fields::types::ForeignModelByField;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
+use crate::internal::field::modifier::AnnotationsModifier;
 use crate::internal::field::{kind, Field, FieldProxy, FieldType, RawField, SingleColumnField};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
@@ -45,6 +46,8 @@ where
     }
 
     type Decoder = ForeignModelByFieldDecoder<FF>;
+
+    type AnnotationsModifier<F: RawField<Type = Self>> = ForeignAnnotations<Self>;
 }
 
 impl<FF> FieldType for Option<ForeignModelByField<FF>>
@@ -74,6 +77,8 @@ where
     }
 
     type Decoder = OptionForeignModelByFieldDecoder<FF>;
+
+    type AnnotationsModifier<F: RawField<Type = Self>> = ForeignAnnotations<Self>;
 }
 
 #[doc(hidden)]
@@ -139,6 +144,28 @@ where
     }
 }
 
+/// [`AnnotationsModifier`] which:
+/// - sets `nullable`
+/// - copies `max_length` from the foreign key
+/// - sets `foreign`
+pub struct ForeignAnnotations<T: ForeignModelTrait>(pub PhantomData<T>);
+impl<T: ForeignModelTrait, F: RawField<Type = T>> AnnotationsModifier<F> for ForeignAnnotations<T> {
+    const MODIFIED: Option<Annotations> = {
+        let mut annos = F::EXPLICIT_ANNOTATIONS;
+        annos.nullable = T::IS_OPTION;
+        if annos.max_length.is_none() {
+            if let Some(target_annos) = <RF<F> as RawField>::EFFECTIVE_ANNOTATIONS {
+                annos.max_length = target_annos.max_length;
+            }
+        }
+        annos.foreign = Some(hmr::annotations::ForeignKey {
+            table_name: <RF<F> as RawField>::Model::TABLE,
+            column_name: <RF<F> as RawField>::NAME,
+        });
+        Some(annos)
+    };
+}
+
 pub(crate) type RF<F> = <<F as RawField>::Type as ForeignModelTrait>::RelatedField;
 impl<F> Field<kind::ForeignModel> for F
 where
@@ -151,18 +178,6 @@ where
 
     type DbType = <RF<F> as Field<kind::AsDbType>>::DbType;
 
-    const ANNOTATIONS: Annotations = {
-        let mut annos = Self::EXPLICIT_ANNOTATIONS;
-        annos.nullable = <<F as RawField>::Type as ForeignModelTrait>::IS_OPTION;
-        if annos.max_length.is_none() {
-            annos.max_length = <RF<F> as Field<kind::AsDbType>>::ANNOTATIONS.max_length;
-        }
-        annos.foreign = Some(hmr::annotations::ForeignKey {
-            table_name: <RF<F> as RawField>::Model::TABLE,
-            column_name: <RF<F> as RawField>::NAME,
-        });
-        annos
-    };
     type Primitive = <<F as RawField>::Type as ForeignModelTrait>::Primitive;
 
     fn from_primitive(self, primitive: Self::Primitive) -> Self::Type {

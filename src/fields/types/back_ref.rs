@@ -13,6 +13,7 @@ use crate::crud::decoder::NoopDecoder;
 use crate::fields::traits::FieldType;
 use crate::fields::types::ForeignModelByField;
 use crate::internal::field::foreign_model::ForeignModelTrait;
+use crate::internal::field::modifier::EraseAnnotations;
 use crate::internal::field::{
     foreign_model, kind, AbstractField, Field, FieldProxy, RawField, SingleColumnField,
 };
@@ -55,6 +56,8 @@ impl<FMF: Field<kind::ForeignModel>> FieldType for BackRef<FMF> {
     }
 
     type Decoder = NoopDecoder<Self>;
+
+    type AnnotationsModifier<F: RawField<Type = Self>> = EraseAnnotations;
 }
 
 impl<F, FMF, BRF> AbstractField<kind::BackRef> for BRF
