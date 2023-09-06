@@ -73,8 +73,7 @@ use crate::conditions::Value;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::Source;
 use crate::internal::relation_path::{Path, PathImpl, PathStep, ResolvedRelatedField};
-use crate::model::{ConstNew, Model};
-use crate::sealed;
+use crate::model::{ConstNew, GetField, Model};
 
 pub mod access;
 pub mod as_db_type;
@@ -83,40 +82,11 @@ pub mod foreign_model;
 pub mod modifier;
 
 use crate::fields::traits::FieldType;
+use crate::fields::types::{BackRef, ForeignModelByField};
 use crate::internal::array_utils::IntoArray;
+use crate::internal::field::as_db_type::AsDbType;
+use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
 use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier, ColumnsFromName};
-
-/// Marker trait for various kinds of fields
-pub trait FieldKind {
-    sealed!(trait);
-}
-/// Namespace for the different [`FieldKind`] impls.
-pub mod kind {
-    use super::FieldKind;
-    use crate::sealed;
-
-    /// Marker for some field which is a [`ForeignModel`](crate::fields::types::ForeignModelByField)
-    pub struct ForeignModel;
-    /// Marker for some field which is a [`BackRef`](crate::fields::types::BackRef)
-    pub struct BackRef;
-    /// Marker for some field which is an [`AsDbType`](crate::internal::field::as_db_type::AsDbType)
-    pub struct AsDbType;
-    /// Marker for some field which is an [`DateTime<FixedOffset>`](chrono::DateTime)
-    pub struct DateTime;
-
-    impl FieldKind for ForeignModel {
-        sealed!(impl);
-    }
-    impl FieldKind for BackRef {
-        sealed!(impl);
-    }
-    impl FieldKind for AsDbType {
-        sealed!(impl);
-    }
-    impl FieldKind for DateTime {
-        sealed!(impl);
-    }
-}
 
 /// This trait is implemented by the `#[derive(Model)]` macro on unique unit struct for each of a model's fields.
 ///
@@ -124,11 +94,8 @@ pub mod kind {
 ///
 /// This trait itself doesn't do much, but it forms the basis to implement the other traits.
 pub trait RawField: 'static + Copy {
-    /// The field's kind which is determined by its [type](RawField::Type)
-    type Kind: FieldKind;
-
     /// The type stored in the model's field
-    type Type: FieldType<Kind = Self::Kind>;
+    type Type: FieldType;
 
     /// The model this field is part of
     type Model: Model;
@@ -272,14 +239,14 @@ impl<Field, Path> Copy for FieldProxy<Field, Path> {}
 /// - For [`BackRef`](crate::fields::types::BackRef) and [`ForeignModel`](crate::fields::types::ForeignModelByField),
 ///   its their related model's fields
 /// - For multi-column fields, its their "contained" fields
-pub trait ContainerField<P: Path, K: FieldKind = <Self as RawField>::Kind>: RawField {
+pub trait ContainerField<T: FieldType, P: Path>: RawField<Type = T> {
     /// Struct of contained fields
     type Target: ConstNew;
 }
 
-impl<F: RawField, P: Path> std::ops::Deref for FieldProxy<F, P>
+impl<T: FieldType, F: RawField<Type = T>, P: Path> std::ops::Deref for FieldProxy<F, P>
 where
-    F: ContainerField<P>,
+    F: ContainerField<T, P>,
 {
     type Target = F::Target;
 
@@ -288,22 +255,44 @@ where
     }
 }
 
-impl<F, P> ContainerField<P, kind::ForeignModel> for F
+impl<FMF, BF, P> ContainerField<BackRef<FMF>, P> for BF
 where
+    FMF: ForeignModelField,
+    BF: RawField<Type = BackRef<FMF>>,
     P: Path,
-    F: RawField<Kind = kind::ForeignModel>,
-    PathStep<F, P>: PathImpl<F::Type>,
+    PathStep<BF, P>: PathImpl<BackRef<FMF>>,
 {
-    type Target =
-        <<ResolvedRelatedField<F, P> as RawField>::Model as Model>::Fields<PathStep<F, P>>;
+    // type Target = <<ResolvedRelatedField<BF, P> as RawField>::Model as Model>::Fields<PathStep<BF, P>>;
+    type Target = <FMF::Model as Model>::Fields<PathStep<BF, P>>;
 }
 
-impl<F, P> ContainerField<P, kind::BackRef> for F
+impl<FF, FMF, P> ContainerField<ForeignModelByField<FF>, P> for FMF
 where
+    // bound in `impl FieldType for ForeignModelByField<FF>`
+    ForeignModelByField<FF>: ForeignModelTrait,
+    FF: SingleColumnField,
+    FF::Type: AsDbType,
+    FF::Model: GetField<FF>, // always true
+
+    FMF: RawField<Type = ForeignModelByField<FF>>,
     P: Path,
-    F: RawField<Kind = kind::BackRef>,
-    PathStep<F, P>: PathImpl<F::Type>,
+    PathStep<FMF, P>: PathImpl<ForeignModelByField<FF>>,
 {
-    type Target =
-        <<ResolvedRelatedField<F, P> as RawField>::Model as Model>::Fields<PathStep<F, P>>;
+    type Target = <FF::Model as Model>::Fields<PathStep<FMF, P>>;
+}
+
+impl<FF, FMF, P> ContainerField<Option<ForeignModelByField<FF>>, P> for FMF
+where
+    // bound in `impl FieldType for ForeignModelByField<FF>`
+    Option<ForeignModelByField<FF>>: ForeignModelTrait,
+    FF: SingleColumnField,
+    FF::Type: AsDbType,
+    FF::Model: GetField<FF>, // always true
+    Option<FF::Type>: AsDbType,
+
+    FMF: RawField<Type = Option<ForeignModelByField<FF>>>,
+    P: Path,
+    PathStep<FMF, P>: PathImpl<Option<ForeignModelByField<FF>>>,
+{
+    type Target = <FF::Model as Model>::Fields<PathStep<FMF, P>>;
 }

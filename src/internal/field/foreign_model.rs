@@ -13,7 +13,7 @@ use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::modifier::{
     AnnotationsModifier, SingleColumnCheck, SingleColumnFromName,
 };
-use crate::internal::field::{kind, FieldProxy, FieldType, RawField, SingleColumnField};
+use crate::internal::field::{FieldProxy, FieldType, RawField, SingleColumnField};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::DbType;
@@ -26,13 +26,10 @@ use crate::{impl_FieldEq, sealed};
 impl<FF> FieldType for ForeignModelByField<FF>
 where
     Self: ForeignModelTrait,
-    FF: RawField<Kind = kind::AsDbType>,
+    FF: SingleColumnField,
     FF::Type: AsDbType,
     FF::Model: GetField<FF>, // always true
-    FF: SingleColumnField,
 {
-    type Kind = kind::ForeignModel;
-
     type Columns<T> = [T; 1];
 
     fn into_values(self) -> Self::Columns<Value<'static>> {
@@ -73,14 +70,11 @@ where
 impl<FF> FieldType for Option<ForeignModelByField<FF>>
 where
     Self: ForeignModelTrait,
-    FF: RawField<Kind = kind::AsDbType>,
+    FF: SingleColumnField,
     FF::Type: AsDbType,
     FF::Model: GetField<FF>, // always true
-    FF: SingleColumnField,
     Option<FF::Type>: AsDbType,
 {
-    type Kind = kind::ForeignModel;
-
     type Columns<T> = [T; 1];
 
     fn into_values(self) -> Self::Columns<Value<'static>> {
@@ -131,10 +125,9 @@ pub trait ForeignModelTrait {
 
 impl<FF> ForeignModelTrait for ForeignModelByField<FF>
 where
-    FF: RawField<Kind = kind::AsDbType>,
+    FF: SingleColumnField,
     FF::Type: AsDbType,
     FF::Model: GetField<FF>, // always true
-    FF: SingleColumnField,
 {
     sealed!(impl);
 
@@ -192,14 +185,14 @@ impl<T: ForeignModelTrait, F: RawField<Type = T>> AnnotationsModifier<F> for For
     };
 }
 
-pub trait ForeignModelField: RawField<Kind = kind::ForeignModel> {
+pub trait ForeignModelField: RawField {
     sealed!(trait);
 }
 
 pub(crate) type RF<F> = <<F as RawField>::Type as ForeignModelTrait>::RelatedField;
 impl<F> ForeignModelField for F
 where
-    F: RawField<Kind = kind::ForeignModel>,
+    F: SingleColumnField,
     F::Type: ForeignModelTrait,
     <<F::Type as ForeignModelTrait>::RelatedField as RawField>::Model:
         GetField<<F::Type as ForeignModelTrait>::RelatedField>, // always true
@@ -287,7 +280,6 @@ where
     T: FieldType + 'static,
     F: RawField,
 {
-    type Kind = T::Kind;
     type Type = T;
     type Model = F::Model;
     const INDEX: usize = F::INDEX;
@@ -302,18 +294,16 @@ where
 impl_FieldEq!(
     impl<'rhs, FF> FieldEq<'rhs, FF::Type, FieldEq_ForeignModelByField_Owned> for ForeignModelByField<FF>
     where
-        FF: RawField<Kind = kind::AsDbType>,
-        FF::Type: AsDbType,
         FF: SingleColumnField,
+        FF::Type: AsDbType,
         FF::Model: GetField<FF>, // always true
     { <FF as SingleColumnField>::type_into_value }
 );
 impl_FieldEq!(
     impl<'rhs, FF> FieldEq<'rhs, FF::Type, FieldEq_ForeignModelByField_Owned> for Option<ForeignModelByField<FF>>
     where
-        FF: RawField<Kind = kind::AsDbType>,
-        FF::Type: AsDbType,
         FF: SingleColumnField,
+        FF::Type: AsDbType,
         Option<FF::Type>: AsDbType,
         FF::Model: GetField<FF>, // always true
     { <FF as SingleColumnField>::type_into_value }
@@ -322,18 +312,16 @@ impl_FieldEq!(
 impl_FieldEq!(
     impl<'rhs, FF> FieldEq<'rhs, &'rhs FF::Type, FieldEq_ForeignModelByField_Borrowed> for ForeignModelByField<FF>
     where
-        FF: RawField<Kind = kind::AsDbType>,
-        FF::Type: AsDbType,
         FF: SingleColumnField,
+        FF::Type: AsDbType,
         FF::Model: GetField<FF>, // always true
     { <FF as SingleColumnField>::type_as_value }
 );
 impl_FieldEq!(
     impl<'rhs, FF> FieldEq<'rhs, &'rhs FF::Type, FieldEq_ForeignModelByField_Borrowed> for Option<ForeignModelByField<FF>>
     where
-        FF: RawField<Kind = kind::AsDbType>,
-        FF::Type: AsDbType,
         FF: SingleColumnField,
+        FF::Type: AsDbType,
         Option<FF::Type>: AsDbType,
         FF::Model: GetField<FF>, // always true
     { <FF as SingleColumnField>::type_as_value }

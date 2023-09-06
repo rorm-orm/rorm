@@ -11,7 +11,7 @@ use crate::conditions::Value;
 use crate::fields::traits::FieldType;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::modifier::{MergeAnnotations, SingleColumnCheck, SingleColumnFromName};
-use crate::internal::field::{kind, RawField};
+use crate::internal::field::RawField;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::{Binary, DbType};
 use crate::internal::hmr::AsImr;
@@ -54,7 +54,6 @@ new_converting_decoder!(
     }
 );
 impl<T: Serialize + DeserializeOwned + 'static> FieldType for Json<T> {
-    type Kind = kind::AsDbType;
     type Columns<C> = [C; 1];
 
     fn into_values(self) -> Self::Columns<Value<'static>> {
@@ -110,7 +109,6 @@ new_converting_decoder!(
     }
 );
 impl<T: Serialize + DeserializeOwned + 'static> FieldType for Option<Json<T>> {
-    type Kind = kind::AsDbType;
     type Columns<C> = [C; 1];
 
     fn into_values(self) -> Self::Columns<Value<'static>> {

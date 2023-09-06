@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use rorm_db::row::DecodeOwned;
 
 use crate::conditions::Value;
-use crate::internal::field::{kind, FieldType};
+use crate::internal::field::FieldType;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type;
 use crate::internal::hmr::db_type::DbType;
@@ -13,7 +13,7 @@ use crate::internal::hmr::db_type::DbType;
 /// This trait maps rust types to database types
 ///
 /// I.e. it specifies which datatypes are allowed on model's fields.
-pub trait AsDbType: FieldType<Kind = kind::AsDbType> + Sized {
+pub trait AsDbType: FieldType + Sized {
     /// A type which can be retrieved from the db and then converted into Self.
     type Primitive: DecodeOwned;
 
@@ -45,7 +45,6 @@ pub trait AsDbType: FieldType<Kind = kind::AsDbType> + Sized {
 macro_rules! impl_AsDbType {
     (Option<$type:ty>, $decoder:ty) => {
         impl $crate::fields::traits::FieldType for Option<$type> {
-            type Kind = $crate::internal::field::kind::AsDbType;
             type Columns<T> = [T; 1];
 
             fn into_values(self) -> Self::Columns<$crate::conditions::Value<'static>> {
@@ -104,7 +103,6 @@ macro_rules! impl_AsDbType {
     };
     ($type:ty, $db_type:ty, $into_value:expr, $as_value:expr) => {
         impl $crate::fields::traits::FieldType for $type {
-            type Kind = $crate::internal::field::kind::AsDbType;
             type Columns<T> = [T; 1];
 
             #[inline(always)]

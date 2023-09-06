@@ -49,9 +49,10 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
 
             fn get_imr() -> ::rorm::imr::Model {
                 use ::rorm::internal::field::RawField;
-                let fields = Vec::from_iter([#(
-                    <#field_types as ::rorm::fields::traits::FieldType>::get_imr::<#field_structs_1>(),
-                )*].into_iter().flatten());
+                let mut fields = Vec::new();
+                #(
+                    fields.extend(<#field_types as ::rorm::fields::traits::FieldType>::get_imr::<#field_structs_1>());
+                )*
                 ::rorm::imr::Model {
                     name: Self::TABLE.to_string(),
                     fields,
@@ -150,7 +151,6 @@ fn generate_fields(model: &AnalyzedModel) -> TokenStream {
             }
             impl ::std::marker::Copy for #unit {}
             impl ::rorm::internal::field::RawField for #unit {
-                type Kind = <#ty as ::rorm::fields::traits::FieldType>::Kind;
                 type Type = #ty;
                 type Model = #model_ident;
                 const INDEX: usize = #index;

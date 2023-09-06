@@ -14,7 +14,7 @@ use crate::crud::decoder::NoopDecoder;
 use crate::fields::traits::FieldType;
 use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
 use crate::internal::field::modifier::{EraseAnnotations, NoCheck, NoColumnFromName};
-use crate::internal::field::{foreign_model, kind, FieldProxy, RawField, SingleColumnField};
+use crate::internal::field::{foreign_model, FieldProxy, RawField, SingleColumnField};
 use crate::model::GetField;
 use crate::query;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
@@ -41,8 +41,6 @@ impl<FMF: ForeignModelField> BackRef<FMF> {
 }
 
 impl<FMF: ForeignModelField> FieldType for BackRef<FMF> {
-    type Kind = kind::BackRef;
-
     type Columns<T> = [T; 0];
 
     fn into_values(self) -> Self::Columns<Value<'static>> {

@@ -4,7 +4,7 @@ use crate::conditions::Value;
 use crate::internal::array_utils::Array;
 use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier, ColumnsFromName};
-use crate::internal::field::{FieldKind, RawField};
+use crate::internal::field::RawField;
 use crate::internal::imr;
 
 pub mod cmp;
@@ -13,9 +13,6 @@ pub use cmp::*;
 
 /// Base trait for types which are allowed as fields in models
 pub trait FieldType: 'static {
-    /// The kind of field this type declares
-    type Kind: FieldKind;
-
     /// Array with length specific to the field type
     type Columns<T>: Array<Item = T>;
 
