@@ -185,6 +185,7 @@ impl<T: ForeignModelTrait, F: RawField<Type = T>> AnnotationsModifier<F> for For
     };
 }
 
+/// Marker trait without actual bounds for fields of type foreign model
 pub trait ForeignModelField: RawField {
     sealed!(trait);
 }

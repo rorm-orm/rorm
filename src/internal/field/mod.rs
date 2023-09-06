@@ -35,36 +35,8 @@
 //! }
 //! ```
 //!
-//! ---
-//!
-//! From there on, further traits are implemented using generic `impl`s defined in this module.
-//! These implementations branch depending on the field's type.
-//!
-//! **This hits a limitation in rust:**
-//! We need to provide different generic implementations for the same traits ([`AbstractField`] and [`Field`]).
-//! rust enforces implementations to don't overlap.
-//! To achieve this a [`FieldKind`] is introduced.
-//! Each [`FieldType`] (a type usable as a field) is of exactly one such kind.
-//! Using this kinds as constraints for the generic [`RawField]'s type,
-//! should make these implementation branches mutually exclusive.
-//! However rust doesn't quite understand this, which is due to an old bug (stated by some online sources).
-//!
-//! As a workaround all traits after [`RawField`] carry a generic [`FieldKind`] which defaults to `<Self as RawField>::Kind`.
-//! This way
-//! - The traits (for example `Field<kind::AsDbType` and `Field<kind::ForeignModel>`)
-//! are treated as different traits, as far as the impl overlap is concerned.
-//! - You can write `F: Field` in constraint without having to state the generic every time.
-//!
-//! *(Thank you a lot to whomever's blog post I read to figure all this out.
-//! I'm sorry, I couldn't find you anymore to credit you properly.)*
-//!
-//! ---
-//!
-//! **The concrete branches are experimental and might change any time!**
-//!
-//! The [`Field`] implementation does further processing of [`RawField`].
-//! For example it merges the annotations set by the user with annotations implied by the raw type
-//! and runs a linter shared with `rorm-cli` on them.
+//! From there the various methods and associated type from [`FieldType`] take over.
+//! TODO more docs
 
 use std::marker::PhantomData;
 use std::mem::ManuallyDrop;
