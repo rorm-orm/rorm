@@ -76,6 +76,8 @@ macro_rules! impl_AsDbType {
             type AnnotationsModifier<F: $crate::internal::field::RawField<Type = Self>> = $crate::internal::field::modifier::MergeAnnotations<Self>;
 
             type CheckModifier<F: $crate::internal::field::RawField<Type = Self>> = $crate::internal::field::modifier::SingleColumnCheck<<$type as $crate::internal::field::as_db_type::AsDbType>::DbType>;
+
+            type ColumnsFromName<F: $crate::internal::field::RawField<Type = Self>> = $crate::internal::field::modifier::SingleColumnFromName;
         }
 
         impl $crate::internal::field::as_db_type::AsDbType for Option<$type> {
@@ -131,6 +133,8 @@ macro_rules! impl_AsDbType {
             type AnnotationsModifier<F: $crate::internal::field::RawField<Type = Self>> = $crate::internal::field::modifier::MergeAnnotations<Self>;
 
             type CheckModifier<F: $crate::internal::field::RawField<Type = Self>> = $crate::internal::field::modifier::SingleColumnCheck<$db_type>;
+
+            type ColumnsFromName<F: $crate::internal::field::RawField<Type = Self>> = $crate::internal::field::modifier::SingleColumnFromName;
         }
 
         impl $crate::internal::field::as_db_type::AsDbType for $type {

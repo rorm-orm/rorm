@@ -10,7 +10,9 @@ use crate::crud::decoder::Decoder;
 use crate::fields::types::ForeignModelByField;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::modifier::{AnnotationsModifier, SingleColumnCheck};
+use crate::internal::field::modifier::{
+    AnnotationsModifier, SingleColumnCheck, SingleColumnFromName,
+};
 use crate::internal::field::{kind, FieldProxy, FieldType, RawField, SingleColumnField};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
@@ -64,6 +66,8 @@ where
 
     type CheckModifier<F: RawField<Type = Self>> =
         SingleColumnCheck<<Self as ForeignModelTrait>::DbType>;
+
+    type ColumnsFromName<F: RawField<Type = Self>> = SingleColumnFromName;
 }
 
 impl<FF> FieldType for Option<ForeignModelByField<FF>>
@@ -111,6 +115,8 @@ where
 
     type CheckModifier<F: RawField<Type = Self>> =
         SingleColumnCheck<<Self as ForeignModelTrait>::DbType>;
+
+    type ColumnsFromName<F: RawField<Type = Self>> = SingleColumnFromName;
 }
 
 #[doc(hidden)]

@@ -12,16 +12,13 @@ use crate::conditions::collections::CollectionOperator::Or;
 use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection, Value};
 use crate::crud::decoder::NoopDecoder;
 use crate::fields::traits::FieldType;
-use crate::fields::types::ForeignModelByField;
 use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
-use crate::internal::field::modifier::{EraseAnnotations, NoCheck};
-use crate::internal::field::{
-    foreign_model, kind, AbstractField, FieldProxy, RawField, SingleColumnField,
-};
+use crate::internal::field::modifier::{EraseAnnotations, NoCheck, NoColumnFromName};
+use crate::internal::field::{foreign_model, kind, FieldProxy, RawField, SingleColumnField};
 use crate::model::GetField;
+use crate::query;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
 use crate::Patch;
-use crate::{query, sealed};
 
 /// A back reference is the other direction to a [foreign model](ForeignModelByField)
 #[derive(Clone)]
@@ -65,20 +62,13 @@ impl<FMF: ForeignModelField> FieldType for BackRef<FMF> {
     type AnnotationsModifier<F: RawField<Type = Self>> = EraseAnnotations;
 
     type CheckModifier<F: RawField<Type = Self>> = NoCheck;
-}
 
-impl<F, FMF, BRF> AbstractField<kind::BackRef> for BRF
-where
-    F: SingleColumnField,                                  // Some field
-    FMF: ForeignModelField<Type = ForeignModelByField<F>>, // A `ForeignModelByField`-field pointing to `F`
-    BRF: RawField<Kind = kind::BackRef, Type = BackRef<FMF>, Model = F::Model>, // A `BackRef`-field pointing to `FMF`
-{
-    sealed!(impl);
+    type ColumnsFromName<F: RawField<Type = Self>> = NoColumnFromName;
 }
 
 impl<BRF, FMF> FieldProxy<BRF, BRF::Model>
 where
-    BRF: AbstractField<Type = BackRef<FMF>>,
+    BRF: RawField<Type = BackRef<FMF>>,
 
     FMF: ForeignModelField + SingleColumnField,
     FMF::Type: ForeignModelTrait,

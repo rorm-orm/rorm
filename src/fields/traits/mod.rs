@@ -3,7 +3,7 @@
 use crate::conditions::Value;
 use crate::internal::array_utils::Array;
 use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier};
+use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier, ColumnsFromName};
 use crate::internal::field::{FieldKind, RawField};
 use crate::internal::imr;
 
@@ -42,4 +42,7 @@ pub trait FieldType: 'static {
     ///
     /// For example can be used to ensure `String` has a `max_lenght`.
     type CheckModifier<F: RawField<Type = Self>>: CheckModifier<F>;
+
+    /// `const fn<F: RawField>() -> Self::Columns<&'static str>`
+    type ColumnsFromName<F: RawField<Type = Self>>: ColumnsFromName<F>;
 }

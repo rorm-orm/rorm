@@ -48,7 +48,7 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
             const TABLE: &'static str = #table;
 
             fn get_imr() -> ::rorm::imr::Model {
-                use ::rorm::internal::field::{RawField, AbstractField};
+                use ::rorm::internal::field::RawField;
                 let fields = Vec::from_iter([#(
                     <#field_types as ::rorm::fields::traits::FieldType>::get_imr::<#field_structs_1>(),
                 )*].into_iter().flatten());

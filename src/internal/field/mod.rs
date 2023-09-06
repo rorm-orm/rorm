@@ -84,7 +84,7 @@ pub mod modifier;
 
 use crate::fields::traits::FieldType;
 use crate::internal::array_utils::IntoArray;
-use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier};
+use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier, ColumnsFromName};
 
 /// Marker trait for various kinds of fields
 pub trait FieldKind {
@@ -184,24 +184,6 @@ where
     }
 }
 
-/// A common interface unifying the fields of various kinds.
-pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
-    sealed!(trait);
-
-    /// The columns' names which store this field
-    const COLUMNS: &'static [&'static str] = &[];
-}
-impl<F: RawField<Kind = kind::AsDbType>> AbstractField<kind::AsDbType> for F {
-    sealed!(impl);
-
-    const COLUMNS: &'static [&'static str] = &[F::NAME];
-}
-impl<F: RawField<Kind = kind::ForeignModel>> AbstractField<kind::ForeignModel> for F {
-    sealed!(impl);
-
-    const COLUMNS: &'static [&'static str] = &[F::NAME];
-}
-
 /// This struct acts as a proxy exposing type level information from the [`RawField`] trait on the value level.
 ///
 /// On top of that it can be used to keep track of the "path" this field is accessed through, when dealing with relations.
@@ -266,10 +248,10 @@ impl<F: RawField, P> FieldProxy<F, P> {
         FieldProxy::new()
     }
 }
-impl<F: AbstractField, P> FieldProxy<F, P> {
+impl<F: RawField, P> FieldProxy<F, P> {
     /// Get the names of the columns which store the field
-    pub const fn columns(_field: Self) -> &'static [&'static str] {
-        F::COLUMNS
+    pub const fn columns(_field: Self) -> <F::Type as FieldType>::Columns<&'static str> {
+        <F::Type as FieldType>::ColumnsFromName::<F>::COLUMNS
     }
 
     /// Get the underlying field to call its methods

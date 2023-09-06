@@ -10,7 +10,7 @@ use serde::Serialize;
 use crate::conditions::Value;
 use crate::fields::traits::FieldType;
 use crate::internal::field::as_db_type::AsDbType;
-use crate::internal::field::modifier::{MergeAnnotations, SingleColumnCheck};
+use crate::internal::field::modifier::{MergeAnnotations, SingleColumnCheck, SingleColumnFromName};
 use crate::internal::field::{kind, RawField};
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::{Binary, DbType};
@@ -85,6 +85,8 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Json<T> {
     type AnnotationsModifier<F: RawField<Type = Self>> = MergeAnnotations<Self>;
 
     type CheckModifier<F: RawField<Type = Self>> = SingleColumnCheck<Binary>;
+
+    type ColumnsFromName<F: RawField<Type = Self>> = SingleColumnFromName;
 }
 impl<T: Serialize + DeserializeOwned + 'static> AsDbType for Json<T> {
     type Primitive = Vec<u8>;
@@ -138,6 +140,8 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Option<Json<T>> {
     type AnnotationsModifier<F: RawField<Type = Self>> = MergeAnnotations<Self>;
 
     type CheckModifier<F: RawField<Type = Self>> = SingleColumnCheck<Binary>;
+
+    type ColumnsFromName<F: RawField<Type = Self>> = SingleColumnFromName;
 }
 impl<T: Serialize + DeserializeOwned + 'static> AsDbType for Option<Json<T>> {
     type Primitive = Option<Vec<u8>>;

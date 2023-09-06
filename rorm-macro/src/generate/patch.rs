@@ -58,7 +58,6 @@ pub fn partially_generate_patch<'a>(
     let [fields_1, fields_2, fields_3, fields_4, fields_5, fields_6, fields_7] =
         array::from_fn(|_| fields.clone());
     quote! {
-        use ::rorm::internal::field::AbstractField;
         use ::rorm::internal::field::decoder::FieldDecoder;
         use ::rorm::fields::traits::FieldType;
 
@@ -98,7 +97,7 @@ pub fn partially_generate_patch<'a>(
             }
 
             const COLUMNS: &'static [&'static str] = ::rorm::concat_columns!(&[#(
-                ::rorm::internal::field::FieldProxy::columns(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields_5),
+                &::rorm::internal::field::FieldProxy::columns(<<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS.#fields_5),
             )*]);
 
             fn push_references<'a>(&'a self, values: &mut Vec<::rorm::conditions::Value<'a>>) {

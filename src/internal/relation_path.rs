@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 
 use crate::fields::types::{BackRef, ForeignModelByField};
 use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
-use crate::internal::field::{kind, AbstractField, RawField, SingleColumnField};
+use crate::internal::field::{RawField, SingleColumnField};
 use crate::internal::query_context::QueryContext;
 use crate::{const_concat, sealed, Model};
 
@@ -111,7 +111,7 @@ impl<FMF, F, P> PathImpl<BackRef<FMF>> for PathStep<F, P>
 where
     FMF: ForeignModelField,
     FMF::Type: ForeignModelTrait,
-    F: AbstractField<kind::BackRef, Type = BackRef<FMF>> + 'static,
+    F: RawField<Type = BackRef<FMF>> + 'static,
     P: Path,
 {
     sealed!(impl);
