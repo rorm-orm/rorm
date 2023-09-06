@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use rorm_db::row::DecodeOwned;
 use rorm_db::sql::aggregation::SelectAggregator;
 
-use crate::internal::field::{Field, FieldProxy};
+use crate::internal::field::{FieldProxy, SingleColumnField};
 use crate::internal::relation_path::Path;
 
 /// A function which can be used in aggregation.
@@ -67,7 +67,7 @@ impl AggregationFunc for Min {
     const SQL: SelectAggregator = SelectAggregator::Min;
 }
 
-impl<F: Field, P: Path> FieldProxy<F, P> {
+impl<F: SingleColumnField, P: Path> FieldProxy<F, P> {
     const fn new_aggr<A: AggregationFunc>() -> AggregatedColumn<A, F, P> {
         AggregatedColumn {
             function: PhantomData,

@@ -7,7 +7,7 @@ use crate::crud::decoder::{Decoder, DirectDecoder};
 use crate::fields::traits::FieldType;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::{Field, FieldProxy, RawField};
+use crate::internal::field::{FieldProxy, RawField, SingleColumnField};
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::{Path, PathImpl, PathStep, ResolvedRelatedField};
 use crate::model::{Model, PatchSelector};
@@ -65,7 +65,7 @@ where
 impl<A, F, P> Selector for AggregatedColumn<A, F, P>
 where
     A: AggregationFunc,
-    F: Field,
+    F: SingleColumnField,
     F::Type: AsDbType,
     P: Path,
 {

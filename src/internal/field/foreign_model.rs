@@ -11,7 +11,7 @@ use crate::fields::types::ForeignModelByField;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::modifier::{AnnotationsModifier, SingleColumnCheck};
-use crate::internal::field::{kind, Field, FieldProxy, FieldType, RawField, SingleColumnField};
+use crate::internal::field::{kind, FieldProxy, FieldType, RawField, SingleColumnField};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::DbType;
@@ -118,7 +118,7 @@ pub trait ForeignModelTrait {
     sealed!(trait);
 
     type DbType: DbType;
-    type RelatedField: Field<kind::AsDbType>;
+    type RelatedField: SingleColumnField;
     const IS_OPTION: bool;
     fn as_key(&self) -> Option<&<Self::RelatedField as RawField>::Type>;
 }
@@ -143,12 +143,11 @@ where
     }
 }
 
-impl<FF: Field<kind::AsDbType>> ForeignModelTrait for Option<ForeignModelByField<FF>>
+impl<FF: SingleColumnField> ForeignModelTrait for Option<ForeignModelByField<FF>>
 where
-    FF: RawField<Kind = kind::AsDbType>,
+    FF: SingleColumnField,
     FF::Type: AsDbType,
     FF::Model: GetField<FF>, // always true
-    FF: SingleColumnField,
     Option<FF::Type>: AsDbType,
 {
     sealed!(impl);
@@ -187,8 +186,12 @@ impl<T: ForeignModelTrait, F: RawField<Type = T>> AnnotationsModifier<F> for For
     };
 }
 
+pub trait ForeignModelField: RawField<Kind = kind::ForeignModel> {
+    sealed!(trait);
+}
+
 pub(crate) type RF<F> = <<F as RawField>::Type as ForeignModelTrait>::RelatedField;
-impl<F> Field<kind::ForeignModel> for F
+impl<F> ForeignModelField for F
 where
     F: RawField<Kind = kind::ForeignModel>,
     F::Type: ForeignModelTrait,
@@ -199,13 +202,8 @@ where
 }
 
 /// [`FieldDecoder`] for [`ForeignModelByField<FF>`]
-pub struct ForeignModelByFieldDecoder<FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>>(
-    <FF::Type as FieldType>::Decoder,
-);
-impl<FF> Decoder for ForeignModelByFieldDecoder<FF>
-where
-    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
-{
+pub struct ForeignModelByFieldDecoder<FF: SingleColumnField>(<FF::Type as FieldType>::Decoder);
+impl<FF: SingleColumnField> Decoder for ForeignModelByFieldDecoder<FF> {
     type Result = ForeignModelByField<FF>;
 
     fn by_name(&self, row: &Row) -> Result<Self::Result, Error> {
@@ -216,10 +214,7 @@ where
         self.0.by_index(row).map(ForeignModelByField::Key)
     }
 }
-impl<FF> FieldDecoder for ForeignModelByFieldDecoder<FF>
-where
-    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
-{
+impl<FF: SingleColumnField> FieldDecoder for ForeignModelByFieldDecoder<FF> {
     fn new<F, P>(ctx: &mut QueryContext, _: FieldProxy<F, P>) -> Self
     where
         F: RawField<Type = Self::Result>,
@@ -233,14 +228,13 @@ where
 }
 
 /// [`FieldDecoder`] for [`Option<ForeignModelByField<FF>>`](ForeignModelByField)
-pub struct OptionForeignModelByFieldDecoder<
-    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
->(<Option<FF::Type> as FieldType>::Decoder)
+pub struct OptionForeignModelByFieldDecoder<FF: SingleColumnField>(
+    <Option<FF::Type> as FieldType>::Decoder,
+)
 where
     Option<FF::Type>: FieldType;
-impl<FF> Decoder for OptionForeignModelByFieldDecoder<FF>
+impl<FF: SingleColumnField> Decoder for OptionForeignModelByFieldDecoder<FF>
 where
-    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
     Option<FF::Type>: FieldType,
 {
     type Result = Option<ForeignModelByField<FF>>;
@@ -257,9 +251,8 @@ where
             .map(|option| option.map(ForeignModelByField::Key))
     }
 }
-impl<FF> FieldDecoder for OptionForeignModelByFieldDecoder<FF>
+impl<FF: SingleColumnField> FieldDecoder for OptionForeignModelByFieldDecoder<FF>
 where
-    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
     Option<FF::Type>: FieldType,
 {
     fn new<F, P>(ctx: &mut QueryContext, _: FieldProxy<F, P>) -> Self

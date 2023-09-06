@@ -7,7 +7,7 @@ use rorm_declaration::imr;
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
 use crate::crud::decoder::Decoder;
 use crate::crud::selector::Selector;
-use crate::internal::field::{Field, FieldProxy, RawField, SingleColumnField};
+use crate::internal::field::{FieldProxy, RawField, SingleColumnField};
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
 
@@ -86,7 +86,7 @@ pub type PatchAsCondition<'a, P> = Binary<
 /// It should only ever be generated using [`derive(Model)`](rorm_macro::Model).
 pub trait Model: Patch<Model = Self> {
     /// The primary key
-    type Primary: Field<Model = Self> + SingleColumnField;
+    type Primary: RawField<Model = Self> + SingleColumnField;
 
     /// A struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`](crate::internal::field::Field)).
     ///

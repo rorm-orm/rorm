@@ -82,8 +82,6 @@ pub mod decoder;
 pub mod foreign_model;
 pub mod modifier;
 
-use as_db_type::AsDbType;
-
 use crate::fields::traits::FieldType;
 use crate::internal::array_utils::IntoArray;
 use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier};
@@ -186,15 +184,6 @@ where
     }
 }
 
-/// A [`RawField`] which represents a single column in the database
-pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
-    sealed!(trait);
-}
-
-impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDbType> for F {
-    sealed!(impl);
-}
-
 /// A common interface unifying the fields of various kinds.
 pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     sealed!(trait);
@@ -202,17 +191,16 @@ pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     /// The columns' names which store this field
     const COLUMNS: &'static [&'static str] = &[];
 }
-macro_rules! impl_abstract_from_field {
-    ($kind:ty) => {
-        impl<F: Field<$kind>> AbstractField<$kind> for F {
-            sealed!(impl);
+impl<F: RawField<Kind = kind::AsDbType>> AbstractField<kind::AsDbType> for F {
+    sealed!(impl);
 
-            const COLUMNS: &'static [&'static str] = &[F::NAME];
-        }
-    };
+    const COLUMNS: &'static [&'static str] = &[F::NAME];
 }
-impl_abstract_from_field!(kind::AsDbType);
-impl_abstract_from_field!(kind::ForeignModel);
+impl<F: RawField<Kind = kind::ForeignModel>> AbstractField<kind::ForeignModel> for F {
+    sealed!(impl);
+
+    const COLUMNS: &'static [&'static str] = &[F::NAME];
+}
 
 /// This struct acts as a proxy exposing type level information from the [`RawField`] trait on the value level.
 ///

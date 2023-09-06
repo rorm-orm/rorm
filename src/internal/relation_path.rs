@@ -3,8 +3,8 @@
 use std::marker::PhantomData;
 
 use crate::fields::types::{BackRef, ForeignModelByField};
-use crate::internal::field::foreign_model::ForeignModelTrait;
-use crate::internal::field::{kind, AbstractField, Field, RawField};
+use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
+use crate::internal::field::{kind, AbstractField, RawField, SingleColumnField};
 use crate::internal::query_context::QueryContext;
 use crate::{const_concat, sealed, Model};
 
@@ -71,8 +71,8 @@ where
 }
 impl<FF, F, P> PathImpl<ForeignModelByField<FF>> for PathStep<F, P>
 where
-    FF: Field<kind::AsDbType>,
-    F: Field<kind::ForeignModel, Type = ForeignModelByField<FF>> + 'static,
+    FF: SingleColumnField,
+    F: ForeignModelField<Type = ForeignModelByField<FF>> + 'static,
     P: Path,
 {
     sealed!(impl);
@@ -90,8 +90,8 @@ where
 }
 impl<FF, F, P> PathImpl<Option<ForeignModelByField<FF>>> for PathStep<F, P>
 where
-    FF: Field<kind::AsDbType>,
-    F: Field<kind::ForeignModel, Type = Option<ForeignModelByField<FF>>> + 'static,
+    FF: SingleColumnField,
+    F: ForeignModelField<Type = Option<ForeignModelByField<FF>>> + 'static,
     P: Path,
 {
     sealed!(impl);
@@ -109,7 +109,7 @@ where
 }
 impl<FMF, F, P> PathImpl<BackRef<FMF>> for PathStep<F, P>
 where
-    FMF: Field<kind::ForeignModel>,
+    FMF: ForeignModelField,
     FMF::Type: ForeignModelTrait,
     F: AbstractField<kind::BackRef, Type = BackRef<FMF>> + 'static,
     P: Path,

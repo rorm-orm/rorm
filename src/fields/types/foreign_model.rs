@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::internal::field::{kind, Field};
+use crate::internal::field::SingleColumnField;
 use crate::model::{GetField, Model};
 
 /// Alias for [ForeignModelByField] which only takes a model uses to its primary key.
@@ -11,14 +11,14 @@ pub type ForeignModel<M> = ForeignModelByField<<M as Model>::Primary>;
 /// Stores a link to another model in a field.
 ///
 /// In database language, this is a many to one relation.
-pub enum ForeignModelByField<FF: Field<kind::AsDbType>> {
+pub enum ForeignModelByField<FF: SingleColumnField> {
     /// The other model's primary key which can be used to query it later.
     Key(FF::Type),
     /// The other model's queried instance.
     Instance(Box<FF::Model>),
 }
 
-impl<FF: Field<kind::AsDbType>> ForeignModelByField<FF>
+impl<FF: SingleColumnField> ForeignModelByField<FF>
 where
     FF::Model: GetField<FF>, // always true
 {
@@ -39,9 +39,8 @@ where
     }
 }
 
-impl<FF> fmt::Debug for ForeignModelByField<FF>
+impl<FF: SingleColumnField> fmt::Debug for ForeignModelByField<FF>
 where
-    FF: Field<kind::AsDbType>,
     FF::Model: fmt::Debug,
     FF::Type: fmt::Debug,
 {
@@ -58,9 +57,8 @@ where
         }
     }
 }
-impl<FF> Clone for ForeignModelByField<FF>
+impl<FF: SingleColumnField> Clone for ForeignModelByField<FF>
 where
-    FF: Field<kind::AsDbType>,
     FF::Model: Clone,
     FF::Type: Clone,
 {

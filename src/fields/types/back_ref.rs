@@ -13,10 +13,10 @@ use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollec
 use crate::crud::decoder::NoopDecoder;
 use crate::fields::traits::FieldType;
 use crate::fields::types::ForeignModelByField;
-use crate::internal::field::foreign_model::ForeignModelTrait;
+use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
 use crate::internal::field::modifier::{EraseAnnotations, NoCheck};
 use crate::internal::field::{
-    foreign_model, kind, AbstractField, Field, FieldProxy, RawField, SingleColumnField,
+    foreign_model, kind, AbstractField, FieldProxy, RawField, SingleColumnField,
 };
 use crate::model::GetField;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
@@ -25,13 +25,13 @@ use crate::{query, sealed};
 
 /// A back reference is the other direction to a [foreign model](ForeignModelByField)
 #[derive(Clone)]
-pub struct BackRef<FMF: Field<kind::ForeignModel>> {
+pub struct BackRef<FMF: ForeignModelField> {
     /// Cached list of models referencing this one.
     ///
     /// If there wasn't any query yet this field will be `None` instead of an empty vector.
     pub cached: Option<Vec<FMF::Model>>,
 }
-impl<FMF: Field<kind::ForeignModel>> BackRef<FMF> {
+impl<FMF: ForeignModelField> BackRef<FMF> {
     /// Access the cached instances or `None` if the cache wasn't populated yet.
     pub fn get(&self) -> Option<&Vec<FMF::Model>> {
         self.cached.as_ref()
@@ -43,7 +43,7 @@ impl<FMF: Field<kind::ForeignModel>> BackRef<FMF> {
     }
 }
 
-impl<FMF: Field<kind::ForeignModel>> FieldType for BackRef<FMF> {
+impl<FMF: ForeignModelField> FieldType for BackRef<FMF> {
     type Kind = kind::BackRef;
 
     type Columns<T> = [T; 0];
@@ -69,8 +69,8 @@ impl<FMF: Field<kind::ForeignModel>> FieldType for BackRef<FMF> {
 
 impl<F, FMF, BRF> AbstractField<kind::BackRef> for BRF
 where
-    F: Field<kind::AsDbType>,                                      // Some field
-    FMF: Field<kind::ForeignModel, Type = ForeignModelByField<F>>, // A `ForeignModelByField`-field pointing to `F`
+    F: SingleColumnField,                                  // Some field
+    FMF: ForeignModelField<Type = ForeignModelByField<F>>, // A `ForeignModelByField`-field pointing to `F`
     BRF: RawField<Kind = kind::BackRef, Type = BackRef<FMF>, Model = F::Model>, // A `BackRef`-field pointing to `FMF`
 {
     sealed!(impl);
@@ -80,7 +80,7 @@ impl<BRF, FMF> FieldProxy<BRF, BRF::Model>
 where
     BRF: AbstractField<Type = BackRef<FMF>>,
 
-    FMF: Field<kind::ForeignModel> + Field + SingleColumnField,
+    FMF: ForeignModelField + SingleColumnField,
     FMF::Type: ForeignModelTrait,
     FMF::Model: GetField<FMF>, // always true
     foreign_model::RF<FMF>: SingleColumnField,
@@ -231,7 +231,7 @@ where
 
 impl<FMF> fmt::Debug for BackRef<FMF>
 where
-    FMF: Field<kind::ForeignModel>,
+    FMF: ForeignModelField,
     FMF::Model: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -241,7 +241,7 @@ where
     }
 }
 
-impl<FMF: Field<kind::ForeignModel>> Default for BackRef<FMF> {
+impl<FMF: ForeignModelField> Default for BackRef<FMF> {
     fn default() -> Self {
         Self { cached: None }
     }
