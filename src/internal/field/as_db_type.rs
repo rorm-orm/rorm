@@ -115,7 +115,7 @@ macro_rules! impl_AsDbType {
             }
 
             fn get_imr<F: $crate::internal::field::RawField<Type = Self>>() -> Self::Columns<$crate::internal::imr::Field> {
-                use crate::internal::hmr::AsImr;
+                use $crate::internal::hmr::AsImr;
                 [$crate::internal::imr::Field {
                     name: F::NAME.to_string(),
                     db_type: <$db_type as $crate::internal::hmr::db_type::DbType>::IMR,

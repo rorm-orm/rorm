@@ -72,7 +72,7 @@ use std::mem::ManuallyDrop;
 use crate::conditions::Value;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::Source;
-use crate::internal::relation_path::{Path, PathImpl, PathStep, ResolvedRelatedField};
+use crate::internal::relation_path::{Path, PathImpl, PathStep};
 use crate::model::{ConstNew, GetField, Model};
 
 pub mod access;

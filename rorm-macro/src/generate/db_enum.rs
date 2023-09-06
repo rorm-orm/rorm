@@ -18,8 +18,6 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
             ];
 
             impl ::rorm::fields::traits::FieldType for #ident {
-                type Kind = ::rorm::internal::field::kind::AsDbType;
-
                 type Columns<T> = [T; 1];
 
                 fn into_values(self) -> Self::Columns<::rorm::conditions::Value<'static>> {
@@ -39,6 +37,24 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
                 }
 
                 type Decoder = #decoder;
+
+                fn get_imr<F: ::rorm::internal::field::RawField<Type = Self>>() -> Self::Columns<::rorm::internal::imr::Field> {
+                    use ::rorm::internal::hmr::AsImr;
+                    [::rorm::internal::imr::Field {
+                        name: F::NAME.to_string(),
+                        db_type: <::rorm::internal::hmr::db_type::Choices as ::rorm::internal::hmr::db_type::DbType>::IMR,
+                        annotations: F::EFFECTIVE_ANNOTATIONS
+                            .unwrap_or_else(::rorm::internal::hmr::annotations::Annotations::empty)
+                            .as_imr(),
+                        source_defined_at: F::SOURCE.map(|s| s.as_imr()),
+                    }]
+                }
+
+                type AnnotationsModifier<F: ::rorm::internal::field::RawField<Type = Self>> = ::rorm::internal::field::modifier::MergeAnnotations<Self>;
+
+                type CheckModifier<F: ::rorm::internal::field::RawField<Type = Self>> = ::rorm::internal::field::modifier::SingleColumnCheck<::rorm::internal::hmr::db_type::Choices>;
+
+                type ColumnsFromName<F: ::rorm::internal::field::RawField<Type = Self>> = ::rorm::internal::field::modifier::SingleColumnFromName;
             }
             ::rorm::new_converting_decoder!(
                 #[doc(hidden)]
