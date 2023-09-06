@@ -6,6 +6,7 @@ use std::fmt;
 use futures::stream::TryStreamExt;
 use rorm_db::executor::Executor;
 use rorm_db::Error;
+use rorm_declaration::imr;
 
 use crate::conditions::collections::CollectionOperator::Or;
 use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection, Value};
@@ -13,7 +14,7 @@ use crate::crud::decoder::NoopDecoder;
 use crate::fields::traits::FieldType;
 use crate::fields::types::ForeignModelByField;
 use crate::internal::field::foreign_model::ForeignModelTrait;
-use crate::internal::field::modifier::EraseAnnotations;
+use crate::internal::field::modifier::{EraseAnnotations, NoCheck};
 use crate::internal::field::{
     foreign_model, kind, AbstractField, Field, FieldProxy, RawField, SingleColumnField,
 };
@@ -55,9 +56,15 @@ impl<FMF: Field<kind::ForeignModel>> FieldType for BackRef<FMF> {
         []
     }
 
+    fn get_imr<F: RawField<Type = Self>>() -> Self::Columns<imr::Field> {
+        []
+    }
+
     type Decoder = NoopDecoder<Self>;
 
     type AnnotationsModifier<F: RawField<Type = Self>> = EraseAnnotations;
+
+    type CheckModifier<F: RawField<Type = Self>> = NoCheck;
 }
 
 impl<F, FMF, BRF> AbstractField<kind::BackRef> for BRF
@@ -67,8 +74,6 @@ where
     BRF: RawField<Kind = kind::BackRef, Type = BackRef<FMF>, Model = F::Model>, // A `BackRef`-field pointing to `FMF`
 {
     sealed!(impl);
-
-    fn push_imr(self, _imr: &mut Vec<rorm_declaration::imr::Field>) {}
 }
 
 impl<BRF, FMF> FieldProxy<BRF, BRF::Model>

@@ -69,16 +69,12 @@
 use std::marker::PhantomData;
 use std::mem::ManuallyDrop;
 
-use rorm_db::row::DecodeOwned;
-use rorm_declaration::imr;
-
 use crate::conditions::Value;
 use crate::internal::hmr::annotations::Annotations;
-use crate::internal::hmr::db_type::DbType;
-use crate::internal::hmr::{AsImr, Source};
+use crate::internal::hmr::Source;
 use crate::internal::relation_path::{Path, PathImpl, PathStep, ResolvedRelatedField};
 use crate::model::{ConstNew, Model};
-use crate::{const_panic, sealed};
+use crate::sealed;
 
 pub mod access;
 pub mod as_db_type;
@@ -90,7 +86,7 @@ use as_db_type::AsDbType;
 
 use crate::fields::traits::FieldType;
 use crate::internal::array_utils::IntoArray;
-use crate::internal::field::modifier::AnnotationsModifier;
+use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier};
 
 /// Marker trait for various kinds of fields
 pub trait FieldKind {
@@ -150,7 +146,11 @@ pub trait RawField: 'static + Copy {
 
     /// List of annotations which are passed to db, if this field is a single column
     const EFFECTIVE_ANNOTATIONS: Option<Annotations> =
-        <Self::Type as FieldType>::AnnotationsModifier::<Self>::MODIFIED;
+        { <Self::Type as FieldType>::AnnotationsModifier::<Self>::MODIFIED };
+
+    /// Compile time check and it error message
+    const CHECK: Result<(), &'static str> =
+        <Self::Type as FieldType>::CheckModifier::<Self>::RESULT;
 
     /// Optional definition of the location of field in the source code
     const SOURCE: Option<Source>;
@@ -189,79 +189,15 @@ where
 /// A [`RawField`] which represents a single column in the database
 pub trait Field<K: FieldKind = <Self as RawField>::Kind>: RawField {
     sealed!(trait);
-
-    /// The data type as which this field is stored in the db
-    type DbType: DbType;
-
-    /// Entry point for compile time checks on a single field
-    ///
-    /// It is "used" in [`FieldProxy::new`] to force the compiler to evaluate it.
-    const CHECK: usize = {
-        let Some(annotations) = Self::EFFECTIVE_ANNOTATIONS else {
-            panic!()
-        };
-
-        // Are required annotations set?
-        let mut required = Self::DbType::REQUIRED;
-        while let [head, tail @ ..] = required {
-            required = tail;
-            if !annotations.is_set(head) {
-                const_panic!(&[
-                    Self::Model::TABLE,
-                    ".",
-                    Self::NAME,
-                    " requires the annotation `",
-                    head.as_str(),
-                    "` but it's missing",
-                ]);
-            }
-        }
-
-        // Run the annotations lint shared with rorm-cli
-        let annotations = annotations.as_lint();
-        if let Err(err) = annotations.check() {
-            const_panic!(&[
-                Self::Model::TABLE,
-                ".",
-                Self::NAME,
-                " has invalid annotations: ",
-                err,
-            ]);
-        }
-
-        Self::INDEX
-    };
-
-    /// A type which can be retrieved from the db and then converted into [`Self::Type`](RawField::Type).
-    type Primitive: DecodeOwned;
-
-    /// Convert the associated primitive type into [`Self::Type`](RawField::Type).
-    #[allow(clippy::wrong_self_convention)] // Self is not part of the conversion and just there for easier access via macros
-    fn from_primitive(self, primitive: Self::Primitive) -> Self::Type;
 }
 
 impl<T: AsDbType, F: RawField<Type = T, Kind = kind::AsDbType>> Field<kind::AsDbType> for F {
     sealed!(impl);
-
-    type DbType = <T as AsDbType>::DbType;
-
-    type Primitive = T::Primitive;
-
-    fn from_primitive(self, primitive: Self::Primitive) -> Self::Type {
-        T::from_primitive(primitive)
-    }
 }
 
 /// A common interface unifying the fields of various kinds.
 pub trait AbstractField<K: FieldKind = <Self as RawField>::Kind>: RawField {
     sealed!(trait);
-
-    /// Add the field to its model's intermediate model representation
-    ///
-    /// - [`kind::BackRef`] fields don't add anything
-    /// - [`Field`] fields add their database column
-    /// - there are plans to add fields which might map to more than one database column.
-    fn push_imr(self, imr: &mut Vec<imr::Field>);
 
     /// The columns' names which store this field
     const COLUMNS: &'static [&'static str] = &[];
@@ -270,17 +206,6 @@ macro_rules! impl_abstract_from_field {
     ($kind:ty) => {
         impl<F: Field<$kind>> AbstractField<$kind> for F {
             sealed!(impl);
-
-            fn push_imr(self, imr: &mut Vec<imr::Field>) {
-                imr.push(imr::Field {
-                    name: F::NAME.to_string(),
-                    db_type: F::DbType::IMR,
-                    annotations: Self::EFFECTIVE_ANNOTATIONS
-                        .unwrap_or_else(Annotations::empty)
-                        .as_imr(),
-                    source_defined_at: F::SOURCE.map(|s| s.as_imr()),
-                });
-            }
 
             const COLUMNS: &'static [&'static str] = &[F::NAME];
         }

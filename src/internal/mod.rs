@@ -10,6 +10,7 @@ pub mod hmr;
 pub mod patch;
 pub mod query_context;
 pub mod relation_path;
+pub use rorm_declaration::imr;
 
 /// Declare a type level equivalent of `Option<T>` for a concrete `T`
 ///

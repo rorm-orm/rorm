@@ -59,9 +59,23 @@ macro_rules! impl_AsDbType {
                     .unwrap_or([Value::Null(<<$type as $crate::internal::field::as_db_type::AsDbType>::DbType as $crate::internal::hmr::db_type::DbType>::NULL_TYPE)])
             }
 
+            fn get_imr<F: $crate::internal::field::RawField<Type = Self>>() -> Self::Columns<$crate::internal::imr::Field> {
+                use crate::internal::hmr::AsImr;
+                [$crate::internal::imr::Field {
+                    name: F::NAME.to_string(),
+                    db_type: <<$type as $crate::internal::field::as_db_type::AsDbType>::DbType as $crate::internal::hmr::db_type::DbType>::IMR,
+                    annotations: F::EFFECTIVE_ANNOTATIONS
+                        .unwrap_or_else($crate::internal::hmr::annotations::Annotations::empty)
+                        .as_imr(),
+                    source_defined_at: F::SOURCE.map(|s| s.as_imr()),
+                }]
+            }
+
             type Decoder = $decoder;
 
             type AnnotationsModifier<F: $crate::internal::field::RawField<Type = Self>> = $crate::internal::field::modifier::MergeAnnotations<Self>;
+
+            type CheckModifier<F: $crate::internal::field::RawField<Type = Self>> = $crate::internal::field::modifier::SingleColumnCheck<<$type as $crate::internal::field::as_db_type::AsDbType>::DbType>;
         }
 
         impl $crate::internal::field::as_db_type::AsDbType for Option<$type> {
@@ -100,9 +114,23 @@ macro_rules! impl_AsDbType {
                 [$into_value(self)]
             }
 
+            fn get_imr<F: $crate::internal::field::RawField<Type = Self>>() -> Self::Columns<$crate::internal::imr::Field> {
+                use crate::internal::hmr::AsImr;
+                [$crate::internal::imr::Field {
+                    name: F::NAME.to_string(),
+                    db_type: <$db_type as $crate::internal::hmr::db_type::DbType>::IMR,
+                    annotations: F::EFFECTIVE_ANNOTATIONS
+                        .unwrap_or_else($crate::internal::hmr::annotations::Annotations::empty)
+                        .as_imr(),
+                    source_defined_at: F::SOURCE.map(|s| s.as_imr()),
+                }]
+            }
+
             type Decoder = $crate::crud::decoder::DirectDecoder<Self>;
 
             type AnnotationsModifier<F: $crate::internal::field::RawField<Type = Self>> = $crate::internal::field::modifier::MergeAnnotations<Self>;
+
+            type CheckModifier<F: $crate::internal::field::RawField<Type = Self>> = $crate::internal::field::modifier::SingleColumnCheck<$db_type>;
         }
 
         impl $crate::internal::field::as_db_type::AsDbType for $type {

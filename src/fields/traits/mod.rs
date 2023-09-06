@@ -3,8 +3,9 @@
 use crate::conditions::Value;
 use crate::internal::array_utils::Array;
 use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::modifier::AnnotationsModifier;
+use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier};
 use crate::internal::field::{FieldKind, RawField};
+use crate::internal::imr;
 
 pub mod cmp;
 
@@ -24,6 +25,9 @@ pub trait FieldType: 'static {
     /// Construct an array of [`Value`] representing `self` in the database via borrowing
     fn as_values(&self) -> Self::Columns<Value<'_>>;
 
+    /// Construct an array of [`imr::Field`] representing this type
+    fn get_imr<F: RawField<Type = Self>>() -> Self::Columns<imr::Field>;
+
     /// [`FieldDecoder`] to use for fields of this type
     type Decoder: FieldDecoder<Result = Self>;
 
@@ -32,4 +36,10 @@ pub trait FieldType: 'static {
     ///
     /// For example can be used to set `nullable` implicitly for `Option<_>`.
     type AnnotationsModifier<F: RawField<Type = Self>>: AnnotationsModifier<F>;
+
+    /// `const fn<F: RawField>() -> Result<(), &'static str>`
+    /// to allow custom compile time checks.
+    ///
+    /// For example can be used to ensure `String` has a `max_lenght`.
+    type CheckModifier<F: RawField<Type = Self>>: CheckModifier<F>;
 }

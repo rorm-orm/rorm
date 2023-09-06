@@ -22,7 +22,6 @@
 //! - [`NaiveTime`](chrono::NaiveTime)
 //! - [`NaiveDate`](chrono::NaiveDate)
 //! - [`DateTime<Utc>`](chrono::DateTime)
-//! - [`DateTime<FixedOffset>`](chrono::DateTime) **WIP** (todo annotations)
 //!
 //! # time types (requires the "time" feature)
 //! - [`PrimitiveDateTime`](time::PrimitiveDateTime)

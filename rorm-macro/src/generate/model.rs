@@ -28,6 +28,7 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
         fields.iter().map(|field| &field.ident),
         fields.iter().map(|field| &field.ty),
     );
+    let field_types = fields.iter().map(|field| &field.ty);
     let field_structs_1 = fields.iter().map(|field| &field.unit);
     let field_structs_2 = field_structs_1.clone();
 
@@ -48,10 +49,9 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
 
             fn get_imr() -> ::rorm::imr::Model {
                 use ::rorm::internal::field::{RawField, AbstractField};
-                let mut fields = Vec::new();
-                #(
-                    #field_structs_1::new().push_imr(&mut fields);
-                )*
+                let fields = Vec::from_iter([#(
+                    <#field_types as ::rorm::fields::traits::FieldType>::get_imr::<#field_structs_1>(),
+                )*].into_iter().flatten());
                 ::rorm::imr::Model {
                     name: Self::TABLE.to_string(),
                     fields,

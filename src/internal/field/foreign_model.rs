@@ -2,20 +2,20 @@
 
 use std::marker::PhantomData;
 
-use rorm_db::row::DecodeOwned;
 use rorm_db::{Error, Row};
+use rorm_declaration::imr;
 
 use crate::conditions::Value;
 use crate::crud::decoder::Decoder;
 use crate::fields::types::ForeignModelByField;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::modifier::AnnotationsModifier;
+use crate::internal::field::modifier::{AnnotationsModifier, SingleColumnCheck};
 use crate::internal::field::{kind, Field, FieldProxy, FieldType, RawField, SingleColumnField};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::DbType;
-use crate::internal::hmr::Source;
+use crate::internal::hmr::{AsImr, Source};
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
 use crate::model::{GetField, Model};
@@ -23,7 +23,9 @@ use crate::{impl_FieldEq, sealed};
 
 impl<FF> FieldType for ForeignModelByField<FF>
 where
-    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
+    Self: ForeignModelTrait,
+    FF: RawField<Kind = kind::AsDbType>,
+    FF::Type: AsDbType,
     FF::Model: GetField<FF>, // always true
     FF: SingleColumnField,
 {
@@ -45,14 +47,30 @@ where
         })]
     }
 
+    fn get_imr<F: RawField<Type = Self>>() -> Self::Columns<imr::Field> {
+        [imr::Field {
+            name: F::NAME.to_string(),
+            db_type: <Self as ForeignModelTrait>::DbType::IMR,
+            annotations: F::EFFECTIVE_ANNOTATIONS
+                .unwrap_or_else(Annotations::empty)
+                .as_imr(),
+            source_defined_at: F::SOURCE.map(|s| s.as_imr()),
+        }]
+    }
+
     type Decoder = ForeignModelByFieldDecoder<FF>;
 
     type AnnotationsModifier<F: RawField<Type = Self>> = ForeignAnnotations<Self>;
+
+    type CheckModifier<F: RawField<Type = Self>> =
+        SingleColumnCheck<<Self as ForeignModelTrait>::DbType>;
 }
 
 impl<FF> FieldType for Option<ForeignModelByField<FF>>
 where
-    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
+    Self: ForeignModelTrait,
+    FF: RawField<Kind = kind::AsDbType>,
+    FF::Type: AsDbType,
     FF::Model: GetField<FF>, // always true
     FF: SingleColumnField,
     Option<FF::Type>: AsDbType,
@@ -76,39 +94,47 @@ where
             )])
     }
 
+    fn get_imr<F: RawField<Type = Self>>() -> Self::Columns<imr::Field> {
+        [imr::Field {
+            name: F::NAME.to_string(),
+            db_type: <Self as ForeignModelTrait>::DbType::IMR,
+            annotations: F::EFFECTIVE_ANNOTATIONS
+                .unwrap_or_else(Annotations::empty)
+                .as_imr(),
+            source_defined_at: F::SOURCE.map(|s| s.as_imr()),
+        }]
+    }
+
     type Decoder = OptionForeignModelByFieldDecoder<FF>;
 
     type AnnotationsModifier<F: RawField<Type = Self>> = ForeignAnnotations<Self>;
+
+    type CheckModifier<F: RawField<Type = Self>> =
+        SingleColumnCheck<<Self as ForeignModelTrait>::DbType>;
 }
 
 #[doc(hidden)]
-pub trait ForeignModelTrait: FieldType<Kind = kind::ForeignModel> {
+pub trait ForeignModelTrait {
     sealed!(trait);
 
+    type DbType: DbType;
     type RelatedField: Field<kind::AsDbType>;
-    type Primitive: DecodeOwned;
     const IS_OPTION: bool;
-
-    fn from_primitive(primitive: Self::Primitive) -> Self;
     fn as_key(&self) -> Option<&<Self::RelatedField as RawField>::Type>;
 }
 
 impl<FF> ForeignModelTrait for ForeignModelByField<FF>
 where
-    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
+    FF: RawField<Kind = kind::AsDbType>,
+    FF::Type: AsDbType,
     FF::Model: GetField<FF>, // always true
     FF: SingleColumnField,
 {
     sealed!(impl);
 
+    type DbType = <FF::Type as AsDbType>::DbType;
     type RelatedField = FF;
-    type Primitive = FF::Primitive;
     const IS_OPTION: bool = false;
-
-    fn from_primitive(primitive: Self::Primitive) -> Self {
-        ForeignModelByField::Key(FF::new().from_primitive(primitive))
-    }
-
     fn as_key(&self) -> Option<&<Self::RelatedField as RawField>::Type> {
         Some(match self {
             ForeignModelByField::Key(key) => key,
@@ -119,22 +145,17 @@ where
 
 impl<FF: Field<kind::AsDbType>> ForeignModelTrait for Option<ForeignModelByField<FF>>
 where
-    FF: RawField<Kind = kind::AsDbType> + Field<kind::AsDbType>,
+    FF: RawField<Kind = kind::AsDbType>,
+    FF::Type: AsDbType,
     FF::Model: GetField<FF>, // always true
     FF: SingleColumnField,
     Option<FF::Type>: AsDbType,
 {
     sealed!(impl);
 
+    type DbType = <FF::Type as AsDbType>::DbType;
     type RelatedField = FF;
-    type Primitive = Option<FF::Primitive>;
     const IS_OPTION: bool = true;
-
-    fn from_primitive(primitive: Self::Primitive) -> Self {
-        primitive.map(|primitive| {
-            ForeignModelByField::Key(Self::RelatedField::new().from_primitive(primitive))
-        })
-    }
 
     fn as_key(&self) -> Option<&<Self::RelatedField as RawField>::Type> {
         self.as_ref().map(|value| match value {
@@ -175,14 +196,6 @@ where
         GetField<<F::Type as ForeignModelTrait>::RelatedField>, // always true
 {
     sealed!(impl);
-
-    type DbType = <RF<F> as Field<kind::AsDbType>>::DbType;
-
-    type Primitive = <<F as RawField>::Type as ForeignModelTrait>::Primitive;
-
-    fn from_primitive(self, primitive: Self::Primitive) -> Self::Type {
-        <<F as RawField>::Type as ForeignModelTrait>::from_primitive(primitive)
-    }
 }
 
 /// [`FieldDecoder`] for [`ForeignModelByField<FF>`]
@@ -291,7 +304,7 @@ impl_FieldEq!(
     impl<'rhs, FF> FieldEq<'rhs, FF::Type, FieldEq_ForeignModelByField_Owned> for ForeignModelByField<FF>
     where
         FF: RawField<Kind = kind::AsDbType>,
-        FF: Field<kind::AsDbType>,
+        FF::Type: AsDbType,
         FF: SingleColumnField,
         FF::Model: GetField<FF>, // always true
     { <FF as SingleColumnField>::type_into_value }
@@ -300,7 +313,7 @@ impl_FieldEq!(
     impl<'rhs, FF> FieldEq<'rhs, FF::Type, FieldEq_ForeignModelByField_Owned> for Option<ForeignModelByField<FF>>
     where
         FF: RawField<Kind = kind::AsDbType>,
-        FF: Field<kind::AsDbType>,
+        FF::Type: AsDbType,
         FF: SingleColumnField,
         Option<FF::Type>: AsDbType,
         FF::Model: GetField<FF>, // always true
@@ -311,7 +324,7 @@ impl_FieldEq!(
     impl<'rhs, FF> FieldEq<'rhs, &'rhs FF::Type, FieldEq_ForeignModelByField_Borrowed> for ForeignModelByField<FF>
     where
         FF: RawField<Kind = kind::AsDbType>,
-        FF: Field<kind::AsDbType>,
+        FF::Type: AsDbType,
         FF: SingleColumnField,
         FF::Model: GetField<FF>, // always true
     { <FF as SingleColumnField>::type_as_value }
@@ -320,7 +333,7 @@ impl_FieldEq!(
     impl<'rhs, FF> FieldEq<'rhs, &'rhs FF::Type, FieldEq_ForeignModelByField_Borrowed> for Option<ForeignModelByField<FF>>
     where
         FF: RawField<Kind = kind::AsDbType>,
-        FF: Field<kind::AsDbType>,
+        FF::Type: AsDbType,
         FF: SingleColumnField,
         Option<FF::Type>: AsDbType,
         FF::Model: GetField<FF>, // always true
