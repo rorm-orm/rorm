@@ -1,6 +1,6 @@
 [package]
 name = "rorm-macro"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 repository = "https://github.com/rorm-orm/rorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
@@ -16,11 +16,11 @@ proc-macro = true
 
 [dependencies]
 # syn builds rust syntax trees from strings or tokenstream
-syn = { version = "~1.0" }
+syn = { version = "~1" }
 # quote provides a macro to write rust code with template variables which then produces a tokenstream
-quote = { version = "~1.0" }
+quote = { version = "~1" }
 # a higher level wrapper for rust's proc-macro which is used by syn and quote
-proc-macro2 = { version = "~1.0" }
+proc-macro2 = { version = "~1" }
 # for simple parsing of attributes
 darling = { version = "~0.14" }
 
