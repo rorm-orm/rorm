@@ -106,7 +106,7 @@ impl ConstString<2048> {
             return string;
         };
         strings = tail;
-        match string.push_str(*head) {
+        match string.push_str(head) {
             Some(some) => {
                 string = some;
             }
