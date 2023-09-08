@@ -5,6 +5,7 @@ members = [
 	"rorm-declaration",
 	"rorm-macro",
 	"rorm-sql",
+	"example",
 ]
 
 [package]
@@ -32,18 +33,8 @@ futures = { version = "~0.3" }
 serde_json = { version = "~1" }
 serde = { version = "~1" }
 
-# `serde::MessagePack<T>` type
-rmp-serde = { version = "~1", optional = true }
-
-# Implement `Uuid` to be used as field
-uuid = { version = "~1", optional = true }
-
 # linker magic to create a slice containing all models defined by crates
 linkme = { version = "~0.3" }
-
-# Time and date library
-chrono = { version = ">=0.4.20", default-features = false, optional = true }
-time = { version = "~0.3", optional = true }
 
 # Allow wrapping futures and streams
 pin-project = { version = "~1" }
@@ -54,6 +45,25 @@ rorm-declaration = { version = "~0.3", path = "./rorm-declaration" }
 
 # rorm-cli exposes interfaces to integrate the cli as library
 rorm-cli = { version = ">=0.7.3", path = "./rorm-cli", default-features = false, optional = true }
+
+# Mac address support (postgres-only)
+mac_address = { version = "~1", optional = true }
+
+# Bitvec support (postgres-only)
+bit-vec = { version = "~0.6", optional = true }
+
+# Ip network support (postgres-only)
+ip_network = { version = "~0.4", optional = true }
+
+# Date and time support
+chrono = { version = ">=0.4.20", default-features = false, optional = true }
+time = { version = "~0.3", optional = true }
+
+# Uuid support
+uuid = { version = "~1", optional = true }
+
+# `MessagePack<T>` support
+rmp-serde = { version = "~1", optional = true }
 
 [build-dependencies]
 rustc_version = "0.4.0"
@@ -70,8 +80,21 @@ default = [
 ]
 
 # Drivers
-all-drivers = ["rorm-db/all-driver"]
-postgres-only = ["rorm-db/postgres-only"]
+all-drivers = [
+	"rorm-db/postgres",
+	"rorm-cli?/postgres",
+	"rorm-db/mysql",
+	"rorm-cli?/mysql",
+	"rorm-db/sqlite",
+	"rorm-cli?/sqlite",
+]
+postgres-only = [
+	"rorm-db/postgres-only",
+	"rorm-cli?/postgres",
+	"dep:mac_address",
+	"dep:ip_network",
+	"dep:bit-vec",
+]
 
 # Extensions
 chrono = ["dep:chrono"]
