@@ -41,6 +41,7 @@ pub use rorm_declaration::imr;
 pub mod prelude {
     pub use rorm_macro::{DbEnum, Model, Patch};
 
+    pub use crate::field;
     pub use crate::fields::types::{BackRef, ForeignModel, ForeignModelByField};
     pub use crate::internal::field::access::FieldAccess;
     pub use crate::model::{Model, Patch};
