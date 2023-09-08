@@ -56,6 +56,7 @@ pub mod modifier;
 use crate::fields::traits::FieldType;
 use crate::fields::types::{BackRef, ForeignModelByField};
 use crate::internal::array_utils::IntoArray;
+use crate::internal::const_concat::ConstString;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
 use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier, ColumnsFromName};
@@ -86,7 +87,9 @@ pub trait RawField: 'static + Copy {
         { <Self::Type as FieldType>::AnnotationsModifier::<Self>::MODIFIED };
 
     /// Compile time check and it error message
-    const CHECK: Result<(), &'static str> =
+    ///
+    /// The const is accessed and reported in the `#[derive(Model)]`.
+    const CHECK: Result<(), ConstString<1024>> =
         <Self::Type as FieldType>::CheckModifier::<Self>::RESULT;
 
     /// Optional definition of the location of field in the source code

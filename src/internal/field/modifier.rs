@@ -3,11 +3,12 @@
 use std::marker::PhantomData;
 
 use crate::fields::traits::FieldType;
+use crate::internal::const_concat::ConstString;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::RawField;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::DbType;
-use crate::{const_panic, Model};
+use crate::Model;
 
 /// Trait used in [`FieldType`] to allow types to modify their fields' annotations.
 ///
@@ -41,7 +42,7 @@ impl<T: AsDbType, F: RawField> AnnotationsModifier<F> for MergeAnnotations<T> {
             match F::EXPLICIT_ANNOTATIONS.merge(implicit) {
                 Ok(annotations) => Some(annotations),
                 Err(duplicate) => {
-                    const_panic!(&[
+                    let error = ConstString::error(&[
                         "The annotation ",
                         duplicate,
                         " on ",
@@ -50,6 +51,7 @@ impl<T: AsDbType, F: RawField> AnnotationsModifier<F> for MergeAnnotations<T> {
                         F::NAME,
                         " is implied by its type and can't be set explicitly",
                     ]);
+                    panic!("{}", error.as_str());
                 }
             }
         } else {
@@ -67,13 +69,13 @@ impl<T: AsDbType, F: RawField> AnnotationsModifier<F> for MergeAnnotations<T> {
 /// **BEWARE** an implementation is not allowed to access `F::CHECK`!
 pub trait CheckModifier<F: RawField> {
     /// The check's result
-    const RESULT: Result<(), &'static str>;
+    const RESULT: Result<(), ConstString<1024>>;
 }
 
 /// [`CheckModifier`] which checks nothing
 pub struct NoCheck;
 impl<F: RawField> CheckModifier<F> for NoCheck {
-    const RESULT: Result<(), &'static str> = Ok(());
+    const RESULT: Result<(), ConstString<1024>> = Ok(());
 }
 
 /// [`CheckModifier`] which:
@@ -83,10 +85,10 @@ impl<F: RawField> CheckModifier<F> for NoCheck {
 pub struct SingleColumnCheck<D: DbType>(pub PhantomData<D>);
 
 impl<D: DbType, F: RawField> CheckModifier<F> for SingleColumnCheck<D> {
-    const RESULT: Result<(), &'static str> = {
+    const RESULT: Result<(), ConstString<1024>> = {
         'result: {
             let Some(annotations) = F::EFFECTIVE_ANNOTATIONS else {
-                break 'result Err("annotations have been erased");
+                break 'result Err(ConstString::error(&["annotations have been erased"]));
             };
 
             // Are required annotations set?
@@ -94,16 +96,17 @@ impl<D: DbType, F: RawField> CheckModifier<F> for SingleColumnCheck<D> {
             while let [head, tail @ ..] = required {
                 required = tail;
                 if !annotations.is_set(head) {
-                    // break 'result Err(const_concat!(&["missing annotation: ", head.as_str(),]));
-                    break 'result Err(head.as_str());
+                    break 'result Err(ConstString::error(&[
+                        "missing annotation: ",
+                        head.as_str(),
+                    ]));
                 }
             }
 
             // Run the annotations lint shared with rorm-cli
             let annotations = annotations.as_lint();
             if let Err(err) = annotations.check() {
-                // break 'result Err(const_concat!(&["invalid annotations: ", err]));
-                break 'result Err(err);
+                break 'result Err(ConstString::error(&["invalid annotations: ", err]));
             }
 
             Ok(())

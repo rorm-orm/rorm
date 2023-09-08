@@ -1,5 +1,6 @@
 //! Helper function for the `const_concat` macros.
 
+use std::mem::MaybeUninit;
 /// Syntactic sugar for const functions
 macro_rules! sugar {
     (for $i:ident in $slice:ident $then:block) => {
@@ -11,123 +12,218 @@ macro_rules! sugar {
     };
 }
 
-/// Versions working on string slices
-pub mod string {
-    /// Count the number of bytes in a slice of strings `&[&str]`
-    pub const fn count_len(strings: &[&str]) -> usize {
-        let mut len = 0;
-        sugar! {
-            for head in strings {
-                len += head.len();
-            }
+/// A UTF-8–encoded, growable string for const expressions.
+///
+/// ## Required invariant
+/// Every instance, which is observable from the public API, must have valid utf8 in its bytes.
+#[derive(Copy, Clone, Debug)]
+pub struct ConstString<const MAX_LEN: usize> {
+    len: usize,
+    bytes: [u8; MAX_LEN],
+}
+
+impl<const MAX_LEN: usize> ConstString<MAX_LEN> {
+    /// Creates a new empty `ConstString`.
+    pub const fn new() -> Self {
+        Self {
+            len: 0,
+            bytes: [0; MAX_LEN],
         }
-        len
     }
 
-    /// Concat a slice of strings populating a buffer of fixed size
-    pub const fn concat_into<const N: usize>(
-        mut buffer: [u8; N],
-        strings: &[&str],
-    ) -> (usize, [u8; N]) {
-        let mut i = 0;
-        sugar! {
-            for string in strings {
-                let bytes = string.as_bytes();
-                sugar!{
-                    for byte in bytes {
-                        // Handle buffer overflow
-                        if i == N {
-                            buffer[i - 1] = DOT;
-                            buffer[i - 2] = DOT;
-                            buffer[i - 3] = DOT;
-                            return (N, buffer);
-                        }
+    /// Extracts a string slice containing the entire `ConstString`.
+    pub const fn as_str<'a>(&'a self) -> &'a str {
+        let len = if self.len < MAX_LEN {
+            self.len
+        } else {
+            MAX_LEN
+        };
 
-                        buffer[i] = *byte;
-                        i += 1;
-                    }
+        // SAFETY: - `&self.bytes` is a valid reference
+        //         - `len` is not larger than `self.bytes.len()`
+        //         - the lifetime `'a` is bound to the input and output
+        let bytes = unsafe { std::slice::from_raw_parts::<'a, u8>(self.bytes.as_ptr(), len) };
+
+        // SAFETY:
+        // `push_str` only adds a complete `str` or aborts.
+        // Therefore whenever you've got an instance of `ConstString`, its bytes must form valid utf8
+        unsafe { std::str::from_utf8_unchecked(bytes) }
+    }
+
+    /// Appends a given string slice onto the end of this `ConstString`,
+    ///
+    /// returning `None` if the resulting string would be larger than `MAX_LEN`.
+    pub const fn push_str(mut self, string: &str) -> Option<Self> {
+        let bytes = string.as_bytes();
+        sugar! {
+            for byte in bytes {
+                if self.len == MAX_LEN {
+                    return None;
                 }
+
+                self.bytes[self.len] = *byte;
+                self.len += 1;
             }
         }
-        (i, buffer)
-    }
-
-    const DOT: u8 = ".".as_bytes()[0];
-
-    #[cfg(test)]
-    mod test {
-        use std::str::from_utf8;
-
-        use super::concat_into;
-        use crate::const_concat;
-
-        #[test]
-        fn compare_with_std_concat() {
-            const STD1: &str = concat!("a", "a");
-            const RORM1: &str = const_concat!(&["a", "a"]);
-            assert_eq!(STD1, RORM1);
-
-            const STD2: &str = concat!("abc", "abc");
-            const RORM2: &str = const_concat!(&["abc", "abc"]);
-            assert_eq!(STD2, RORM2);
-
-            const STD3: &str = concat!("a", "abc", "abcdef", "abcdefghi");
-            const RORM3: &str = const_concat!(&["a", "abc", "abcdef", "abcdefghi"]);
-            assert_eq!(STD3, RORM3);
-        }
-
-        #[test]
-        fn test_concat_into() {
-            // Matching buffer
-            let (written, bytes) = concat_into([0u8; 8], &["123", "45", "678"]);
-            assert_eq!(Ok("12345678"), from_utf8(&bytes[..written]));
-            assert_eq!(8, written);
-
-            // Too small buffer
-            let (written, bytes) = concat_into([0u8; 8], &["123", "45", "678", "9"]);
-            assert_eq!(Ok("12345..."), from_utf8(&bytes[..written]));
-            assert_eq!(8, written);
-
-            // Too big buffer
-            let (written, bytes) = concat_into([0u8; 8], &["123", "45", "6"]);
-            assert_eq!(Ok("123456"), from_utf8(&bytes[..written]));
-            assert_eq!(6, written);
-        }
+        Some(self)
     }
 }
 
-/// Versions working on generic slices
-pub mod slice {
-    /// Count the number of elements `T` in a 2d-slice `&[&[T]]`
-    pub const fn count_len<T>(mut slices: &[&[T]]) -> usize {
-        let mut len = 0;
-        while let [head, tail @ ..] = slices {
-            slices = tail;
-            len += head.len();
+impl ConstString<1024> {
+    pub(crate) const OOM_ERROR: Self = {
+        match ConstString::new().push_str("The error message is longer than 1024 bytes. Try using shorter names or contact the library authors.") {
+            Some(ok) => ok,
+            None => unreachable!(), // The error message is less than 1024 bytes
         }
-        len
-    }
+    };
 
-    /// Concat a slice of slices populating a buffer of fixed size
-    pub const fn concat_into<const N: usize, T: Copy>(
-        mut buffer: [T; N],
-        mut slices: &[&[T]],
-    ) -> (usize, [T; N]) {
-        let mut i = 0;
-        while let [mut slice, tail @ ..] = slices {
-            slices = tail;
-            while let [head, tail @ ..] = slice {
-                slice = tail;
-
-                // Catch buffer overflow
-                if i == N {
-                    return (N, buffer);
+    pub(crate) const fn error(strings: &[&str]) -> Self {
+        let mut string = Self::new();
+        sugar! {
+            for slice in strings {
+                match string.push_str(slice) {
+                    Some(ok) => {string = ok;},
+                    None => return Self::OOM_ERROR,
                 }
-
-                buffer[i] = *head;
-                i += 1;
             }
         }
-        (i, buffer)
+        string
+    }
+}
+
+impl ConstString<2048> {
+    pub(crate) const OOM_ERROR: Self = {
+        match ConstString::new().push_str("The error message is longer than 1024 bytes. Try using shorter names or contact the library authors.") {
+            Some(ok) => ok,
+            None => unreachable!(), // The error message is less than 2048 bytes
+        }
+    };
+
+    pub(crate) const fn join_alias(mut strings: &[&str]) -> Self {
+        let mut string = Self::new();
+
+        let [head, tail @ ..] = strings else {
+            return string;
+        };
+        strings = tail;
+        match string.push_str(*head) {
+            Some(some) => {
+                string = some;
+            }
+            None => {
+                return Self::OOM_ERROR;
+            }
+        }
+
+        sugar! {
+            for slice in strings {
+                match string.push_str("__") {
+                    Some(some) => match some.push_str(slice) {
+                        Some(some) => {string = some;},
+                        None => return Self::OOM_ERROR,
+                    }
+                    None => return Self::OOM_ERROR,
+                }
+
+            }
+        }
+        string
+    }
+}
+
+/// A contiguous growable array type for const expressions.
+///
+/// ## Required invariant
+/// For every `ConstVec`, which is observable from the public API,
+/// the first `self.len` elements of `self.ìnstances` have to be initialised.
+#[derive(Copy, Clone, Debug)]
+pub struct ConstVec<T: Copy, const MAX_LEN: usize> {
+    len: usize,
+    elems: [MaybeUninit<T>; MAX_LEN],
+}
+
+impl<T: Copy, const MAX_LEN: usize> ConstVec<T, MAX_LEN> {
+    /// Creates a new empty `ConstString`.
+    pub const fn new() -> Self {
+        Self {
+            len: 0,
+            elems: {
+                // SAFETY: An uninitialized `[MaybeUninit<_>; LEN]` is valid.
+                unsafe { MaybeUninit::<[MaybeUninit<T>; MAX_LEN]>::uninit().assume_init() }
+            },
+        }
+    }
+
+    /// Extracts a slice containing the entire vector.
+    pub const fn as_slice<'a>(&'a self) -> &'a [T] {
+        let len = if self.len < MAX_LEN {
+            self.len
+        } else {
+            MAX_LEN
+        };
+
+        // SAFETY: - `&self.bytes` is a valid reference
+        //         - `len` is not larger than `self.bytes.len()`
+        //         - the lifetime `'a` is bound to the input and output
+        //         - the first `len` elems are initialised
+        unsafe { std::slice::from_raw_parts::<'a, T>(self.elems[0].as_ptr(), len) }
+    }
+
+    /// Copies and appends all elements in a slice to the `ConstVec`,
+    ///
+    /// returning `None` if the resulting string would be larger than `MAX_LEN`.
+    pub const fn extend_from_slice(mut self, slice: &[T]) -> Option<Self> {
+        sugar! {
+            for elem in slice {
+                if self.len == MAX_LEN {
+                    return None;
+                }
+
+                self.elems[self.len] = MaybeUninit::new(*elem);
+                self.len += 1;
+            }
+        }
+        Some(self)
+    }
+}
+
+impl ConstVec<&'static str, 1024> {
+    pub(crate) const OOM_ERROR: ConstString<1024> = {
+        match ConstString::new().push_str("rorm doesn't support more than 1024 columns") {
+            Some(ok) => ok,
+            None => unreachable!(), // The error message is less than 1024 bytes
+        }
+    };
+
+    #[doc(hidden)]
+    pub const fn columns(columns: &[&[&'static str]]) -> Result<Self, ConstString<1024>> {
+        let mut vec = Self::new();
+        sugar! {
+            for column in columns {
+                match vec.extend_from_slice(column) {
+                    Some(some) => {vec = some;},
+                    None => return Err(Self::OOM_ERROR),
+                }
+            }
+        }
+        Ok(vec)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::ConstString;
+
+    #[test]
+    fn join_alias() {
+        assert_eq!(ConstString::join_alias(&["a", "b"]).as_str(), "a__b");
+    }
+
+    #[test]
+    fn error() {
+        assert_eq!(
+            ConstString::error(&["Hello ", "world"]).as_str(),
+            "Hello world"
+        );
     }
 }

@@ -3,10 +3,11 @@
 use std::marker::PhantomData;
 
 use crate::fields::types::{BackRef, ForeignModelByField};
+use crate::internal::const_concat::ConstString;
 use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
 use crate::internal::field::{RawField, SingleColumnField};
 use crate::internal::query_context::QueryContext;
-use crate::{const_concat, sealed, Model};
+use crate::{sealed, Model};
 
 /// Trait to store a relation path in generics
 ///
@@ -171,5 +172,5 @@ impl<M: Model> JoinAlias for M {
 impl<F: RawField, P: Path> JoinAlias for PathStep<F, P> {
     sealed!(impl);
 
-    const ALIAS: &'static str = const_concat!(&[P::ALIAS, "__", F::NAME]);
+    const ALIAS: &'static str = ConstString::join_alias(&[P::ALIAS, "__", F::NAME]).as_str();
 }

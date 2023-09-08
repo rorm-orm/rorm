@@ -1,5 +1,5 @@
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, quote_spanned};
 use syn::LitStr;
 
 use crate::analyze::model::{AnalyzedField, AnalyzedModel, AnalyzedModelFieldAnnotations};
@@ -140,7 +140,7 @@ fn generate_fields(model: &AnalyzedModel) -> TokenStream {
         );
         let annos = generate_field_annotations(annos);
 
-        tokens.extend(quote!{
+        tokens.extend(quote_spanned!{ident.span()=>
             #[doc = #doc]
             #[allow(non_camel_case_types)]
             #vis struct #unit;
@@ -161,6 +161,11 @@ fn generate_fields(model: &AnalyzedModel) -> TokenStream {
                     Self
                 }
             }
+            const _: () = {
+                if let Err(err) = <#unit as ::rorm::internal::field::RawField>::CHECK {
+                    panic!("{}", err.as_str());
+                }
+            };
         });
     }
     tokens
