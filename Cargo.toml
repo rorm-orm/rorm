@@ -9,7 +9,7 @@ members = [
 
 [package]
 name = "rorm"
-version = "0.5.1"
+version = "0.6.0"
 edition = "2021"
 repository = "https://github.com/rorm-orm/rorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
@@ -38,12 +38,12 @@ linkme = { version = "~0.3" }
 # Allow wrapping futures and streams
 pin-project = { version = "~1" }
 
-rorm-db = { version = "~0.8", path = "./rorm-db", features = ["serde"] }
-rorm-macro = { version = "0.6.0", path = "./rorm-macro" }
-rorm-declaration = { version = "~0.3", path = "./rorm-declaration" }
+rorm-db = { version = "~0.9", path = "./rorm-db", features = ["serde"] }
+rorm-macro = { version = "0.7.0", path = "./rorm-macro" }
+rorm-declaration = { version = "~0.4", path = "./rorm-declaration" }
 
 # rorm-cli exposes interfaces to integrate the cli as library
-rorm-cli = { version = ">=0.7.3", path = "./rorm-cli", default-features = false, optional = true }
+rorm-cli = { version = "~0.8", path = "./rorm-cli", default-features = false, optional = true }
 
 # Mac address support (postgres-only)
 mac_address = { version = "~1", optional = true }
@@ -68,7 +68,7 @@ rmp-serde = { version = "~1", optional = true }
 rustc_version = "0.4.0"
 
 [package.metadata.docs.rs]
-features = ["msgpack", "cli", "tokio", "async-std"]
+features = ["msgpack", "cli", "tokio"]
 
 [features]
 default = [
