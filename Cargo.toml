@@ -53,7 +53,7 @@ mac_address = { version = "~1", optional = true }
 bit-vec = { version = "~0.6", optional = true }
 
 # Ip network support (postgres-only)
-ip_network = { version = "~0.4", optional = true }
+ipnetwork = { version = "~0.20", optional = true }
 
 # Date and time support
 chrono = { version = ">=0.4.20", default-features = false, optional = true }
@@ -92,7 +92,7 @@ postgres-only = [
 	"rorm-db/postgres-only",
 	"rorm-cli?/postgres",
 	"dep:mac_address",
-	"dep:ip_network",
+	"dep:ipnetwork",
 	"dep:bit-vec",
 ]
 

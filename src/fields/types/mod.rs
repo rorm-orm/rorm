@@ -9,6 +9,8 @@ mod foreign_model;
 mod json;
 #[cfg(feature = "msgpack")]
 mod msgpack;
+#[cfg(feature = "postgres-only")]
+pub(crate) mod postgres_only;
 #[cfg(feature = "time")]
 mod time;
 #[cfg(feature = "uuid")]

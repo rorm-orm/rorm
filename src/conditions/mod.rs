@@ -105,6 +105,15 @@ pub enum Value<'a> {
     /// Uuid representation
     #[cfg(feature = "uuid")]
     Uuid(uuid::Uuid),
+    /// Mac address representation
+    #[cfg(feature = "postgres-only")]
+    MacAddress(mac_address::MacAddress),
+    /// IP network presentation
+    #[cfg(feature = "postgres-only")]
+    IpNetwork(ipnetwork::IpNetwork),
+    /// Bit vec representation
+    #[cfg(feature = "postgres-only")]
+    BitVec(crate::fields::types::postgres_only::BitCow<'a>),
 }
 impl<'a> Value<'a> {
     /// Convert into an [`sql::Value`](value::Value) instead of an [`sql::Condition`](conditional::Condition) directly.
@@ -138,6 +147,12 @@ impl<'a> Value<'a> {
             Value::TimePrimitiveDateTime(v) => value::Value::TimePrimitiveDateTime(*v),
             #[cfg(feature = "uuid")]
             Value::Uuid(v) => value::Value::Uuid(*v),
+            #[cfg(feature = "postgres-only")]
+            Value::MacAddress(v) => value::Value::MacAddress(*v),
+            #[cfg(feature = "postgres-only")]
+            Value::IpNetwork(v) => value::Value::IpNetwork(*v),
+            #[cfg(feature = "postgres-only")]
+            Value::BitVec(v) => value::Value::BitVec(v.as_ref()),
         }
     }
 }

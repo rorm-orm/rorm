@@ -86,8 +86,20 @@ impl_db_types!(
     ChronoNaiveTime,
     /// Type level version of [`imr::DbType::Choices`]
     Choices,
-    Choice, // TODO requires choices
-    /// Uuid representation
+    Choice,
+    /// Type level version of [`imr::DbType::Uuid`]
     Uuid,
     Uuid,
+);
+#[cfg(feature = "postgres-only")]
+impl_db_types!(
+    /// Type level version of [`imr::DbType::MacAddress`]
+    MacAddress,
+    MacAddress,
+    /// Type level version of [`imr::DbType::IpNetwork`]
+    IpNetwork,
+    IpNetwork,
+    /// Type level version of [`imr::DbType::BitVec`]
+    BitVec,
+    BitVec,
 );
