@@ -146,7 +146,7 @@ fn generate_fields(model: &AnalyzedModel) -> TokenStream {
             #vis struct #unit;
             impl ::std::clone::Clone for #unit {
                 fn clone(&self) -> Self {
-                    Self
+                    *self
                 }
             }
             impl ::std::marker::Copy for #unit {}
