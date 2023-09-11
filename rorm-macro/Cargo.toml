@@ -1,6 +1,6 @@
 [package]
 name = "rorm-macro"
-version = "0.7.1"
+version = "0.8.0"
 edition = "2021"
 repository = "https://github.com/rorm-orm/rorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
