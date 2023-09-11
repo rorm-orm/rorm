@@ -3,17 +3,23 @@ use ipnetwork::IpNetwork;
 use mac_address::MacAddress;
 
 use crate::conditions::Value;
-use crate::impl_AsDbType;
 use crate::internal::hmr::db_type;
+use crate::{impl_AsDbType, impl_FieldEq};
 
 impl_AsDbType!(MacAddress, db_type::MacAddress, Value::MacAddress);
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, MacAddress> for MacAddress { Value::MacAddress });
+
 impl_AsDbType!(IpNetwork, db_type::IpNetwork, Value::IpNetwork);
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, IpNetwork> for IpNetwork { Value::IpNetwork });
+
 impl_AsDbType!(
     BitVec,
     db_type::BitVec,
     |vec| Value::BitVec(BitCow::Owned(vec)),
     |vec| Value::BitVec(BitCow::Borrowed(vec))
 );
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs BitVec> for BitVec { |vec| Value::BitVec(BitCow::Borrowed(vec)) });
+impl_FieldEq!(impl<'rhs> FieldEq<'rhs, BitVec> for BitVec { |vec| Value::BitVec(BitCow::Owned(vec)) });
 
 #[derive(Clone, Debug)]
 pub enum BitCow<'a> {

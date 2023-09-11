@@ -20,7 +20,7 @@ use crate::query;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
 use crate::Patch;
 
-/// A back reference is the other direction to a [foreign model](ForeignModelByField)
+/// A back reference is the other direction to a [foreign model](crate::prelude::ForeignModelByField)
 #[derive(Clone)]
 pub struct BackRef<FMF: ForeignModelField> {
     /// Cached list of models referencing this one.
