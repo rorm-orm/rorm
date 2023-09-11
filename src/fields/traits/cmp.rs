@@ -11,12 +11,8 @@
 //! - Each method takes an [`FieldAccess`]; an implementation may assume that the access' field's type
 //!   matches the type the trait is implemented on. This isn't enforced using trait bounds (yet?) to reduce complexity.
 
-use std::borrow::Cow;
-
-use rorm_db::sql::value::NullType;
-
 use super::FieldType;
-use crate::conditions::{Binary, BinaryOperator, Column, Condition, Value};
+use crate::conditions::{Binary, BinaryOperator, Column, Condition};
 use crate::internal::field::access::FieldAccess;
 use crate::internal::field::{Field, FieldProxy, SingleColumnField};
 use crate::internal::relation_path::Path;
@@ -138,43 +134,6 @@ macro_rules! impl_FieldEq {
     };
 }
 
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, bool> for bool { Value::Bool });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, i16> for i16 { Value::I16 });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, i32> for i32 { Value::I32 });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, i64> for i64 { Value::I64 });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, f32> for f32 { Value::F32 });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, f64> for f64 { Value::F64 });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<bool>> for Option<bool> { |option: Self| option.map(Value::Bool).unwrap_or(Value::Null(NullType::Bool)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<i16>> for Option<i16>   { |option: Self| option.map(Value::I16).unwrap_or(Value::Null(NullType::I16)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<i32>> for Option<i32>   { |option: Self| option.map(Value::I32).unwrap_or(Value::Null(NullType::I32)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<i64>> for Option<i64>   { |option: Self| option.map(Value::I64).unwrap_or(Value::Null(NullType::I64)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<f32>> for Option<f32>   { |option: Self| option.map(Value::F32).unwrap_or(Value::Null(NullType::F32)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<f64>> for Option<f64>   { |option: Self| option.map(Value::F64).unwrap_or(Value::Null(NullType::F64)) });
-
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs str> for String      { conv_string });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs String> for String   { conv_string });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, String> for String         { conv_string });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Cow<'rhs, str>> for String { conv_string });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<&'rhs str>> for Option<String>      { |option: Option<_>| option.map(conv_string).unwrap_or(Value::Null(NullType::String)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<&'rhs String>> for Option<String>   { |option: Option<_>| option.map(conv_string).unwrap_or(Value::Null(NullType::String)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<String>> for Option<String>         { |option: Option<_>| option.map(conv_string).unwrap_or(Value::Null(NullType::String)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<Cow<'rhs, str>>> for Option<String> { |option: Option<_>| option.map(conv_string).unwrap_or(Value::Null(NullType::String)) });
-fn conv_string<'a>(value: impl Into<Cow<'a, str>>) -> Value<'a> {
-    Value::String(value.into())
-}
-
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs [u8]> for Vec<u8>      { conv_bytes });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs Vec<u8>> for Vec<u8>   { conv_bytes });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Vec<u8>> for Vec<u8>         { conv_bytes });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Cow<'rhs, [u8]>> for Vec<u8> { conv_bytes });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<&'rhs [u8]>> for Option<Vec<u8>>      { |option: Option<_>| option.map(conv_bytes).unwrap_or(Value::Null(NullType::Binary)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<&'rhs Vec<u8>>> for Option<Vec<u8>>   { |option: Option<_>| option.map(conv_bytes).unwrap_or(Value::Null(NullType::Binary)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<Vec<u8>>> for Option<Vec<u8>>         { |option: Option<_>| option.map(conv_bytes).unwrap_or(Value::Null(NullType::Binary)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<Cow<'rhs, [u8]>>> for Option<Vec<u8>> { |option: Option<_>| option.map(conv_bytes).unwrap_or(Value::Null(NullType::Binary)) });
-fn conv_bytes<'a>(value: impl Into<Cow<'a, [u8]>>) -> Value<'a> {
-    Value::Binary(value.into())
-}
-
 // Impl FieldEq<FieldProxy> iff FieldEq<Self>
 impl<'rhs, F, P, T> FieldEq<'rhs, FieldProxy<F, P>> for T
 where
@@ -257,20 +216,6 @@ macro_rules! impl_FieldOrd {
         }
     };
 }
-
-impl_FieldOrd!(i16, i16, Value::I16);
-impl_FieldOrd!(i32, i32, Value::I32);
-impl_FieldOrd!(i64, i64, Value::I64);
-impl_FieldOrd!(f32, f32, Value::F32);
-impl_FieldOrd!(f64, f64, Value::F64);
-
-impl_FieldOrd!(String, &'rhs str, |s| Value::String(Cow::Borrowed(s)));
-impl_FieldOrd!(String, String, |s| Value::String(Cow::Owned(s)));
-impl_FieldOrd!(String, Cow<'rhs, str>, Value::String);
-
-impl_FieldOrd!(Vec<u8>, &'rhs [u8], |b| Value::Binary(Cow::Borrowed(b)));
-impl_FieldOrd!(Vec<u8>, Vec<u8>, |b| Value::Binary(Cow::Owned(b)));
-impl_FieldOrd!(Vec<u8>, Cow<'rhs, [u8]>, Value::Binary);
 
 // Impl FieldOrd<FieldProxy> iff FieldOrd<Self>
 impl<'rhs, F, P, T> FieldOrd<'rhs, FieldProxy<F, P>> for T

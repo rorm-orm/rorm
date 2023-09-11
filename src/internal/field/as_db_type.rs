@@ -1,13 +1,9 @@
 //! defines and implements the [`AsDbType`] trait.
 
-use std::borrow::Cow;
-
 use rorm_db::row::DecodeOwned;
 
-use crate::conditions::Value;
 use crate::internal::field::FieldType;
 use crate::internal::hmr::annotations::Annotations;
-use crate::internal::hmr::db_type;
 use crate::internal::hmr::db_type::DbType;
 
 /// This trait maps rust types to database types
@@ -151,21 +147,3 @@ macro_rules! impl_AsDbType {
         impl_AsDbType!(Option<$type>, $crate::crud::decoder::DirectDecoder<Self>);
     };
 }
-impl_AsDbType!(i16, db_type::Int16, Value::I16);
-impl_AsDbType!(i32, db_type::Int32, Value::I32);
-impl_AsDbType!(i64, db_type::Int64, Value::I64);
-impl_AsDbType!(f32, db_type::Float, Value::F32);
-impl_AsDbType!(f64, db_type::Double, Value::F64);
-impl_AsDbType!(bool, db_type::Boolean, Value::Bool);
-impl_AsDbType!(
-    Vec<u8>,
-    db_type::Binary,
-    |b| Value::Binary(Cow::Owned(b)),
-    |b| { Value::Binary(Cow::Borrowed(b)) }
-);
-impl_AsDbType!(
-    String,
-    db_type::VarChar,
-    |s| Value::String(Cow::Owned(s)),
-    |s| { Value::String(Cow::Borrowed(s)) }
-);

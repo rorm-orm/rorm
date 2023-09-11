@@ -11,6 +11,7 @@ mod json;
 mod msgpack;
 #[cfg(feature = "postgres-only")]
 pub(crate) mod postgres_only;
+mod std;
 #[cfg(feature = "time")]
 mod time;
 #[cfg(feature = "uuid")]
