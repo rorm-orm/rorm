@@ -196,6 +196,7 @@ impl ConstVec<&'static str, 1024> {
     };
 
     #[doc(hidden)]
+    #[allow(clippy::result_large_err)] // there is no heap to escape to in const
     pub const fn columns(columns: &[&[&'static str]]) -> Result<Self, ConstString<1024>> {
         let mut vec = Self::new();
         sugar! {

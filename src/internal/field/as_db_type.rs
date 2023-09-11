@@ -59,7 +59,7 @@ macro_rules! impl_AsDbType {
             }
 
             fn get_imr<F: $crate::internal::field::Field<Type = Self>>() -> Self::Columns<$crate::internal::imr::Field> {
-                use crate::internal::hmr::AsImr;
+                use $crate::internal::hmr::AsImr;
                 [$crate::internal::imr::Field {
                     name: F::NAME.to_string(),
                     db_type: <<$type as $crate::internal::field::as_db_type::AsDbType>::DbType as $crate::internal::hmr::db_type::DbType>::IMR,
@@ -107,10 +107,12 @@ macro_rules! impl_AsDbType {
 
             #[inline(always)]
             fn as_values(&self) -> Self::Columns<$crate::conditions::Value<'_>> {
+                #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
                 [$as_value(self)]
             }
 
             fn into_values(self) -> Self::Columns<$crate::conditions::Value<'static>> {
+                #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
                 [$into_value(self)]
             }
 
