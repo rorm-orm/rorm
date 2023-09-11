@@ -48,7 +48,7 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
             const TABLE: &'static str = #table;
 
             fn get_imr() -> ::rorm::imr::Model {
-                use ::rorm::internal::field::RawField;
+                use ::rorm::internal::field::Field;
                 let mut fields = Vec::new();
                 #(
                     fields.extend(<#field_types as ::rorm::fields::traits::FieldType>::get_imr::<#field_structs_1>());
@@ -72,7 +72,7 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
             // Cross field checks
             let mut count_auto_increment = 0;
             #(
-                let annos = <#field_structs_2 as ::rorm::internal::field::RawField>::EFFECTIVE_ANNOTATIONS;
+                let annos = <#field_structs_2 as ::rorm::internal::field::Field>::EFFECTIVE_ANNOTATIONS;
                 if let Some(annos) = annos {
                     if annos.auto_increment.is_some() {
                         count_auto_increment += 1;
@@ -150,7 +150,7 @@ fn generate_fields(model: &AnalyzedModel) -> TokenStream {
                 }
             }
             impl ::std::marker::Copy for #unit {}
-            impl ::rorm::internal::field::RawField for #unit {
+            impl ::rorm::internal::field::Field for #unit {
                 type Type = #ty;
                 type Model = #model_ident;
                 const INDEX: usize = #index;
@@ -162,7 +162,7 @@ fn generate_fields(model: &AnalyzedModel) -> TokenStream {
                 }
             }
             const _: () = {
-                if let Err(err) = <#unit as ::rorm::internal::field::RawField>::CHECK {
+                if let Err(err) = <#unit as ::rorm::internal::field::Field>::CHECK {
                     panic!("{}", err.as_str());
                 }
             };

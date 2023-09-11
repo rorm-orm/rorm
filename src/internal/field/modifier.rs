@@ -5,38 +5,38 @@ use std::marker::PhantomData;
 use crate::fields::traits::FieldType;
 use crate::internal::const_concat::ConstString;
 use crate::internal::field::as_db_type::AsDbType;
-use crate::internal::field::RawField;
+use crate::internal::field::Field;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::DbType;
 use crate::Model;
 
 /// Trait used in [`FieldType`] to allow types to modify their fields' annotations.
 ///
-/// It mimics a `const fn<F: RawField>() -> Option<Annotations>`,
-/// i.e. a `const` function which takes a field `F: RawField` as "argument" and produces a `Option<Annotations>`,
+/// It mimics a `const fn<F: Field>() -> Option<Annotations>`,
+/// i.e. a `const` function which takes a field `F: Field` as "argument" and produces a `Option<Annotations>`,
 /// which is not definable using existing `Fn` traits.
 ///
 /// **BEWARE** an implementation is not allowed to access `F::EFFECTIVE_ANNOTATIONS` or `F::CHECK`!
-pub trait AnnotationsModifier<F: RawField> {
+pub trait AnnotationsModifier<F: Field> {
     /// The resulting modified annotations
     const MODIFIED: Option<Annotations>;
 }
 
 /// [`AnnotationsModifier`] which doesn't modify annotations
 pub struct UnchangedAnnotations;
-impl<F: RawField> AnnotationsModifier<F> for UnchangedAnnotations {
+impl<F: Field> AnnotationsModifier<F> for UnchangedAnnotations {
     const MODIFIED: Option<Annotations> = Some(F::EXPLICIT_ANNOTATIONS);
 }
 
 /// [`AnnotationsModifier`] which sets annotations to `None`
 pub struct EraseAnnotations;
-impl<F: RawField> AnnotationsModifier<F> for EraseAnnotations {
+impl<F: Field> AnnotationsModifier<F> for EraseAnnotations {
     const MODIFIED: Option<Annotations> = None;
 }
 
 /// [`AnnotationsModifier`] which merges the annotations with [`AsDbType`]'s implicit annotations
 pub struct MergeAnnotations<T: AsDbType>(pub PhantomData<T>);
-impl<T: AsDbType, F: RawField> AnnotationsModifier<F> for MergeAnnotations<T> {
+impl<T: AsDbType, F: Field> AnnotationsModifier<F> for MergeAnnotations<T> {
     const MODIFIED: Option<Annotations> = {
         if let Some(implicit) = T::IMPLICIT {
             match F::EXPLICIT_ANNOTATIONS.merge(implicit) {
@@ -62,19 +62,19 @@ impl<T: AsDbType, F: RawField> AnnotationsModifier<F> for MergeAnnotations<T> {
 
 /// Trait used in [`FieldType`] to allow types to implement custom compile time checks
 ///
-/// It mimics a `const fn<F: RawField>() -> Result<(), &'static str>`,
-/// i.e. a `const` function which takes a field `F: RawField` as "argument" and produces a `Result<(), &'static str>`,
+/// It mimics a `const fn<F: Field>() -> Result<(), &'static str>`,
+/// i.e. a `const` function which takes a field `F: Field` as "argument" and produces a `Result<(), &'static str>`,
 /// which is not definable using existing `Fn` traits.
 ///
 /// **BEWARE** an implementation is not allowed to access `F::CHECK`!
-pub trait CheckModifier<F: RawField> {
+pub trait CheckModifier<F: Field> {
     /// The check's result
     const RESULT: Result<(), ConstString<1024>>;
 }
 
 /// [`CheckModifier`] which checks nothing
 pub struct NoCheck;
-impl<F: RawField> CheckModifier<F> for NoCheck {
+impl<F: Field> CheckModifier<F> for NoCheck {
     const RESULT: Result<(), ConstString<1024>> = Ok(());
 }
 
@@ -84,7 +84,7 @@ impl<F: RawField> CheckModifier<F> for NoCheck {
 /// - runs the shared linter from `rorm-declaration`
 pub struct SingleColumnCheck<D: DbType>(pub PhantomData<D>);
 
-impl<D: DbType, F: RawField> CheckModifier<F> for SingleColumnCheck<D> {
+impl<D: DbType, F: Field> CheckModifier<F> for SingleColumnCheck<D> {
     const RESULT: Result<(), ConstString<1024>> = {
         'result: {
             let Some(annotations) = F::EFFECTIVE_ANNOTATIONS else {
@@ -116,17 +116,17 @@ impl<D: DbType, F: RawField> CheckModifier<F> for SingleColumnCheck<D> {
 
 /// Trait used in [`FieldType`] to derive column names from the field name
 ///
-/// It mimics a `const fn<F: RawField>() -> F::Type::Columns<&'static str>`,
-/// i.e. a `const` function which takes a field `F: RawField` as "argument" and produces a `F::Type::Columns<&'static str>`,
+/// It mimics a `const fn<F: Field>() -> F::Type::Columns<&'static str>`,
+/// i.e. a `const` function which takes a field `F: Field` as "argument" and produces a `F::Type::Columns<&'static str>`,
 /// which is not definable using existing `Fn` traits.
-pub trait ColumnsFromName<F: RawField> {
+pub trait ColumnsFromName<F: Field> {
     /// The field's columns' names
     const COLUMNS: <F::Type as FieldType>::Columns<&'static str>;
 }
 
 /// [`ColumnsFromName`] for field types which map to no columns
 pub struct NoColumnFromName;
-impl<F: RawField> ColumnsFromName<F> for NoColumnFromName
+impl<F: Field> ColumnsFromName<F> for NoColumnFromName
 where
     F::Type: FieldType<Columns<&'static str> = [&'static str; 0]>,
 {
@@ -135,7 +135,7 @@ where
 
 /// [`ColumnsFromName`] for field types which map to a single column
 pub struct SingleColumnFromName;
-impl<F: RawField> ColumnsFromName<F> for SingleColumnFromName
+impl<F: Field> ColumnsFromName<F> for SingleColumnFromName
 where
     F::Type: FieldType<Columns<&'static str> = [&'static str; 1]>,
 {

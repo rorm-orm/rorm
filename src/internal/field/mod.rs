@@ -10,8 +10,8 @@
 //!
 //! # Trait Implementation Flow
 //! As stated in the introduction, the derive macro generates an unit struct per field.
-//! It the proceeds to implement then [`RawField`] trait on this empty struct.
-//! Therefore, [`RawField`] encapsulates all information the macro can gather.
+//! It the proceeds to implement then [`Field`] trait on this empty struct.
+//! Therefore, [`Field`] encapsulates all information the macro can gather.
 //! This includes:
 //! - the name (a db safe version of it, to be precise)
 //! - its "raw type" ("raw" because the macro can't make any deductions about the type)
@@ -28,7 +28,7 @@
 //! will produce something like
 //! ```text
 //! struct __User_id;
-//! impl RawField for __User_id {
+//! impl Field for __User_id {
 //!     type RawType = i32;
 //!     const NAME: &'static str = "id";
 //!     ...
@@ -66,7 +66,7 @@ use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier, Colum
 /// It contains all the information a model's author provides on the field.
 ///
 /// This trait itself doesn't do much, but it forms the basis to implement the other traits.
-pub trait RawField: 'static + Copy {
+pub trait Field: 'static + Copy {
     /// The type stored in the model's field
     type Type: FieldType;
 
@@ -103,7 +103,7 @@ pub trait RawField: 'static + Copy {
 }
 
 /// A field which is stored in db via a single column
-pub trait SingleColumnField: RawField {
+pub trait SingleColumnField: Field {
     /// Borrow an instance of the field's type as a [`Value`]
     fn type_as_value(field: &Self::Type) -> Value;
 
@@ -112,7 +112,7 @@ pub trait SingleColumnField: RawField {
 }
 impl<F> SingleColumnField for F
 where
-    F: RawField,
+    F: Field,
     for<'a> <F::Type as FieldType>::Columns<Value<'a>>: IntoArray<1>,
 {
     fn type_as_value(field: &Self::Type) -> Value {
@@ -126,12 +126,12 @@ where
     }
 }
 
-/// This struct acts as a proxy exposing type level information from the [`RawField`] trait on the value level.
+/// This struct acts as a proxy exposing type level information from the [`Field`] trait on the value level.
 ///
 /// On top of that it can be used to keep track of the "path" this field is accessed through, when dealing with relations.
 ///
 /// ## Type as Value
-/// In other words [`FieldProxy`] allows access to things like [`RawField::NAME`] without access to the concrete field type.
+/// In other words [`FieldProxy`] allows access to things like [`Field::NAME`] without access to the concrete field type.
 ///
 /// Pseudo code for illustration:
 /// ```skip
@@ -174,7 +174,7 @@ pub struct FieldProxy<Field, Path>(PhantomData<ManuallyDrop<(Field, Path)>>);
 // struct contains no data
 unsafe impl<F, P> Send for FieldProxy<F, P> {}
 
-impl<F: RawField, P> FieldProxy<F, P> {
+impl<F: Field, P> FieldProxy<F, P> {
     /// Create a new instance
     pub const fn new() -> Self {
         Self(PhantomData)
@@ -190,7 +190,7 @@ impl<F: RawField, P> FieldProxy<F, P> {
         FieldProxy::new()
     }
 }
-impl<F: RawField, P> FieldProxy<F, P> {
+impl<F: Field, P> FieldProxy<F, P> {
     /// Get the names of the columns which store the field
     pub const fn columns(_field: Self) -> <F::Type as FieldType>::Columns<&'static str> {
         <F::Type as FieldType>::ColumnsFromName::<F>::COLUMNS
@@ -214,12 +214,12 @@ impl<Field, Path> Copy for FieldProxy<Field, Path> {}
 /// - For [`BackRef`](crate::fields::types::BackRef) and [`ForeignModel`](crate::fields::types::ForeignModelByField),
 ///   its their related model's fields
 /// - For multi-column fields, its their "contained" fields
-pub trait ContainerField<T: FieldType, P: Path>: RawField<Type = T> {
+pub trait ContainerField<T: FieldType, P: Path>: Field<Type = T> {
     /// Struct of contained fields
     type Target: ConstNew;
 }
 
-impl<T: FieldType, F: RawField<Type = T>, P: Path> std::ops::Deref for FieldProxy<F, P>
+impl<T: FieldType, F: Field<Type = T>, P: Path> std::ops::Deref for FieldProxy<F, P>
 where
     F: ContainerField<T, P>,
 {
@@ -233,11 +233,11 @@ where
 impl<FMF, BF, P> ContainerField<BackRef<FMF>, P> for BF
 where
     FMF: ForeignModelField,
-    BF: RawField<Type = BackRef<FMF>>,
+    BF: Field<Type = BackRef<FMF>>,
     P: Path,
     PathStep<BF, P>: PathImpl<BackRef<FMF>>,
 {
-    // type Target = <<ResolvedRelatedField<BF, P> as RawField>::Model as Model>::Fields<PathStep<BF, P>>;
+    // type Target = <<ResolvedRelatedField<BF, P> as Field>::Model as Model>::Fields<PathStep<BF, P>>;
     type Target = <FMF::Model as Model>::Fields<PathStep<BF, P>>;
 }
 
@@ -249,7 +249,7 @@ where
     FF::Type: AsDbType,
     FF::Model: GetField<FF>, // always true
 
-    FMF: RawField<Type = ForeignModelByField<FF>>,
+    FMF: Field<Type = ForeignModelByField<FF>>,
     P: Path,
     PathStep<FMF, P>: PathImpl<ForeignModelByField<FF>>,
 {
@@ -265,7 +265,7 @@ where
     FF::Model: GetField<FF>, // always true
     Option<FF::Type>: AsDbType,
 
-    FMF: RawField<Type = Option<ForeignModelByField<FF>>>,
+    FMF: Field<Type = Option<ForeignModelByField<FF>>>,
     P: Path,
     PathStep<FMF, P>: PathImpl<Option<ForeignModelByField<FF>>>,
 {

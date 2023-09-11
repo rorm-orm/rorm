@@ -7,7 +7,7 @@ use std::borrow::Cow;
 // use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use rorm_db::sql::{conditional, value};
 
-use crate::internal::field::RawField;
+use crate::internal::field::Field;
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::{JoinAlias, Path};
 
@@ -176,7 +176,7 @@ impl<'a, A: FieldAccess> Condition<'a> for Column<A> {
     fn as_sql(&self, _context: &QueryContext) -> conditional::Condition {
         conditional::Condition::Value(value::Value::Column {
             table_name: Some(<A::Path as JoinAlias>::ALIAS),
-            column_name: <A::Field as RawField>::NAME,
+            column_name: <A::Field as Field>::NAME,
         })
     }
 }

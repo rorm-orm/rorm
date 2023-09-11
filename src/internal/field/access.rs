@@ -1,13 +1,13 @@
 //! Experimental trait to hide a [`FieldProxy`]s two generics behind a single one.
 
 use crate::fields::traits::{FieldEq, FieldLike, FieldOrd, FieldRegexp};
-use crate::internal::field::{FieldProxy, RawField};
+use crate::internal::field::{Field, FieldProxy};
 use crate::internal::relation_path::Path;
 
 #[allow(non_snake_case)] // the macro produces a datatype which are named using CamelCase
 macro_rules! FieldType {
     () => {
-        <Self::Field as RawField>::Type
+        <Self::Field as Field>::Type
     };
 }
 
@@ -15,14 +15,14 @@ macro_rules! FieldType {
 ///
 /// ## Why
 /// ```no_run
-/// # use rorm::internal::field::{FieldProxy, RawField, access::FieldAccess};
+/// # use rorm::internal::field::{FieldProxy, Field, access::FieldAccess};
 /// # use rorm::internal::relation_path::Path;
 ///
 /// // function using FieldProxy
 /// fn do_something<F, P>(proxy: FieldProxy<F, P>) {/* ... */}
 ///
 /// // but in order to do useful things with the proxy, you will need bounds:
-/// fn do_useful<F: RawField, P: Path>(proxy: FieldProxy<F, P>) {/* ... */}
+/// fn do_useful<F: Field, P: Path>(proxy: FieldProxy<F, P>) {/* ... */}
 ///
 /// // function using FieldAccess
 /// fn do_something_else<A: FieldAccess>(proxy: A) {/* ... */}
@@ -53,7 +53,7 @@ pub trait FieldAccess: Sized + Send + 'static {
     /// Field which is accessed
     ///
     /// Corresponds to the proxy's `F` parameter
-    type Field: RawField;
+    type Field: Field;
 
     /// Path the field is accessed through
     ///
@@ -171,7 +171,7 @@ pub trait FieldAccess: Sized + Send + 'static {
     }
 }
 
-impl<F: RawField, P: Path> FieldAccess for FieldProxy<F, P> {
+impl<F: Field, P: Path> FieldAccess for FieldProxy<F, P> {
     type Field = F;
     type Path = P;
 }

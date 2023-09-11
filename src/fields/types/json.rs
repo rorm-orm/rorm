@@ -11,7 +11,7 @@ use crate::conditions::Value;
 use crate::fields::traits::FieldType;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::modifier::{MergeAnnotations, SingleColumnCheck, SingleColumnFromName};
-use crate::internal::field::RawField;
+use crate::internal::field::Field;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::{Binary, DbType};
 use crate::internal::hmr::AsImr;
@@ -68,7 +68,7 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Json<T> {
         ))] // TODO propagate error?
     }
 
-    fn get_imr<F: RawField<Type = Self>>() -> Self::Columns<imr::Field> {
+    fn get_imr<F: Field<Type = Self>>() -> Self::Columns<imr::Field> {
         [imr::Field {
             name: F::NAME.to_string(),
             db_type: Binary::IMR,
@@ -81,11 +81,11 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Json<T> {
 
     type Decoder = JsonDecoder<T>;
 
-    type AnnotationsModifier<F: RawField<Type = Self>> = MergeAnnotations<Self>;
+    type AnnotationsModifier<F: Field<Type = Self>> = MergeAnnotations<Self>;
 
-    type CheckModifier<F: RawField<Type = Self>> = SingleColumnCheck<Binary>;
+    type CheckModifier<F: Field<Type = Self>> = SingleColumnCheck<Binary>;
 
-    type ColumnsFromName<F: RawField<Type = Self>> = SingleColumnFromName;
+    type ColumnsFromName<F: Field<Type = Self>> = SingleColumnFromName;
 }
 impl<T: Serialize + DeserializeOwned + 'static> AsDbType for Json<T> {
     type Primitive = Vec<u8>;
@@ -122,7 +122,7 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Option<Json<T>> {
             .unwrap_or([Value::Null(Binary::NULL_TYPE)])
     }
 
-    fn get_imr<F: RawField<Type = Self>>() -> Self::Columns<imr::Field> {
+    fn get_imr<F: Field<Type = Self>>() -> Self::Columns<imr::Field> {
         [imr::Field {
             name: F::NAME.to_string(),
             db_type: Binary::IMR,
@@ -135,11 +135,11 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Option<Json<T>> {
 
     type Decoder = OptionJsonDecoder<T>;
 
-    type AnnotationsModifier<F: RawField<Type = Self>> = MergeAnnotations<Self>;
+    type AnnotationsModifier<F: Field<Type = Self>> = MergeAnnotations<Self>;
 
-    type CheckModifier<F: RawField<Type = Self>> = SingleColumnCheck<Binary>;
+    type CheckModifier<F: Field<Type = Self>> = SingleColumnCheck<Binary>;
 
-    type ColumnsFromName<F: RawField<Type = Self>> = SingleColumnFromName;
+    type ColumnsFromName<F: Field<Type = Self>> = SingleColumnFromName;
 }
 impl<T: Serialize + DeserializeOwned + 'static> AsDbType for Option<Json<T>> {
     type Primitive = Option<Vec<u8>>;

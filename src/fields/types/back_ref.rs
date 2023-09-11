@@ -14,7 +14,7 @@ use crate::crud::decoder::NoopDecoder;
 use crate::fields::traits::FieldType;
 use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
 use crate::internal::field::modifier::{EraseAnnotations, NoCheck, NoColumnFromName};
-use crate::internal::field::{foreign_model, FieldProxy, RawField, SingleColumnField};
+use crate::internal::field::{foreign_model, Field, FieldProxy, SingleColumnField};
 use crate::model::GetField;
 use crate::query;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
@@ -51,22 +51,22 @@ impl<FMF: ForeignModelField> FieldType for BackRef<FMF> {
         []
     }
 
-    fn get_imr<F: RawField<Type = Self>>() -> Self::Columns<imr::Field> {
+    fn get_imr<F: Field<Type = Self>>() -> Self::Columns<imr::Field> {
         []
     }
 
     type Decoder = NoopDecoder<Self>;
 
-    type AnnotationsModifier<F: RawField<Type = Self>> = EraseAnnotations;
+    type AnnotationsModifier<F: Field<Type = Self>> = EraseAnnotations;
 
-    type CheckModifier<F: RawField<Type = Self>> = NoCheck;
+    type CheckModifier<F: Field<Type = Self>> = NoCheck;
 
-    type ColumnsFromName<F: RawField<Type = Self>> = NoColumnFromName;
+    type ColumnsFromName<F: Field<Type = Self>> = NoColumnFromName;
 }
 
 impl<BRF, FMF> FieldProxy<BRF, BRF::Model>
 where
-    BRF: RawField<Type = BackRef<FMF>>,
+    BRF: Field<Type = BackRef<FMF>>,
 
     FMF: ForeignModelField + SingleColumnField,
     FMF::Type: ForeignModelTrait,
@@ -172,7 +172,7 @@ where
         patches: &mut [BRP],
     ) -> Result<(), Error>
     where
-        <foreign_model::RF<FMF> as RawField>::Type: std::hash::Hash + Eq + Clone,
+        <foreign_model::RF<FMF> as Field>::Type: std::hash::Hash + Eq + Clone,
         BRP: Patch<Model = BRF::Model>,
         BRP: GetField<BRF>,
         BRP: GetField<foreign_model::RF<FMF>>,
@@ -181,10 +181,8 @@ where
             return Ok(());
         }
 
-        let mut cache: HashMap<
-            <foreign_model::RF<FMF> as RawField>::Type,
-            Option<Vec<FMF::Model>>,
-        > = HashMap::new();
+        let mut cache: HashMap<<foreign_model::RF<FMF> as Field>::Type, Option<Vec<FMF::Model>>> =
+            HashMap::new();
         {
             let mut stream = query!(executor, FMF::Model)
                 .condition(DynamicCollection {

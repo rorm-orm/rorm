@@ -7,7 +7,7 @@ use rorm_declaration::imr;
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
 use crate::crud::decoder::Decoder;
 use crate::crud::selector::Selector;
-use crate::internal::field::{FieldProxy, RawField, SingleColumnField};
+use crate::internal::field::{Field, FieldProxy, SingleColumnField};
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
 
@@ -86,7 +86,7 @@ pub type PatchAsCondition<'a, P> = Binary<
 /// It should only ever be generated using [`derive(Model)`](rorm_macro::Model).
 pub trait Model: Patch<Model = Self> {
     /// The primary key
-    type Primary: RawField<Model = Self> + SingleColumnField;
+    type Primary: Field<Model = Self> + SingleColumnField;
 
     /// A struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`](crate::internal::field::Field)).
     ///
@@ -115,7 +115,7 @@ pub trait Model: Patch<Model = Self> {
 /// Expose a models' fields on the type level using indexes
 pub trait FieldByIndex<const INDEX: usize>: Model {
     /// The model's field at `INDEX`
-    type Field: RawField<Model = Self>;
+    type Field: Field<Model = Self>;
 }
 
 /// Generic access to a patch's fields
@@ -123,7 +123,7 @@ pub trait FieldByIndex<const INDEX: usize>: Model {
 /// This enables generic code to check if a patch contains a certain field
 /// (for example the model's primary key, see [Identifiable])
 /// and gain access to it.
-pub trait GetField<F: RawField>: Patch {
+pub trait GetField<F: Field>: Patch {
     /// Take the field by ownership
     fn get_field(self) -> F::Type;
 
@@ -141,18 +141,18 @@ pub trait GetField<F: RawField>: Patch {
 /// because the method hides the fact, that the mutual borrow only applies to a single field.
 /// This trait provides a solution to this problem, for a common scenario:
 /// The need for an additional immutable borrow to the primary key.
-pub trait UpdateField<F: RawField<Model = Self>>: Model {
+pub trait UpdateField<F: Field<Model = Self>>: Model {
     /// Update a model's field based on the model's primary key
     fn update_field<'m, T>(
         &'m mut self,
-        update: impl FnOnce(&'m <<Self as Model>::Primary as RawField>::Type, &'m mut F::Type) -> T,
+        update: impl FnOnce(&'m <<Self as Model>::Primary as Field>::Type, &'m mut F::Type) -> T,
     ) -> T;
 }
 
 /// A patch which contains its model's primary key.
 pub trait Identifiable: Patch {
     /// Get a reference to the primary key
-    fn get_primary_key(&self) -> &<<Self::Model as Model>::Primary as RawField>::Type;
+    fn get_primary_key(&self) -> &<<Self::Model as Model>::Primary as Field>::Type;
 
     /// Build a [Condition](crate::conditions::Condition)
     /// which only applies to this instance by comparing the primary key.
@@ -165,7 +165,7 @@ pub trait Identifiable: Patch {
     }
 }
 impl<M: Model, P: Patch<Model = M> + GetField<M::Primary>> Identifiable for P {
-    fn get_primary_key(&self) -> &<M::Primary as RawField>::Type {
+    fn get_primary_key(&self) -> &<M::Primary as Field>::Type {
         <Self as GetField<M::Primary>>::borrow_field(self)
     }
 }

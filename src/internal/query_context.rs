@@ -7,7 +7,7 @@ use rorm_db::sql::conditional::{BinaryCondition, Condition};
 use rorm_db::sql::value::Value;
 
 use crate::aggregate::AggregationFunc;
-use crate::internal::field::RawField;
+use crate::internal::field::Field;
 use crate::internal::relation_path::{JoinAlias, Path, PathImpl, PathStep};
 use crate::Model;
 
@@ -31,7 +31,7 @@ impl QueryContext {
     }
 
     /// Add a field to select returning its index and alias
-    pub fn select_field<F: RawField, P: Path>(&mut self) -> (usize, String) {
+    pub fn select_field<F: Field, P: Path>(&mut self) -> (usize, String) {
         P::add_to_context(self);
         let alias = format!("{path}__{field}", path = P::ALIAS, field = F::NAME);
         self.selects.push(Select {
@@ -44,9 +44,7 @@ impl QueryContext {
     }
 
     /// Add a field to aggregate returning its index and alias
-    pub fn select_aggregation<A: AggregationFunc, F: RawField, P: Path>(
-        &mut self,
-    ) -> (usize, String) {
+    pub fn select_aggregation<A: AggregationFunc, F: Field, P: Path>(&mut self) -> (usize, String) {
         P::add_to_context(self);
         let alias = format!(
             "{path}__{field}___{func}",
@@ -109,7 +107,7 @@ impl QueryContext {
     pub(crate) fn add_relation_path<M, F, P>(&mut self)
     where
         M: Model,
-        F: RawField,
+        F: Field,
         P: Path,
         PathStep<F, P>: PathImpl<F::Type>,
     {

@@ -13,7 +13,7 @@ use crate::conditions::Condition;
 use crate::crud::builder::ConditionMarker;
 use crate::crud::decoder::Decoder;
 use crate::crud::selector::Selector;
-use crate::internal::field::{FieldProxy, RawField};
+use crate::internal::field::{Field, FieldProxy};
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
 use crate::model::Model;
@@ -133,7 +133,7 @@ where
     /// You can add multiple orderings from most to least significant.
     pub fn order_by<F, P>(mut self, _field: FieldProxy<F, P>, order: Ordering) -> Self
     where
-        F: RawField,
+        F: Field,
         P: Path<Origin = S::Model>,
     {
         P::add_to_context(&mut self.ctx);
@@ -150,7 +150,7 @@ where
     /// You can add multiple orderings from most to least significant.
     pub fn order_asc<F, P>(self, field: FieldProxy<F, P>) -> Self
     where
-        F: RawField,
+        F: Field,
         P: Path<Origin = S::Model>,
     {
         self.order_by(field, Ordering::Asc)
@@ -161,7 +161,7 @@ where
     /// You can add multiple orderings from most to least significant.
     pub fn order_desc<F, P>(self, field: FieldProxy<F, P>) -> Self
     where
-        F: RawField,
+        F: Field,
         P: Path<Origin = S::Model>,
     {
         self.order_by(field, Ordering::Desc)

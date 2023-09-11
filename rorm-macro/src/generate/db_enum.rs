@@ -38,7 +38,7 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
 
                 type Decoder = #decoder;
 
-                fn get_imr<F: ::rorm::internal::field::RawField<Type = Self>>() -> Self::Columns<::rorm::internal::imr::Field> {
+                fn get_imr<F: ::rorm::internal::field::Field<Type = Self>>() -> Self::Columns<::rorm::internal::imr::Field> {
                     use ::rorm::internal::hmr::AsImr;
                     [::rorm::internal::imr::Field {
                         name: F::NAME.to_string(),
@@ -50,11 +50,11 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
                     }]
                 }
 
-                type AnnotationsModifier<F: ::rorm::internal::field::RawField<Type = Self>> = ::rorm::internal::field::modifier::MergeAnnotations<Self>;
+                type AnnotationsModifier<F: ::rorm::internal::field::Field<Type = Self>> = ::rorm::internal::field::modifier::MergeAnnotations<Self>;
 
-                type CheckModifier<F: ::rorm::internal::field::RawField<Type = Self>> = ::rorm::internal::field::modifier::SingleColumnCheck<::rorm::internal::hmr::db_type::Choices>;
+                type CheckModifier<F: ::rorm::internal::field::Field<Type = Self>> = ::rorm::internal::field::modifier::SingleColumnCheck<::rorm::internal::hmr::db_type::Choices>;
 
-                type ColumnsFromName<F: ::rorm::internal::field::RawField<Type = Self>> = ::rorm::internal::field::modifier::SingleColumnFromName;
+                type ColumnsFromName<F: ::rorm::internal::field::Field<Type = Self>> = ::rorm::internal::field::modifier::SingleColumnFromName;
             }
             ::rorm::new_converting_decoder!(
                 #[doc(hidden)]

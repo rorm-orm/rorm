@@ -5,16 +5,16 @@ use std::marker::PhantomData;
 use rorm_db::row::DecodeOwned;
 
 use crate::crud::decoder::{Decoder, DirectDecoder, NoopDecoder};
-use crate::internal::field::{FieldProxy, RawField};
+use crate::internal::field::{Field, FieldProxy};
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
 
-/// [`Decoder`] for a single field's [`RawField::Type`](RawField::Type)
+/// [`Decoder`] for a single field's [`Field::Type`](Field::Type)
 pub trait FieldDecoder: Decoder {
     /// Construct decoder for a specific field and path
     fn new<F, P>(ctx: &mut QueryContext, _: FieldProxy<F, P>) -> Self
     where
-        F: RawField<Type = Self::Result>,
+        F: Field<Type = Self::Result>,
         P: Path;
 }
 
@@ -24,7 +24,7 @@ where
 {
     fn new<F, P>(ctx: &mut QueryContext, _: FieldProxy<F, P>) -> Self
     where
-        F: RawField<Type = Self::Result>,
+        F: Field<Type = Self::Result>,
         P: Path,
     {
         let (index, column) = ctx.select_field::<F, P>();
@@ -42,7 +42,7 @@ where
 {
     fn new<F, P>(_: &mut QueryContext, _: FieldProxy<F, P>) -> Self
     where
-        F: RawField<Type = Self::Result>,
+        F: Field<Type = Self::Result>,
         P: Path,
     {
         Self(PhantomData)
@@ -87,7 +87,7 @@ macro_rules! new_converting_decoder {
         {
             fn new<F, P>(ctx: &mut $crate::internal::query_context::QueryContext, _: $crate::internal::field::FieldProxy<F, P>) -> Self
             where
-                F: $crate::internal::field::RawField<Type = $result>,
+                F: $crate::internal::field::Field<Type = $result>,
                 P: $crate::internal::relation_path::Path
             {
                 let (index, column) = ctx.select_field::<F, P>();

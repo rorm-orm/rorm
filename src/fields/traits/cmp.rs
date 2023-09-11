@@ -18,7 +18,7 @@ use rorm_db::sql::value::NullType;
 use super::FieldType;
 use crate::conditions::{Binary, BinaryOperator, Column, Condition, Value};
 use crate::internal::field::access::FieldAccess;
-use crate::internal::field::{FieldProxy, RawField, SingleColumnField};
+use crate::internal::field::{Field, FieldProxy, SingleColumnField};
 use crate::internal::relation_path::Path;
 
 /// Trait for equality comparisons.
@@ -179,7 +179,7 @@ fn conv_bytes<'a>(value: impl Into<Cow<'a, [u8]>>) -> Value<'a> {
 impl<'rhs, F, P, T> FieldEq<'rhs, FieldProxy<F, P>> for T
 where
     T: FieldEq<'rhs, T>,
-    F: RawField<Type = T> + SingleColumnField,
+    F: Field<Type = T> + SingleColumnField,
     P: Path,
 {
     type EqCond<A: FieldAccess> = Binary<Column<A>, Column<FieldProxy<F, P>>>;
@@ -276,7 +276,7 @@ impl_FieldOrd!(Vec<u8>, Cow<'rhs, [u8]>, Value::Binary);
 impl<'rhs, F, P, T> FieldOrd<'rhs, FieldProxy<F, P>> for T
 where
     T: FieldOrd<'rhs, T>,
-    F: RawField<Type = T> + SingleColumnField,
+    F: Field<Type = T> + SingleColumnField,
     P: Path,
 {
     type LtCond<A: FieldAccess> = Binary<Column<A>, Column<FieldProxy<F, P>>>;

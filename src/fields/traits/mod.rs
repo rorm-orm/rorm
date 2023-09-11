@@ -4,7 +4,7 @@ use crate::conditions::Value;
 use crate::internal::array_utils::Array;
 use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier, ColumnsFromName};
-use crate::internal::field::RawField;
+use crate::internal::field::Field;
 use crate::internal::imr;
 
 pub mod cmp;
@@ -23,23 +23,23 @@ pub trait FieldType: 'static {
     fn as_values(&self) -> Self::Columns<Value<'_>>;
 
     /// Construct an array of [`imr::Field`] representing this type
-    fn get_imr<F: RawField<Type = Self>>() -> Self::Columns<imr::Field>;
+    fn get_imr<F: Field<Type = Self>>() -> Self::Columns<imr::Field>;
 
     /// [`FieldDecoder`] to use for fields of this type
     type Decoder: FieldDecoder<Result = Self>;
 
-    /// `const fn<F: RawField>() -> Option<Annotations>`
+    /// `const fn<F: Field>() -> Option<Annotations>`
     /// to allow modifying the a field's annotations which is of this type
     ///
     /// For example can be used to set `nullable` implicitly for `Option<_>`.
-    type AnnotationsModifier<F: RawField<Type = Self>>: AnnotationsModifier<F>;
+    type AnnotationsModifier<F: Field<Type = Self>>: AnnotationsModifier<F>;
 
-    /// `const fn<F: RawField>() -> Result<(), &'static str>`
+    /// `const fn<F: Field>() -> Result<(), &'static str>`
     /// to allow custom compile time checks.
     ///
     /// For example can be used to ensure `String` has a `max_lenght`.
-    type CheckModifier<F: RawField<Type = Self>>: CheckModifier<F>;
+    type CheckModifier<F: Field<Type = Self>>: CheckModifier<F>;
 
-    /// `const fn<F: RawField>() -> Self::Columns<&'static str>`
-    type ColumnsFromName<F: RawField<Type = Self>>: ColumnsFromName<F>;
+    /// `const fn<F: Field>() -> Self::Columns<&'static str>`
+    type ColumnsFromName<F: Field<Type = Self>>: ColumnsFromName<F>;
 }
