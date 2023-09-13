@@ -51,11 +51,6 @@ impl AsDbType for Url {
     type Primitive = String;
 
     type DbType = hmr::db_type::VarChar;
-
-    #[inline(always)]
-    fn from_primitive(primitive: Self::Primitive) -> Self {
-        Url::parse(&primitive).unwrap()
-    }
 }
 new_converting_decoder!(
     pub UrlDecoder,
@@ -111,10 +106,6 @@ impl AsDbType for Option<Url> {
         annos.nullable = true;
         Some(annos)
     };
-
-    fn from_primitive(primitive: Self::Primitive) -> Self {
-        primitive.map(<Url as AsDbType>::from_primitive)
-    }
 }
 new_converting_decoder!(
     pub OptionUrlDecoder,

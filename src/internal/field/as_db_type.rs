@@ -18,12 +18,6 @@ pub trait AsDbType: FieldType + Sized {
 
     /// Annotations implied by this type
     const IMPLICIT: Option<Annotations> = None;
-
-    /// Convert the associated primitive type into `Self`.
-    ///
-    /// This function allows "non-primitive" types like any [`DbEnum`](rorm_macro::DbEnum) to implement
-    /// their decoding without access to the underlying db details (namely `sqlx::Decode`)
-    fn from_primitive(primitive: Self::Primitive) -> Self;
 }
 
 /// Provides the "default" implementation of [`AsDbType`] and [`FieldType`] of kind `AsDbType`.
@@ -88,10 +82,6 @@ macro_rules! impl_AsDbType {
                 annos.nullable = true;
                 Some(annos)
             };
-
-            fn from_primitive(primitive: Self::Primitive) -> Self {
-                primitive.map(<$type as $crate::internal::field::as_db_type::AsDbType>::from_primitive)
-            }
         }
     };
     ($type:ty, $db_type:ty, $into_value:expr) => {
@@ -137,11 +127,6 @@ macro_rules! impl_AsDbType {
             type Primitive = Self;
 
             type DbType = $db_type;
-
-            #[inline(always)]
-            fn from_primitive(primitive: Self::Primitive) -> Self {
-                primitive
-            }
         }
 
         impl_AsDbType!(Option<$type>, $crate::crud::decoder::DirectDecoder<Self>);

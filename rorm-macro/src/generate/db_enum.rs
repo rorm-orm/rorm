@@ -78,14 +78,6 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
                     annos.choices = Some(::rorm::internal::hmr::annotations::Choices(CHOICES));
                     annos
                 });
-
-                fn from_primitive(primitive: Self::Primitive) -> Self {
-                    use #ident::*;
-                    match primitive.0.as_str() {
-                        #(stringify!(#variants) => #variants,)*
-                        _ => panic!("Unexpected database value"),
-                    }
-                }
             }
             ::rorm::impl_FieldEq!(impl<'rhs> FieldEq<'rhs, #ident> for #ident {
                 |value: #ident| { let [value] = <#ident as ::rorm::fields::traits::FieldType>::into_values(value); value }

@@ -3,6 +3,8 @@ Since 0.6.3
 - implemented `FieldType` and `FieldEq` for `url::Url`
 - added a `take_or_query` method to `ForeignModel`
 
+- removed `AsDbType::from_primitive`
+
 Notes for publishing
 --------------------
 - don't forget to bump and publish rorm-macro!
