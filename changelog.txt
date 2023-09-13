@@ -1,15 +1,6 @@
-Since 0.5.1
+Since 0.6.3
 -----------
-- `insert!`
-  - `.bulk()` accepts iterator over references or instances
-- `query!`
-  - Select a foreign model as an entire patch using `as` keyword
-- sealed traits are actually sealed now
-- removed ouroboros from dependencies
-- added `get_or_query` and `take_or_query` helper functions for `BackRef`
-- updated `sqlx` to v0.7
-- replaced `IntoSingleValue` with `FieldEq` and others
-- added support for `time`
+- implemented `FieldType` and `FieldEq` for `url::Url`
 
 Notes for publishing
 --------------------
