@@ -10,17 +10,9 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
         variants,
     } = parsed;
     let decoder = format_ident!("__{ident}_Decoder");
-    let choice = format_ident!("__{ident}_Choice");
 
     quote! {
         const _: () = {
-            #[doc(hidden)]
-            #vis struct #choice;
-
-            impl ::rorm::db::choice::ChoiceName for #choice {
-                const NAME: &'static str = "todo";
-            }
-
             const CHOICES: &'static [&'static str] = &[
                 #(stringify!(#variants)),*
             ];
@@ -67,7 +59,7 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
             ::rorm::new_converting_decoder!(
                 #[doc(hidden)]
                 #vis #decoder,
-                |value: ::rorm::db::choice::Choice<#choice>| -> #ident {
+                |value: ::rorm::db::choice::Choice| -> #ident {
                     let value: String = value.0;
                     match value.as_str() {
                         #(
@@ -78,7 +70,7 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum) -> TokenStream {
                 }
             );
             impl ::rorm::internal::field::as_db_type::AsDbType for #ident {
-                type Primitive = ::rorm::db::choice::Choice<#choice>;
+                type Primitive = ::rorm::db::choice::Choice;
                 type DbType = ::rorm::internal::hmr::db_type::Choices;
 
                 const IMPLICIT: Option<::rorm::internal::hmr::annotations::Annotations> = Some({
