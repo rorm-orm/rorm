@@ -90,10 +90,6 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for MsgPack<T> {
 impl<T: Serialize + DeserializeOwned + 'static> AsDbType for MsgPack<T> {
     type Primitive = Vec<u8>;
     type DbType = Binary;
-
-    fn from_primitive(primitive: Self::Primitive) -> Self {
-        Self(rmp_serde::from_slice(&primitive).unwrap()) // TODO propagate error?
-    }
 }
 
 new_converting_decoder!(
@@ -144,10 +140,6 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Option<MsgPack<T>>
 impl<T: Serialize + DeserializeOwned + 'static> AsDbType for Option<MsgPack<T>> {
     type Primitive = Option<Vec<u8>>;
     type DbType = Binary;
-
-    fn from_primitive(primitive: Self::Primitive) -> Self {
-        primitive.map(MsgPack::<T>::from_primitive)
-    }
 }
 
 // From

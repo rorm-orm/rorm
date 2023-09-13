@@ -32,6 +32,9 @@
 //! # uuid types (requires the "uuid" feature)
 //! - [`Uuid`](uuid::Uuid)
 //!
+//! # url types (requires the "url" feature)
+//! - [`Url`](url::Url)
+//!
 //! ---
 //!
 //! ```no_run

@@ -166,7 +166,6 @@ where
 ///
 /// Id::NAME ~ User::F.id.name()
 /// Id::Index ~ User::F.id.index()
-/// Id::Type::from_primitive ~ User::F.id.convert_primitive
 /// ```
 pub struct FieldProxy<Field, Path>(PhantomData<ManuallyDrop<(Field, Path)>>);
 
