@@ -2,6 +2,8 @@
 
 use std::marker::PhantomData;
 
+use fancy_const::const_fn;
+
 use crate::fields::traits::FieldType;
 use crate::internal::const_concat::ConstString;
 use crate::internal::field::as_db_type::AsDbType;
@@ -114,30 +116,16 @@ impl<D: DbType, F: Field> CheckModifier<F> for SingleColumnCheck<D> {
     };
 }
 
-/// Trait used in [`FieldType`] to derive column names from the field name
-///
-/// It mimics a `const fn<F: Field>() -> F::Type::Columns<&'static str>`,
-/// i.e. a `const` function which takes a field `F: Field` as "argument" and produces a `F::Type::Columns<&'static str>`,
-/// which is not definable using existing `Fn` traits.
-pub trait ColumnsFromName<F: Field> {
-    /// The field's columns' names
-    const COLUMNS: <F::Type as FieldType>::Columns<&'static str>;
+const_fn! {
+    /// [`ColumnsFromName`] for field types which map to no columns
+    pub fn NoColumnFromName(_name: &'static str) -> [&'static str; 0] {
+        []
+    }
 }
 
-/// [`ColumnsFromName`] for field types which map to no columns
-pub struct NoColumnFromName;
-impl<F: Field> ColumnsFromName<F> for NoColumnFromName
-where
-    F::Type: FieldType<Columns<&'static str> = [&'static str; 0]>,
-{
-    const COLUMNS: <F::Type as FieldType>::Columns<&'static str> = [];
-}
-
-/// [`ColumnsFromName`] for field types which map to a single column
-pub struct SingleColumnFromName;
-impl<F: Field> ColumnsFromName<F> for SingleColumnFromName
-where
-    F::Type: FieldType<Columns<&'static str> = [&'static str; 1]>,
-{
-    const COLUMNS: <F::Type as FieldType>::Columns<&'static str> = [F::NAME];
+const_fn! {
+    /// [`ColumnsFromName`] for field types which map to a single column
+    pub fn SingleColumnFromName(name: &'static str) -> [&'static str; 1] {
+        [name]
+    }
 }

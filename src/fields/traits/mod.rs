@@ -3,13 +3,14 @@
 use crate::conditions::Value;
 use crate::internal::array_utils::Array;
 use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier, ColumnsFromName};
+use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier};
 use crate::internal::field::Field;
 use crate::internal::imr;
 
 pub mod cmp;
 
 pub use cmp::*;
+use fancy_const::ConstFn;
 
 /// Base trait for types which are allowed as fields in models
 pub trait FieldType: 'static {
@@ -37,9 +38,11 @@ pub trait FieldType: 'static {
     /// `const fn<F: Field>() -> Result<(), &'static str>`
     /// to allow custom compile time checks.
     ///
-    /// For example can be used to ensure `String` has a `max_lenght`.
+    /// For example can be used to ensure `String` has a `max_length`.
     type CheckModifier<F: Field<Type = Self>>: CheckModifier<F>;
 
+    /// Function producing colum names from the field's name
+    ///
     /// `const fn<F: Field>() -> Self::Columns<&'static str>`
-    type ColumnsFromName<F: Field<Type = Self>>: ColumnsFromName<F>;
+    type ColumnsFromName: ConstFn<(&'static str,), Self::Columns<&'static str>>;
 }

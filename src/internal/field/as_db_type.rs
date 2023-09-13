@@ -66,7 +66,7 @@ macro_rules! impl_AsDbType {
 
             type CheckModifier<F: $crate::internal::field::Field<Type = Self>> = $crate::internal::field::modifier::SingleColumnCheck<<$type as $crate::internal::field::as_db_type::AsDbType>::DbType>;
 
-            type ColumnsFromName<F: $crate::internal::field::Field<Type = Self>> = $crate::internal::field::modifier::SingleColumnFromName;
+            type ColumnsFromName = $crate::internal::field::modifier::SingleColumnFromName;
         }
 
         impl $crate::internal::field::as_db_type::AsDbType for Option<$type> {
@@ -120,7 +120,7 @@ macro_rules! impl_AsDbType {
 
             type CheckModifier<F: $crate::internal::field::Field<Type = Self>> = $crate::internal::field::modifier::SingleColumnCheck<$db_type>;
 
-            type ColumnsFromName<F: $crate::internal::field::Field<Type = Self>> = $crate::internal::field::modifier::SingleColumnFromName;
+            type ColumnsFromName = $crate::internal::field::modifier::SingleColumnFromName;
         }
 
         impl $crate::internal::field::as_db_type::AsDbType for $type {

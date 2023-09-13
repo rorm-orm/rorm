@@ -10,8 +10,7 @@ use crate::internal::field::modifier::{MergeAnnotations, SingleColumnCheck, Sing
 use crate::internal::field::Field;
 use crate::internal::hmr;
 use crate::internal::hmr::AsImr;
-use crate::Error;
-use crate::{impl_FieldEq, new_converting_decoder};
+use crate::{impl_FieldEq, new_converting_decoder, Error};
 
 impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs Url> for Url {|url: &'rhs Url| Value::String(Cow::Borrowed(url.as_str()))});
 impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Url> for Url {|url: Url| Value::String(Cow::Owned(url.into()))});
@@ -45,7 +44,7 @@ impl FieldType for Url {
 
     type CheckModifier<F: Field<Type = Self>> = SingleColumnCheck<hmr::db_type::VarChar>;
 
-    type ColumnsFromName<F: Field<Type = Self>> = SingleColumnFromName;
+    type ColumnsFromName = SingleColumnFromName;
 }
 impl AsDbType for Url {
     type Primitive = String;
@@ -91,7 +90,7 @@ impl FieldType for Option<Url> {
 
     type CheckModifier<F: Field<Type = Self>> = SingleColumnCheck<<Url as AsDbType>::DbType>;
 
-    type ColumnsFromName<F: Field<Type = Self>> = SingleColumnFromName;
+    type ColumnsFromName = SingleColumnFromName;
 }
 impl AsDbType for Option<Url> {
     type Primitive = Option<<Url as AsDbType>::Primitive>;

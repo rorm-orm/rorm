@@ -64,7 +64,7 @@ where
     type CheckModifier<F: Field<Type = Self>> =
         SingleColumnCheck<<Self as ForeignModelTrait>::DbType>;
 
-    type ColumnsFromName<F: Field<Type = Self>> = SingleColumnFromName;
+    type ColumnsFromName = SingleColumnFromName;
 }
 
 impl<FF> FieldType for Option<ForeignModelByField<FF>>
@@ -110,7 +110,7 @@ where
     type CheckModifier<F: Field<Type = Self>> =
         SingleColumnCheck<<Self as ForeignModelTrait>::DbType>;
 
-    type ColumnsFromName<F: Field<Type = Self>> = SingleColumnFromName;
+    type ColumnsFromName = SingleColumnFromName;
 }
 
 #[doc(hidden)]

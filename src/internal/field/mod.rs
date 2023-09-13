@@ -41,6 +41,8 @@
 use std::marker::PhantomData;
 use std::mem::ManuallyDrop;
 
+use fancy_const::{ConstFn, Contains};
+
 use crate::conditions::Value;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::Source;
@@ -59,7 +61,7 @@ use crate::internal::array_utils::IntoArray;
 use crate::internal::const_concat::ConstString;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
-use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier, ColumnsFromName};
+use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier};
 
 /// This trait is implemented by the `#[derive(Model)]` macro on unique unit struct for each of a model's fields.
 ///
@@ -192,7 +194,11 @@ impl<F: Field, P> FieldProxy<F, P> {
 impl<F: Field, P> FieldProxy<F, P> {
     /// Get the names of the columns which store the field
     pub const fn columns(_field: Self) -> <F::Type as FieldType>::Columns<&'static str> {
-        <F::Type as FieldType>::ColumnsFromName::<F>::COLUMNS
+        struct Name<F: Field>(PhantomData<F>);
+        impl<F: Field> Contains<(&'static str,)> for Name<F> {
+            const ITEM: (&'static str,) = (F::NAME,);
+        }
+        <<<F::Type as FieldType>::ColumnsFromName as ConstFn<_, _>>::Body<Name<F>> as Contains<_>>::ITEM
     }
 
     /// Get the underlying field to call its methods

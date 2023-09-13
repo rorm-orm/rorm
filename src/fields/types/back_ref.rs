@@ -61,7 +61,7 @@ impl<FMF: ForeignModelField> FieldType for BackRef<FMF> {
 
     type CheckModifier<F: Field<Type = Self>> = NoCheck;
 
-    type ColumnsFromName<F: Field<Type = Self>> = NoColumnFromName;
+    type ColumnsFromName = NoColumnFromName;
 }
 
 impl<BRF, FMF> FieldProxy<BRF, BRF::Model>

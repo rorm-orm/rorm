@@ -85,7 +85,7 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for MsgPack<T> {
 
     type CheckModifier<F: Field<Type = Self>> = SingleColumnCheck<Binary>;
 
-    type ColumnsFromName<F: Field<Type = Self>> = SingleColumnFromName;
+    type ColumnsFromName = SingleColumnFromName;
 }
 impl<T: Serialize + DeserializeOwned + 'static> AsDbType for MsgPack<T> {
     type Primitive = Vec<u8>;
@@ -135,7 +135,7 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Option<MsgPack<T>>
 
     type CheckModifier<F: Field<Type = Self>> = SingleColumnCheck<Binary>;
 
-    type ColumnsFromName<F: Field<Type = Self>> = SingleColumnFromName;
+    type ColumnsFromName = SingleColumnFromName;
 }
 impl<T: Serialize + DeserializeOwned + 'static> AsDbType for Option<MsgPack<T>> {
     type Primitive = Option<Vec<u8>>;
