@@ -1,6 +1,7 @@
 Since 0.6.3
 -----------
 - implemented `FieldType` and `FieldEq` for `url::Url`
+- added a `take_or_query` method to `ForeignModel`
 
 Notes for publishing
 --------------------

@@ -2,8 +2,12 @@
 
 use std::fmt;
 
-use crate::internal::field::SingleColumnField;
+use rorm_db::Executor;
+
+use crate::conditions::{Binary, BinaryOperator, Column};
+use crate::internal::field::{FieldProxy, SingleColumnField};
 use crate::model::{GetField, Model};
+use crate::query;
 
 /// Alias for [ForeignModelByField] which only takes a model uses to its primary key.
 pub type ForeignModel<M> = ForeignModelByField<<M as Model>::Primary>;
@@ -35,6 +39,26 @@ where
         match self {
             Self::Key(key) => key,
             Self::Instance(instance) => instance.borrow_field(),
+        }
+    }
+
+    /// Take the instance, if it is available, or queries it, if not.
+    pub async fn take_or_query(
+        self,
+        executor: impl Executor<'_>,
+    ) -> Result<FF::Model, crate::Error> {
+        match self {
+            ForeignModelByField::Key(key) => {
+                query!(executor, FF::Model)
+                    .condition(Binary {
+                        operator: BinaryOperator::Equals,
+                        fst_arg: Column(FieldProxy::<FF, FF::Model>::new()),
+                        snd_arg: FF::type_into_value(key),
+                    })
+                    .one()
+                    .await
+            }
+            ForeignModelByField::Instance(instance) => Ok(*instance),
         }
     }
 }
