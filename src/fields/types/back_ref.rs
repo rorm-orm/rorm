@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
+use fancy_const::const_fn;
 use futures::stream::TryStreamExt;
 use rorm_db::executor::Executor;
 use rorm_db::Error;
@@ -12,9 +13,11 @@ use crate::conditions::collections::CollectionOperator::Or;
 use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection, Value};
 use crate::crud::decoder::NoopDecoder;
 use crate::fields::traits::FieldType;
+use crate::internal::const_concat::ConstString;
 use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
-use crate::internal::field::modifier::{EraseAnnotations, NoCheck, NoColumnFromName};
+use crate::internal::field::modifier::EraseAnnotations;
 use crate::internal::field::{foreign_model, Field, FieldProxy, SingleColumnField};
+use crate::internal::hmr::annotations::Annotations;
 use crate::model::GetField;
 use crate::query;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
@@ -59,9 +62,32 @@ impl<FMF: ForeignModelField> FieldType for BackRef<FMF> {
 
     type AnnotationsModifier<F: Field<Type = Self>> = EraseAnnotations;
 
-    type CheckModifier<F: Field<Type = Self>> = NoCheck;
+    type GetNames = NoNames;
 
-    type ColumnsFromName = NoColumnFromName;
+    type GetAnnotations = NoAnnotations;
+
+    type Check = DisallowAnnotations;
+}
+
+const_fn! {
+    #[doc(hidden)]
+    pub fn NoNames(_name: &'static str) -> [&'static str; 0] {
+        []
+    }
+}
+
+const_fn! {
+    #[doc(hidden)]
+    pub fn NoAnnotations(_annos: Annotations) -> [Annotations; 0] {
+        []
+    }
+}
+
+const_fn! {
+    #[doc(hidden)]
+    pub fn DisallowAnnotations(explicit: Annotations, _effective: [Annotations; 0]) -> Result<(), ConstString<1024>> {
+        Ok(())
+    }
 }
 
 impl<BRF, FMF> FieldProxy<BRF, BRF::Model>

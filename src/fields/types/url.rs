@@ -6,9 +6,10 @@ use url::Url;
 use crate::conditions::Value;
 use crate::fields::traits::FieldType;
 use crate::internal::field::as_db_type::AsDbType;
-use crate::internal::field::modifier::{MergeAnnotations, SingleColumnCheck, SingleColumnFromName};
-use crate::internal::field::Field;
+use crate::internal::field::modifier::MergeAnnotations;
+use crate::internal::field::{as_db_type, Field};
 use crate::internal::hmr;
+use crate::internal::hmr::db_type::VarChar;
 use crate::internal::hmr::AsImr;
 use crate::{impl_FieldEq, new_converting_decoder, Error};
 
@@ -31,9 +32,7 @@ impl FieldType for Url {
         [imr::Field {
             name: F::NAME.to_string(),
             db_type: imr::DbType::VarChar,
-            annotations: F::EFFECTIVE_ANNOTATIONS
-                .unwrap_or_else(hmr::annotations::Annotations::empty)
-                .as_imr(),
+            annotations: F::EFFECTIVE_ANNOTATIONS[0].as_imr(),
             source_defined_at: F::SOURCE.map(|s| s.as_imr()),
         }]
     }
@@ -42,9 +41,11 @@ impl FieldType for Url {
 
     type AnnotationsModifier<F: Field<Type = Self>> = MergeAnnotations<Self>;
 
-    type CheckModifier<F: Field<Type = Self>> = SingleColumnCheck<hmr::db_type::VarChar>;
+    type GetNames = as_db_type::SingleName;
 
-    type ColumnsFromName = SingleColumnFromName;
+    type GetAnnotations = as_db_type::SingleAnnotations;
+
+    type Check = as_db_type::SingleCheck<VarChar>;
 }
 impl AsDbType for Url {
     type Primitive = String;
@@ -77,9 +78,7 @@ impl FieldType for Option<Url> {
         [imr::Field {
             name: F::NAME.to_string(),
             db_type: imr::DbType::VarChar,
-            annotations: F::EFFECTIVE_ANNOTATIONS
-                .unwrap_or_else(hmr::annotations::Annotations::empty)
-                .as_imr(),
+            annotations: F::EFFECTIVE_ANNOTATIONS[0].as_imr(),
             source_defined_at: F::SOURCE.map(|s| s.as_imr()),
         }]
     }
@@ -88,9 +87,11 @@ impl FieldType for Option<Url> {
 
     type AnnotationsModifier<F: Field<Type = Self>> = MergeAnnotations<Self>;
 
-    type CheckModifier<F: Field<Type = Self>> = SingleColumnCheck<<Url as AsDbType>::DbType>;
+    type GetNames = as_db_type::SingleName;
 
-    type ColumnsFromName = SingleColumnFromName;
+    type GetAnnotations = as_db_type::SingleAnnotationsWithNull;
+
+    type Check = as_db_type::SingleCheck<VarChar>;
 }
 impl AsDbType for Option<Url> {
     type Primitive = Option<<Url as AsDbType>::Primitive>;

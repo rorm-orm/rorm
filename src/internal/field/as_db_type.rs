@@ -1,7 +1,9 @@
 //! defines and implements the [`AsDbType`] trait.
 
+use fancy_const::const_fn;
 use rorm_db::row::DecodeOwned;
 
+use crate::internal::const_concat::ConstString;
 use crate::internal::field::FieldType;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::DbType;
@@ -53,9 +55,7 @@ macro_rules! impl_AsDbType {
                 [$crate::internal::imr::Field {
                     name: F::NAME.to_string(),
                     db_type: <<$type as $crate::internal::field::as_db_type::AsDbType>::DbType as $crate::internal::hmr::db_type::DbType>::IMR,
-                    annotations: F::EFFECTIVE_ANNOTATIONS
-                        .unwrap_or_else($crate::internal::hmr::annotations::Annotations::empty)
-                        .as_imr(),
+                    annotations: F::EFFECTIVE_ANNOTATIONS[0].as_imr(),
                     source_defined_at: F::SOURCE.map(|s| s.as_imr()),
                 }]
             }
@@ -64,9 +64,11 @@ macro_rules! impl_AsDbType {
 
             type AnnotationsModifier<F: $crate::internal::field::Field<Type = Self>> = $crate::internal::field::modifier::MergeAnnotations<Self>;
 
-            type CheckModifier<F: $crate::internal::field::Field<Type = Self>> = $crate::internal::field::modifier::SingleColumnCheck<<$type as $crate::internal::field::as_db_type::AsDbType>::DbType>;
+            type GetNames = $crate::internal::field::as_db_type::SingleName;
 
-            type ColumnsFromName = $crate::internal::field::modifier::SingleColumnFromName;
+            type GetAnnotations = $crate::internal::field::as_db_type::SingleAnnotationsWithNull;
+
+            type Check = $crate::internal::field::as_db_type::SingleCheck<<$type as $crate::internal::field::as_db_type::AsDbType>::DbType>;
         }
 
         impl $crate::internal::field::as_db_type::AsDbType for Option<$type> {
@@ -107,9 +109,7 @@ macro_rules! impl_AsDbType {
                 [$crate::internal::imr::Field {
                     name: F::NAME.to_string(),
                     db_type: <$db_type as $crate::internal::hmr::db_type::DbType>::IMR,
-                    annotations: F::EFFECTIVE_ANNOTATIONS
-                        .unwrap_or_else($crate::internal::hmr::annotations::Annotations::empty)
-                        .as_imr(),
+                    annotations: F::EFFECTIVE_ANNOTATIONS[0].as_imr(),
                     source_defined_at: F::SOURCE.map(|s| s.as_imr()),
                 }]
             }
@@ -118,9 +118,11 @@ macro_rules! impl_AsDbType {
 
             type AnnotationsModifier<F: $crate::internal::field::Field<Type = Self>> = $crate::internal::field::modifier::MergeAnnotations<Self>;
 
-            type CheckModifier<F: $crate::internal::field::Field<Type = Self>> = $crate::internal::field::modifier::SingleColumnCheck<$db_type>;
+            type GetNames = $crate::internal::field::as_db_type::SingleName;
 
-            type ColumnsFromName = $crate::internal::field::modifier::SingleColumnFromName;
+            type GetAnnotations = $crate::internal::field::as_db_type::SingleAnnotations;
+
+            type Check = $crate::internal::field::as_db_type::SingleCheck<$db_type>;
         }
 
         impl $crate::internal::field::as_db_type::AsDbType for $type {
@@ -131,4 +133,52 @@ macro_rules! impl_AsDbType {
 
         impl_AsDbType!(Option<$type>, $crate::crud::decoder::DirectDecoder<Self>);
     };
+}
+
+const_fn! {
+    pub fn SingleName(name: &'static str) -> [&'static str; 1] {
+        [name]
+    }
+}
+
+const_fn! {
+    pub fn SingleAnnotations(annos: Annotations) -> [Annotations; 1] {
+        [annos]
+    }
+}
+
+const_fn! {
+    pub fn SingleAnnotationsWithNull(annos: Annotations) -> [Annotations; 1] {
+        let mut annos = annos;
+        annos.nullable = true;
+        [annos]
+    }
+}
+
+const_fn! {
+    /// - ensures all annotations required by `D` are set
+    /// - runs the shared linter from `rorm-declaration`
+    pub fn SingleCheck<D: DbType>(_explicit: Annotations, [effective]: [Annotations; 1]) -> Result<(), ConstString<1024>> {
+        'result: {
+            // Are required annotations set?
+            let mut required = D::REQUIRED;
+            while let [head, tail @ ..] = required {
+                required = tail;
+                if !effective.is_set(head) {
+                    break 'result Err(ConstString::error(&[
+                        "missing annotation: ",
+                        head.as_str(),
+                    ]));
+                }
+            }
+
+            // Run the annotations lint shared with rorm-cli
+            let annotations = effective.as_lint();
+            if let Err(err) = annotations.check() {
+                break 'result Err(ConstString::error(&["invalid annotations: ", err]));
+            }
+
+            Ok(())
+        }
+    }
 }

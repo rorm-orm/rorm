@@ -2,14 +2,10 @@
 
 use std::marker::PhantomData;
 
-use fancy_const::const_fn;
-
-use crate::fields::traits::FieldType;
 use crate::internal::const_concat::ConstString;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::Field;
 use crate::internal::hmr::annotations::Annotations;
-use crate::internal::hmr::db_type::DbType;
 use crate::Model;
 
 /// Trait used in [`FieldType`] to allow types to modify their fields' annotations.
@@ -60,72 +56,4 @@ impl<T: AsDbType, F: Field> AnnotationsModifier<F> for MergeAnnotations<T> {
             Some(F::EXPLICIT_ANNOTATIONS)
         }
     };
-}
-
-/// Trait used in [`FieldType`] to allow types to implement custom compile time checks
-///
-/// It mimics a `const fn<F: Field>() -> Result<(), &'static str>`,
-/// i.e. a `const` function which takes a field `F: Field` as "argument" and produces a `Result<(), &'static str>`,
-/// which is not definable using existing `Fn` traits.
-///
-/// **BEWARE** an implementation is not allowed to access `F::CHECK`!
-pub trait CheckModifier<F: Field> {
-    /// The check's result
-    const RESULT: Result<(), ConstString<1024>>;
-}
-
-/// [`CheckModifier`] which checks nothing
-pub struct NoCheck;
-impl<F: Field> CheckModifier<F> for NoCheck {
-    const RESULT: Result<(), ConstString<1024>> = Ok(());
-}
-
-/// [`CheckModifier`] which:
-/// - requires `F::EFFECTIVE_ANNOTATIONS` to be `Some`
-/// - ensures all annotations required by `D` are set
-/// - runs the shared linter from `rorm-declaration`
-pub struct SingleColumnCheck<D: DbType>(pub PhantomData<D>);
-
-impl<D: DbType, F: Field> CheckModifier<F> for SingleColumnCheck<D> {
-    const RESULT: Result<(), ConstString<1024>> = {
-        'result: {
-            let Some(annotations) = F::EFFECTIVE_ANNOTATIONS else {
-                break 'result Err(ConstString::error(&["annotations have been erased"]));
-            };
-
-            // Are required annotations set?
-            let mut required = D::REQUIRED;
-            while let [head, tail @ ..] = required {
-                required = tail;
-                if !annotations.is_set(head) {
-                    break 'result Err(ConstString::error(&[
-                        "missing annotation: ",
-                        head.as_str(),
-                    ]));
-                }
-            }
-
-            // Run the annotations lint shared with rorm-cli
-            let annotations = annotations.as_lint();
-            if let Err(err) = annotations.check() {
-                break 'result Err(ConstString::error(&["invalid annotations: ", err]));
-            }
-
-            Ok(())
-        }
-    };
-}
-
-const_fn! {
-    /// [`ColumnsFromName`] for field types which map to no columns
-    pub fn NoColumnFromName(_name: &'static str) -> [&'static str; 0] {
-        []
-    }
-}
-
-const_fn! {
-    /// [`ColumnsFromName`] for field types which map to a single column
-    pub fn SingleColumnFromName(name: &'static str) -> [&'static str; 1] {
-        [name]
-    }
 }

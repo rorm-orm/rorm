@@ -2,6 +2,7 @@
 
 use std::marker::PhantomData;
 
+use fancy_const::const_fn;
 use rorm_db::{Error, Row};
 use rorm_declaration::imr;
 
@@ -10,10 +11,8 @@ use crate::crud::decoder::Decoder;
 use crate::fields::types::ForeignModelByField;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::modifier::{
-    AnnotationsModifier, SingleColumnCheck, SingleColumnFromName,
-};
-use crate::internal::field::{Field, FieldProxy, FieldType, SingleColumnField};
+use crate::internal::field::modifier::AnnotationsModifier;
+use crate::internal::field::{as_db_type, Field, FieldProxy, FieldType, SingleColumnField};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::DbType;
@@ -50,9 +49,7 @@ where
         [imr::Field {
             name: F::NAME.to_string(),
             db_type: <Self as ForeignModelTrait>::DbType::IMR,
-            annotations: F::EFFECTIVE_ANNOTATIONS
-                .unwrap_or_else(Annotations::empty)
-                .as_imr(),
+            annotations: F::EFFECTIVE_ANNOTATIONS[0].as_imr(),
             source_defined_at: F::SOURCE.map(|s| s.as_imr()),
         }]
     }
@@ -61,10 +58,11 @@ where
 
     type AnnotationsModifier<F: Field<Type = Self>> = ForeignAnnotations<Self>;
 
-    type CheckModifier<F: Field<Type = Self>> =
-        SingleColumnCheck<<Self as ForeignModelTrait>::DbType>;
+    type GetNames = as_db_type::SingleName;
 
-    type ColumnsFromName = SingleColumnFromName;
+    type GetAnnotations = ForeignAnnotation<Self>;
+
+    type Check = as_db_type::SingleCheck<<Self as ForeignModelTrait>::DbType>;
 }
 
 impl<FF> FieldType for Option<ForeignModelByField<FF>>
@@ -96,9 +94,7 @@ where
         [imr::Field {
             name: F::NAME.to_string(),
             db_type: <Self as ForeignModelTrait>::DbType::IMR,
-            annotations: F::EFFECTIVE_ANNOTATIONS
-                .unwrap_or_else(Annotations::empty)
-                .as_imr(),
+            annotations: F::EFFECTIVE_ANNOTATIONS[0].as_imr(),
             source_defined_at: F::SOURCE.map(|s| s.as_imr()),
         }]
     }
@@ -107,10 +103,11 @@ where
 
     type AnnotationsModifier<F: Field<Type = Self>> = ForeignAnnotations<Self>;
 
-    type CheckModifier<F: Field<Type = Self>> =
-        SingleColumnCheck<<Self as ForeignModelTrait>::DbType>;
+    type GetNames = as_db_type::SingleName;
 
-    type ColumnsFromName = SingleColumnFromName;
+    type GetAnnotations = ForeignAnnotation<Self>;
+
+    type Check = as_db_type::SingleCheck<<Self as ForeignModelTrait>::DbType>;
 }
 
 #[doc(hidden)]
@@ -173,16 +170,33 @@ impl<T: ForeignModelTrait, F: Field<Type = T>> AnnotationsModifier<F> for Foreig
         let mut annos = F::EXPLICIT_ANNOTATIONS;
         annos.nullable = T::IS_OPTION;
         if annos.max_length.is_none() {
-            if let Some(target_annos) = <RF<F> as Field>::EFFECTIVE_ANNOTATIONS {
-                annos.max_length = target_annos.max_length;
-            }
+            annos.max_length = <T::RelatedField as Field>::EXPLICIT_ANNOTATIONS.max_length;
         }
         annos.foreign = Some(hmr::annotations::ForeignKey {
-            table_name: <RF<F> as Field>::Model::TABLE,
-            column_name: <RF<F> as Field>::NAME,
+            table_name: <T::RelatedField as Field>::Model::TABLE,
+            column_name: <T::RelatedField as Field>::NAME,
         });
         Some(annos)
     };
+}
+
+const_fn! {
+    /// - sets `nullable`
+    /// - copies `max_length` from the foreign key
+    /// - sets `foreign`
+    pub fn ForeignAnnotation<T: ForeignModelTrait>(annos: Annotations) -> [Annotations; 1] {
+        let mut annos = annos;
+        annos.nullable = T::IS_OPTION;
+        if annos.max_length.is_none() {
+            // TODO use effective annotations instead of explicit
+            annos.max_length = <T::RelatedField as Field>::EXPLICIT_ANNOTATIONS.max_length;
+        }
+        annos.foreign = Some(hmr::annotations::ForeignKey {
+            table_name: <T::RelatedField as Field>::Model::TABLE,
+            column_name: <T::RelatedField as Field>::NAME,
+        });
+        [annos]
+    }
 }
 
 /// Marker trait without actual bounds for fields of type foreign model

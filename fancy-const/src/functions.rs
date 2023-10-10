@@ -16,8 +16,8 @@ pub trait ConstFn<Arg, Ret> {
 /// - Only accepts a very simple `fn` syntax!
 #[macro_export]
 macro_rules! const_fn {
-    (#[doc = $doc:literal] $vis:vis fn $fun_name:ident($( $arg_name:ident : $arg_type:ty ),+) -> $ret_type:ty $body:block) => {
-        #[doc = $doc]
+    ($(#[$attr:meta])* $vis:vis fn $fun_name:ident($( $arg_name:tt : $arg_type:ty ),+) -> $ret_type:ty $body:block) => {
+        $(#[$attr])*
         $vis struct $fun_name;
         const _: () = {
             impl $crate::ConstFn<($($arg_type,)+), $ret_type> for $fun_name {
@@ -27,6 +27,22 @@ macro_rules! const_fn {
             impl<T: $crate::Contains<($($arg_type,)+)>> $crate::Contains<$ret_type> for Body<T> {
                 const ITEM: $ret_type = {
                     let ($($arg_name,)+) = T::ITEM;
+                    $body
+                };
+            }
+        };
+    };
+    ($(#[doc = $doc:literal])* $vis:vis fn $fun_name:ident<$generic:ident $(: $bound:path)?> ($( $arg_name:tt : $arg_type:ty ),*) -> $ret_type:ty $body:block) => {
+        $(#[doc = $doc])*
+        $vis struct $fun_name<$generic $(:$bound)?>(::std::marker::PhantomData<$generic>);
+        const _: () = {
+            impl<$generic $(:$bound)?> $crate::ConstFn<($($arg_type,)*), $ret_type> for $fun_name<$generic> {
+                type Body<Arg: $crate::Contains<($($arg_type,)*)>> = Body<Arg, $generic>;
+            }
+            $vis struct Body<Arg: $crate::Contains<($($arg_type,)*)>, $generic $(:$bound)?>(::std::marker::PhantomData<Arg>, ::std::marker::PhantomData<$generic>);
+            impl<Arg: $crate::Contains<($($arg_type,)*)>, $generic $(:$bound)?> $crate::Contains<$ret_type> for Body<Arg, $generic> {
+                const ITEM: $ret_type = {
+                    let ($($arg_name,)*) = Arg::ITEM;
                     $body
                 };
             }

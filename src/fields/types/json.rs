@@ -10,9 +10,8 @@ use serde::Serialize;
 use crate::conditions::Value;
 use crate::fields::traits::FieldType;
 use crate::internal::field::as_db_type::AsDbType;
-use crate::internal::field::modifier::{MergeAnnotations, SingleColumnCheck, SingleColumnFromName};
-use crate::internal::field::Field;
-use crate::internal::hmr::annotations::Annotations;
+use crate::internal::field::modifier::MergeAnnotations;
+use crate::internal::field::{as_db_type, Field};
 use crate::internal::hmr::db_type::{Binary, DbType};
 use crate::internal::hmr::AsImr;
 use crate::new_converting_decoder;
@@ -72,9 +71,7 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Json<T> {
         [imr::Field {
             name: F::NAME.to_string(),
             db_type: Binary::IMR,
-            annotations: F::EFFECTIVE_ANNOTATIONS
-                .unwrap_or_else(Annotations::empty)
-                .as_imr(),
+            annotations: F::EFFECTIVE_ANNOTATIONS[0].as_imr(),
             source_defined_at: F::SOURCE.map(|s| s.as_imr()),
         }]
     }
@@ -83,9 +80,11 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Json<T> {
 
     type AnnotationsModifier<F: Field<Type = Self>> = MergeAnnotations<Self>;
 
-    type CheckModifier<F: Field<Type = Self>> = SingleColumnCheck<Binary>;
+    type GetNames = as_db_type::SingleName;
 
-    type ColumnsFromName = SingleColumnFromName;
+    type GetAnnotations = as_db_type::SingleAnnotations;
+
+    type Check = as_db_type::SingleCheck<Binary>;
 }
 impl<T: Serialize + DeserializeOwned + 'static> AsDbType for Json<T> {
     type Primitive = Vec<u8>;
@@ -122,9 +121,7 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Option<Json<T>> {
         [imr::Field {
             name: F::NAME.to_string(),
             db_type: Binary::IMR,
-            annotations: F::EFFECTIVE_ANNOTATIONS
-                .unwrap_or_else(Annotations::empty)
-                .as_imr(),
+            annotations: F::EFFECTIVE_ANNOTATIONS[0].as_imr(),
             source_defined_at: F::SOURCE.map(|s| s.as_imr()),
         }]
     }
@@ -133,9 +130,11 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Option<Json<T>> {
 
     type AnnotationsModifier<F: Field<Type = Self>> = MergeAnnotations<Self>;
 
-    type CheckModifier<F: Field<Type = Self>> = SingleColumnCheck<Binary>;
+    type GetNames = as_db_type::SingleName;
 
-    type ColumnsFromName = SingleColumnFromName;
+    type GetAnnotations = as_db_type::SingleAnnotationsWithNull;
+
+    type Check = as_db_type::SingleCheck<Binary>;
 }
 impl<T: Serialize + DeserializeOwned + 'static> AsDbType for Option<Json<T>> {
     type Primitive = Option<Vec<u8>>;

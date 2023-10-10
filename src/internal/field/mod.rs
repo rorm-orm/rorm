@@ -61,7 +61,6 @@ use crate::internal::array_utils::IntoArray;
 use crate::internal::const_concat::ConstString;
 use crate::internal::field::as_db_type::AsDbType;
 use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
-use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier};
 
 /// This trait is implemented by the `#[derive(Model)]` macro on unique unit struct for each of a model's fields.
 ///
@@ -84,15 +83,32 @@ pub trait Field: 'static + Copy {
     /// List of annotations which were set by the user
     const EXPLICIT_ANNOTATIONS: Annotations;
 
-    /// List of annotations which are passed to db, if this field is a single column
-    const EFFECTIVE_ANNOTATIONS: Option<Annotations> =
-        { <Self::Type as FieldType>::AnnotationsModifier::<Self>::MODIFIED };
+    /// List of annotations which are passed to db
+    const EFFECTIVE_ANNOTATIONS: <Self::Type as FieldType>::Columns<Annotations> = {
+        pub struct ContainsAnnotations<F: Field>(PhantomData<F>);
+        impl<F: Field> Contains<Annotations> for ContainsAnnotations<F> {
+            const ITEM: Annotations = F::EXPLICIT_ANNOTATIONS;
+        }
+        <<<Self::Type as FieldType>::GetAnnotations as ConstFn<_, _>>::Body<(
+            ContainsAnnotations<Self>,
+        )> as Contains<_>>::ITEM
+    };
 
     /// Compile time check and it error message
     ///
     /// The const is accessed and reported in the `#[derive(Model)]`.
-    const CHECK: Result<(), ConstString<1024>> =
-        <Self::Type as FieldType>::CheckModifier::<Self>::RESULT;
+    const CHECK: Result<(), ConstString<1024>> = {
+        pub struct ContainsAnnotations<F: Field>(PhantomData<F>);
+        impl<F: Field> Contains<Annotations> for ContainsAnnotations<F> {
+            const ITEM: Annotations = F::EXPLICIT_ANNOTATIONS;
+        }
+        <<<Self::Type as FieldType>::Check as ConstFn<_, _>>::Body<(
+            ContainsAnnotations<Self>,
+            <<Self::Type as FieldType>::GetAnnotations as ConstFn<_, _>>::Body<(
+                ContainsAnnotations<Self>,
+            )>,
+        )> as Contains<_>>::ITEM
+    };
 
     /// Optional definition of the location of field in the source code
     const SOURCE: Option<Source>;
@@ -198,7 +214,7 @@ impl<F: Field, P> FieldProxy<F, P> {
         impl<F: Field> Contains<(&'static str,)> for Name<F> {
             const ITEM: (&'static str,) = (F::NAME,);
         }
-        <<<F::Type as FieldType>::ColumnsFromName as ConstFn<_, _>>::Body<Name<F>> as Contains<_>>::ITEM
+        <<<F::Type as FieldType>::GetNames as ConstFn<_, _>>::Body<Name<F>> as Contains<_>>::ITEM
     }
 
     /// Get the underlying field to call its methods

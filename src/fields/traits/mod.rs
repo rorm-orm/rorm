@@ -3,7 +3,7 @@
 use crate::conditions::Value;
 use crate::internal::array_utils::Array;
 use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::modifier::{AnnotationsModifier, CheckModifier};
+use crate::internal::field::modifier::AnnotationsModifier;
 use crate::internal::field::Field;
 use crate::internal::imr;
 
@@ -11,6 +11,9 @@ pub mod cmp;
 
 pub use cmp::*;
 use fancy_const::ConstFn;
+
+use crate::internal::const_concat::ConstString;
+use crate::internal::hmr::annotations::Annotations;
 
 /// Base trait for types which are allowed as fields in models
 pub trait FieldType: 'static {
@@ -35,14 +38,15 @@ pub trait FieldType: 'static {
     /// For example can be used to set `nullable` implicitly for `Option<_>`.
     type AnnotationsModifier<F: Field<Type = Self>>: AnnotationsModifier<F>;
 
-    /// `const fn<F: Field>() -> Result<(), &'static str>`
-    /// to allow custom compile time checks.
-    ///
-    /// For example can be used to ensure `String` has a `max_length`.
-    type CheckModifier<F: Field<Type = Self>>: CheckModifier<F>;
+    /// Get the columns' names from the field's name
+    type GetNames: ConstFn<(&'static str,), Self::Columns<&'static str>>;
 
-    /// Function producing colum names from the field's name
+    /// Get the columns' annotations from the field's annotations
+    type GetAnnotations: ConstFn<(Annotations,), Self::Columns<Annotations>>;
+
+    /// Check a field's annotations to be compatible with this type
     ///
-    /// `const fn<F: Field>() -> Self::Columns<&'static str>`
-    type ColumnsFromName: ConstFn<(&'static str,), Self::Columns<&'static str>>;
+    /// The function gets the annotations explicitly set by the model author
+    /// as well as the result from [`FieldType::GetAnnotations`].
+    type Check: ConstFn<(Annotations, Self::Columns<Annotations>), Result<(), ConstString<1024>>>;
 }
