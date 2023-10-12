@@ -173,6 +173,7 @@ pub struct FieldProxy<Field, Path>(PhantomData<ManuallyDrop<(Field, Path)>>);
 // SAFETY:
 // struct contains no data
 unsafe impl<F, P> Send for FieldProxy<F, P> {}
+unsafe impl<F, P> Sync for FieldProxy<F, P> {}
 
 impl<F: Field, P> FieldProxy<F, P> {
     /// Create a new instance

@@ -3,6 +3,7 @@
 //! It is basically a generic version of the [`rorm_db::Condition`](conditional::Condition) tree.
 
 use std::borrow::Cow;
+use std::sync::Arc;
 
 // use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use rorm_db::sql::{conditional, value};
@@ -17,11 +18,8 @@ pub use collections::{DynamicCollection, StaticCollection};
 
 use crate::internal::field::access::FieldAccess;
 
-/// A [`Condition`] in a box.
-pub type BoxedCondition<'a> = Box<dyn Condition<'a>>;
-
 /// Node in a condition tree
-pub trait Condition<'a>: 'a + Send {
+pub trait Condition<'a>: 'a + Send + Sync {
     /// Prepare a query context to be able to handle this condition by registering all implicit joins.
     fn add_to_context(&self, context: &mut QueryContext);
 
@@ -35,7 +33,22 @@ pub trait Condition<'a>: 'a + Send {
     {
         Box::new(self)
     }
+
+    /// Convert the condition into a arced trait object to erase its concrete type while remaining cloneable
+    fn arc(self) -> ArcCondition<'a>
+    where
+        Self: Sized,
+    {
+        Arc::new(self)
+    }
 }
+
+/// A [`Condition`] in a box.
+pub type BoxedCondition<'a> = Box<dyn Condition<'a>>;
+
+/// A [`Condition`] in an arc.
+pub type ArcCondition<'a> = Arc<dyn Condition<'a>>;
+
 impl<'a> Condition<'a> for BoxedCondition<'a> {
     fn add_to_context(&self, context: &mut QueryContext) {
         self.as_ref().add_to_context(context);
@@ -46,6 +59,29 @@ impl<'a> Condition<'a> for BoxedCondition<'a> {
     }
 
     fn boxed(self) -> Box<dyn Condition<'a>>
+    where
+        Self: Sized,
+    {
+        self
+    }
+
+    fn arc(self) -> ArcCondition<'a>
+    where
+        Self: Sized,
+    {
+        Arc::from(self)
+    }
+}
+impl<'a> Condition<'a> for ArcCondition<'a> {
+    fn add_to_context(&self, context: &mut QueryContext) {
+        self.as_ref().add_to_context(context);
+    }
+
+    fn as_sql(&self, context: &QueryContext) -> conditional::Condition {
+        self.as_ref().as_sql(context)
+    }
+
+    fn arc(self) -> ArcCondition<'a>
     where
         Self: Sized,
     {

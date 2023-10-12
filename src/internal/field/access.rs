@@ -49,7 +49,7 @@ macro_rules! FieldType {
 /// // Uses the `FieldEq` impl of `String`
 /// let condition = User::F.name.equals("Bob".to_string());
 /// ```
-pub trait FieldAccess: Sized + Send + 'static {
+pub trait FieldAccess: Sized + Send + Sync + 'static {
     /// Field which is accessed
     ///
     /// Corresponds to the proxy's `F` parameter
