@@ -1,6 +1,5 @@
 //! Query builder and macro
 
-use std::marker::PhantomData;
 use std::ops::{Range, RangeInclusive, Sub};
 
 use rorm_db::database;
@@ -23,11 +22,6 @@ use crate::sealed;
 ///
 /// Is is recommended to start a builder using [`query!`](macro@crate::query).
 ///
-/// ## Generics
-/// - `'rf`
-///
-///     Lifetime of external values (eg: condition values).
-///
 /// - `E`: [`Executor`]
 ///
 ///     The executor to query with.
@@ -36,25 +30,24 @@ use crate::sealed;
 ///
 ///     The columns to be selected and a type to convert the rows into.
 ///
-/// - `C`: [`ConditionMarker<'rf>`](ConditionMarker)
+/// - `C`: [`ConditionMarker`]
 ///
 ///     An optional condition to filter the query by.
 ///
-/// - `LO`: [`LimOffMarker`](LimOffMarker)
+/// - `LO`: [`LimOffMarker`]
 ///
 ///     An optional limit and or offset to control the amount of queried rows.
 #[must_use]
-pub struct QueryBuilder<'rf, E, S, C, LO> {
+pub struct QueryBuilder<E, S, C, LO> {
     executor: E,
     ctx: QueryContext,
     selector: S,
-    phantom: PhantomData<&'rf ()>,
     condition: C,
     lim_off: LO,
     ordering: Vec<OrderByEntry<'static>>,
 }
 
-impl<'ex, 'rf, E, S> QueryBuilder<'rf, E, S, (), ()>
+impl<'ex, E, S> QueryBuilder<E, S, (), ()>
 where
     E: Executor<'ex>,
     S: Selector,
@@ -65,7 +58,6 @@ where
             executor,
             ctx: QueryContext::new(),
             selector,
-            phantom: PhantomData,
             condition: (),
             lim_off: (),
             ordering: Vec::new(),
@@ -73,58 +65,58 @@ where
     }
 }
 
-impl<'rf, E, S, LO> QueryBuilder<'rf, E, S, (), LO> {
+impl<E, S, LO> QueryBuilder<E, S, (), LO> {
     /// Add a condition to the query
-    pub fn condition<C: Condition<'rf>>(self, condition: C) -> QueryBuilder<'rf, E, S, C, LO> {
+    pub fn condition<'c, C: Condition<'c>>(self, condition: C) -> QueryBuilder<E, S, C, LO> {
         #[rustfmt::skip]
-        let QueryBuilder { executor, ctx, selector, phantom, lim_off, ordering, .. } = self;
+        let QueryBuilder { executor, ctx, selector, lim_off, ordering, .. } = self;
         #[rustfmt::skip]
-        return QueryBuilder { executor, ctx, selector, phantom, condition, lim_off, ordering, };
+        return QueryBuilder { executor, ctx, selector, condition, lim_off, ordering, };
     }
 }
 
-impl<'rf, E, S, C, O> QueryBuilder<'rf, E, S, C, O>
+impl<E, S, C, O> QueryBuilder<E, S, C, O>
 where
     O: OffsetMarker,
 {
     /// Add a limit to the query
-    pub fn limit(self, limit: u64) -> QueryBuilder<'rf, E, S, C, Limit<O>> {
+    pub fn limit(self, limit: u64) -> QueryBuilder<E, S, C, Limit<O>> {
         #[rustfmt::skip]
-        let QueryBuilder { executor, ctx, selector, phantom, condition,  lim_off, ordering, } = self;
+        let QueryBuilder { executor, ctx, selector, condition,  lim_off, ordering, } = self;
         #[rustfmt::skip]
-        return QueryBuilder { executor, ctx, selector, phantom, condition, lim_off: Limit { limit, offset: lim_off }, ordering, };
+        return QueryBuilder { executor, ctx, selector, condition, lim_off: Limit { limit, offset: lim_off }, ordering, };
     }
 }
 
-impl<'rf, E, S, C, LO> QueryBuilder<'rf, E, S, C, LO>
+impl<E, S, C, LO> QueryBuilder<E, S, C, LO>
 where
     LO: AcceptsOffset,
 {
     /// Add a offset to the query
-    pub fn offset(self, offset: u64) -> QueryBuilder<'rf, E, S, C, LO::Result> {
+    pub fn offset(self, offset: u64) -> QueryBuilder<E, S, C, LO::Result> {
         #[rustfmt::skip]
-        let QueryBuilder { executor, ctx, selector, phantom, condition, lim_off, ordering, .. } = self;
+        let QueryBuilder { executor, ctx, selector, condition, lim_off, ordering, .. } = self;
         let lim_off = lim_off.add_offset(offset);
         #[rustfmt::skip]
-        return QueryBuilder { executor, ctx, selector, phantom, condition, lim_off, ordering, };
+        return QueryBuilder { executor, ctx, selector, condition, lim_off, ordering, };
     }
 }
 
-impl<'rf, E, S, C> QueryBuilder<'rf, E, S, C, ()> {
+impl<E, S, C> QueryBuilder<E, S, C, ()> {
     /// Add a offset to the query
-    pub fn range(self, range: impl FiniteRange<u64>) -> QueryBuilder<'rf, E, S, C, Limit<u64>> {
+    pub fn range(self, range: impl FiniteRange<u64>) -> QueryBuilder<E, S, C, Limit<u64>> {
         #[rustfmt::skip]
-        let QueryBuilder { executor, ctx, selector, phantom, condition, ordering,  .. } = self;
+        let QueryBuilder { executor, ctx, selector, condition, ordering,  .. } = self;
         let limit = Limit {
             limit: range.len(),
             offset: range.start(),
         };
         #[rustfmt::skip]
-        return QueryBuilder { executor, ctx, selector, phantom, condition, lim_off: limit, ordering, };
+        return QueryBuilder { executor, ctx, selector, condition, lim_off: limit, ordering, };
     }
 }
 
-impl<'rf, E, S, C, LO> QueryBuilder<'rf, E, S, C, LO>
+impl<E, S, C, LO> QueryBuilder<E, S, C, LO>
 where
     S: Selector,
 {
@@ -168,12 +160,11 @@ where
     }
 }
 
-impl<'ex, 'rf, E, S, C, LO> QueryBuilder<'rf, E, S, C, LO>
+impl<'e, 'c, E, S, C, LO> QueryBuilder<E, S, C, LO>
 where
-    'ex: 'rf,
-    E: Executor<'ex>,
+    E: Executor<'e>,
     S: Selector,
-    C: ConditionMarker<'rf>,
+    C: ConditionMarker<'c>,
 {
     /// Retrieve and decode all matching rows
     pub async fn all(mut self) -> Result<Vec<S::Result>, Error>
@@ -211,9 +202,11 @@ where
     }
 
     /// Retrieve and decode the query as a stream
-    pub fn stream(mut self) -> QueryStream<'rf, S::Decoder>
+    pub fn stream<'stream>(mut self) -> QueryStream<'stream, 'c, S::Decoder>
     where
-        S: 'rf,
+        'e: 'stream,
+        'c: 'stream,
+        S: 'stream,
         LO: LimitMarker,
     {
         let decoder = self.selector.select(&mut self.ctx);
@@ -415,33 +408,35 @@ mod query_stream {
     use crate::crud::decoder::Decoder;
     use crate::internal::query_context::QueryContext;
 
+    /// Self-referential struct storing the query's data next to the stream which borrows it.
+    ///
+    /// ## Lifetimes
+    /// - `'this` is the self-referential struct's lifetime
+    /// - `'cond` is the [`dyn Condition<'cond>`](Condition)'s lifetime
+    ///     which needs to be separate from `'this` because it is invariant.
     #[pin_project::pin_project]
     #[allow(dead_code)] // The field's are never "read" because they are aliased before being assigned to the struct
-    pub struct QueryStream<'rf, D> {
+    pub struct QueryStream<'this, 'cond: 'this, D> {
         decoder: D,
 
         ctx: Box<QueryContext>,
 
-        condition: Option<Box<dyn Condition<'rf>>>,
+        condition: Option<Box<dyn Condition<'cond>>>,
 
         #[pin]
-        stream: <Stream as QueryStrategyResult>::Result<'rf>,
+        stream: <Stream as QueryStrategyResult>::Result<'this>,
     }
 
-    impl<'stream, D> QueryStream<'stream, D> {
-        pub(crate) fn new<'until_build>(
+    impl<'this, 'cond: 'this, D> QueryStream<'this, 'cond, D> {
+        pub(crate) fn new(
             decoder: D,
             ctx: QueryContext,
-            condition: Option<Box<dyn Condition<'stream>>>,
+            condition: Option<Box<dyn Condition<'cond>>>,
             stream_builder: impl FnOnce(
-                    &'stream QueryContext,
-                    Option<&'stream dyn Condition<'stream>>,
-                ) -> <Stream as QueryStrategyResult>::Result<'stream>
-                + 'until_build,
-        ) -> Self
-        where
-            'stream: 'until_build,
-        {
+                &'this QueryContext,
+                Option<&'this dyn Condition<'cond>>,
+            ) -> <Stream as QueryStrategyResult>::Result<'this>,
+        ) -> Self {
             unsafe fn change_lifetime<'old, 'new: 'old, T: 'new + ?Sized>(
                 data: &'old T,
             ) -> &'new T {
@@ -450,9 +445,9 @@ mod query_stream {
 
             unsafe {
                 let ctx = Box::new(ctx);
-                let ctx_ref: &'stream QueryContext = change_lifetime(ctx.as_ref());
+                let ctx_ref: &'this QueryContext = change_lifetime(ctx.as_ref());
 
-                let condition_ref: Option<&'stream dyn Condition<'stream>> = condition
+                let condition_ref: Option<&'this dyn Condition<'cond>> = condition
                     .as_deref()
                     .map(|condition| change_lifetime(condition));
 
@@ -468,7 +463,7 @@ mod query_stream {
         }
     }
 
-    impl<'stream, D: Decoder> futures::stream::Stream for QueryStream<'stream, D> {
+    impl<'this, 'cond: 'this, D: Decoder> futures::stream::Stream for QueryStream<'this, 'cond, D> {
         type Item = Result<D::Result, Error>;
 
         fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
