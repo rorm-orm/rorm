@@ -64,7 +64,7 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
 
         const _: () = {
             #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
-            #[::rorm::rename_linkme]
+            #[linkme(crate = ::rorm::linkme)]
             static __get_imr: fn() -> ::rorm::imr::Model = <#ident as ::rorm::model::Model>::get_imr;
 
             #impl_patch
