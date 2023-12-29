@@ -120,8 +120,6 @@ macro_rules! field {
     };
 }
 
-#[doc(hidden)]
-pub use rorm_macro::rename_linkme;
 /// This attribute is put on your main function.
 ///
 /// When you build with the `rorm-main` feature enabled this attribute will replace your main function.

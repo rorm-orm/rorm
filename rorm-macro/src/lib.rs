@@ -4,7 +4,7 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use quote::{quote, ToTokens};
+use quote::quote;
 
 use crate::analyze::model::analyze_model;
 use crate::generate::db_enum::generate_db_enum;
@@ -17,7 +17,6 @@ use crate::parse::patch::parse_patch;
 mod analyze;
 mod generate;
 mod parse;
-mod rename_linkme;
 mod utils;
 
 #[proc_macro_derive(DbEnum)]
@@ -45,13 +44,6 @@ pub fn derive_patch(input: TokenStream) -> TokenStream {
         Err(error) => error.write_errors(),
     }
     .into()
-}
-
-#[proc_macro_attribute]
-pub fn rename_linkme(_args: TokenStream, item: TokenStream) -> TokenStream {
-    let mut item = syn::parse_macro_input!(item as syn::ItemStatic);
-    rename_linkme::rename_expr(&mut item.expr);
-    item.into_token_stream().into()
 }
 
 #[proc_macro_attribute]
