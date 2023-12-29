@@ -9,7 +9,7 @@ members = [
 
 [package]
 name = "rorm"
-version = "0.6.3"
+version = "0.6.4"
 edition = "2021"
 repository = "https://github.com/rorm-orm/rorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
@@ -39,7 +39,7 @@ linkme = { version = "~0.3" }
 pin-project = { version = "~1" }
 
 rorm-db = { version = "~0.9", path = "./rorm-db", features = ["serde"] }
-rorm-macro = { version = "~0.8", path = "./rorm-macro" }
+rorm-macro = { version = ">=0.8.2", path = "./rorm-macro" }
 rorm-declaration = { version = "~0.4", path = "./rorm-declaration" }
 
 # rorm-cli exposes interfaces to integrate the cli as library
