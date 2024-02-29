@@ -11,7 +11,14 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
     let ParsedModel {
         vis,
         ident,
-        annos: ModelAnnotations { rename },
+        annos:
+            ModelAnnotations {
+                rename,
+                insert,
+                query,
+                update,
+                delete,
+            },
         fields,
     } = parsed;
     let mut errors = darling::Error::accumulator();
@@ -61,19 +68,19 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
         if id {
             if primary_key {
                 errors.push(
-                        darling::Error::custom(
-                            "`#[rorm(primary_key)]` is implied by `#[rorm(id)]`. Please remove one of them.",
-                        )
+                    darling::Error::custom(
+                        "`#[rorm(primary_key)]` is implied by `#[rorm(id)]`. Please remove one of them.",
+                    )
                         .with_span(&ident),
-                    );
+                );
             }
             if auto_increment {
                 errors.push(
-                        darling::Error::custom(
-                            "`#[rorm(auto_increment)]` is implied by `#[rorm(id)]`. Please remove one of them.",
-                        )
+                    darling::Error::custom(
+                        "`#[rorm(auto_increment)]` is implied by `#[rorm(id)]`. Please remove one of them.",
+                    )
                         .with_span(&ident),
-                    );
+                );
             }
             primary_key = true;
             auto_increment = true;
@@ -114,7 +121,7 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
             darling::Error::custom(format!(
                 "Model misses a primary key. Try adding the default one:\n\n#[rorm(id)]\n{vis}id: i64,", vis = vis_to_display(&vis),
             ))
-            .with_span(&ident),
+                .with_span(&ident),
         ),
         _ => errors.push(darling::Error::multiple(
             primary_keys
@@ -128,11 +135,15 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
     }
 
     errors.finish_with(AnalyzedModel {
-        vis,
+        vis: vis.clone(),
         ident,
         table,
         fields: analyzed_fields,
         primary_key,
+        insert,
+        query,
+        update,
+        delete,
     })
 }
 
@@ -143,6 +154,11 @@ pub struct AnalyzedModel {
     pub fields: Vec<AnalyzedField>,
     /// the primary key's index
     pub primary_key: usize,
+
+    pub insert: Option<Visibility>,
+    pub query: Option<Visibility>,
+    pub update: Option<Visibility>,
+    pub delete: Option<Visibility>,
 }
 
 pub struct AnalyzedField {

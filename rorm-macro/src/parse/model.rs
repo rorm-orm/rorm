@@ -69,6 +69,10 @@ pub struct ParsedModel {
 #[darling(attributes(rorm), default)]
 pub struct ModelAnnotations {
     pub rename: Option<LitStr>,
+    pub insert: Option<Visibility>,
+    pub query: Option<Visibility>,
+    pub update: Option<Visibility>,
+    pub delete: Option<Visibility>,
 }
 
 pub struct ParsedField {

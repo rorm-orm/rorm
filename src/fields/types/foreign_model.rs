@@ -6,7 +6,7 @@ use rorm_db::Executor;
 
 use crate::conditions::{Binary, BinaryOperator, Column};
 use crate::internal::field::{FieldProxy, SingleColumnField};
-use crate::model::{GetField, Model};
+use crate::model::{GetField, Model, Unrestricted};
 use crate::query;
 
 /// Alias for [ForeignModelByField] which only takes a model uses to its primary key.
@@ -43,10 +43,10 @@ where
     }
 
     /// Take the instance, if it is available, or queries it, if not.
-    pub async fn take_or_query(
-        self,
-        executor: impl Executor<'_>,
-    ) -> Result<FF::Model, crate::Error> {
+    pub async fn take_or_query(self, executor: impl Executor<'_>) -> Result<FF::Model, crate::Error>
+    where
+        FF::Model: Model<QueryPermission = Unrestricted>,
+    {
         match self {
             ForeignModelByField::Key(key) => {
                 query!(executor, FF::Model)

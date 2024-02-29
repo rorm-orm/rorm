@@ -15,10 +15,10 @@ use crate::fields::traits::FieldType;
 use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
 use crate::internal::field::modifier::{EraseAnnotations, NoCheck, NoColumnFromName};
 use crate::internal::field::{foreign_model, Field, FieldProxy, SingleColumnField};
-use crate::model::GetField;
-use crate::query;
+use crate::model::{GetField, Unrestricted};
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
 use crate::Patch;
+use crate::{query, Model};
 
 /// A back reference is the other direction to a [foreign model](crate::prelude::ForeignModelByField)
 #[derive(Clone)]
@@ -92,6 +92,7 @@ where
         patch: &'p mut BRP,
     ) -> Result<&'p mut [FMF::Model], Error>
     where
+        FMF::Model: Model<QueryPermission = Unrestricted>,
         BRP: Patch<Model = BRF::Model>,
         BRP: GetField<BRF>,
         BRP: GetField<foreign_model::RF<FMF>>,
@@ -118,6 +119,7 @@ where
         patch: &mut BRP,
     ) -> Result<Vec<FMF::Model>, Error>
     where
+        FMF::Model: Model<QueryPermission = Unrestricted>,
         BRP: Patch<Model = BRF::Model>,
         BRP: GetField<BRF>,
         BRP: GetField<foreign_model::RF<FMF>>,
@@ -145,6 +147,7 @@ where
         patch: &mut BRP,
     ) -> Result<(), Error>
     where
+        FMF::Model: Model<QueryPermission = Unrestricted>,
         BRP: Patch<Model = BRF::Model>,
         BRP: GetField<BRF>,
         BRP: GetField<foreign_model::RF<FMF>>,
@@ -172,6 +175,7 @@ where
         patches: &mut [BRP],
     ) -> Result<(), Error>
     where
+        FMF::Model: Model<QueryPermission = Unrestricted>,
         <foreign_model::RF<FMF> as Field>::Type: std::hash::Hash + Eq + Clone,
         BRP: Patch<Model = BRF::Model>,
         BRP: GetField<BRF>,

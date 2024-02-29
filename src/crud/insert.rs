@@ -44,7 +44,7 @@ where
     M: Model,
 {
     /// Start building a insert query
-    pub fn new(executor: E) -> Self {
+    pub fn new(executor: E, _: M::InsertPermission) -> Self {
         InsertBuilder {
             executor,
             selector: PatchSelector::new(),
@@ -300,6 +300,8 @@ macro_rules! insert {
     ($db:expr, $patch:path) => {
         $crate::crud::insert::InsertBuilder::<_, <$patch as $crate::model::Patch>::Model, _>::new(
             $db,
+            <<$patch as $crate::model::Patch>::Model as $crate::model::Model>::permissions()
+                .insert_permission(),
         )
     };
 }

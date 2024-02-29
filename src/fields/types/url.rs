@@ -10,8 +10,7 @@ use crate::internal::field::modifier::{MergeAnnotations, SingleColumnCheck, Sing
 use crate::internal::field::Field;
 use crate::internal::hmr;
 use crate::internal::hmr::AsImr;
-use crate::Error;
-use crate::{impl_FieldEq, new_converting_decoder};
+use crate::{impl_FieldEq, new_converting_decoder, Error};
 
 impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs Url> for Url {|url: &'rhs Url| Value::String(Cow::Borrowed(url.as_str()))});
 impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Url> for Url {|url: Url| Value::String(Cow::Owned(url.into()))});

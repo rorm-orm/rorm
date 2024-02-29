@@ -17,6 +17,10 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
         table,
         fields,
         primary_key,
+        insert,
+        query,
+        update,
+        delete,
     } = model;
     let primary_struct = &fields[*primary_key].unit;
     let primary_ident = &fields[*primary_key].ident;
@@ -34,35 +38,70 @@ pub fn generate_model(model: &AnalyzedModel) -> TokenStream {
 
     let source = get_source(ident);
 
+    let insert_vis = insert.as_ref().unwrap_or(vis);
+    let query_vis = query.as_ref().unwrap_or(vis);
+    let update_vis = update.as_ref().unwrap_or(vis);
+    let delete_vis = delete.as_ref().unwrap_or(vis);
+
     let mut tokens = quote! {
         #field_declarations
         #fields_struct
 
-        impl ::rorm::model::Model for #ident {
-            type Primary = #primary_struct;
+        const _: () = {
+            impl ::rorm::model::Model for #ident {
+                type Primary = #primary_struct;
 
-            type Fields<P: ::rorm::internal::relation_path::Path> = #fields_struct_ident<P>;
-            const F: #fields_struct_ident<#ident> = ::rorm::model::ConstNew::NEW;
-            const FIELDS: #fields_struct_ident<#ident> = ::rorm::model::ConstNew::NEW;
+                type Fields<P: ::rorm::internal::relation_path::Path> = #fields_struct_ident<P>;
+                const F: #fields_struct_ident<#ident> = ::rorm::model::ConstNew::NEW;
+                const FIELDS: #fields_struct_ident<#ident> = ::rorm::model::ConstNew::NEW;
 
-            const TABLE: &'static str = #table;
+                const TABLE: &'static str = #table;
 
-            fn get_imr() -> ::rorm::imr::Model {
-                use ::rorm::internal::field::Field;
-                let mut fields = Vec::new();
-                #(
-                    fields.extend(<#field_types as ::rorm::fields::traits::FieldType>::get_imr::<#field_structs_1>());
-                )*
-                ::rorm::imr::Model {
-                    name: Self::TABLE.to_string(),
-                    fields,
-                    source_defined_at: #source,
+                fn get_imr() -> ::rorm::imr::Model {
+                    use ::rorm::internal::field::Field;
+                    let mut fields = Vec::new();
+                    #(
+                        fields.extend(<#field_types as ::rorm::fields::traits::FieldType>::get_imr::<#field_structs_1>());
+                    )*
+                    ::rorm::imr::Model {
+                        name: Self::TABLE.to_string(),
+                        fields,
+                        source_defined_at: #source,
+                    }
+                }
+
+                type Permissions = __Permissions;
+                type InsertPermission = __InsertPermission;
+                type QueryPermission = __QueryPermission;
+                type UpdatePermission = __UpdatePermission;
+                type DeletePermission = __DeletePermission;
+            }
+
+            #[derive(Default)]
+            #vis struct __Permissions;
+            #vis struct __InsertPermission(::std::marker::PhantomData<()>);
+            #vis struct __QueryPermission(::std::marker::PhantomData<()>);
+            #vis struct __UpdatePermission(::std::marker::PhantomData<()>);
+            #vis struct __DeletePermission(::std::marker::PhantomData<()>);
+            impl __Permissions {
+                #insert_vis fn insert_permission(&self) -> __InsertPermission {
+                    __InsertPermission(::std::marker::PhantomData)
+                }
+
+                #query_vis fn query_permission(&self) -> __QueryPermission {
+                    __QueryPermission(::std::marker::PhantomData)
+                }
+
+                #update_vis fn update_permission(&self) -> __UpdatePermission {
+                    __UpdatePermission(::std::marker::PhantomData)
+                }
+
+                #delete_vis fn delete_permission(&self) -> __DeletePermission {
+                    __DeletePermission(::std::marker::PhantomData)
                 }
             }
-        }
 
 
-        const _: () = {
             #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
             #[linkme(crate = ::rorm::linkme)]
             static __get_imr: fn() -> ::rorm::imr::Model = <#ident as ::rorm::model::Model>::get_imr;
@@ -140,7 +179,7 @@ fn generate_fields(model: &AnalyzedModel) -> TokenStream {
         );
         let annos = generate_field_annotations(annos);
 
-        tokens.extend(quote_spanned!{ident.span()=>
+        tokens.extend(quote_spanned! {ident.span()=>
             #[doc = #doc]
             #[allow(non_camel_case_types)]
             #vis struct #unit;

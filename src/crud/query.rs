@@ -53,7 +53,7 @@ where
     S: Selector,
 {
     /// Start building a query using a generic [`Selector`](Selector)
-    pub fn new(executor: E, selector: S) -> Self {
+    pub fn new(executor: E, selector: S, _: <S::Model as Model>::QueryPermission) -> Self {
         QueryBuilder {
             executor,
             ctx: QueryContext::new(),
@@ -385,12 +385,16 @@ macro_rules! query {
             ($(
                 $($model)::+.$($field).+ $(($($args)?))? $(.select_as::<$patch>())?,
             )+),
+            <$model as $crate::model::Model>::permissions()
+                .query_permission(),
         )
     };
     ($db:expr, $patch:ty) => {
         $crate::crud::query::QueryBuilder::new(
             $db,
             $crate::model::PatchSelector::<$patch>::new(),
+            <<$patch as $crate::model::Patch>::Model as $crate::model::Model>::permissions()
+                .query_permission(),
         )
     };
 }

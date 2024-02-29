@@ -52,17 +52,20 @@ pub trait Patch: Sized + 'static {
 
 /// [`Selector`] selecting a [`Patch`] through its [`Patch::select`] method
 pub struct PatchSelector<Ptch: Patch, Pth = <Ptch as Patch>::Model>(PhantomData<(Ptch, Pth)>);
+
 impl<Ptch: Patch, Pth> PatchSelector<Ptch, Pth> {
     /// construct a new instance
     pub fn new() -> Self {
         Self(PhantomData)
     }
 }
+
 impl<Ptch: Patch, Pth: Path> Default for PatchSelector<Ptch, Pth> {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
+
 impl<Ptch: Patch, Pth: Path> Selector for PatchSelector<Ptch, Pth> {
     type Result = Ptch;
     type Model = Pth::Origin;
@@ -110,7 +113,89 @@ pub trait Model: Patch<Model = Self> {
     ///
     /// [`write_models`]: crate::write_models
     fn get_imr() -> imr::Model;
+
+    /// Returns a zero sized type which constructs the CRUD permission tokens.
+    ///
+    /// It's methods `fn ..._permission(&self) -> ...Permission` are either locked behind
+    /// a trait bound `Model<...Permission = Unrestricted>`
+    /// or the equivalent methods on [`Model::Permissions`] which are locked behind rust visibilities.
+    fn permissions() -> ModelPermissions<Self> {
+        ModelPermissions(Default::default())
+    }
+
+    /// Zero sized type which constructs the permission tokens.
+    ///
+    /// Use [`Model::permissions`]
+    type Permissions: Default;
+
+    /// Zero sized token which grants the permission to use [`insert`]
+    type InsertPermission;
+
+    /// Zero sized token which grants the permission to use [`query`]
+    type QueryPermission;
+
+    /// Zero sized token which grants the permission to use [`update`]
+    type UpdatePermission;
+
+    /// Zero sized token which grants the permission to use [`delete`]
+    type DeletePermission;
 }
+
+/// Zero sized type which constructs the CRUD permission tokens for a [`Model`].
+///
+/// It's methods `fn ..._permission(&self) -> ...Permission` are either locked behind
+/// a trait bound `Model<...Permission = Unrestricted>`
+/// or the equivalent methods on [`Model::Permissions`] which are locked behind rust visibilities.
+pub struct ModelPermissions<M: Model>(M::Permissions);
+impl<M: Model<InsertPermission = Unrestricted>> ModelPermissions<M> {
+    /// Get permission to use [`insert!`](crate::insert).
+    ///
+    /// This method is either restricted by a visibility set by the `#[derive(Model)]`
+    /// or the trait bound `M: Model<InsertPermission = Unrestricted>`
+    /// if the macro didn't specify any visibility.
+    pub fn insert_permission(&self) -> M::InsertPermission {
+        Unrestricted(PhantomData)
+    }
+}
+impl<M: Model<QueryPermission = Unrestricted>> ModelPermissions<M> {
+    /// Get permission to use [`query!`](crate::query).
+    ///
+    /// This method is either restricted by a visibility set by the `#[derive(Model)]`
+    /// or the trait bound `M: Model<QueryPermission = Unrestricted>`
+    /// if the macro didn't specify any visibility.
+    pub fn query_permission(&self) -> M::QueryPermission {
+        Unrestricted(PhantomData)
+    }
+}
+impl<M: Model<UpdatePermission = Unrestricted>> ModelPermissions<M> {
+    /// Get permission to use [`update!`](crate::update).
+    ///
+    /// This method is either restricted by a visibility set by the `#[derive(Model)]`
+    /// or the trait bound `M: Model<UpdatePermission = Unrestricted>`
+    /// if the macro didn't specify any visibility.
+    pub fn update_permission(&self) -> M::UpdatePermission {
+        Unrestricted(PhantomData)
+    }
+}
+impl<M: Model<DeletePermission = Unrestricted>> ModelPermissions<M> {
+    /// Get permission to use [`delete!`](crate::delete).
+    ///
+    /// This method is either restricted by a visibility set by the `#[derive(Model)]`
+    /// or the trait bound `M: Model<DeletePermission = Unrestricted>`
+    /// if the macro didn't specify any visibility.
+    pub fn delete_permission(&self) -> M::DeletePermission {
+        Unrestricted(PhantomData)
+    }
+}
+impl<M: Model> std::ops::Deref for ModelPermissions<M> {
+    type Target = M::Permissions;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// Zero sized token which can be constructed by everyone
+pub struct Unrestricted(pub PhantomData<()>);
 
 /// Expose a models' fields on the type level using indexes
 pub trait FieldByIndex<const INDEX: usize>: Model {
@@ -164,6 +249,7 @@ pub trait Identifiable: Patch {
         }
     }
 }
+
 impl<M: Model, P: Patch<Model = M> + GetField<M::Primary>> Identifiable for P {
     fn get_primary_key(&self) -> &<M::Primary as Field>::Type {
         <Self as GetField<M::Primary>>::borrow_field(self)
