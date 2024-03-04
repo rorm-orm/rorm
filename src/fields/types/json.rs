@@ -9,12 +9,10 @@ use serde::Serialize;
 
 use crate::conditions::Value;
 use crate::fields::traits::FieldType;
-use crate::internal::field::as_db_type::AsDbType;
+use crate::internal::field::as_db_type::{get_single_imr, AsDbType};
 use crate::internal::field::modifier::{MergeAnnotations, SingleColumnCheck, SingleColumnFromName};
 use crate::internal::field::Field;
-use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::{Binary, DbType};
-use crate::internal::hmr::AsImr;
 use crate::new_converting_decoder;
 use crate::Error::DecodeError;
 
@@ -69,14 +67,7 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Json<T> {
     }
 
     fn get_imr<F: Field<Type = Self>>() -> Self::Columns<imr::Field> {
-        [imr::Field {
-            name: F::NAME.to_string(),
-            db_type: Binary::IMR,
-            annotations: F::EFFECTIVE_ANNOTATIONS
-                .unwrap_or_else(Annotations::empty)
-                .as_imr(),
-            source_defined_at: F::SOURCE.map(|s| s.as_imr()),
-        }]
+        get_single_imr::<F>(imr::DbType::Binary)
     }
 
     type Decoder = JsonDecoder<T>;
@@ -119,14 +110,7 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Option<Json<T>> {
     }
 
     fn get_imr<F: Field<Type = Self>>() -> Self::Columns<imr::Field> {
-        [imr::Field {
-            name: F::NAME.to_string(),
-            db_type: Binary::IMR,
-            annotations: F::EFFECTIVE_ANNOTATIONS
-                .unwrap_or_else(Annotations::empty)
-                .as_imr(),
-            source_defined_at: F::SOURCE.map(|s| s.as_imr()),
-        }]
+        get_single_imr::<F>(imr::DbType::Binary)
     }
 
     type Decoder = OptionJsonDecoder<T>;

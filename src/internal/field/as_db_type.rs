@@ -1,10 +1,12 @@
 //! defines and implements the [`AsDbType`] trait.
 
 use rorm_db::row::DecodeOwned;
+use rorm_declaration::imr;
 
-use crate::internal::field::FieldType;
+use crate::internal::field::{Field, FieldType};
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::db_type::DbType;
+use crate::internal::hmr::AsImr;
 
 /// This trait maps rust types to database types
 ///
@@ -49,15 +51,9 @@ macro_rules! impl_AsDbType {
             }
 
             fn get_imr<F: $crate::internal::field::Field<Type = Self>>() -> Self::Columns<$crate::internal::imr::Field> {
-                use $crate::internal::hmr::AsImr;
-                [$crate::internal::imr::Field {
-                    name: F::NAME.to_string(),
-                    db_type: <<$type as $crate::internal::field::as_db_type::AsDbType>::DbType as $crate::internal::hmr::db_type::DbType>::IMR,
-                    annotations: F::EFFECTIVE_ANNOTATIONS
-                        .unwrap_or_else($crate::internal::hmr::annotations::Annotations::empty)
-                        .as_imr(),
-                    source_defined_at: F::SOURCE.map(|s| s.as_imr()),
-                }]
+                $crate::internal::field::as_db_type::get_single_imr::<F>(
+                    <<$type as $crate::internal::field::as_db_type::AsDbType>::DbType as $crate::internal::hmr::db_type::DbType>::IMR
+                )
             }
 
             type Decoder = $decoder;
@@ -103,15 +99,9 @@ macro_rules! impl_AsDbType {
             }
 
             fn get_imr<F: $crate::internal::field::Field<Type = Self>>() -> Self::Columns<$crate::internal::imr::Field> {
-                use $crate::internal::hmr::AsImr;
-                [$crate::internal::imr::Field {
-                    name: F::NAME.to_string(),
-                    db_type: <$db_type as $crate::internal::hmr::db_type::DbType>::IMR,
-                    annotations: F::EFFECTIVE_ANNOTATIONS
-                        .unwrap_or_else($crate::internal::hmr::annotations::Annotations::empty)
-                        .as_imr(),
-                    source_defined_at: F::SOURCE.map(|s| s.as_imr()),
-                }]
+                $crate::internal::field::as_db_type::get_single_imr::<F>(
+                    <$db_type as $crate::internal::hmr::db_type::DbType>::IMR
+                )
             }
 
             type Decoder = $crate::crud::decoder::DirectDecoder<Self>;
@@ -131,4 +121,16 @@ macro_rules! impl_AsDbType {
 
         impl_AsDbType!(Option<$type>, $crate::crud::decoder::DirectDecoder<Self>);
     };
+}
+
+/// Default implementation of [`FieldType::get_imr`] for field with a single column
+pub fn get_single_imr<F: Field>(db_type: imr::DbType) -> [imr::Field; 1] {
+    [imr::Field {
+        name: F::NAME.to_string(),
+        db_type,
+        annotations: F::EFFECTIVE_ANNOTATIONS
+            .unwrap_or_else(Annotations::empty)
+            .as_imr(),
+        source_defined_at: F::SOURCE.map(|s| s.as_imr()),
+    }]
 }

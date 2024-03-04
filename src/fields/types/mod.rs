@@ -7,6 +7,8 @@ mod back_ref;
 mod chrono;
 mod foreign_model;
 mod json;
+mod max_str;
+pub mod max_str_impl;
 #[cfg(feature = "msgpack")]
 mod msgpack;
 #[cfg(feature = "postgres-only")]
@@ -22,5 +24,6 @@ mod uuid;
 pub use back_ref::BackRef;
 pub use foreign_model::{ForeignModel, ForeignModelByField};
 pub use json::Json;
+pub use max_str::MaxStr;
 #[cfg(feature = "msgpack")]
 pub use msgpack::MsgPack;

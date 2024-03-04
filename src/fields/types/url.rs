@@ -5,11 +5,10 @@ use url::Url;
 
 use crate::conditions::Value;
 use crate::fields::traits::FieldType;
-use crate::internal::field::as_db_type::AsDbType;
+use crate::internal::field::as_db_type::{get_single_imr, AsDbType};
 use crate::internal::field::modifier::{MergeAnnotations, SingleColumnCheck, SingleColumnFromName};
 use crate::internal::field::Field;
 use crate::internal::hmr;
-use crate::internal::hmr::AsImr;
 use crate::{impl_FieldEq, new_converting_decoder, Error};
 
 impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs Url> for Url {|url: &'rhs Url| Value::String(Cow::Borrowed(url.as_str()))});
@@ -28,14 +27,7 @@ impl FieldType for Url {
     }
 
     fn get_imr<F: Field<Type = Self>>() -> Self::Columns<imr::Field> {
-        [imr::Field {
-            name: F::NAME.to_string(),
-            db_type: imr::DbType::VarChar,
-            annotations: F::EFFECTIVE_ANNOTATIONS
-                .unwrap_or_else(hmr::annotations::Annotations::empty)
-                .as_imr(),
-            source_defined_at: F::SOURCE.map(|s| s.as_imr()),
-        }]
+        get_single_imr::<F>(imr::DbType::VarChar)
     }
 
     type Decoder = UrlDecoder;
@@ -74,14 +66,7 @@ impl FieldType for Option<Url> {
     }
 
     fn get_imr<F: Field<Type = Self>>() -> Self::Columns<imr::Field> {
-        [imr::Field {
-            name: F::NAME.to_string(),
-            db_type: imr::DbType::VarChar,
-            annotations: F::EFFECTIVE_ANNOTATIONS
-                .unwrap_or_else(hmr::annotations::Annotations::empty)
-                .as_imr(),
-            source_defined_at: F::SOURCE.map(|s| s.as_imr()),
-        }]
+        get_single_imr::<F>(imr::DbType::VarChar)
     }
 
     type Decoder = OptionUrlDecoder;

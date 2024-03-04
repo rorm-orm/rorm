@@ -16,6 +16,7 @@
 //! - [`BackRef<M>`](types::BackRef) (doesn't work inside an [`Option<T>`])
 //! - [`Json<T>`](types::Json)
 //! - [`MsgPack<T>`](types::MsgPack) (requires the "msgpack" feature)
+//! - [`MaxStr`](types::MaxStr)
 //!
 //! # chrono types (requires the "chrono" feature)
 //! - [`NaiveDateTime`](chrono::NaiveDateTime)
