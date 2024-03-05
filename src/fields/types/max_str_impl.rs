@@ -10,7 +10,7 @@ pub trait LenImpl {
 }
 
 /// [`LenImpl`] which uses the number of bytes (this is what [`str::len`] does)
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct NumBytes;
 
 impl LenImpl for NumBytes {
@@ -20,7 +20,7 @@ impl LenImpl for NumBytes {
 }
 
 /// [`LenImpl`] which uses the number of unicode code points
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct NumChars;
 
 impl LenImpl for NumChars {

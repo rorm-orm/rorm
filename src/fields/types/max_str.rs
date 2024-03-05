@@ -63,7 +63,7 @@ where
     Impl: LenImpl,
 {
     /// Wraps a string returning `Err` if it is too long.
-    pub fn new(string: Str) -> Result<Self, Str>
+    pub fn new(string: Str) -> Result<Self, MaxLenError<Str>>
     where
         Impl: Default,
     {
@@ -71,9 +71,14 @@ where
     }
 
     /// Wraps a string using a custom [`LenImpl`] returning `None` if the string is too long.
-    pub fn with_impl(string: Str, len_impl: Impl) -> Result<Self, Str> {
-        if len_impl.len(&string) > MAX_LEN {
-            Err(string)
+    pub fn with_impl(string: Str, len_impl: Impl) -> Result<Self, MaxLenError<Str>> {
+        let got = len_impl.len(&string);
+        if got > MAX_LEN {
+            Err(MaxLenError {
+                string,
+                max: MAX_LEN,
+                got,
+            })
         } else {
             Ok(Self { string, len_impl })
         }
@@ -94,6 +99,17 @@ where
             len_impl: &self.len_impl,
         }
     }
+}
+
+/// Error returned by [`MaxStr`]'s constructors when the input string is too long
+#[derive(Debug)]
+pub struct MaxLenError<Str = String> {
+    /// The rejected string
+    pub string: Str,
+    /// The maximum length which was exceeded
+    pub max: usize,
+    /// The `string`'s length (according to the [`LenImpl`] which was used)
+    pub got: usize,
 }
 
 impl<const MAX_LEN: usize, Impl, Str> Deref for MaxStr<MAX_LEN, Impl, Str>
@@ -127,9 +143,9 @@ where
     where
         D: Deserializer<'de>,
     {
-        Self::new(Str::deserialize(deserializer)?).map_err(|string| {
+        Self::new(Str::deserialize(deserializer)?).map_err(|error| {
             <D::Error as serde::de::Error>::invalid_value(
-                Unexpected::Str(&string),
+                Unexpected::Str(&error.string),
                 &format!("string with a maximum length of {MAX_LEN}").as_str(),
             )
         })
