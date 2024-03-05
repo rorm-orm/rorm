@@ -322,3 +322,21 @@ where
         }
     }
 }
+
+#[cfg(feature = "utoipa")]
+mod utoipa_impl {
+    use utoipa::openapi::{Object, RefOr, Schema, SchemaType};
+    use utoipa::ToSchema;
+
+    use crate::fields::types::max_str_impl::LenImpl;
+    use crate::fields::types::MaxStr;
+
+    impl<'s, const MAX_LEN: usize, Impl: LenImpl> ToSchema<'s> for MaxStr<MAX_LEN, Impl, String> {
+        fn schema() -> (&'s str, RefOr<Schema>) {
+            (
+                "MaxStr",
+                RefOr::T(Schema::Object(Object::with_type(SchemaType::String))),
+            )
+        }
+    }
+}

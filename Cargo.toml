@@ -1,10 +1,10 @@
 [workspace]
 members = [
-	".",
-	"rorm-db",
-	"rorm-declaration",
-	"rorm-macro",
-	"rorm-sql",
+    ".",
+    "rorm-db",
+    "rorm-declaration",
+    "rorm-macro",
+    "rorm-sql",
 ]
 
 [package]
@@ -67,6 +67,9 @@ url = { version = "~2", optional = true }
 # `MessagePack<T>` support
 rmp-serde = { version = "~1", optional = true }
 
+# `ToSchema` support for `MaxStr`
+utoipa = { version = "~4", optional = true }
+
 [build-dependencies]
 rustc_version = "0.4.0"
 
@@ -75,28 +78,28 @@ features = ["msgpack", "cli", "tokio"]
 
 [features]
 default = [
-	"all-drivers",
-	"chrono",
-	"time",
-	"uuid",
-	"url",
+    "all-drivers",
+    "chrono",
+    "time",
+    "uuid",
+    "url",
 ]
 
 # Drivers
 all-drivers = [
-	"rorm-db/postgres",
-	"rorm-cli?/postgres",
-	"rorm-db/mysql",
-	"rorm-cli?/mysql",
-	"rorm-db/sqlite",
-	"rorm-cli?/sqlite",
+    "rorm-db/postgres",
+    "rorm-cli?/postgres",
+    "rorm-db/mysql",
+    "rorm-cli?/mysql",
+    "rorm-db/sqlite",
+    "rorm-cli?/sqlite",
 ]
 postgres-only = [
-	"rorm-db/postgres-only",
-	"rorm-cli?/postgres",
-	"dep:mac_address",
-	"dep:ipnetwork",
-	"dep:bit-vec",
+    "rorm-db/postgres-only",
+    "rorm-cli?/postgres",
+    "dep:mac_address",
+    "dep:ipnetwork",
+    "dep:bit-vec",
 ]
 
 # Extensions
@@ -104,6 +107,7 @@ chrono = ["dep:chrono"]
 time = ["dep:time"]
 uuid = ["dep:uuid"]
 url = ["dep:url"]
+utoipa = ["dep:utoipa"]
 
 msgpack = ["dep:rmp-serde"]
 cli = ["dep:rorm-cli"]
