@@ -377,6 +377,12 @@ where
 /// ```
 #[macro_export]
 macro_rules! query {
+    (__internal $model:ident::F => $($segments:ident,)*) => {
+        $($segments::)* $model
+    };
+    (__internal $segment:ident::$($remainder:ident)::+ => $($segments:ident,)*) => {
+        query!(__internal $($remainder)::+ => $($segments,)* $segment,)
+    };
     ($db:expr, ($(
         $($model:ident)::+.$($field:ident).+ $(($($args:tt)?))? $(as $patch:ty)?
     ),+$(,)?)) => {
@@ -385,8 +391,10 @@ macro_rules! query {
             ($(
                 $($model)::+.$($field).+ $(($($args)?))? $(.select_as::<$patch>())?,
             )+),
-            <$model as $crate::model::Model>::permissions()
-                .query_permission(),
+            ($(
+                <query!(__internal $($model)::+ =>) as $crate::model::Model>::permissions()
+                    .query_permission(),
+            )+).0
         )
     };
     ($db:expr, $patch:ty) => {
