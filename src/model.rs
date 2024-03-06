@@ -126,19 +126,19 @@ pub trait Model: Patch<Model = Self> {
     /// Zero sized type which constructs the permission tokens.
     ///
     /// Use [`Model::permissions`]
-    type Permissions: Default;
+    type Permissions: Default + Send + Sync + Sized + 'static;
 
     /// Zero sized token which grants the permission to use [`insert`]
-    type InsertPermission;
+    type InsertPermission: Send + Sync + Sized + 'static;
 
     /// Zero sized token which grants the permission to use [`query`]
-    type QueryPermission;
+    type QueryPermission: Send + Sync + Sized + 'static;
 
     /// Zero sized token which grants the permission to use [`update`]
-    type UpdatePermission;
+    type UpdatePermission: Send + Sync + Sized + 'static;
 
     /// Zero sized token which grants the permission to use [`delete`]
-    type DeletePermission;
+    type DeletePermission: Send + Sync + Sized + 'static;
 }
 
 /// Zero sized type which constructs the CRUD permission tokens for a [`Model`].
