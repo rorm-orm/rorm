@@ -385,24 +385,42 @@ macro_rules! query {
     };
     ($db:expr, ($(
         $($model:ident)::+.$($field:ident).+ $(($($args:tt)?))? $(as $patch:ty)?
-    ),+$(,)?)) => {
-        $crate::crud::query::QueryBuilder::new(
+    ),+ $(,)?)) => {
+        $crate::query!(
             $db,
             ($(
-                $($model)::+.$($field).+ $(($($args)?))? $(.select_as::<$patch>())?,
-            )+),
-            ($(
+                $($model)::+.$($field).+ $(($($args)?))? $(as $patch)?
+            ),+),
+            perm = ($(
                 <query!(__internal $($model)::+ =>) as $crate::model::Model>::permissions()
                     .query_permission(),
             )+).0
         )
     };
+    ($db:expr, ($(
+        $($model:ident)::+.$($field:ident).+ $(($($args:tt)?))? $(as $patch:ty)?
+    ),+$(,)?), perm = $perm:expr) => {
+        $crate::crud::query::QueryBuilder::new(
+            $db,
+            ($(
+                $($model)::+.$($field).+ $(($($args)?))? $(.select_as::<$patch>())?,
+            )+),
+            $perm,
+        )
+    };
     ($db:expr, $patch:ty) => {
+        $crate::query!(
+            $db,
+            $patch,
+            perm = <<$patch as $crate::model::Patch>::Model as $crate::model::Model>::permissions()
+                .query_permission()
+        )
+    };
+    ($db:expr, $patch:ty, perm = $perm:expr) => {
         $crate::crud::query::QueryBuilder::new(
             $db,
             $crate::model::PatchSelector::<$patch>::new(),
-            <<$patch as $crate::model::Patch>::Model as $crate::model::Model>::permissions()
-                .query_permission(),
+            $perm,
         )
     };
 }

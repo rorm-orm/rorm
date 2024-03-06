@@ -273,10 +273,14 @@ where
 #[macro_export]
 macro_rules! update {
     ($db:expr, $model:path) => {
-        $crate::crud::update::UpdateBuilder::<_, $model, _, _>::new(
+        $crate::update!(
             $db,
-            <<$model as $crate::model::Patch>::Model as $crate::model::Model>::permissions()
-                .update_permission(),
+            $model,
+            perm = <<$model as $crate::model::Patch>::Model as $crate::model::Model>::permissions()
+                .update_permission()
         )
+    };
+    ($db:expr, $model:path, perm = $perm:expr) => {
+        $crate::crud::update::UpdateBuilder::<_, $model, _, _>::new($db, $perm)
     };
 }

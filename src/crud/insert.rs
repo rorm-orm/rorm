@@ -298,10 +298,16 @@ where
 #[macro_export]
 macro_rules! insert {
     ($db:expr, $patch:path) => {
-        $crate::crud::insert::InsertBuilder::<_, <$patch as $crate::model::Patch>::Model, _>::new(
+        $crate::insert!(
             $db,
-            <<$patch as $crate::model::Patch>::Model as $crate::model::Model>::permissions()
-                .insert_permission(),
+            $patch,
+            perm = <<$patch as $crate::model::Patch>::Model as $crate::model::Model>::permissions()
+                .insert_permission()
+        )
+    };
+    ($db:expr, $patch:path, perm = $perm:expr) => {
+        $crate::crud::insert::InsertBuilder::<_, <$patch as $crate::model::Patch>::Model, _>::new(
+            $db, $perm,
         )
     };
 }

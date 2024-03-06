@@ -128,10 +128,16 @@ where
 #[macro_export]
 macro_rules! delete {
     ($db:expr, $model:path) => {
-        $crate::crud::delete::DeleteBuilder::<_, <$model as $crate::model::Patch>::Model>::new(
+        $crate::delete!(
             $db,
-            <<$model as $crate::model::Patch>::Model as $crate::model::Model>::permissions()
-                .delete_permission(),
+            $model,
+            perm = <<$model as $crate::model::Patch>::Model as $crate::model::Model>::permissions()
+                .delete_permission()
+        )
+    };
+    ($db:expr, $model:path, perm = $perm:expr) => {
+        $crate::crud::delete::DeleteBuilder::<_, <$model as $crate::model::Patch>::Model>::new(
+            $db, $perm,
         )
     };
 }
