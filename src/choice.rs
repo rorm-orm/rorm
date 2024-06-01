@@ -3,6 +3,7 @@
 /// Wrapper around string which is decodable as an enum
 pub struct Choice(pub String);
 
+#[allow(non_local_definitions)]
 #[cfg(feature = "sqlx")]
 const _: () = {
     use sqlx::database::{Database, HasValueRef};

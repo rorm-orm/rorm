@@ -213,9 +213,12 @@ pub fn query<'result, 'db: 'result, 'post_query: 'result, Q: QueryStrategy + Get
     let joins: Vec<_> = joins
         .iter()
         .map(|j| {
-            executor
-                .dialect()
-                .join_table(j.join_type, j.table_name, j.join_alias, j.join_condition)
+            executor.dialect().join_table(
+                j.join_type,
+                j.table_name,
+                j.join_alias,
+                j.join_condition.clone(),
+            )
         })
         .collect();
     let mut q = executor
