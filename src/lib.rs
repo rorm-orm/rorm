@@ -9,18 +9,13 @@
     not(cfg_auto_docs),
     any(
         all(
-            feature = "tokio-rustls",
-            any(
-                feature = "tokio-native-tls",
-                feature = "async-std-native-tls",
-                feature = "async-std-rustls"
-            )
+            feature = "tokio",
+            feature = "async-std"
         ),
         all(
-            feature = "tokio-native-tls",
-            any(feature = "async-std-native-tls", feature = "async-std-rustls")
+            feature = "native-tls",
+            feature = "async-std-rustls"
         ),
-        all(feature = "async-std-native-tls", feature = "async-std-rustls")
     )
 ))]
 compile_error!("Using multiple runtime / tls configurations at the same time is not allowed");
