@@ -1,12 +1,8 @@
-use rustc_version::{version_meta, Channel};
+use rustc_version::{version_meta, Channel, VersionMeta};
 
 fn main() {
-    // Set cfg flags depending on release channel
-    let channel = match version_meta().unwrap().channel {
-        Channel::Stable => "CHANNEL_STABLE",
-        Channel::Beta => "CHANNEL_BETA",
-        Channel::Nightly => "CHANNEL_NIGHTLY",
-        Channel::Dev => "CHANNEL_DEV",
-    };
-    println!("cargo:rustc-cfg={channel}")
+    println!("cargo::rustc-check-cfg=cfg(CHANNEL_NIGHTLY)");
+    if matches!(version_meta(), Ok(VersionMeta { channel: Channel::Nightly, .. })) {
+        println!("cargo:rustc-cfg=CHANNEL_NIGHTLY");
+    }
 }
