@@ -5,21 +5,6 @@
 #![cfg_attr(all(doc, CHANNEL_NIGHTLY), feature(doc_auto_cfg))]
 #![warn(missing_docs)]
 
-#[cfg(all(
-    not(cfg_auto_docs),
-    any(
-        all(
-            feature = "tokio",
-            feature = "async-std"
-        ),
-        all(
-            feature = "native-tls",
-            feature = "async-std-rustls"
-        ),
-    )
-))]
-compile_error!("Using multiple runtime / tls configurations at the same time is not allowed");
-
 pub mod database;
 pub mod error;
 
