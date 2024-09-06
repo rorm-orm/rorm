@@ -6,7 +6,7 @@ pub struct Choice(pub String);
 #[allow(non_local_definitions)]
 #[cfg(feature = "sqlx")]
 const _: () = {
-    use sqlx::database::{Database, HasValueRef};
+    use sqlx::database::Database;
     use sqlx::error::BoxDynError;
     use sqlx::{Decode, Type};
 
@@ -22,7 +22,7 @@ const _: () = {
             }
         }
         impl<'r> Decode<'r, Postgres> for Choice {
-            fn decode(value: <Postgres as HasValueRef<'r>>::ValueRef) -> Result<Self, BoxDynError> {
+            fn decode(value: <Postgres as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
                 <String as Decode<'r, Postgres>>::decode(value).map(Self)
             }
         }
@@ -40,7 +40,7 @@ const _: () = {
             }
         }
         impl<'r> Decode<'r, MySql> for Choice {
-            fn decode(value: <MySql as HasValueRef<'r>>::ValueRef) -> Result<Self, BoxDynError> {
+            fn decode(value: <MySql as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
                 <String as Decode<'r, MySql>>::decode(value).map(Self)
             }
         }
@@ -58,7 +58,7 @@ const _: () = {
             }
         }
         impl<'r> Decode<'r, Sqlite> for Choice {
-            fn decode(value: <Sqlite as HasValueRef<'r>>::ValueRef) -> Result<Self, BoxDynError> {
+            fn decode(value: <Sqlite as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
                 <String as Decode<'r, Sqlite>>::decode(value).map(Self)
             }
         }
