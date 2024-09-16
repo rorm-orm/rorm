@@ -21,6 +21,8 @@ mod sqlx {
 
 use sqlx::Error as SqlxError;
 
+use crate::row::OwnedRowError;
+
 /// Error type to simplify propagating different error types.
 #[derive(Debug)]
 pub enum Error {
@@ -35,6 +37,9 @@ pub enum Error {
 
     /// SQL building error
     SQLBuildError(rorm_sql::error::Error),
+
+    /// Error returned by [`Row::get`](crate::Row::get)
+    RowError(OwnedRowError),
 }
 
 impl error::Error for Error {
@@ -44,6 +49,7 @@ impl error::Error for Error {
             Error::ConfigurationError(_) => None,
             Error::DecodeError(_) => None,
             Error::SQLBuildError(source) => Some(source),
+            Error::RowError(source) => Some(source),
         }
     }
 }
@@ -58,6 +64,9 @@ impl fmt::Display for Error {
             }
             Error::SQLBuildError(error) => {
                 write!(f, "sql error: {error}")
+            }
+            Error::RowError(error) => {
+                write!(f, "{error}")
             }
         }
     }

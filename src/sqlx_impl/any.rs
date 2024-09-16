@@ -358,8 +358,3 @@ trait_alias!(
     /// Trait alias combining all [`Type<DB>`](sqlx::Type)
     trait AnyType: sqlx::Type<Postgres>, sqlx::Type<MySql>, sqlx::Type<Sqlite>,
 );
-
-trait_alias!(
-    /// Trait alias combining all [`ColumnIndex<DB>`](sqlx::ColumnIndex)
-    trait AnyColumnIndex: sqlx::ColumnIndex<postgres::PgRow>, sqlx::ColumnIndex<mysql::MySqlRow>, sqlx::ColumnIndex<sqlite::SqliteRow>,
-);

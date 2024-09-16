@@ -1,14 +1,13 @@
 use super::{no_sqlx, NotInstantiable};
-use crate::row::{Decode, RowIndex};
+use crate::row::{Decode, RowError, RowIndex};
 use crate::{Error, Row};
 
 pub(crate) type Impl = NotInstantiable;
 
 /// Implementation of [Row::get]
-pub(crate) fn get<'r, T, I>(_row: &'r Row, _index: I) -> Result<T, Error>
+pub(crate) fn get<'r, 'i, T>(row: &'r Row, index: RowIndex<'i>) -> Result<T, RowError<'i>>
 where
     T: Decode<'r>,
-    I: RowIndex,
 {
     no_sqlx();
 }
