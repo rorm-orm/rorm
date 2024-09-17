@@ -1,3 +1,8 @@
+Since 0.9.1
+-----------
+- Replaced `Error::DecodeError` variant with a more precise `RowError`
+- TODO: check commits before this one
+
 Since 0.8.1
 -----------
 - Reimplemented QueryWrapper which is a semi-internal self-referencing struct

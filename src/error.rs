@@ -32,9 +32,6 @@ pub enum Error {
     /// Error for pointing to configuration errors.
     ConfigurationError(String),
 
-    /// DecodeError
-    DecodeError(String),
-
     /// SQL building error
     SQLBuildError(rorm_sql::error::Error),
 
@@ -47,7 +44,6 @@ impl error::Error for Error {
         match self {
             Error::SqlxError(source) => Some(source),
             Error::ConfigurationError(_) => None,
-            Error::DecodeError(_) => None,
             Error::SQLBuildError(source) => Some(source),
             Error::RowError(source) => Some(source),
         }
@@ -59,9 +55,6 @@ impl fmt::Display for Error {
         match self {
             Error::SqlxError(error) => write!(f, "sqlx error: {error}"),
             Error::ConfigurationError(error) => write!(f, "configuration error: {error}",),
-            Error::DecodeError(error) => {
-                write!(f, "decode error: {error}")
-            }
             Error::SQLBuildError(error) => {
                 write!(f, "sql error: {error}")
             }
