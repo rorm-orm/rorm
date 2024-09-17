@@ -178,7 +178,7 @@ pub async fn run_migrate_custom(
             Vec::new(),
         )
         .await
-        .and_then(|option| option.map(|row| row.get(0)).transpose())
+        .and_then(|option| option.map(|row| row.get(0)).transpose().map_err(Into::into))
         .with_context(|| {
             "Couldn't fetch information about successful migrations from migration table"
         })?;
