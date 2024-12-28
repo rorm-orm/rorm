@@ -24,7 +24,7 @@ serde_json = { version = "~1" }
 uuid = { version = "~1" }
 
 # SQlite bindings for printf
-libsqlite3-sys = { version = "~0.28", optional = true }
+libsqlite3-sys = { version = "~0.30", optional = true }
 
 # Bitvec support
 bit-vec = { version = "~0.6", optional = true }
