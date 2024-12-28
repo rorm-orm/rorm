@@ -43,7 +43,7 @@ regex = { version = "~1" }
 once_cell = { version = "~1" }
 
 # Runtime
-tokio = { version = ">=1.23.1", features = ["macros", "rt"], optional = true }
+tokio = { version = ">=1.23.1", features = ["macros", "rt"] }
 
 # Enum simplification
 strum = { version = "~0.25" }
@@ -57,15 +57,9 @@ temp-dir = { version = "~0.1" }
 
 [features]
 default = [
-    "tokio",
     "sqlite",
     "mysql",
     "postgres",
-]
-
-tokio = [
-    "dep:tokio",
-    "rorm-db/tokio",
 ]
 
 sqlite = [
