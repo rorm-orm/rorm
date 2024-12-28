@@ -25,7 +25,7 @@ futures = { version = "~0.3" }
 pin-project = { version = "~1" }
 
 # SQL executor. Optional because it requires a runtime and a TLS implementation.
-sqlx = { version = "~0.8", optional = true, features = ["time", "chrono", "uuid"] }
+sqlx = { version = "~0.8", optional = true, default-features = false, features = ["json", "time", "chrono", "uuid"] }
 
 # Logging facade
 log = { version = "~0.4" }
