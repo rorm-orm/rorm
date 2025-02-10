@@ -3,12 +3,16 @@
 //! **Beware:**
 //! `AnyQuery<'q>` and `AnyExecutor<'e>` work quite different than `Query<'q, Any, _>` and `Executor<'e, Database = Any>`
 
+use std::future::poll_fn;
 use std::ops::DerefMut;
+use std::pin::Pin;
+use std::task::{ready, Context, Poll};
 
-use futures::stream::BoxStream;
-use futures::{StreamExt, TryStreamExt};
+use futures_core::Stream;
 use sqlx::query::Query;
 use sqlx::{Executor, Pool, Transaction};
+
+use crate::futures_util::BoxStream;
 
 #[macro_use]
 #[path = "./cond_macros.rs"]
@@ -165,17 +169,39 @@ impl<'q> AnyQuery<'q> {
 
     /// Execute the query and return the generated results in a stream.
     pub fn fetch_many(self) -> BoxStream<'q, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>> {
+        struct MappedStream<'stream, LI, LM, RI, RM> {
+            stream: BoxStream<'stream, sqlx::Result<sqlx::Either<LI, RI>>>,
+            map_left: LM,
+            map_right: RM,
+        }
+        impl<'stream, LI, LM, RI, RM> Unpin for MappedStream<'stream, LI, LM, RI, RM> {}
+        impl<'stream, LI, LM, RI, RM> Stream for MappedStream<'stream, LI, LM, RI, RM>
+        where
+            LM: Fn(LI) -> AnyQueryResult,
+            RM: Fn(RI) -> AnyRow,
+        {
+            type Item = sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>;
+
+            fn poll_next(
+                mut self: Pin<&mut Self>,
+                cx: &mut Context<'_>,
+            ) -> Poll<Option<Self::Item>> {
+                let opt = ready!(self.stream.as_mut().poll_next(cx));
+                Poll::Ready(opt.map(|res| {
+                    res.map(|either| either.map_left(&self.map_left).map_right(&self.map_right))
+                }))
+            }
+        }
         macro_rules! match_impl {
             ($($variant:ident, $db:ident),+) => {
                 match self {$(
-                    Self::$variant(AnyQueryInner { executor, query }) => executor
-                        .fetch_many(query.unwrap())
-                        .map_ok(|either| {
-                            either
-                                .map_left(AnyQueryResult::$db)
-                                .map_right(AnyRow::$db)
+                    Self::$variant(AnyQueryInner { executor, query }) => {
+                        Box::pin(MappedStream {
+                            stream: executor.fetch_many(query.unwrap()),
+                            map_left: AnyQueryResult::$db,
+                            map_right: AnyRow::$db,
                         })
-                        .boxed(),
+                    }
                 )+}
             }
         }
@@ -187,15 +213,16 @@ impl<'q> AnyQuery<'q> {
         macro_rules! match_impl {
             ($($variant:ident, $db:ident),+) => {
                 match self {$(
-                    Self::$variant(AnyQueryInner { executor, query }) => executor
-                        .fetch_many(query.unwrap())
-                        .try_filter_map(|either| async move {
-                            Ok(either
-                                .right()
-                                .map(AnyRow::$db))
-                        })
-                        .try_collect()
-                        .await,
+                    Self::$variant(AnyQueryInner { executor, query }) => {
+                        let mut stream = executor.fetch_many(query.unwrap());
+                        let mut vec = Vec::new();
+                        while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx)).await.transpose()? {
+                            if let Some(row) = either.right() {
+                                vec.push(AnyRow::$db(row));
+                            }
+                        }
+                        Ok(vec)
+                    }
                 )+}
             }
         }
@@ -222,13 +249,17 @@ impl<'q> AnyQuery<'q> {
         macro_rules! match_impl {
             ($($variant:ident, $db:ident),+) => {
                 match self {$(
-                    Self::$variant(AnyQueryInner { executor, query }) => executor
-                        .fetch_many(query.unwrap())
-                        .try_fold(0, |sum, either| async move {Ok(match either {
-                            sqlx::Either::Left(result) => sum + result.rows_affected(),
-                            sqlx::Either::Right(_) => sum,
-                        })})
-                        .await,
+                    Self::$variant(AnyQueryInner { executor, query }) => {
+                        let mut stream = executor.fetch_many(query.unwrap());
+                        let mut count = 0;
+                        while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx)).await.transpose()? {
+                            match either {
+                                sqlx::Either::Left(result) => count += result.rows_affected(),
+                                sqlx::Either::Right(_row) => {},
+                            }
+                        }
+                        Ok(count)
+                    }
                 )+}
             }
         }

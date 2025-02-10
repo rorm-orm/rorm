@@ -1,6 +1,6 @@
+use std::future::poll_fn;
 use std::time::Duration;
 
-use futures::TryStreamExt;
 use log::{debug, LevelFilter};
 use rorm_declaration::config::DatabaseDriver;
 use rorm_sql::value::Value;
@@ -163,12 +163,20 @@ pub async fn raw_sql<'a>(
         }
     }
 
-    query
-        .fetch_many()
-        .try_filter_map(|either| async { Ok(either.right().map(Row)) })
-        .err_into()
-        .try_collect()
+    let mut stream = query.fetch_many();
+    let mut rows = Vec::new();
+    while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
         .await
+        .transpose()?
+    {
+        match either {
+            sqlx::Either::Left(_result) => {}
+            sqlx::Either::Right(row) => {
+                rows.push(Row(row));
+            }
+        }
+    }
+    Ok(rows)
 }
 
 /// Implementation of [Database::start_transaction]

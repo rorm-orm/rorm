@@ -5,10 +5,10 @@
 
 use std::future::Future;
 
-use futures::future::BoxFuture;
 use rorm_sql::value::Value;
 use rorm_sql::DBImpl;
 
+use crate::futures_util::BoxFuture;
 use crate::transaction::{Transaction, TransactionGuard};
 use crate::{internal, Database, Error};
 

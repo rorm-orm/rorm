@@ -1,9 +1,9 @@
+use std::future;
 use std::future::{ready, Ready};
 use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::task::{ready, Context, Poll};
 
-use futures::future::{self, BoxFuture, FutureExt, TryFutureExt};
-use futures::stream::{self, BoxStream, TryCollect, TryFilterMap, TryStreamExt};
+use futures_core::stream;
 use rorm_sql::value::Value;
 use rorm_sql::DBImpl;
 
@@ -101,13 +101,12 @@ pub trait QueryStrategyImpl: QueryStrategyResult {
         E: AnyExecutor<'query>;
 }
 
-type AnyEither = sqlx::Either<AnyQueryResult, AnyRow>;
-type FetchMany<'a> = BoxStream<'a, Result<AnyEither, sqlx::Error>>;
-
 pub type QueryFuture<T> = QueryWrapper<T>;
 pub type QueryStream<T> = QueryWrapper<T>;
 
 pub use query_wrapper::QueryWrapper;
+
+use crate::futures_util::{BoxFuture, BoxStream};
 
 /// Private module to contain the internals behind a sound api
 mod query_wrapper {
@@ -188,15 +187,7 @@ where
 }
 
 impl QueryStrategyResult for Nothing {
-    type Result<'query> = QueryFuture<
-        future::MapOk<
-            TryCollect<
-                stream::ErrInto<stream::MapOk<FetchMany<'query>, fn(AnyEither) -> ()>, Error>,
-                Vec<()>,
-            >,
-            fn(Vec<()>) -> (),
-        >,
-    >;
+    type Result<'query> = QueryFuture<NothingFuture<'query>>;
 }
 
 impl QueryStrategyImpl for Nothing {
@@ -208,17 +199,28 @@ impl QueryStrategyImpl for Nothing {
     where
         E: AnyExecutor<'query>,
     {
-        fn dump<T>(_: T) {}
-        let dump_either: fn(AnyEither) -> () = dump;
-        let dump_vec: fn(Vec<()>) -> () = dump;
-        QueryFuture::new(executor, query, values, |query| {
-            query
-                .fetch_many()
-                .map_ok(dump_either)
-                .err_into()
-                .try_collect()
-                .map_ok(dump_vec)
+        QueryFuture::new(executor, query, values, |query| NothingFuture {
+            stream: query.fetch_many(),
         })
+    }
+}
+
+/// [`QueryStrategyResult::Result`] of [`Nothing`]
+pub struct NothingFuture<'stream> {
+    stream: BoxStream<'stream, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>>,
+}
+
+impl<'stream> future::Future for NothingFuture<'stream> {
+    type Output = Result<(), Error>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        loop {
+            return Poll::Ready(match ready!(self.stream.as_mut().poll_next(cx)) {
+                None => Ok(()),
+                Some(Err(error)) => Err(error.into()),
+                Some(_either) => continue,
+            });
+        }
     }
 }
 
@@ -236,7 +238,7 @@ impl QueryStrategyImpl for AffectedRows {
         E: AnyExecutor<'query>,
     {
         QueryFuture::new(executor, query, values, |query| {
-            (async move { Ok(query.fetch_affected_rows().await?) }).boxed()
+            Box::pin(async move { Ok(query.fetch_affected_rows().await?) }) as BoxFuture<_>
         })
     }
 }
@@ -255,13 +257,12 @@ impl QueryStrategyImpl for One {
         E: AnyExecutor<'query>,
     {
         QueryFuture::new(executor, query, values, |query| {
-            (async move {
+            Box::pin(async move {
                 Ok(Row(query
                     .fetch_optional()
                     .await?
                     .ok_or(sqlx::Error::RowNotFound)?))
-            })
-            .boxed()
+            }) as BoxFuture<_>
         })
     }
 }
@@ -280,21 +281,10 @@ impl QueryStrategyImpl for Optional {
         E: AnyExecutor<'query>,
     {
         QueryFuture::new(executor, query, values, |query| {
-            (async move { Ok(query.fetch_optional().await?.map(Row)) }).boxed()
+            Box::pin(async move { Ok(query.fetch_optional().await?.map(Row)) }) as BoxFuture<_>
         })
     }
 }
-
-/// Function used by [All] and [Stream] in [try_filter_map](TryStreamExt::try_filter_map).
-static TRY_FILTER_MAP: fn(AnyEither) -> Ready<Result<Option<Row>, sqlx::Error>> = {
-    fn convert(either: AnyEither) -> Ready<Result<Option<Row>, sqlx::Error>> {
-        std::future::ready(Ok(match either {
-            AnyEither::Left(_) => None,
-            AnyEither::Right(row) => Some(Row(row)),
-        }))
-    }
-    convert
-};
 
 impl QueryStrategyResult for All {
     type Result<'query> = QueryFuture<BoxFuture<'query, Result<Vec<Row>, Error>>>;
@@ -310,22 +300,14 @@ impl QueryStrategyImpl for All {
         E: AnyExecutor<'query>,
     {
         QueryFuture::new(executor, query, values, |query| {
-            (async move { Ok(query.fetch_all().await?.into_iter().map(Row).collect()) }).boxed()
+            Box::pin(async move { Ok(query.fetch_all().await?.into_iter().map(Row).collect()) })
+                as BoxFuture<_>
         })
     }
 }
 
 impl QueryStrategyResult for Stream {
-    type Result<'query> = QueryStream<
-        stream::ErrInto<
-            TryFilterMap<
-                FetchMany<'query>,
-                Ready<Result<Option<Row>, sqlx::Error>>,
-                fn(AnyEither) -> Ready<Result<Option<Row>, sqlx::Error>>,
-            >,
-            Error,
-        >,
-    >;
+    type Result<'query> = QueryStream<StreamResult<'query>>;
 }
 
 impl QueryStrategyImpl for Stream {
@@ -337,9 +319,30 @@ impl QueryStrategyImpl for Stream {
     where
         E: AnyExecutor<'query>,
     {
-        QueryStream::new(executor, query, values, |query| {
-            query.fetch_many().try_filter_map(TRY_FILTER_MAP).err_into()
+        QueryStream::new(executor, query, values, |query| StreamResult {
+            stream: query.fetch_many(),
         })
+    }
+}
+
+/// [`QueryStrategyResult::Result`] of [`Stream`]
+pub struct StreamResult<'stream> {
+    stream: BoxStream<'stream, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>>,
+}
+
+impl<'stream> Unpin for StreamResult<'stream> {}
+impl<'stream> stream::Stream for StreamResult<'stream> {
+    type Item = Result<Row, Error>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        loop {
+            return Poll::Ready(match ready!(self.stream.as_mut().poll_next(cx)) {
+                None => None,
+                Some(Err(error)) => Some(Err(error.into())),
+                Some(Ok(sqlx::Either::Right(row))) => Some(Ok(Row(row))),
+                Some(Ok(sqlx::Either::Left(_result))) => continue,
+            });
+        }
     }
 }
 

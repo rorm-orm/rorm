@@ -421,17 +421,3 @@ pub async fn update<'post_build>(
         .execute::<AffectedRows>(query_string, bind_params)
         .await
 }
-
-#[cfg(test)]
-mod test {
-    use futures::future::BoxFuture;
-
-    use crate::{database, Database, Error, Row};
-
-    #[allow(unused)]
-    fn should_compile(db: &'static Database) {
-        let fut = database::insert_bulk_returning(db, "", &[], &[], &[]);
-        let fut: BoxFuture<'_, Result<Vec<Row>, Error>> = Box::pin(fut);
-        drop(fut);
-    }
-}

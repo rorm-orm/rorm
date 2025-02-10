@@ -12,6 +12,7 @@ pub(crate) mod query_type;
 
 pub mod choice;
 pub mod executor;
+pub(crate) mod futures_util;
 pub mod row;
 pub mod transaction;
 

@@ -1,7 +1,5 @@
 use std::future::Ready;
 
-use futures::future::BoxFuture;
-use futures::stream::Empty;
 use rorm_sql::value::Value;
 use rorm_sql::DBImpl;
 
@@ -12,6 +10,7 @@ use crate::executor::{
     AffectedRows, All, DynamicExecutor, Executor, Nothing, One, Optional, QueryStrategy,
     QueryStrategyResult, Stream,
 };
+use crate::futures_util::{BoxFuture, EmptyStream};
 use crate::row::Row;
 use crate::transaction::{Transaction, TransactionGuard};
 
@@ -102,5 +101,5 @@ impl QueryStrategyResult for All {
 }
 
 impl QueryStrategyResult for Stream {
-    type Result<'result> = Empty<Result<Row, Error>>;
+    type Result<'result> = EmptyStream<Result<Row, Error>>;
 }
