@@ -28,7 +28,7 @@ pin-project = { version = "~1" }
 sqlx = { version = "~0.8", optional = true, default-features = false, features = ["json", "time", "chrono", "uuid", "runtime-tokio"] }
 
 # Logging facade
-log = { version = "~0.4" }
+tracing = { version = "~0.1" }
 
 # Serialization
 serde = { version = "~1", features = ["derive"], optional = true }
@@ -48,7 +48,6 @@ all-driver = [
 
 serde = [
     "dep:serde",
-    "log/serde",
 ]
 
 # database backends

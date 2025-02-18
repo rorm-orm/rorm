@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 
-use log::{debug, warn, LevelFilter};
 use rorm_declaration::config::DatabaseDriver;
 use rorm_sql::delete::Delete;
 use rorm_sql::insert::Insert;
@@ -13,6 +12,7 @@ use rorm_sql::select_column::SelectColumnData;
 use rorm_sql::update::Update;
 use rorm_sql::value::Value;
 use rorm_sql::{conditional, value};
+use tracing::warn;
 
 use crate::error::Error;
 use crate::executor::{AffectedRows, All, Executor, Nothing, One, QueryStrategy};
@@ -51,21 +51,6 @@ pub struct DatabaseConfiguration {
     ///
     /// Must be greater than `0`.
     pub max_connections: u32,
-
-    /// If set to true, logging will be completely disabled.
-    ///
-    /// In case of None, false will be used.
-    pub disable_logging: Option<bool>,
-
-    /// Set the log level of SQL statements
-    ///
-    /// In case of None, [`LevelFilter::Debug`] will be used.
-    pub statement_log_level: Option<LevelFilter>,
-
-    /// Log level in case of slow statements (>300 ms)
-    ///
-    /// In case of None, [`LevelFilter::Warn`] will be used.
-    pub slow_statement_log_level: Option<LevelFilter>,
 }
 
 impl DatabaseConfiguration {
@@ -75,9 +60,6 @@ impl DatabaseConfiguration {
     **Defaults**:
     - `min_connections`: 1
     - `max_connections`: 10
-    - `disable_logging`: None
-    - `statement_log_level`: [`Some`] of [`LevelFilter::Debug`]
-    - `slow_statement_log_level`: [`Some`] of [`LevelFilter::Warn`]
 
     **Parameter**:
     - `driver`: [`DatabaseDriver`]: Configuration of the database driver.
@@ -87,9 +69,6 @@ impl DatabaseConfiguration {
             driver,
             min_connections: 1,
             max_connections: 10,
-            disable_logging: None,
-            statement_log_level: Some(LevelFilter::Debug),
-            slow_statement_log_level: Some(LevelFilter::Warn),
         }
     }
 }
@@ -235,8 +214,6 @@ pub fn query<'result, 'db: 'result, 'post_query: 'result, Q: QueryStrategy + Get
 
     let (query_string, bind_params) = q.build();
 
-    debug!("SQL: {}", query_string);
-
     executor.execute::<Q>(query_string, bind_params)
 }
 
@@ -287,8 +264,6 @@ pub(crate) fn generic_insert<'result, 'db: 'result, 'post_query: 'result, Q: Que
 
     let (query_string, bind_params): (_, Vec<Value<'post_query>>) = q.build();
 
-    debug!("SQL: {}", query_string);
-
     executor.execute::<Q>(query_string, bind_params)
 }
 
@@ -314,8 +289,6 @@ pub async fn insert_bulk(
         let mut insert = tr.dialect().insert(model, columns, chunk, None);
         insert = insert.rollback_transaction();
         let (insert_query, insert_params) = insert.build();
-
-        debug!("SQL: {}", insert_query);
 
         tr.execute::<Nothing>(insert_query, insert_params).await?;
     }
@@ -349,8 +322,6 @@ pub async fn insert_bulk_returning(
         insert = insert.rollback_transaction();
         let (insert_query, insert_params) = insert.build();
 
-        debug!("SQL: {}", insert_query);
-
         inserted.extend(tr.execute::<All>(insert_query, insert_params).await?);
     }
 
@@ -379,8 +350,6 @@ pub async fn delete<'post_build>(
     }
 
     let (query_string, bind_params) = q.build();
-
-    debug!("SQL: {}", query_string);
 
     executor
         .execute::<AffectedRows>(query_string, bind_params)
@@ -415,7 +384,6 @@ pub async fn update<'post_build>(
     }
 
     let (query_string, bind_params) = stmt.build()?;
-    debug!("SQL: {}", query_string);
 
     executor
         .execute::<AffectedRows>(query_string, bind_params)

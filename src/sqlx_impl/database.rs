@@ -1,10 +1,10 @@
 use std::future::poll_fn;
 use std::time::Duration;
 
-use log::{debug, LevelFilter};
 use rorm_declaration::config::DatabaseDriver;
 use rorm_sql::value::Value;
 use sqlx::ConnectOptions;
+use tracing::log::LevelFilter;
 
 use crate::database::{Database, DatabaseConfiguration};
 use crate::error::Error;
@@ -41,14 +41,6 @@ pub(crate) async fn connect(configuration: DatabaseConfiguration) -> Result<Impl
         };
     }
 
-    let slow_log_level = configuration
-        .slow_statement_log_level
-        .unwrap_or(LevelFilter::Warn);
-    let log_level = configuration
-        .statement_log_level
-        .unwrap_or(LevelFilter::Debug);
-    let disabled_logging = configuration.disable_logging.unwrap_or(false);
-
     let pool: Impl = match &configuration.driver {
         #[cfg(feature = "sqlite")]
         DatabaseDriver::SQLite { filename } => {
@@ -59,14 +51,9 @@ pub(crate) async fn connect(configuration: DatabaseConfiguration) -> Result<Impl
             }
             let connect_options = sqlx::sqlite::SqliteConnectOptions::new()
                 .create_if_missing(true)
-                .filename(filename);
-            let connect_options = if disabled_logging {
-                connect_options.disable_statement_logging()
-            } else {
-                connect_options
-                    .log_statements(log_level)
-                    .log_slow_statements(slow_log_level, SLOW_STATEMENTS)
-            };
+                .filename(filename)
+                .log_statements(LevelFilter::Off)
+                .log_slow_statements(LevelFilter::Warn, SLOW_STATEMENTS);
             Impl::Sqlite(
                 pool_options!(sqlx::sqlite::SqlitePoolOptions)
                     .connect_with(connect_options)
@@ -91,14 +78,9 @@ pub(crate) async fn connect(configuration: DatabaseConfiguration) -> Result<Impl
                 .port(*port)
                 .username(user.as_str())
                 .password(password.as_str())
-                .database(name.as_str());
-            let connect_options = if disabled_logging {
-                connect_options.disable_statement_logging()
-            } else {
-                connect_options
-                    .log_statements(log_level)
-                    .log_slow_statements(slow_log_level, SLOW_STATEMENTS)
-            };
+                .database(name.as_str())
+                .log_statements(LevelFilter::Off)
+                .log_slow_statements(LevelFilter::Warn, SLOW_STATEMENTS);
             Impl::Postgres(
                 pool_options!(sqlx::postgres::PgPoolOptions)
                     .connect_with(connect_options)
@@ -123,14 +105,9 @@ pub(crate) async fn connect(configuration: DatabaseConfiguration) -> Result<Impl
                 .port(*port)
                 .username(user.as_str())
                 .password(password.as_str())
-                .database(name.as_str());
-            let connect_options = if disabled_logging {
-                connect_options.disable_statement_logging()
-            } else {
-                connect_options
-                    .log_statements(log_level)
-                    .log_slow_statements(slow_log_level, SLOW_STATEMENTS)
-            };
+                .database(name.as_str())
+                .log_statements(LevelFilter::Off)
+                .log_slow_statements(LevelFilter::Warn, SLOW_STATEMENTS);
             Impl::MySql(
                 pool_options!(sqlx::mysql::MySqlPoolOptions)
                     .connect_with(connect_options)
@@ -149,8 +126,6 @@ pub async fn raw_sql<'a>(
     bind_params: Option<&[Value<'a>]>,
     transaction: Option<&mut Transaction>,
 ) -> Result<Vec<Row>, Error> {
-    debug!("SQL: {}", query_string);
-
     let mut query = if let Some(transaction) = transaction {
         transaction.0.query(query_string)
     } else {

@@ -6,6 +6,7 @@ use std::task::{ready, Context, Poll};
 use futures_core::stream;
 use rorm_sql::value::Value;
 use rorm_sql::DBImpl;
+use tracing::debug;
 
 use crate::executor::{
     AffectedRows, All, DynamicExecutor, Executor, Nothing, One, Optional, QueryStrategy,
@@ -64,6 +65,12 @@ impl<'executor> Executor<'executor> for &'executor Database {
         'data: 'result,
         Q: QueryStrategy,
     {
+        debug!(
+            target: "rorm_db::executor",
+            sql = query,
+            values.len = values.len(),
+            "Executing statement"
+        );
         Q::execute(&self.0, query, values)
     }
 
