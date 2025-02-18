@@ -52,7 +52,6 @@ pub(crate) async fn connect(configuration: DatabaseConfiguration) -> Result<Impl
             let connect_options = sqlx::sqlite::SqliteConnectOptions::new()
                 .create_if_missing(true)
                 .filename(filename)
-                .log_statements(LevelFilter::Off)
                 .log_slow_statements(LevelFilter::Warn, SLOW_STATEMENTS);
             Impl::Sqlite(
                 pool_options!(sqlx::sqlite::SqlitePoolOptions)
@@ -79,7 +78,6 @@ pub(crate) async fn connect(configuration: DatabaseConfiguration) -> Result<Impl
                 .username(user.as_str())
                 .password(password.as_str())
                 .database(name.as_str())
-                .log_statements(LevelFilter::Off)
                 .log_slow_statements(LevelFilter::Warn, SLOW_STATEMENTS);
             Impl::Postgres(
                 pool_options!(sqlx::postgres::PgPoolOptions)
@@ -106,7 +104,6 @@ pub(crate) async fn connect(configuration: DatabaseConfiguration) -> Result<Impl
                 .username(user.as_str())
                 .password(password.as_str())
                 .database(name.as_str())
-                .log_statements(LevelFilter::Off)
                 .log_slow_statements(LevelFilter::Warn, SLOW_STATEMENTS);
             Impl::MySql(
                 pool_options!(sqlx::mysql::MySqlPoolOptions)
