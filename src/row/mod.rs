@@ -24,17 +24,9 @@ impl Row {
 }
 
 /// Something which can be decoded from a [`Row`]'s cell.
-#[cfg(feature = "sqlx")]
 pub trait Decode<'r>: internal::any::AnyType + internal::any::AnyDecode<'r> {}
-/// Something which can be decoded from a [`Row`]'s cell.
-#[cfg(not(feature = "sqlx"))]
-pub trait Decode<'r> {}
+impl<'r, T: internal::any::AnyType + internal::any::AnyDecode<'r>> Decode<'r> for T {}
 
 /// Something which can be decoded from a [`Row`]'s cell without borrowing.
 pub trait DecodeOwned: for<'r> Decode<'r> {}
 impl<T: for<'r> Decode<'r>> DecodeOwned for T {}
-
-#[cfg(feature = "sqlx")]
-impl<'r, T: internal::any::AnyType + internal::any::AnyDecode<'r>> Decode<'r> for T {}
-#[cfg(not(feature = "sqlx"))]
-impl<'r, T> Decode<'r> for T {}

@@ -4,7 +4,6 @@
 pub struct Choice(pub String);
 
 #[allow(non_local_definitions)]
-#[cfg(feature = "sqlx")]
 const _: () = {
     use sqlx::database::Database;
     use sqlx::error::BoxDynError;

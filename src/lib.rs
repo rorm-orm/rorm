@@ -16,8 +16,7 @@ pub(crate) mod futures_util;
 pub mod row;
 pub mod transaction;
 
-#[cfg_attr(feature = "sqlx", path = "sqlx_impl/mod.rs")]
-#[cfg_attr(not(feature = "sqlx"), path = "dummy_impl/mod.rs")]
+#[path = "sqlx_impl/mod.rs"]
 pub(crate) mod internal;
 
 /// Re-export [rorm-sql](rorm_sql)

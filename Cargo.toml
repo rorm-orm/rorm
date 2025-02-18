@@ -18,14 +18,14 @@ name = "rorm_db"
 rorm-sql = { version = "~0.8", path = "../rorm-sql" }
 rorm-declaration = { version = "~0.4", path = "../rorm-declaration" }
 
-# Stream trait
-futures-core = "~0.3"
+# Basic traits and types required for async
+futures-core = "~0.3" # Used for the stream trait
 
-# Allow wrapping futures and streams
-pin-project = { version = "~1" }
+# Macro implemeting pin-projection
+pin-project = { version = "~1" } # Used to wrap futures and streams which are !Unpin
 
-# SQL executor. Optional because it requires a runtime and a TLS implementation.
-sqlx = { version = "~0.8", optional = true, default-features = false, features = ["json", "time", "chrono", "uuid", "runtime-tokio"] }
+# SQL executor
+sqlx = { version = "~0.8", default-features = false, features = ["json", "time", "chrono", "uuid", "runtime-tokio"] }
 
 # Logging facade
 tracing = { version = "~0.1" }

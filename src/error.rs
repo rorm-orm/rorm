@@ -2,23 +2,6 @@
 
 use std::{error, fmt};
 
-#[cfg(not(feature = "sqlx"))]
-mod sqlx {
-    /// Represent all ways a method can fail within SQLx.
-    ///
-    /// I.e. not at all since sqlx isn't a dependency.
-    #[derive(Debug)]
-    pub enum Error {}
-
-    impl std::error::Error for Error {}
-
-    impl std::fmt::Display for Error {
-        fn fmt(&self, _f: &mut std::fmt::Formatter) -> std::fmt::Result {
-            unreachable!("You shouldn't be able to get an instance of an empty enum!");
-        }
-    }
-}
-
 use sqlx::Error as SqlxError;
 
 use crate::row::OwnedRowError;
