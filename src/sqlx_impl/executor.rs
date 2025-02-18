@@ -27,6 +27,12 @@ impl<'executor> Executor<'executor> for &'executor mut Transaction {
         'data: 'result,
         Q: QueryStrategy,
     {
+        debug!(
+            target: "rorm_db::executor",
+            sql = query,
+            values.len = values.len(),
+            "Executing statement"
+        );
         Q::execute(&mut self.0, query, values)
     }
 

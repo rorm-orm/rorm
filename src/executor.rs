@@ -7,6 +7,7 @@ use std::future::Future;
 
 use rorm_sql::value::Value;
 use rorm_sql::DBImpl;
+use tracing::debug;
 
 use crate::futures_util::BoxFuture;
 use crate::transaction::{Transaction, TransactionGuard};
@@ -150,6 +151,12 @@ impl<'executor> Executor<'executor> for DynamicExecutor<'executor> {
         'data: 'result,
         Q: QueryStrategy,
     {
+        debug!(
+            target: "rorm_db::executor",
+            sql = query,
+            values.len = values.len(),
+            "Executing statement"
+        );
         match self {
             DynamicExecutor::Database(db) => db.execute::<Q>(query, values),
             DynamicExecutor::Transaction(tr) => tr.execute::<Q>(query, values),
