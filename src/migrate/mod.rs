@@ -112,9 +112,6 @@ pub async fn run_migrate_custom(
         driver: db_conf.driver,
         min_connections: 1,
         max_connections: 1,
-        disable_logging: None,
-        statement_log_level: None,
-        slow_statement_log_level: None,
     })
     .await?;
 
