@@ -47,7 +47,7 @@ pub enum SelectColumnImpl<'until_build> {
     Postgres(SelectColumnData<'until_build>),
 }
 
-impl<'until_build> SelectColumn for SelectColumnImpl<'until_build> {
+impl SelectColumn for SelectColumnImpl<'_> {
     fn build(&self, s: &mut String) {
         match self {
             #[cfg(feature = "sqlite")]

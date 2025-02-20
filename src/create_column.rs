@@ -101,9 +101,7 @@ pub enum CreateColumnImpl<'until_build, 'post_build> {
     Postgres(CreateColumnPostgresData<'until_build, 'post_build>),
 }
 
-impl<'until_build, 'post_build> CreateColumn<'post_build>
-    for CreateColumnImpl<'until_build, 'post_build>
-{
+impl<'post_build> CreateColumn<'post_build> for CreateColumnImpl<'_, 'post_build> {
     fn build(self, s: &mut String) -> Result<(), Error> {
         match self {
             #[cfg(feature = "sqlite")]

@@ -106,9 +106,7 @@ pub enum JoinTableImpl<'until_build, 'post_query> {
     Postgres(JoinTableData<'until_build, 'post_query>),
 }
 
-impl<'until_build, 'post_query> JoinTable<'post_query>
-    for JoinTableImpl<'until_build, 'post_query>
-{
+impl<'post_query> JoinTable<'post_query> for JoinTableImpl<'_, 'post_query> {
     fn build(&self, s: &mut String, lookup: &mut Vec<Value<'post_query>>) {
         match self {
             #[cfg(feature = "sqlite")]

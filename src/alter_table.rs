@@ -80,9 +80,7 @@ pub enum AlterTableImpl<'until_build, 'post_build> {
     Postgres(AlterTableData<'until_build, 'post_build>),
 }
 
-impl<'until_build, 'post_build> AlterTable<'post_build>
-    for AlterTableImpl<'until_build, 'post_build>
-{
+impl<'post_build> AlterTable<'post_build> for AlterTableImpl<'_, 'post_build> {
     fn build(self) -> Result<Vec<(String, Vec<Value<'post_build>>)>, Error> {
         match self {
             #[cfg(feature = "sqlite")]

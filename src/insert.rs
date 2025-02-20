@@ -69,7 +69,7 @@ pub enum InsertImpl<'until_build, 'post_build> {
     Postgres(InsertData<'until_build, 'post_build>),
 }
 
-impl<'until_build, 'post_build> Insert<'post_build> for InsertImpl<'until_build, 'post_build> {
+impl<'post_build> Insert<'post_build> for InsertImpl<'_, 'post_build> {
     fn rollback_transaction(mut self) -> Self {
         match self {
             #[cfg(feature = "sqlite")]

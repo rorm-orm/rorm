@@ -46,7 +46,7 @@ pub enum DropTableImpl<'until_build> {
     Postgres(DropTableData<'until_build>),
 }
 
-impl<'until_build> DropTable for DropTableImpl<'until_build> {
+impl DropTable for DropTableImpl<'_> {
     fn if_exists(mut self) -> Self {
         match self {
             #[cfg(feature = "sqlite")]
