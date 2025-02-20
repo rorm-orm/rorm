@@ -152,7 +152,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
         internal_models
             .models
             .iter()
-            .filter(|x| old_lookup.get(x.name.as_str()).is_some())
+            .filter(|x| old_lookup.contains_key(x.name.as_str()))
             .for_each(|x| {
                 // Check if a new field has been added
                 x.fields.iter().for_each(|y| {
@@ -161,7 +161,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                         .iter()
                         .any(|z| z.name == y.name)
                     {
-                        if new_fields.get(x.name.as_str()).is_none() {
+                        if !new_fields.contains_key(x.name.as_str()) {
                             new_fields.insert(x.name.clone(), vec![]);
                         }
                         new_fields.get_mut(x.name.as_str()).unwrap().push(y);
@@ -171,7 +171,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                 // Check if a existing field got deleted
                 old_lookup[x.name.as_str()].fields.iter().for_each(|y| {
                     if !x.fields.iter().any(|z| z.name == y.name) {
-                        if deleted_fields.get(x.name.as_str()).is_none() {
+                        if !deleted_fields.contains_key(x.name.as_str()) {
                             deleted_fields.insert(x.name.clone(), vec![]);
                         }
                         deleted_fields.get_mut(x.name.as_str()).unwrap().push(y);
@@ -183,7 +183,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                     x.fields.iter().filter(|z| y.name == z.name).for_each(|z| {
                         // Check for differences
                         if y.db_type != z.db_type || y.annotations != z.annotations {
-                            if altered_fields.get(x.name.as_str()).is_none() {
+                            if !altered_fields.contains_key(x.name.as_str()) {
                                 altered_fields.insert(x.name.clone(), vec![]);
                             }
                             altered_fields.get_mut(&x.name).unwrap().push((y, z));
@@ -341,6 +341,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             af.iter().for_each(|(old, new)| {
                 // Check datatype
                 if old.db_type != new.db_type {
+                    #[expect(clippy::match_single_binding, reason = "It will be extended™")]
                     match (old.db_type, new.db_type) {
                         // TODO:
                         // There are cases where columns can be altered
