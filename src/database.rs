@@ -361,7 +361,7 @@ pub async fn delete<'post_build>(
 /// **Parameter**:
 /// - `model`: Name of the model to update rows from
 /// - `updates`: A list of updates. An update is a tuple that consists of a list of columns to
-/// update as well as the value to set to the columns.
+///     update as well as the value to set to the columns.
 /// - `condition`: Optional condition to apply.
 /// - `transaction`: Optional transaction to execute the query on.
 ///

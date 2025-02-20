@@ -7,7 +7,7 @@ pub enum RowIndex<'i> {
     Name(&'i str),
 }
 
-impl<'i> RowIndex<'i> {
+impl RowIndex<'_> {
     /// Converts the index into its owned version
     pub fn into_owned(self) -> OwnedRowIndex {
         match self {
@@ -36,7 +36,7 @@ impl OwnedRowIndex {
     }
 }
 
-impl<'i> From<usize> for RowIndex<'i> {
+impl From<usize> for RowIndex<'_> {
     fn from(value: usize) -> Self {
         Self::Position(value)
     }
@@ -48,7 +48,7 @@ impl<'i> From<&'i str> for RowIndex<'i> {
     }
 }
 
-impl<'i> From<usize> for OwnedRowIndex {
+impl From<usize> for OwnedRowIndex {
     fn from(value: usize) -> Self {
         Self::Position(value)
     }

@@ -174,8 +174,8 @@ impl<'q> AnyQuery<'q> {
             map_left: LM,
             map_right: RM,
         }
-        impl<'stream, LI, LM, RI, RM> Unpin for MappedStream<'stream, LI, LM, RI, RM> {}
-        impl<'stream, LI, LM, RI, RM> Stream for MappedStream<'stream, LI, LM, RI, RM>
+        impl<LI, LM, RI, RM> Unpin for MappedStream<'_, LI, LM, RI, RM> {}
+        impl<LI, LM, RI, RM> Stream for MappedStream<'_, LI, LM, RI, RM>
         where
             LM: Fn(LI) -> AnyQueryResult,
             RM: Fn(RI) -> AnyRow,

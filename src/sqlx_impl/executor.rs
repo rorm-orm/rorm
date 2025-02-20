@@ -223,7 +223,7 @@ pub struct NothingFuture<'stream> {
     stream: BoxStream<'stream, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>>,
 }
 
-impl<'stream> future::Future for NothingFuture<'stream> {
+impl future::Future for NothingFuture<'_> {
     type Output = Result<(), Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -343,8 +343,8 @@ pub struct StreamResult<'stream> {
     stream: BoxStream<'stream, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>>,
 }
 
-impl<'stream> Unpin for StreamResult<'stream> {}
-impl<'stream> stream::Stream for StreamResult<'stream> {
+impl Unpin for StreamResult<'_> {}
+impl stream::Stream for StreamResult<'_> {
     type Item = Result<Row, Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
