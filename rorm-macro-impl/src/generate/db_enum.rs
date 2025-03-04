@@ -5,7 +5,10 @@ use crate::parse::db_enum::ParsedDbEnum;
 use crate::MacroConfig;
 
 pub fn generate_db_enum(parsed: &ParsedDbEnum, config: &MacroConfig) -> TokenStream {
-    let MacroConfig { rorm_path } = config;
+    let MacroConfig {
+        rorm_path,
+        _non_exhaustive: (),
+    } = config;
 
     let ParsedDbEnum {
         vis,

@@ -8,7 +8,10 @@ use crate::parse::patch::ParsedPatch;
 use crate::MacroConfig;
 
 pub fn generate_patch(patch: &ParsedPatch, config: &MacroConfig) -> TokenStream {
-    let MacroConfig { rorm_path } = config;
+    let MacroConfig {
+        rorm_path,
+        _non_exhaustive: (),
+    } = config;
 
     let ParsedPatch {
         vis,
@@ -59,7 +62,10 @@ pub fn partially_generate_patch<'a>(
     types: impl Iterator<Item = &'a Type> + Clone,
     config: &MacroConfig,
 ) -> TokenStream {
-    let MacroConfig { rorm_path } = config;
+    let MacroConfig {
+        rorm_path,
+        _non_exhaustive: (),
+    } = config;
 
     let value_space_impl = format_ident!("__{patch}_ValueSpaceImpl");
     let value_space_marker_impl = format_ident!("__{patch}_ValueSpaceImplMarker");

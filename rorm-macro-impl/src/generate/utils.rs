@@ -24,7 +24,10 @@ pub fn phantom_data(generics: &Generics) -> TokenStream {
 
 /// Creates an expression for a `Source` instance from a span
 pub fn get_source(span: Span, config: &MacroConfig) -> TokenStream {
-    let MacroConfig { rorm_path } = config;
+    let MacroConfig {
+        rorm_path,
+        _non_exhaustive: (),
+    } = config;
     quote_spanned! {span=>
         #rorm_path::internal::hmr::Source {
             file: ::std::file!(),

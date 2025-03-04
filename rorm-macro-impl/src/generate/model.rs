@@ -10,7 +10,10 @@ use crate::parse::annotations::{Index, NamedIndex, OnAction};
 use crate::MacroConfig;
 
 pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStream {
-    let MacroConfig { rorm_path } = config;
+    let MacroConfig {
+        rorm_path,
+        _non_exhaustive: (),
+    } = config;
 
     let (fields_struct_ident, fields_struct) = generate_fields_struct(model, config);
     let value_space_impl = format_ident!("__{}_ValueSpaceImpl", model.ident);
@@ -147,7 +150,10 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
 }
 
 fn generate_fields(model: &AnalyzedModel, config: &MacroConfig) -> TokenStream {
-    let MacroConfig { rorm_path } = config;
+    let MacroConfig {
+        rorm_path,
+        _non_exhaustive: (),
+    } = config;
 
     let mut tokens = TokenStream::new();
     let model_ident = &model.ident;
@@ -211,7 +217,10 @@ fn generate_field_annotations(
     annos: &AnalyzedModelFieldAnnotations,
     config: &MacroConfig,
 ) -> TokenStream {
-    let MacroConfig { rorm_path } = config;
+    let MacroConfig {
+        rorm_path,
+        _non_exhaustive: (),
+    } = config;
 
     let AnalyzedModelFieldAnnotations {
         auto_create_time,
@@ -306,7 +315,10 @@ fn generate_field_annotations(
 }
 
 fn generate_fields_struct(model: &AnalyzedModel, config: &MacroConfig) -> (Ident, TokenStream) {
-    let MacroConfig { rorm_path } = config;
+    let MacroConfig {
+        rorm_path,
+        _non_exhaustive: (),
+    } = config;
 
     let vis = &model.vis;
     let ident = format_ident!("__{}_Fields_Struct", model.ident);

@@ -43,6 +43,11 @@ pub fn derive_patch(input: TokenStream, config: MacroConfig) -> TokenStream {
 /// Configuration for `rorm`'s macros
 ///
 /// This struct can be useful for other crates wrapping `rorm`'s macros to tweak their behaviour.
+#[cfg_attr(doc, non_exhaustive)]
+#[expect(
+    clippy::manual_non_exhaustive,
+    reason = "non_exhaustive prevents struct literals with `..Default::default()`"
+)]
 pub struct MacroConfig {
     /// Path to the `rorm` crate
     ///
@@ -52,6 +57,7 @@ pub struct MacroConfig {
     /// of any crate using `rorm`'s macros.
     pub rorm_path: TokenStream,
 
+    #[cfg(not(doc))]
     _non_exhaustive: (),
 }
 
