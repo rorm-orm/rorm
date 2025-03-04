@@ -26,7 +26,7 @@ pub fn phantom_data(generics: &Generics) -> TokenStream {
 pub fn get_source(span: Span, config: &MacroConfig) -> TokenStream {
     let MacroConfig {
         rorm_path,
-        _non_exhaustive: (),
+        non_exhaustive: _,
     } = config;
     quote_spanned! {span=>
         #rorm_path::internal::hmr::Source {

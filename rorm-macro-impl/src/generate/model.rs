@@ -12,7 +12,7 @@ use crate::MacroConfig;
 pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStream {
     let MacroConfig {
         rorm_path,
-        _non_exhaustive: (),
+        non_exhaustive: _,
     } = config;
 
     let (fields_struct_ident, fields_struct) = generate_fields_struct(model, config);
@@ -152,7 +152,7 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
 fn generate_fields(model: &AnalyzedModel, config: &MacroConfig) -> TokenStream {
     let MacroConfig {
         rorm_path,
-        _non_exhaustive: (),
+        non_exhaustive: _,
     } = config;
 
     let mut tokens = TokenStream::new();
@@ -219,7 +219,7 @@ fn generate_field_annotations(
 ) -> TokenStream {
     let MacroConfig {
         rorm_path,
-        _non_exhaustive: (),
+        non_exhaustive: _,
     } = config;
 
     let AnalyzedModelFieldAnnotations {
@@ -317,7 +317,7 @@ fn generate_field_annotations(
 fn generate_fields_struct(model: &AnalyzedModel, config: &MacroConfig) -> (Ident, TokenStream) {
     let MacroConfig {
         rorm_path,
-        _non_exhaustive: (),
+        non_exhaustive: _,
     } = config;
 
     let vis = &model.vis;

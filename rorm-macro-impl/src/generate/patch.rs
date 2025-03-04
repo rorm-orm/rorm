@@ -10,7 +10,7 @@ use crate::MacroConfig;
 pub fn generate_patch(patch: &ParsedPatch, config: &MacroConfig) -> TokenStream {
     let MacroConfig {
         rorm_path,
-        _non_exhaustive: (),
+        non_exhaustive: _,
     } = config;
 
     let ParsedPatch {
@@ -64,7 +64,7 @@ pub fn partially_generate_patch<'a>(
 ) -> TokenStream {
     let MacroConfig {
         rorm_path,
-        _non_exhaustive: (),
+        non_exhaustive: _,
     } = config;
 
     let value_space_impl = format_ident!("__{patch}_ValueSpaceImpl");

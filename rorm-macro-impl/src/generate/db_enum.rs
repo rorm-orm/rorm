@@ -7,7 +7,7 @@ use crate::MacroConfig;
 pub fn generate_db_enum(parsed: &ParsedDbEnum, config: &MacroConfig) -> TokenStream {
     let MacroConfig {
         rorm_path,
-        _non_exhaustive: (),
+        non_exhaustive: _,
     } = config;
 
     let ParsedDbEnum {
