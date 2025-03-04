@@ -169,7 +169,7 @@ where
     }
 }
 
-/// [`Decoder`] returned by [`DecoderExt::decoder`]
+/// [`Decoder`] returned by [`DecoderExt::optional`]
 pub struct Optional<D> {
     decoder: D,
 }

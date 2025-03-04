@@ -4,11 +4,11 @@
 //! Also contains more traits corresponding to other sql comparison operators.
 //!
 //! ## Using
-//! Don't call the traits' methods directly. Instead use the corresponding method on [`FieldAccess`].
+//! Don't call the traits' methods directly. Instead use the corresponding method on [`FieldProxy`].
 //! Otherwise the assumptions an implementation is allowed to make, might be violated.
 //!
 //! ## Implementing
-//! - Each method takes an [`FieldAccess`]; an implementation may assume that the access' field's type
+//! - Each method takes an [`FieldProxy`]; an implementation may assume that the access' field's type
 //!   matches the type the trait is implemented on. This isn't enforced using trait bounds (yet?) to reduce complexity.
 
 use super::FieldType;

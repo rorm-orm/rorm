@@ -1,7 +1,6 @@
 //! This module holds the high level model representation
 //!
 //! It adds:
-//! - [`db_type`]: a type level version of [`imr::DbType`](crate::imr::DbType) to be used in generic type bound checks
 //! - [`annotations`]: a type level version of [`imr::Annotation`](crate::imr::Annotation) to be used in generic type bound checks
 //!
 //! These features are split into different submodules to avoid name conflicts.

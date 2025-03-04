@@ -1,4 +1,4 @@
-//! Re-usable implementations of [`FieldType::GetAnnotations`](FieldType::GetAnnotations)
+//! Re-usable implementations of [`FieldType::GetAnnotations`]
 
 use crate::const_fn;
 #[cfg(doc)]

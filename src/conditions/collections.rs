@@ -74,8 +74,8 @@ pub enum CollectionOperator {
 ///
 /// ## Disadvantage:
 /// - All conditions have to be of the same type.
-///     This can be mitigated by erasing their type using [Condition::boxed].
-///     In this case use [`BoxedCondition<'a>`](super::BoxedCondition) for the generic variable `T`.
+///     This can be mitigated by erasing their type using [`Condition::boxed`].
+///     In this case use [`Box<dyn Condition>`] for the generic variable `T`.
 #[derive(Clone)]
 pub struct DynamicCollection<T> {
     /// Operator used for joining, i.e. `and` or `or`

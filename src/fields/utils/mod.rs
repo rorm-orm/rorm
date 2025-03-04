@@ -1,4 +1,4 @@
-//! Utility types, traits and functions required to declare and implement the [`FieldType`] trait.
+//! Utility types, traits and functions required to declare and implement the [`FieldType`](crate::fields::traits::FieldType) trait.
 
 pub mod check;
 pub mod const_fn;

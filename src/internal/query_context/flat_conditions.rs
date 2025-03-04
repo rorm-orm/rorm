@@ -1,11 +1,11 @@
 //! Flat generic-less representation of a condition tree
 //!
 //! This representation is used inside the [`QueryContext`]
-//! to store a generic [`Condition`] using a concrete type
+//! to store a generic [`Condition`](crate::conditions::Condition) using a concrete type
 //! before handing it over to `rorm-sql`.
 //!
 //! There has to be a representation in between because `rorm-sql` doesn't take ownership
-//! and the `Condition` [`Column`] requires generating join aliases (owned strings)
+//! and the `Condition` [`Column`](crate::conditions::Column) requires generating join aliases (owned strings)
 //! after the use constructed his condition tree.
 
 use crate::conditions::collections::CollectionOperator;
@@ -40,7 +40,7 @@ pub enum GetConditionError {
     /// Unexpected end of slice
     MissingNodes,
 
-    /// Unexpected [`FlatCondition::EndCollection`] i.e. end without previous start
+    /// Unexpected `FlatCondition::EndCollection` i.e. end without previous start
     CollectionEnd,
 
     /// Invalid value index

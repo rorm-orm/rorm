@@ -1,4 +1,4 @@
-//! A type level version of [`imr::Annotation`](crate::imr::Annotation)
+//! A type level version of [`imr::Annotation`]
 //! to be used in generic type bound checks and a struct to store them
 
 use rorm_declaration::{imr, lints};

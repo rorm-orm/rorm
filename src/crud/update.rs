@@ -96,7 +96,7 @@ where
 ///
 ///     The executor to query with.
 ///
-/// - `M`: [`Model`](Model)
+/// - `M`: [`Model`]
 ///
 ///     The model from whose table to update rows.
 ///

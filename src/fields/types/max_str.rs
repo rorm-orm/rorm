@@ -55,7 +55,7 @@ where
     /// Returns the “default value” for a type. [Read more](Default::default)
     ///
     /// # Panics
-    /// If [`Str::default`] produces a value which is longer than `MAX_LEN`.
+    /// If `Str::default` produces a value which is longer than `MAX_LEN`.
     fn default() -> Self {
         Self::new(Default::default())
             .unwrap_or_else(|_| panic!("A `Default` for a `Deref<Target = str>` should be empty"))

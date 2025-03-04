@@ -173,7 +173,7 @@ impl fmt::Debug for PathId {
 /// from [`ParentField::Model`](PathField::ParentField)
 /// to [`ChildField::Model`](PathField::ChildField).
 ///
-/// Implementors are fields with type [`ForeignModel`] or [`BackRef`].
+/// Implementors are fields with type [`ForeignModel`](crate::fields::types::ForeignModel) or [`BackRef`].
 ///
 /// `ChildField` and `ParentField` are not necessarily the same as `Self`
 /// but they both have to represent a single column, one of them has to

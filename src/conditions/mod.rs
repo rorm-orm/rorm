@@ -1,6 +1,6 @@
 //! A high-level generic condition tree
 //!
-//! It is basically a generic version of the [`rorm_db::Condition`](conditional::Condition) tree.
+//! It is basically a generic version of the [`rorm_sql::Condition`](rorm_db::sql::conditional::Condition) tree.
 
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -155,7 +155,7 @@ pub enum Value<'a> {
     BitVec(crate::fields::types::postgres_only::BitCow<'a>),
 }
 impl Value<'_> {
-    /// Convert into an [`sql::Value`](value::Value) instead of an [`sql::Condition`](conditional::Condition) directly.
+    /// Convert into an [`sql::Value`](value::Value) instead of an [`sql::Condition`](rorm_db::sql::conditional::Condition) directly.
     pub fn as_sql(&self) -> value::Value {
         match self {
             Value::Null(null_type) => value::Value::Null(*null_type),

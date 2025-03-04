@@ -4,13 +4,7 @@
 //! This means for every crud query ([INSERT](insert), [SELECT](query), [UPDATE](update), [DELETE](delete)) there exists a builder struct
 //! whose methods allow you to set the various parameters.
 //!
-//! To begin a builder it is recommended to use the associated macros [`insert!`], [`query!`], [`update!`] and [`delete!`].
-//! The hide some of the generic details and may run some compile time checks.
-//!
-//! [`insert!`]: macro@crate::insert
-//! [`query!`]: macro@crate::query
-//! [`update!`]: macro@crate::update
-//! [`delete!`]: macro@crate::delete
+//! To begin a builder use their associated functions [`insert`], [`query`], [`update`] and [`delete`].
 pub mod builder;
 pub mod decoder;
 pub mod delete;

@@ -1,4 +1,4 @@
-//! Re-usable implementations of [`FieldType::GetNames`](FieldType::GetNames)
+//! Re-usable implementations of [`FieldType::GetNames`]
 
 use crate::const_fn;
 #[cfg(doc)]

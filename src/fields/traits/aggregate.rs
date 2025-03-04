@@ -11,7 +11,7 @@ use crate::fields::traits::{Array, FieldType};
 
 /// Marker for [`FieldProxy::count`]
 ///
-/// This is implemented for every [`SingleColumnFieldType`]
+/// This is implemented for every [`SingleColumnFieldType`](crate::internal::field::SingleColumnField)
 pub trait FieldCount: FieldType {}
 impl<T> FieldCount for T where T: FieldType<Columns = Array<1>> {}
 

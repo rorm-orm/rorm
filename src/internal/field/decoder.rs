@@ -9,7 +9,7 @@ use crate::fields::proxy::FieldProxyImpl;
 use crate::internal::field::{Field, FieldProxy};
 use crate::internal::query_context::QueryContext;
 
-/// [`Decoder`] for a single field's [`Field::Type`](Field::Type)
+/// [`Decoder`] for a single field's [`Field::Type`]
 pub trait FieldDecoder: Decoder {
     /// Construct decoder for a specific field and path
     fn new<I>(ctx: &mut QueryContext, _: FieldProxy<I>) -> Self

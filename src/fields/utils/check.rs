@@ -1,4 +1,4 @@
-//! Re-usable implementations of [`FieldType::Check`](FieldType::Check)
+//! Re-usable implementations of [`FieldType::Check`]
 
 use crate::const_fn;
 #[cfg(doc)]
