@@ -85,7 +85,7 @@ where
 
 /// Builder for update queries
 ///
-/// It is recommended to start a builder using [`update!`](macro@crate::update).
+/// To create a builder use [`update`]
 ///
 /// ## Generics
 /// - `'rf`
@@ -117,18 +117,6 @@ pub mod columns {
     pub struct Empty;
     pub struct NonEmpty;
     pub struct MaybeEmpty;
-}
-
-impl<'e, E, M> UpdateBuilder<'_, E, M, columns::Empty>
-where
-    E: Executor<'e>,
-    M: Model,
-{
-    #[doc(hidden)]
-    #[deprecated(note = "Use the update function instead")]
-    pub fn new(executor: E) -> Self {
-        update(executor, M::ValueSpaceImpl::default())
-    }
 }
 
 impl<'rf, E, M, C> UpdateBuilder<'rf, E, M, C> {
@@ -315,13 +303,4 @@ where
             .collect();
         database::update(self.executor, M::TABLE, &columns, None).await
     }
-}
-
-#[doc(hidden)]
-#[deprecated(note = "Use the query function instead i.e. remove the `!`")]
-#[macro_export]
-macro_rules! update {
-    ($db:expr, $model:path) => {
-        $crate::crud::update::UpdateBuilder::<_, $model, _>::new($db)
-    };
 }

@@ -65,7 +65,7 @@ where
 
 /// Builder for delete queries
 ///
-/// Is is recommended to start a builder using [`delete!`](macro@crate::delete).
+/// To create a builder use [`delete`]
 ///
 /// ## Generics
 /// - `E`: [`Executor`]
@@ -81,18 +81,6 @@ pub struct DeleteBuilder<E, M> {
     executor: E,
 
     _phantom: PhantomData<M>,
-}
-
-impl<'ex, E, M> DeleteBuilder<E, M>
-where
-    E: Executor<'ex>,
-    M: Model,
-{
-    #[doc(hidden)]
-    #[deprecated(note = "Use the delete function instead")]
-    pub fn new(executor: E) -> Self {
-        delete(executor, M::ValueSpaceImpl::default())
-    }
 }
 
 impl<'ex, E, M> DeleteBuilder<E, M>
@@ -162,13 +150,4 @@ where
     pub async fn all(self) -> Result<u64, Error> {
         database::delete(self.executor, M::TABLE, None).await
     }
-}
-
-#[doc(hidden)]
-#[deprecated(note = "Use the delete function instead i.e. remove the `!`")]
-#[macro_export]
-macro_rules! delete {
-    ($db:expr, $model:path) => {
-        $crate::crud::delete::DeleteBuilder::<_, <$model as $crate::model::Patch>::Model>::new($db)
-    };
 }

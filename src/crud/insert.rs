@@ -100,7 +100,7 @@ where
 
 /// Builder for insert queries
 ///
-/// Is is recommended to start a builder using [`insert!`](macro@crate::insert).
+/// To create a builder use [`insert`]
 ///
 /// ## Generics
 /// - `E`: [`Executor`]
@@ -127,12 +127,6 @@ where
     E: Executor<'ex>,
     M: Model,
 {
-    #[doc(hidden)]
-    #[deprecated(note = "Use the insert function instead")]
-    pub fn new(executor: E) -> Self {
-        insert(executor, M::ValueSpaceImpl::default())
-    }
-
     fn set_return<S>(self, selector: S) -> InsertBuilder<E, M, S>
     where
         S: Selector<Model = M>,
@@ -307,15 +301,4 @@ where
 
         database::insert_bulk(self.executor, M::TABLE, &columns, &values_slices).await
     }
-}
-
-#[doc(hidden)]
-#[deprecated(note = "Use the insert function instead i.e. remove the `!`")]
-#[macro_export]
-macro_rules! insert {
-    ($db:expr, $patch:path) => {
-        $crate::crud::insert::InsertBuilder::<_, <$patch as $crate::model::Patch>::Model, _>::new(
-            $db,
-        )
-    };
 }

@@ -107,7 +107,7 @@ where
 
 /// Builder for select queries
 ///
-/// Is is recommended to start a builder using [`query!`](macro@crate::query).
+/// To create a builder use [`query`]
 ///
 /// - `E`: [`Executor`]
 ///
@@ -131,18 +131,6 @@ pub struct QueryBuilder<E, S, C, LO> {
     condition: C,
     lim_off: LO,
     modify_ctx: Vec<fn(&mut QueryContext)>,
-}
-
-impl<'ex, E, S> QueryBuilder<E, S, (), ()>
-where
-    E: Executor<'ex>,
-    S: Selector,
-{
-    #[doc(hidden)]
-    #[deprecated(note = "Use the query function instead")]
-    pub fn new(executor: E, selector: S) -> Self {
-        query(executor, selector)
-    }
 }
 
 impl<E, S, LO> QueryBuilder<E, S, (), LO> {
@@ -360,28 +348,6 @@ where
             Some(row) => Ok(Some(decoder.by_name(&row)?)),
         }
     }
-}
-
-#[doc(hidden)]
-#[deprecated(note = "Use the query function instead i.e. remove the `!`")]
-#[macro_export]
-macro_rules! query {
-    ($db:expr, ($(
-        $($model:ident)::+.$($field:ident).+ $(($($args:tt)?))? $(as $patch:ty)?
-    ),+ $(,)?)) => {
-        $crate::crud::query::QueryBuilder::new(
-            $db,
-            ($(
-                $($model)::+.$($field).+ $(($($args)?))? $(.query_as($patch))?,
-            )+)
-        )
-    };
-    ($db:expr, $patch:ty) => {
-        $crate::crud::query::QueryBuilder::new(
-            $db,
-            <<$patch as $crate::model::Patch>::ValueSpaceImpl as ::std::default::Default>::default(),
-        )
-    };
 }
 
 /// Sadly ouroboros doesn't handle the lifetime bounds required for the QueryStream very well.
