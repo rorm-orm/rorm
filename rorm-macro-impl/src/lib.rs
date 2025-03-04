@@ -43,6 +43,7 @@ pub fn derive_patch(input: TokenStream, config: MacroConfig) -> TokenStream {
 /// Configuration for `rorm`'s macros
 ///
 /// This struct can be useful for other crates wrapping `rorm`'s macros to tweak their behaviour.
+#[non_exhaustive]
 pub struct MacroConfig {
     /// Path to the `rorm` crate
     ///
