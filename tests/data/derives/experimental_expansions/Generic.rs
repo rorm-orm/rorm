@@ -136,6 +136,7 @@ pub enum __Generic_ValueSpaceImpl<X: rorm::fields::traits::FieldType> {
     __Generic_ValueSpaceImplMarker(::std::marker::PhantomData<Generic<X>>),
 }
 pub use __Generic_ValueSpaceImpl::*;
+///[`Decoder`](::rorm::crud::decoder::Decoder) for [`Generic`]
 pub struct __Generic_Decoder<X: rorm::fields::traits::FieldType> {
     id: <i64 as ::rorm::fields::traits::FieldType>::Decoder,
     x: <X as ::rorm::fields::traits::FieldType>::Decoder,

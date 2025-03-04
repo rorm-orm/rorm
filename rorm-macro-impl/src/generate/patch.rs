@@ -1,8 +1,8 @@
 use std::array;
 
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use syn::{Generics, Type, Visibility};
+use syn::{Generics, LitStr, Type, Visibility};
 
 use crate::parse::patch::ParsedPatch;
 
@@ -58,6 +58,11 @@ pub fn partially_generate_patch<'a>(
     let value_space_marker_impl = format_ident!("__{patch}_ValueSpaceImplMarker");
 
     let decoder = format_ident!("__{patch}_Decoder");
+    let decoder_doc = LitStr::new(
+        &format!("[`Decoder`](::rorm::crud::decoder::Decoder) for [`{patch}`]",),
+        Span::call_site(),
+    );
+
     let [fields_1, fields_2, fields_3, fields_4, fields_5, fields_6, fields_7] =
         array::from_fn(|_| fields.clone());
     let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
@@ -87,6 +92,7 @@ pub fn partially_generate_patch<'a>(
         }
         #vis use #value_space_impl::*;
 
+        #[doc = #decoder_doc]
         #vis struct #decoder #impl_generics #where_clause {
             #(
                 #fields_1: <#types as ::rorm::fields::traits::FieldType>::Decoder,
