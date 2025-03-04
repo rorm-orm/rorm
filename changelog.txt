@@ -10,6 +10,7 @@ Since 0.6.3
 - `ForeignModelByField` does not cache a model instance anymore
 - `is_none` and `is_some` conditions on `Option<T>` fields
 
+- implementation of derive macros is available as normal function
 - implemented `Condition` on `Arc<dyn Condition>` and `&impl Condition`
 - relaxed / fixed lifetimes
 - improved error spans in or! and and!

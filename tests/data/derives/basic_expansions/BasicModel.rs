@@ -86,7 +86,7 @@ pub enum __BasicModel_ValueSpaceImpl {
     __BasicModel_ValueSpaceImplMarker(::std::marker::PhantomData<BasicModel>),
 }
 pub use __BasicModel_ValueSpaceImpl::*;
-///[`Decoder`](::rorm::crud::decoder::Decoder) for [`BasicModel`]
+///[`Decoder`](:: rorm::crud::decoder::Decoder) for [`BasicModel`]
 pub struct __BasicModel_Decoder {
     id: <i64 as ::rorm::fields::traits::FieldType>::Decoder,
 }

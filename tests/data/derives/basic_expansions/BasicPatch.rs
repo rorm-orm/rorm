@@ -7,7 +7,7 @@ pub enum __BasicPatch_ValueSpaceImpl {
     __BasicPatch_ValueSpaceImplMarker(::std::marker::PhantomData<BasicPatch>),
 }
 pub use __BasicPatch_ValueSpaceImpl::*;
-///[`Decoder`](::rorm::crud::decoder::Decoder) for [`BasicPatch`]
+///[`Decoder`](:: rorm::crud::decoder::Decoder) for [`BasicPatch`]
 pub struct __BasicPatch_Decoder {}
 impl ::rorm::crud::selector::Selector for __BasicPatch_ValueSpaceImpl {
     type Result = BasicPatch;

@@ -90,11 +90,11 @@ fn get_derive_fn(item: &syn::Item) -> Result<Option<(Ident, fn(TokenStream) -> T
         return Ok(Some((
             item_ident.clone(),
             if ident == "Model" {
-                rorm_macro_impl::derive_model
+                |input: TokenStream| rorm_macro_impl::derive_model(input, Default::default())
             } else if ident == "Patch" {
-                rorm_macro_impl::derive_patch
+                |input: TokenStream| rorm_macro_impl::derive_patch(input, Default::default())
             } else if ident == "DbEnum" {
-                rorm_macro_impl::derive_db_enum
+                |input: TokenStream| rorm_macro_impl::derive_db_enum(input, Default::default())
             } else {
                 continue;
             },

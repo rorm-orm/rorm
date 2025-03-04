@@ -81,7 +81,7 @@ pub enum __Unregistered_ValueSpaceImpl {
     __Unregistered_ValueSpaceImplMarker(::std::marker::PhantomData<Unregistered>),
 }
 pub use __Unregistered_ValueSpaceImpl::*;
-///[`Decoder`](::rorm::crud::decoder::Decoder) for [`Unregistered`]
+///[`Decoder`](:: rorm::crud::decoder::Decoder) for [`Unregistered`]
 pub struct __Unregistered_Decoder {
     id: <i64 as ::rorm::fields::traits::FieldType>::Decoder,
 }

@@ -6,17 +6,17 @@ use quote::quote;
 
 #[proc_macro_derive(DbEnum)]
 pub fn derive_db_enum(input: TokenStream) -> TokenStream {
-    rorm_macro_impl::derive_db_enum(input.into()).into()
+    rorm_macro_impl::derive_db_enum(input.into(), rorm_macro_impl::MacroConfig::default()).into()
 }
 
 #[proc_macro_derive(Model, attributes(rorm))]
 pub fn derive_model(input: TokenStream) -> TokenStream {
-    rorm_macro_impl::derive_model(input.into()).into()
+    rorm_macro_impl::derive_model(input.into(), rorm_macro_impl::MacroConfig::default()).into()
 }
 
 #[proc_macro_derive(Patch, attributes(rorm))]
 pub fn derive_patch(input: TokenStream) -> TokenStream {
-    rorm_macro_impl::derive_patch(input.into()).into()
+    rorm_macro_impl::derive_patch(input.into(), rorm_macro_impl::MacroConfig::default()).into()
 }
 
 #[proc_macro_attribute]

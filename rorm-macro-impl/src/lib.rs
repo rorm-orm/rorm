@@ -1,6 +1,7 @@
 //! This crate tries to follow the base layout proposed by a [ferrous-systems.com](https://ferrous-systems.com/blog/testing-proc-macros/#the-pipeline) blog post.
 
 use proc_macro2::TokenStream;
+use quote::quote;
 
 use crate::analyze::model::analyze_model;
 use crate::generate::db_enum::generate_db_enum;
@@ -15,23 +16,47 @@ mod generate;
 mod parse;
 mod utils;
 
-pub fn derive_db_enum(input: TokenStream) -> TokenStream {
+/// Implementation of `rorm`'s `#[derive(DbEnum)]` macro
+pub fn derive_db_enum(input: TokenStream, config: MacroConfig) -> TokenStream {
     match parse_db_enum(input) {
-        Ok(model) => generate_db_enum(&model),
+        Ok(model) => generate_db_enum(&model, &config),
         Err(error) => error.write_errors(),
     }
 }
 
-pub fn derive_model(input: TokenStream) -> TokenStream {
+/// Implementation of `rorm`'s `#[derive(Model)]` macro
+pub fn derive_model(input: TokenStream, config: MacroConfig) -> TokenStream {
     match parse_model(input).and_then(analyze_model) {
-        Ok(model) => generate_model(&model),
+        Ok(model) => generate_model(&model, &config),
         Err(error) => error.write_errors(),
     }
 }
 
-pub fn derive_patch(input: TokenStream) -> TokenStream {
+/// Implementation of `rorm`'s `#[derive(Patch)]` macro
+pub fn derive_patch(input: TokenStream, config: MacroConfig) -> TokenStream {
     match parse_patch(input) {
-        Ok(patch) => generate_patch(&patch),
+        Ok(patch) => generate_patch(&patch, &config),
         Err(error) => error.write_errors(),
+    }
+}
+
+/// Configuration for `rorm`'s macros
+///
+/// This struct can be useful for other crates wrapping `rorm`'s macros to tweak their behaviour.
+pub struct MacroConfig {
+    /// Path to the `rorm` crate
+    ///
+    /// This path can be overwritten by another library which wraps and re-exports `rorm`.
+    ///
+    /// Defaults to `::rorm` which requires `rorm` to be a direct dependency
+    /// of any crate using `rorm`'s macros.
+    pub rorm_path: TokenStream,
+}
+
+impl Default for MacroConfig {
+    fn default() -> Self {
+        Self {
+            rorm_path: quote! { ::rorm },
+        }
     }
 }
