@@ -41,7 +41,7 @@ const _: () = {
         panic!("{}", err.as_str());
     }
 };
-///[`BasicModel`]'s [`Fields`](::rorm::model::Model::Fields) struct.
+///[`BasicModel`]'s [`Fields`](:: rorm::model::Model::Fields) struct.
 #[allow(non_camel_case_types)]
 pub struct __BasicModel_Fields_Struct<Path: ::rorm::internal::relation_path::Path> {
     ///[`BasicModel`]'s `id` field

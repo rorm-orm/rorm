@@ -2,6 +2,8 @@ use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::Generics;
 
+use crate::MacroConfig;
+
 /// Creates a ZST which captures all generics
 ///
 /// I.e. `PhantomData<(&'a (), T)>`
@@ -21,9 +23,10 @@ pub fn phantom_data(generics: &Generics) -> TokenStream {
 }
 
 /// Creates an expression for a `Source` instance from a span
-pub fn get_source(span: Span) -> TokenStream {
+pub fn get_source(span: Span, config: &MacroConfig) -> TokenStream {
+    let MacroConfig { rorm_path } = config;
     quote_spanned! {span=>
-        ::rorm::internal::hmr::Source {
+        #rorm_path::internal::hmr::Source {
             file: ::std::file!(),
             line: ::std::line!() as usize,
             column: ::std::column!() as usize,

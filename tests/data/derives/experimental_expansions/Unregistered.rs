@@ -36,7 +36,7 @@ impl ::rorm::internal::field::Field for __Unregistered_id {
         Self(::std::marker::PhantomData)
     }
 }
-///[`Unregistered`]'s [`Fields`](::rorm::model::Model::Fields) struct.
+///[`Unregistered`]'s [`Fields`](:: rorm::model::Model::Fields) struct.
 #[allow(non_camel_case_types)]
 pub struct __Unregistered_Fields_Struct<Path: ::rorm::internal::relation_path::Path> {
     ///[`Unregistered`]'s `id` field

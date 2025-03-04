@@ -39,7 +39,7 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
     let field_structs_1 = fields.iter().map(|field| &field.unit);
     let field_structs_2 = field_structs_1.clone();
 
-    let source = get_source(ident.span());
+    let source = get_source(ident.span(), config);
 
     let (impl_generics, type_generics, where_clause) = experimental_generics.split_for_impl();
     let mut generics_with_path = model.experimental_generics.clone();
@@ -161,7 +161,7 @@ fn generate_fields(model: &AnalyzedModel, config: &MacroConfig) -> TokenStream {
             annos,
         } = field;
 
-        let source = get_source(ident.span());
+        let source = get_source(ident.span(), config);
         let vis = &model.vis;
         let doc = LitStr::new(
             &format!("rorm's representation of [`{model_ident}`]'s `{ident}` field",),
@@ -312,7 +312,7 @@ fn generate_fields_struct(model: &AnalyzedModel, config: &MacroConfig) -> (Ident
     let ident = format_ident!("__{}_Fields_Struct", model.ident);
     let doc = LitStr::new(
         &format!(
-            "[`{}`]'s [`Fields`](::rorm::model::Model::Fields) struct.",
+            "[`{}`]'s [`Fields`]({rorm_path}::model::Model::Fields) struct.",
             model.ident
         ),
         Span::call_site(),

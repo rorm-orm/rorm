@@ -80,7 +80,7 @@ for __Generic_x<X> {
         Self(::std::marker::PhantomData)
     }
 }
-///[`Generic`]'s [`Fields`](::rorm::model::Model::Fields) struct.
+///[`Generic`]'s [`Fields`](:: rorm::model::Model::Fields) struct.
 #[allow(non_camel_case_types)]
 pub struct __Generic_Fields_Struct<
     X: rorm::fields::traits::FieldType,
