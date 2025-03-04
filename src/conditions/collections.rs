@@ -121,10 +121,20 @@ impl<'a, T: Condition<'a>> Condition<'a> for DynamicCollection<Option<T>> {
         context
             .conditions
             .push(FlatCondition::StartCollection(self.operator));
+        let len = context.conditions.len();
         for cond in self.vector.iter().flat_map(Option::as_ref) {
             cond.build(context);
         }
-        context.conditions.push(FlatCondition::EndCollection);
+        if len != context.conditions.len() {
+            context.conditions.push(FlatCondition::EndCollection);
+        } else {
+            context.conditions.pop();
+            super::Value::Bool(match self.operator {
+                CollectionOperator::And => true,
+                CollectionOperator::Or => false,
+            })
+            .build(context);
+        }
     }
 }
 
@@ -199,11 +209,21 @@ macro_rules! impl_static_collection {
                 context
                     .conditions
                     .push(FlatCondition::StartCollection(self.operator));
+                let len = context.conditions.len();
                 let ($($generic,)+) = &self.tuple;
                 $(if let Some(cond) = $generic {
                     cond.build(context);
                 })+
-                context.conditions.push(FlatCondition::EndCollection);
+                if len != context.conditions.len() {
+                    context.conditions.push(FlatCondition::EndCollection);
+                } else {
+                    context.conditions.pop();
+                    super::Value::Bool(match self.operator {
+                        CollectionOperator::And => true,
+                        CollectionOperator::Or => false,
+                    })
+                    .build(context);
+                }
             }
         }
     };
