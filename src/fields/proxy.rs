@@ -67,7 +67,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
         I::Field: SingleColumnField<Type = Option<T>>,
     {
         Unary {
-            operator: UnaryOperator::IsNull,
+            operator: UnaryOperator::IsNotNull,
             fst_arg: Column(self),
         }
     }
