@@ -1,16 +1,16 @@
 Since 0.6.3
 -----------
-- removed support for async-std
-- changed `update!`'s api to be consistent with `delete!`'s
+- replaced crud macros with nearly identical functions
+- removed `FieldAccess`
+- changed `update`'s api to be consistent with `delete`'s
 - implemented `FieldType` and `FieldEq` for `url::Url`
-- added a `take_or_query` method to `ForeignModel`
 - added `MaxStr` field type
-- implemented `Condition` on `Arc<dyn Condition>`
 - added shorter syntax for `Model::F.field`: `Model.field`
 - implemented condition collections for `Option<impl Condition>`
-- changed error type returned by Decoder methods
 - `ForeignModelByField` does not cache a model instance anymore
+- `is_none` and `is_some` conditions on `Option<T>` fields
 
+- implemented `Condition` on `Arc<dyn Condition>` and `&impl Condition`
 - relaxed / fixed lifetimes
 - improved error spans in or! and and!
 - fixed names of join aliases
@@ -18,6 +18,8 @@ Since 0.6.3
 - redesigned associated type `Columns` on trait `FieldType`
 - replace field modifiers with const fns
 - removed `AsDbType`
+- removed support for async-std
+- changed error type returned by Decoder methods
 
 Notes for publishing
 --------------------
