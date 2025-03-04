@@ -1,4 +1,4 @@
-/// The index used by [`Row::get`]
+/// The index used by [`Row::get`](crate::Row::get)
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum RowIndex<'i> {
     /// Index using the columns' positions
