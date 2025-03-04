@@ -1,8 +1,8 @@
 use std::array;
 
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use syn::{Generics, LitStr, Type, Visibility};
+use syn::{Generics, Type, Visibility};
 
 use crate::parse::patch::ParsedPatch;
 use crate::MacroConfig;
@@ -71,10 +71,6 @@ pub fn partially_generate_patch<'a>(
     let value_space_marker_impl = format_ident!("__{patch}_ValueSpaceImplMarker");
 
     let decoder = format_ident!("__{patch}_Decoder");
-    let decoder_doc = LitStr::new(
-        &format!("[`Decoder`]({rorm_path}::crud::decoder::Decoder) for [`{patch}`]",),
-        Span::call_site(),
-    );
 
     let [fields_1, fields_2, fields_3, fields_4, fields_5, fields_6, fields_7] =
         array::from_fn(|_| fields.clone());
@@ -105,7 +101,7 @@ pub fn partially_generate_patch<'a>(
         }
         #vis use #value_space_impl::*;
 
-        #[doc = #decoder_doc]
+        #[doc(hidden)]
         #vis struct #decoder #impl_generics #where_clause {
             #(
                 #fields_1: <#types as #rorm_path::fields::traits::FieldType>::Decoder,
@@ -150,8 +146,6 @@ pub fn partially_generate_patch<'a>(
             type Model = #model #type_generics;
 
             type ValueSpaceImpl = #value_space_impl #type_generics;
-
-            type Decoder = #decoder #type_generics;
 
             fn push_columns(columns: &mut Vec<&'static str>) {#(
                 columns.extend(

@@ -7,7 +7,7 @@ pub enum __BasicPatch_ValueSpaceImpl {
     __BasicPatch_ValueSpaceImplMarker(::std::marker::PhantomData<BasicPatch>),
 }
 pub use __BasicPatch_ValueSpaceImpl::*;
-///[`Decoder`](:: rorm::crud::decoder::Decoder) for [`BasicPatch`]
+#[doc(hidden)]
 pub struct __BasicPatch_Decoder {}
 impl ::rorm::crud::selector::Selector for __BasicPatch_ValueSpaceImpl {
     type Result = BasicPatch;
@@ -44,7 +44,6 @@ impl ::rorm::crud::decoder::Decoder for __BasicPatch_Decoder {
 impl ::rorm::model::Patch for BasicPatch {
     type Model = BasicModel;
     type ValueSpaceImpl = __BasicPatch_ValueSpaceImpl;
-    type Decoder = __BasicPatch_Decoder;
     fn push_columns(columns: &mut Vec<&'static str>) {}
     fn push_references<'a>(&'a self, values: &mut Vec<::rorm::conditions::Value<'a>>) {}
     fn push_values(self, values: &mut Vec<::rorm::conditions::Value>) {}

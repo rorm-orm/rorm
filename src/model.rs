@@ -3,7 +3,6 @@
 use rorm_declaration::imr;
 
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
-use crate::crud::decoder::Decoder;
 use crate::crud::selector::Selector;
 use crate::fields::proxy;
 use crate::internal::field::{Field, SingleColumnField};
@@ -21,9 +20,6 @@ pub trait Patch: Sized + 'static {
     ///
     /// This is more of an implementation detail of the derive macro.
     type ValueSpaceImpl: Selector<Result = Self, Model = Self::Model> + Default;
-
-    /// [`Decoder`] returned by [`Patch::select`] which decodes this patch from a row
-    type Decoder: Decoder<Result = Self>;
 
     /// Create a `Vec` containing the patch's columns
     fn columns() -> Vec<&'static str> {

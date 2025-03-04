@@ -136,7 +136,7 @@ pub enum __Generic_ValueSpaceImpl<X: rorm::fields::traits::FieldType> {
     __Generic_ValueSpaceImplMarker(::std::marker::PhantomData<Generic<X>>),
 }
 pub use __Generic_ValueSpaceImpl::*;
-///[`Decoder`](:: rorm::crud::decoder::Decoder) for [`Generic`]
+#[doc(hidden)]
 pub struct __Generic_Decoder<X: rorm::fields::traits::FieldType> {
     id: <i64 as ::rorm::fields::traits::FieldType>::Decoder,
     x: <X as ::rorm::fields::traits::FieldType>::Decoder,
@@ -188,7 +188,6 @@ for __Generic_Decoder<X> {
 impl<X: rorm::fields::traits::FieldType> ::rorm::model::Patch for Generic<X> {
     type Model = Generic<X>;
     type ValueSpaceImpl = __Generic_ValueSpaceImpl<X>;
-    type Decoder = __Generic_Decoder<X>;
     fn push_columns(columns: &mut Vec<&'static str>) {
         columns
             .extend(

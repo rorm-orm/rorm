@@ -81,7 +81,7 @@ pub enum __Unregistered_ValueSpaceImpl {
     __Unregistered_ValueSpaceImplMarker(::std::marker::PhantomData<Unregistered>),
 }
 pub use __Unregistered_ValueSpaceImpl::*;
-///[`Decoder`](:: rorm::crud::decoder::Decoder) for [`Unregistered`]
+#[doc(hidden)]
 pub struct __Unregistered_Decoder {
     id: <i64 as ::rorm::fields::traits::FieldType>::Decoder,
 }
@@ -126,7 +126,6 @@ impl ::rorm::crud::decoder::Decoder for __Unregistered_Decoder {
 impl ::rorm::model::Patch for Unregistered {
     type Model = Unregistered;
     type ValueSpaceImpl = __Unregistered_ValueSpaceImpl;
-    type Decoder = __Unregistered_Decoder;
     fn push_columns(columns: &mut Vec<&'static str>) {
         columns
             .extend(
