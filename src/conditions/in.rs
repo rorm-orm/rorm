@@ -1,7 +1,7 @@
 use crate::conditions::collections::CollectionOperator;
 use crate::conditions::{BinaryOperator, Condition, Value};
 use crate::internal::query_context::flat_conditions::FlatCondition;
-use crate::internal::query_context::QueryContext;
+use crate::internal::query_context::ConditionBuilder;
 
 /// An "IN" expression
 ///
@@ -31,21 +31,17 @@ where
     A: Condition<'a>,
     B: Condition<'a>,
 {
-    fn build(&self, context: &mut QueryContext<'a>) {
+    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
         if self.snd_arg.is_empty() {
-            Value::Bool(false).build(context);
+            Value::Bool(false).build(builder);
         } else {
-            context
-                .conditions
-                .push(FlatCondition::StartCollection(CollectionOperator::Or));
+            builder.push_condition(FlatCondition::StartCollection(CollectionOperator::Or));
             for snd_arg in self.snd_arg.iter() {
-                context
-                    .conditions
-                    .push(FlatCondition::BinaryCondition(BinaryOperator::Equals));
-                self.fst_arg.build(context);
-                snd_arg.build(context);
+                builder.push_condition(FlatCondition::BinaryCondition(BinaryOperator::Equals));
+                self.fst_arg.build(builder.reborrow());
+                snd_arg.build(builder.reborrow());
             }
-            context.conditions.push(FlatCondition::EndCollection);
+            builder.push_condition(FlatCondition::EndCollection);
         }
     }
 }

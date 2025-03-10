@@ -51,7 +51,7 @@
 
 use super::Condition;
 use crate::internal::query_context::flat_conditions::FlatCondition;
-use crate::internal::query_context::QueryContext;
+use crate::internal::query_context::ConditionBuilder;
 
 /// Operator to join a collection's conditions with
 #[derive(Copy, Clone, Debug)]
@@ -106,34 +106,30 @@ where
 }
 
 impl<'a, T: Condition<'a>> Condition<'a> for DynamicCollection<T> {
-    fn build(&self, context: &mut QueryContext<'a>) {
-        context
-            .conditions
-            .push(FlatCondition::StartCollection(self.operator));
+    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
+        builder.push_condition(FlatCondition::StartCollection(self.operator));
         for cond in self.vector.iter() {
-            cond.build(context);
+            cond.build(builder.reborrow());
         }
-        context.conditions.push(FlatCondition::EndCollection);
+        builder.push_condition(FlatCondition::EndCollection);
     }
 }
 impl<'a, T: Condition<'a>> Condition<'a> for DynamicCollection<Option<T>> {
-    fn build(&self, context: &mut QueryContext<'a>) {
-        context
-            .conditions
-            .push(FlatCondition::StartCollection(self.operator));
-        let len = context.conditions.len();
+    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
+        builder.push_condition(FlatCondition::StartCollection(self.operator));
+        let len = builder.len_condition();
         for cond in self.vector.iter().flat_map(Option::as_ref) {
-            cond.build(context);
+            cond.build(builder.reborrow());
         }
-        if len != context.conditions.len() {
-            context.conditions.push(FlatCondition::EndCollection);
+        if len != builder.len_condition() {
+            builder.push_condition(FlatCondition::EndCollection);
         } else {
-            context.conditions.pop();
+            builder.pop_condition();
             super::Value::Bool(match self.operator {
                 CollectionOperator::And => true,
                 CollectionOperator::Or => false,
             })
-            .build(context);
+            .build(builder.reborrow());
         }
     }
 }
@@ -193,36 +189,32 @@ macro_rules! impl_static_collection {
     (impl $($generic:ident),+) => {
         #[allow(non_snake_case)] // the macro is simpler when generic variable are reused as value variables
         impl<'a, $($generic: Condition<'a>),+> Condition<'a> for StaticCollection<($($generic,)+)> {
-            fn build(&self, context: &mut QueryContext<'a>) {
-                context
-                    .conditions
-                    .push(FlatCondition::StartCollection(self.operator));
+            fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
+                builder.push_condition(FlatCondition::StartCollection(self.operator));
                 let ($($generic,)+) = &self.tuple;
-                $($generic.build(context);)+
-                context.conditions.push(FlatCondition::EndCollection);
+                $($generic.build(builder.reborrow());)+
+                builder.push_condition(FlatCondition::EndCollection);
             }
         }
 
         #[allow(non_snake_case)] // the macro is simpler when generic variable are reused as value variables
         impl<'a, $($generic: Condition<'a>),+> Condition<'a> for StaticCollection<($(Option<$generic>,)+)> {
-            fn build(&self, context: &mut QueryContext<'a>) {
-                context
-                    .conditions
-                    .push(FlatCondition::StartCollection(self.operator));
-                let len = context.conditions.len();
+            fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
+                builder.push_condition(FlatCondition::StartCollection(self.operator));
+                let len = builder.len_condition();
                 let ($($generic,)+) = &self.tuple;
                 $(if let Some(cond) = $generic {
-                    cond.build(context);
+                    cond.build(builder.reborrow());
                 })+
-                if len != context.conditions.len() {
-                    context.conditions.push(FlatCondition::EndCollection);
+                if len != builder.len_condition() {
+                    builder.push_condition(FlatCondition::EndCollection);
                 } else {
-                    context.conditions.pop();
+                    builder.pop_condition();
                     super::Value::Bool(match self.operator {
                         CollectionOperator::And => true,
                         CollectionOperator::Or => false,
                     })
-                    .build(context);
+                    .build(builder.reborrow());
                 }
             }
         }

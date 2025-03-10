@@ -28,13 +28,12 @@ pub mod flat_conditions;
 pub struct QueryContext<'v> {
     span: Span,
     base_path: Option<PathId>,
-
     join_aliases: HashMap<PathId, String>,
     selects: Vec<Select>,
     joins: Vec<Join>,
     order_bys: Vec<OrderBy>,
-    pub(crate) conditions: Vec<FlatCondition>,
-    pub(crate) values: Vec<Value<'v>>,
+    conditions: Vec<FlatCondition>,
+    values: Vec<Value<'v>>,
 }
 impl Default for QueryContext<'_> {
     fn default() -> Self {
@@ -118,8 +117,7 @@ impl<'v> QueryContext<'v> {
     /// (Use the index with [`QueryContext::get_condition`])
     pub fn add_condition(&mut self, condition: &(impl Condition<'v> + ?Sized)) -> usize {
         let index = self.conditions.len();
-        condition.build(self);
-
+        condition.build(ConditionBuilder { context: self });
         self.span.in_scope(|| {
             trace!(
                 condition = ?self.conditions.get(index..),
@@ -407,6 +405,43 @@ impl QueryContext<'_> {
             ]);
         }
         path_id
+    }
+}
+
+/// A [`&mut QueryContext`] with restricted API which is passed to [`Condition::build`]
+pub struct ConditionBuilder<'r, 'v> {
+    context: &'r mut QueryContext<'v>,
+}
+
+impl<'v> ConditionBuilder<'_, 'v> {
+    pub(crate) fn reborrow<'r>(&'r mut self) -> ConditionBuilder<'r, 'v> {
+        ConditionBuilder::<'r, 'v> {
+            context: &mut *self.context,
+        }
+    }
+
+    pub(crate) fn push_condition(&mut self, condition: FlatCondition) -> usize {
+        let index = self.context.conditions.len();
+        self.context.conditions.push(condition);
+        index
+    }
+
+    pub(crate) fn pop_condition(&mut self) {
+        self.context.conditions.pop();
+    }
+
+    pub(crate) fn len_condition(&mut self) -> usize {
+        self.context.conditions.len()
+    }
+
+    pub(crate) fn push_value(&mut self, value: Value<'v>) -> usize {
+        let index = self.context.values.len();
+        self.context.values.push(value);
+        index
+    }
+
+    pub(crate) fn add_path<P: Path>(&mut self) -> PathId {
+        P::add_to_context(self.context)
     }
 }
 

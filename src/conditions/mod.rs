@@ -17,8 +17,7 @@ pub use r#in::{In, InOperator};
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
 use crate::internal::field::Field;
 use crate::internal::query_context::flat_conditions::FlatCondition;
-use crate::internal::query_context::QueryContext;
-use crate::internal::relation_path::Path;
+use crate::internal::query_context::ConditionBuilder;
 
 /// Node in a condition tree
 pub trait Condition<'a>: Send + Sync {
@@ -29,7 +28,7 @@ pub trait Condition<'a>: Send + Sync {
     /// If you are implementing `Condition` for a custom type,
     /// please convert your type into one from [`rorm::conditions`](crate::conditions) first
     /// and then simply forward `build`.
-    fn build(&self, context: &mut QueryContext<'a>);
+    fn build(&self, builder: ConditionBuilder<'_, 'a>);
 
     /// Convert the condition into a boxed trait object to erase its concrete type
     fn boxed<'this>(self) -> Box<dyn Condition<'a> + 'this>
@@ -49,8 +48,8 @@ pub trait Condition<'a>: Send + Sync {
 }
 
 impl<'a> Condition<'a> for Box<dyn Condition<'a> + '_> {
-    fn build(&self, context: &mut QueryContext<'a>) {
-        self.as_ref().build(context);
+    fn build(&self, builder: ConditionBuilder<'_, 'a>) {
+        self.as_ref().build(builder);
     }
 
     fn boxed<'this>(self) -> Box<dyn Condition<'a> + 'this>
@@ -68,8 +67,8 @@ impl<'a> Condition<'a> for Box<dyn Condition<'a> + '_> {
     }
 }
 impl<'a> Condition<'a> for Arc<dyn Condition<'a> + '_> {
-    fn build(&self, context: &mut QueryContext<'a>) {
-        self.as_ref().build(context);
+    fn build(&self, builder: ConditionBuilder<'_, 'a>) {
+        self.as_ref().build(builder);
     }
 
     fn boxed<'this>(self) -> Box<dyn Condition<'a> + 'this>
@@ -87,8 +86,8 @@ impl<'a> Condition<'a> for Arc<dyn Condition<'a> + '_> {
     }
 }
 impl<'a, C: Condition<'a> + ?Sized> Condition<'a> for &'_ C {
-    fn build(&self, context: &mut QueryContext<'a>) {
-        <C as Condition<'a>>::build(*self, context);
+    fn build(&self, builder: ConditionBuilder<'_, 'a>) {
+        <C as Condition<'a>>::build(*self, builder);
     }
 }
 
@@ -196,10 +195,9 @@ impl Value<'_> {
     }
 }
 impl<'a> Condition<'a> for Value<'a> {
-    fn build(&self, context: &mut QueryContext<'a>) {
-        let index = context.values.len();
-        context.values.push(self.clone());
-        context.conditions.push(FlatCondition::Value(index));
+    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
+        let value_index = builder.push_value(self.clone());
+        builder.push_condition(FlatCondition::Value(value_index));
     }
 }
 
@@ -208,11 +206,9 @@ impl<'a> Condition<'a> for Value<'a> {
 pub struct Column<I: FieldProxyImpl>(pub FieldProxy<I>);
 
 impl<'a, I: FieldProxyImpl> Condition<'a> for Column<I> {
-    fn build(&self, context: &mut QueryContext<'a>) {
-        let path_id = I::Path::add_to_context(context);
-        context
-            .conditions
-            .push(FlatCondition::Column(path_id, <I::Field as Field>::NAME))
+    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
+        let path_id = builder.add_path::<I::Path>();
+        builder.push_condition(FlatCondition::Column(path_id, <I::Field as Field>::NAME));
     }
 }
 
@@ -253,12 +249,10 @@ pub enum BinaryOperator {
     NotRegexp,
 }
 impl<'a, A: Condition<'a>, B: Condition<'a>> Condition<'a> for Binary<A, B> {
-    fn build(&self, context: &mut QueryContext<'a>) {
-        context
-            .conditions
-            .push(FlatCondition::BinaryCondition(self.operator));
-        self.fst_arg.build(context);
-        self.snd_arg.build(context);
+    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
+        builder.push_condition(FlatCondition::BinaryCondition(self.operator));
+        self.fst_arg.build(builder.reborrow());
+        self.snd_arg.build(builder.reborrow());
     }
 }
 
@@ -286,13 +280,11 @@ pub enum TernaryOperator {
     NotBetween,
 }
 impl<'a, A: Condition<'a>, B: Condition<'a>, C: Condition<'a>> Condition<'a> for Ternary<A, B, C> {
-    fn build(&self, context: &mut QueryContext<'a>) {
-        context
-            .conditions
-            .push(FlatCondition::TernaryCondition(self.operator));
-        self.fst_arg.build(context);
-        self.snd_arg.build(context);
-        self.trd_arg.build(context);
+    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
+        builder.push_condition(FlatCondition::TernaryCondition(self.operator));
+        self.fst_arg.build(builder.reborrow());
+        self.snd_arg.build(builder.reborrow());
+        self.trd_arg.build(builder.reborrow());
     }
 }
 
@@ -320,10 +312,8 @@ pub enum UnaryOperator {
     Not,
 }
 impl<'a, A: Condition<'a>> Condition<'a> for Unary<A> {
-    fn build(&self, context: &mut QueryContext<'a>) {
-        context
-            .conditions
-            .push(FlatCondition::UnaryCondition(self.operator));
-        self.fst_arg.build(context);
+    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
+        builder.push_condition(FlatCondition::UnaryCondition(self.operator));
+        self.fst_arg.build(builder.reborrow());
     }
 }
