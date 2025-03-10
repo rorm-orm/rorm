@@ -116,8 +116,15 @@ impl<'v> QueryContext<'v> {
     ///
     /// (Use the index with [`QueryContext::get_condition`])
     pub fn add_condition(&mut self, condition: &(impl Condition<'v> + ?Sized)) -> usize {
+        condition.build(ConditionBuilder {
+            context: self,
+            only_accept_paths: true,
+        });
         let index = self.conditions.len();
-        condition.build(ConditionBuilder { context: self });
+        condition.build(ConditionBuilder {
+            context: self,
+            only_accept_paths: false,
+        });
         self.span.in_scope(|| {
             trace!(
                 condition = ?self.conditions.get(index..),
@@ -411,22 +418,32 @@ impl QueryContext<'_> {
 /// A [`&mut QueryContext`] with restricted API which is passed to [`Condition::build`]
 pub struct ConditionBuilder<'r, 'v> {
     context: &'r mut QueryContext<'v>,
+    only_accept_paths: bool,
 }
 
 impl<'v> ConditionBuilder<'_, 'v> {
     pub(crate) fn reborrow<'r>(&'r mut self) -> ConditionBuilder<'r, 'v> {
         ConditionBuilder::<'r, 'v> {
             context: &mut *self.context,
+            only_accept_paths: self.only_accept_paths,
         }
     }
 
     pub(crate) fn push_condition(&mut self, condition: FlatCondition) -> usize {
+        if self.only_accept_paths {
+            return usize::MAX;
+        }
+
         let index = self.context.conditions.len();
         self.context.conditions.push(condition);
         index
     }
 
     pub(crate) fn pop_condition(&mut self) {
+        if self.only_accept_paths {
+            return;
+        }
+
         self.context.conditions.pop();
     }
 
@@ -435,6 +452,10 @@ impl<'v> ConditionBuilder<'_, 'v> {
     }
 
     pub(crate) fn push_value(&mut self, value: Value<'v>) -> usize {
+        if self.only_accept_paths {
+            return usize::MAX;
+        }
+
         let index = self.context.values.len();
         self.context.values.push(value);
         index
