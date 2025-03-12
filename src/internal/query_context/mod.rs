@@ -492,20 +492,37 @@ struct OrderBy {
 struct NumberAsAZ(usize);
 impl fmt::Display for NumberAsAZ {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        static ALPHABET: [char; 26] = [
+        const LEN: usize = 26;
+        static ALPHABET: [char; LEN] = [
             'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q',
             'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
         ];
         let mut x = self.0;
         match x {
-            0..26 => f.write_char(ALPHABET[x]),
+            0..LEN => f.write_char(ALPHABET[x]),
             _ => {
-                while x > 26 {
-                    f.write_char(ALPHABET[x % 26])?;
-                    x /= 26;
+                while x >= LEN {
+                    f.write_char(ALPHABET[x % LEN])?;
+                    x /= LEN;
+                    x -= 1;
                 }
                 f.write_char(ALPHABET[x])
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::NumberAsAZ;
+
+    #[test]
+    fn test_number_as_az() {
+        assert_eq!(NumberAsAZ(0).to_string(), "a");
+        assert_eq!(NumberAsAZ(25).to_string(), "z");
+        assert_eq!(NumberAsAZ(26).to_string(), "aa");
+        assert_eq!(NumberAsAZ(27).to_string(), "ba");
+        assert_eq!(NumberAsAZ(51).to_string(), "za");
+        assert_eq!(NumberAsAZ(52).to_string(), "ab");
     }
 }
