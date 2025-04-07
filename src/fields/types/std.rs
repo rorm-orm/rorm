@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use crate::conditions::Value;
 use crate::db::sql::value::NullType;
+use crate::fields::utils::check;
 use crate::{
     impl_FieldEq, impl_FieldMin_FieldMax, impl_FieldOrd, impl_FieldSum_FieldAvg, impl_FieldType,
 };
@@ -60,7 +61,13 @@ impl_FieldOrd!(Option<f64>, Option<f64>, |option: Self| option
 impl_FieldSum_FieldAvg!(f64, sum_result: f64);
 impl_FieldMin_FieldMax!(f64);
 
-impl_FieldType!(String, String, conv_string, conv_string);
+impl_FieldType!(
+    String,
+    String,
+    conv_string,
+    conv_string,
+    check::string_check
+);
 impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs str> for String { conv_string });
 impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs String> for String { conv_string });
 impl_FieldEq!(impl<'rhs> FieldEq<'rhs, String> for String { conv_string });
