@@ -1,6 +1,6 @@
 [package]
 name = "rorm-sql"
-version = "0.8.3"
+version = "0.9.0"
 edition = "2021"
 keywords = ["database", "abstraction-layer", "sqlite", "postgres", "mysql"]
 categories = ["database"]
@@ -33,7 +33,7 @@ ipnetwork = { version = "~0.20", optional = true }
 # Mac Address support
 mac_address = { version = "~1", optional = true }
 
-rorm-declaration = { version = "0.4.0", path = "../rorm-declaration" }
+rorm-declaration = { version = "0.4.1", path = "../rorm-declaration" }
 
 [build-dependencies]
 rustc_version = "0.4.0"
