@@ -1,6 +1,6 @@
 [package]
 name = "rorm-db"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2021"
 categories = ["database"]
 keywords = ["async", "orm", "database", "orm"]
@@ -15,7 +15,7 @@ description = "The inner database abstraction layer from rorm."
 name = "rorm_db"
 
 [dependencies]
-rorm-sql = { version = "~0.8", path = "../rorm-sql" }
+rorm-sql = { version = "~0.9", path = "../rorm-sql" }
 rorm-declaration = { version = "~0.4", path = "../rorm-declaration" }
 
 # Basic traits and types required for async
