@@ -23,11 +23,13 @@ use crate::internal::query_context::ConditionBuilder;
 pub trait Condition<'a>: Send + Sync {
     /// Adds this condition to a query context's internal representation
     ///
-    /// If you're not implementing `Condition`, you'll probably want [`QueryContext::add_condition`].
+    /// If you're not implementing `Condition`,you'll probably want [`QueryContext::add_condition`].
     ///
     /// If you are implementing `Condition` for a custom type,
     /// please convert your type into one from [`rorm::conditions`](crate::conditions) first
     /// and then simply forward `build`.
+    ///
+    /// [`QueryContext::add_condition`]: crate::internal::query_context::QueryContext::add_condition
     fn build(&self, builder: ConditionBuilder<'_, 'a>);
 
     /// Convert the condition into a boxed trait object to erase its concrete type

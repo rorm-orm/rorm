@@ -11,7 +11,7 @@ members = [
 
 [package]
 name = "rorm"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 repository = "https://github.com/rorm-orm/rorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
@@ -83,7 +83,19 @@ schemars = { version = "~0.8", optional = true }
 rustc_version = "0.4.0"
 
 [package.metadata.docs.rs]
-features = ["msgpack", "cli", "tokio"]
+features = [
+    "all-drivers",
+    "chrono",
+    "time",
+    "uuid",
+    "url",
+    "utoipa",
+    "schemars",
+    "msgpack",
+    "cli",
+    "rustls",
+    "native-tls"
+]
 
 [features]
 default = [
