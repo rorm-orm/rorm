@@ -1,26 +1,6 @@
-Since 0.6.3
+Since 0.7.0
 -----------
-- replaced crud macros with nearly identical functions
-- removed `FieldAccess`
-- changed `update`'s api to be consistent with `delete`'s
-- implemented `FieldType` and `FieldEq` for `url::Url`
-- added `MaxStr` field type
-- added shorter syntax for `Model::F.field`: `Model.field`
-- implemented condition collections for `Option<impl Condition>`
-- `ForeignModelByField` does not cache a model instance anymore
-- `is_none` and `is_some` conditions on `Option<T>` fields
-
-- implementation of derive macros is available as normal function
-- implemented `Condition` on `Arc<dyn Condition>` and `&impl Condition`
-- relaxed / fixed lifetimes
-- improved error spans in or! and and!
-- fixed names of join aliases
-- changed name generation for join and column aliases
-- redesigned associated type `Columns` on trait `FieldType`
-- replace field modifiers with const fns
-- removed `AsDbType`
-- removed support for async-std
-- changed error type returned by Decoder methods
+- ...
 
 Notes for publishing
 --------------------
