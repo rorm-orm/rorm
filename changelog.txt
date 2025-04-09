@@ -1,3 +1,3 @@
-Since 0.7.3
+Since 0.8.1
 -----------
-- switched to rorm-db instead of using sqlx directly
+- ...
