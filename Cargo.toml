@@ -1,6 +1,6 @@
 [package]
 name = "rorm-db"
-version = "0.10.0"
+version = "0.10.1"
 edition = "2021"
 categories = ["database"]
 keywords = ["async", "orm", "database", "orm"]
@@ -37,7 +37,7 @@ serde = { version = "~1", features = ["derive"], optional = true }
 rustc_version = "0.4.0"
 
 [package.metadata.docs.rs]
-features = ["all-driver", "serde", "tokio", "async-std", "native-tls", "rustls"]
+features = ["all-driver", "serde", "native-tls", "rustls"]
 
 [features]
 all-driver = [
