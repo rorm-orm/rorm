@@ -4,8 +4,9 @@ use std::fmt;
 
 use rorm_db::Executor;
 
-use crate::conditions::{Binary, BinaryOperator, Column};
+use crate::conditions::{Binary, BinaryOperator, Column, Condition};
 use crate::crud::query::query;
+use crate::crud::selector::Selector;
 use crate::fields::proxy;
 use crate::internal::field::SingleColumnField;
 use crate::model::Model;
@@ -22,14 +23,44 @@ pub struct ForeignModelByField<FF: SingleColumnField>(pub FF::Type);
 impl<FF: SingleColumnField> ForeignModelByField<FF> {
     /// Queries the associated model
     pub async fn query(self, executor: impl Executor<'_>) -> Result<FF::Model, crate::Error> {
-        query(executor, <FF::Model as Patch>::ValueSpaceImpl::default())
-            .condition(Binary {
-                operator: BinaryOperator::Equals,
-                fst_arg: Column(proxy::new::<(FF, FF::Model)>()),
-                snd_arg: FF::type_into_value(self.0),
-            })
+        self.query_as(executor, <FF::Model as Patch>::ValueSpaceImpl::default())
+            .await
+    }
+
+    /// Queries the associated model using `selector`
+    pub async fn query_as<S>(
+        self,
+        executor: impl Executor<'_>,
+        selector: S,
+    ) -> Result<S::Result, crate::Error>
+    where
+        S: Selector<Model = FF::Model>,
+    {
+        query(executor, selector)
+            .condition(self.into_condition())
             .one()
             .await
+    }
+
+    /// Constructs a condition to query the associated model
+    pub fn as_condition(&self) -> impl Condition<'_> {
+        Binary {
+            operator: BinaryOperator::Equals,
+            fst_arg: Column(proxy::new::<(FF, FF::Model)>()),
+            snd_arg: FF::type_as_value(&self.0),
+        }
+    }
+
+    /// Constructs a condition to query the associated model
+    pub fn into_condition<'a>(self) -> impl Condition<'a>
+    where
+        FF::Type: 'a,
+    {
+        Binary {
+            operator: BinaryOperator::Equals,
+            fst_arg: Column(proxy::new::<(FF, FF::Model)>()),
+            snd_arg: FF::type_into_value(self.0),
+        }
     }
 }
 

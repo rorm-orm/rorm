@@ -1,6 +1,8 @@
 Since 0.7.1
 -----------
-- ...
+- Added `ForeignModelByField::query_as`
+- Added `ForeignModelByField::as_condition`
+- Added `ForeignModelByField::into_condition`
 
 Notes for publishing
 --------------------
