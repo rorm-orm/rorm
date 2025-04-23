@@ -52,6 +52,7 @@ use crate::model::{ConstNew, Model};
 pub mod decoder;
 pub mod fake_field;
 pub mod foreign_model;
+pub mod mulit_column;
 
 use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::utils::const_fn::{ConstFn, Contains};
