@@ -131,7 +131,7 @@ impl ::rorm::crud::decoder::Decoder for __BasicModel_Decoder {
 impl ::rorm::model::Patch for BasicModel {
     type Model = BasicModel;
     type ValueSpaceImpl = __BasicModel_ValueSpaceImpl;
-    fn push_columns(columns: &mut Vec<&'static str>) {
+    fn push_columns(columns: &mut Vec<::rorm::fields::utils::column_name::ColumnName>) {
         columns
             .extend(
                 ::rorm::fields::proxy::columns(|| {

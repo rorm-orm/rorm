@@ -44,7 +44,7 @@ impl ::rorm::crud::decoder::Decoder for __BasicPatch_Decoder {
 impl ::rorm::model::Patch for BasicPatch {
     type Model = BasicModel;
     type ValueSpaceImpl = __BasicPatch_ValueSpaceImpl;
-    fn push_columns(columns: &mut Vec<&'static str>) {}
+    fn push_columns(columns: &mut Vec<::rorm::fields::utils::column_name::ColumnName>) {}
     fn push_references<'a>(&'a self, values: &mut Vec<::rorm::conditions::Value<'a>>) {}
     fn push_values(self, values: &mut Vec<::rorm::conditions::Value>) {}
 }

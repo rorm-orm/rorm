@@ -8,6 +8,7 @@
 use std::marker::PhantomData;
 
 use crate::fields::traits::{FieldColumns, FieldType};
+use crate::fields::utils::column_name::ColumnName;
 use crate::internal::field::Field;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::Source;
@@ -32,7 +33,7 @@ where
     const NAME: &'static str = F::NAME;
     const EXPLICIT_ANNOTATIONS: Annotations = F::EXPLICIT_ANNOTATIONS;
     const EFFECTIVE_ANNOTATIONS: FieldColumns<F::Type, Annotations> = F::EFFECTIVE_ANNOTATIONS;
-    const EFFECTIVE_NAMES: FieldColumns<F::Type, &'static str> = F::EFFECTIVE_NAMES;
+    const EFFECTIVE_NAMES: FieldColumns<F::Type, ColumnName> = F::EFFECTIVE_NAMES;
     const SOURCE: Source = F::SOURCE;
     fn new() -> Self {
         Self(PhantomData)

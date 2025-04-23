@@ -11,6 +11,7 @@ use crate::fields::traits::{
     FieldAvg, FieldColumns, FieldCount, FieldEq, FieldLike, FieldMax, FieldMin, FieldOrd,
     FieldRegexp, FieldSum,
 };
+use crate::fields::utils::column_name::ColumnName;
 use crate::internal::field::{Field, SingleColumnField};
 use crate::internal::relation_path::{Path, PathField};
 use crate::sealed;
@@ -368,6 +369,6 @@ pub const fn through<I: FieldProxyImpl, NewPath: Path>(
 /// This function is used by the `#[derive(Patch)]` macro to gather a list of all columns.
 pub const fn columns<T: FieldProxyImpl>(
     _: fn() -> FieldProxy<T>,
-) -> FieldColumns<<T::Field as Field>::Type, &'static str> {
+) -> FieldColumns<<T::Field as Field>::Type, ColumnName> {
     <T::Field as Field>::EFFECTIVE_NAMES
 }

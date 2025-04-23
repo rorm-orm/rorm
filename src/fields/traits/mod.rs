@@ -10,6 +10,7 @@ use crate::conditions::Value;
 use crate::crud::decoder::Decoder;
 use crate::fields::proxy;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
+use crate::fields::utils::column_name::ColumnName;
 use crate::fields::utils::const_fn::ConstFn;
 use crate::internal::const_concat::ConstString;
 use crate::internal::field::decoder::FieldDecoder;
@@ -43,7 +44,7 @@ pub trait FieldType: 'static {
     type Decoder: FieldDecoder<Result = Self>;
 
     /// Get the columns' names from the field's name
-    type GetNames: ConstFn<(&'static str,), FieldColumns<Self, &'static str>>;
+    type GetNames: ConstFn<(ColumnName,), FieldColumns<Self, ColumnName>>;
 
     /// Get the columns' annotations from the field's annotations
     type GetAnnotations: ConstFn<(Annotations,), FieldColumns<Self, Annotations>>;

@@ -72,6 +72,9 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
         if column.value().contains("__") {
             errors.push(darling::Error::custom("Column names can't contain a double underscore. If you need to name your field like this, consider using `#[rorm(rename = \"...\")]`.").with_span(&column));
         }
+        if column.value().len() > 63 {
+            errors.push(darling::Error::custom("Column names can't be larger than 63 bytes. If you need to name your field like this, consider using `#[rorm(rename = \"...\")]`.").with_span(&column));
+        }
 
         // Handle #[rorm(id)] annotation
         if id {

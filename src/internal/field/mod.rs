@@ -55,6 +55,7 @@ pub mod foreign_model;
 pub mod mulit_column;
 
 use crate::fields::traits::{Array, FieldColumns, FieldType};
+use crate::fields::utils::column_name::ColumnName;
 use crate::fields::utils::const_fn::{ConstFn, Contains};
 use crate::internal::const_concat::ConstString;
 
@@ -86,7 +87,7 @@ pub trait Field: 'static + Copy {
         )> as Contains<_>>::ITEM;
 
     /// List of names which are passed to db
-    const EFFECTIVE_NAMES: FieldColumns<Self::Type, &'static str> =
+    const EFFECTIVE_NAMES: FieldColumns<Self::Type, ColumnName> =
         <<<Self::Type as FieldType>::GetNames as ConstFn<_, _>>::Body<(contains::Name<Self>,)> as Contains<_>>::ITEM;
 
     /// Location of the field in the source code
@@ -116,7 +117,7 @@ pub fn push_imr<F: Field>(imr: &mut Vec<imr::Field>) {
     {
         annotations.nullable |= is_option;
         imr.push(imr::Field {
-            name: name.to_string(),
+            name: name.as_str().to_string(),
             db_type: match null_type {
                 NullType::String => imr::DbType::VarChar,
                 NullType::Choice => imr::DbType::Choices,
@@ -236,6 +237,7 @@ mod contains {
     use std::marker::PhantomData;
 
     use crate::fields::traits::FieldColumns;
+    use crate::fields::utils::column_name::ColumnName;
     use crate::fields::utils::const_fn::Contains;
     use crate::internal::field::Field;
     use crate::internal::hmr::annotations::Annotations;
@@ -251,7 +253,7 @@ mod contains {
     }
 
     pub struct Name<F: Field>(PhantomData<F>);
-    impl<F: Field> Contains<&'static str> for Name<F> {
-        const ITEM: &'static str = F::NAME;
+    impl<F: Field> Contains<ColumnName> for Name<F> {
+        const ITEM: ColumnName = ColumnName::new(F::NAME);
     }
 }

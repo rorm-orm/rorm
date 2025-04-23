@@ -11,6 +11,7 @@ use crate::crud::decoder::Decoder;
 use crate::crud::selector::Selector;
 use crate::fields::proxy;
 use crate::fields::proxy::FieldProxy;
+use crate::fields::utils::column_name::ColumnName;
 use crate::internal::patch::{IntoPatchCow, PatchCow};
 use crate::internal::query_context::QueryContext;
 use crate::model::{Model, Patch};
@@ -188,6 +189,7 @@ where
         let _check = Self::CHECK;
 
         let columns = P::columns();
+        let columns = columns.iter().map(ColumnName::as_str).collect::<Vec<_>>();
         let values = patch.references();
         let values: Vec<_> = values.iter().map(Value::as_sql).collect();
 
@@ -237,6 +239,7 @@ where
         }
 
         let columns = P::columns();
+        let columns = columns.iter().map(ColumnName::as_str).collect::<Vec<_>>();
         let values: Vec<_> = values.iter().map(Value::as_sql).collect();
         let values_slices: Vec<_> = values.chunks(columns.len()).collect();
 
@@ -274,6 +277,7 @@ where
     /// See [`InsertBuilder::single`]
     pub async fn single<P: Patch<Model = M>>(self, patch: &P) -> Result<(), Error> {
         let columns = P::columns();
+        let columns = columns.iter().map(ColumnName::as_str).collect::<Vec<_>>();
         let values = patch.references();
         let values: Vec<_> = values.iter().map(Value::as_sql).collect();
 
@@ -296,6 +300,7 @@ where
         }
 
         let columns = P::columns();
+        let columns = columns.iter().map(ColumnName::as_str).collect::<Vec<_>>();
         let values: Vec<_> = values.iter().map(Value::as_sql).collect();
         let values_slices: Vec<_> = values.chunks(columns.len()).collect();
 

@@ -147,7 +147,7 @@ pub fn partially_generate_patch<'a>(
 
             type ValueSpaceImpl = #value_space_impl #type_generics;
 
-            fn push_columns(columns: &mut Vec<&'static str>) {#(
+            fn push_columns(columns: &mut Vec<#rorm_path::fields::utils::column_name::ColumnName>) {#(
                 columns.extend(
                     #rorm_path::fields::proxy::columns(|| <<Self as #rorm_path::model::Patch>::Model as #rorm_path::model::Model>::FIELDS.#fields_5)
                 );

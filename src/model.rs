@@ -5,6 +5,7 @@ use rorm_declaration::imr;
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
 use crate::crud::selector::Selector;
 use crate::fields::proxy;
+use crate::fields::utils::column_name::ColumnName;
 use crate::internal::field::{Field, SingleColumnField};
 use crate::internal::hmr::{AsImr, Source};
 use crate::internal::relation_path::Path;
@@ -22,14 +23,14 @@ pub trait Patch: Sized + 'static {
     type ValueSpaceImpl: Selector<Result = Self, Model = Self::Model> + Default;
 
     /// Create a `Vec` containing the patch's columns
-    fn columns() -> Vec<&'static str> {
+    fn columns() -> Vec<ColumnName> {
         let mut columns = Vec::new();
         Self::push_columns(&mut columns);
         columns
     }
 
     /// Push the patch's columns onto a `Vec`
-    fn push_columns(columns: &mut Vec<&'static str>);
+    fn push_columns(columns: &mut Vec<ColumnName>);
 
     /// Create a [`Vec`] moving the patch's condition values
     fn values(self) -> Vec<Value<'static>> {

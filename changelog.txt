@@ -3,6 +3,7 @@ Since 0.7.1
 - Added `ForeignModelByField::query_as`
 - Added `ForeignModelByField::as_condition`
 - Added `ForeignModelByField::into_condition`
+- Enforced column names to be at most 63 bytes
 
 Notes for publishing
 --------------------

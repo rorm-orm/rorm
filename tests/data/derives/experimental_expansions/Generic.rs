@@ -188,7 +188,7 @@ for __Generic_Decoder<X> {
 impl<X: rorm::fields::traits::FieldType> ::rorm::model::Patch for Generic<X> {
     type Model = Generic<X>;
     type ValueSpaceImpl = __Generic_ValueSpaceImpl<X>;
-    fn push_columns(columns: &mut Vec<&'static str>) {
+    fn push_columns(columns: &mut Vec<::rorm::fields::utils::column_name::ColumnName>) {
         columns
             .extend(
                 ::rorm::fields::proxy::columns(|| {

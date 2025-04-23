@@ -11,6 +11,7 @@
 //! use rorm::db::sql::value::NullType;
 //! use rorm::fields::proxy::{FieldProxy, FieldProxyImpl};
 //! use rorm::fields::traits::{Array, FieldColumns, FieldType};
+//! use rorm::fields::utils::column_name::ColumnName;
 //! use rorm::fields::utils::const_fn::{ConstFn, Contains};
 //! use rorm::internal::const_concat::ConstString;
 //! use rorm::internal::field::decoder::FieldDecoder;
@@ -93,9 +94,48 @@
 //!     }
 //! }
 //!
+//! pub struct get_MyMcf_names;
+//! impl ConstFn<(ColumnName,), FieldColumns<MyMcf, ColumnName>> for get_MyMcf_names {
+//!     type Body<T: Contains<(ColumnName,)>> = get_MyMcf_names_Body<T>;
+//! }
+//! pub struct get_MyMcf_names_Body<T>(PhantomData<T>);
+//! impl<T: Contains<(ColumnName,)>> Contains<FieldColumns<MyMcf, ColumnName>>
+//! for get_MyMcf_names_Body<T>
+//! {
+//!     const ITEM: FieldColumns<MyMcf, ColumnName> = {
+//!         let mut builder = ArrayBuilder::new([ColumnName::placeholder(); 3]);
+//!         builder.extend_const(
+//!             <<<i32 as FieldType>::GetNames as ConstFn<_, _>>::Body<(
+//!                 <get_MyMcf_foo_name as ConstFn<_, _>>::Body<T>,
+//!             )> as Contains<_>>::ITEM,
+//!         );
+//!         builder.extend_const(
+//!             <<<String as FieldType>::GetNames as ConstFn<_, _>>::Body<(
+//!                 <get_MyMcf_bar_name as ConstFn<_, _>>::Body<T>,
+//!             )> as Contains<_>>::ITEM,
+//!         );
+//!         builder.extend_const(
+//!             <<<bool as FieldType>::GetNames as ConstFn<_, _>>::Body<(
+//!                 <get_MyMcf_baz_name as ConstFn<_, _>>::Body<T>,
+//!             )> as Contains<_>>::ITEM,
+//!         );
+//!         builder.finish_const()
+//!     };
+//! }
+//!
 //! const_fn! {
-//!     pub fn get_MyMcf_names(field_name: &'static str) -> FieldColumns<MyMcf, &'static str> {
-//!         ["foo", "bar", "baz"]
+//!     pub fn get_MyMcf_foo_name(column_name: ColumnName) -> ColumnName {
+//!         column_name.join("foo")
+//!     }
+//! }
+//! const_fn! {
+//!     pub fn get_MyMcf_bar_name(column_name: ColumnName) -> ColumnName {
+//!         column_name.join("bar")
+//!     }
+//! }
+//! const_fn! {
+//!     pub fn get_MyMcf_baz_name(column_name: ColumnName) -> ColumnName {
+//!         column_name.join("baz")
 //!     }
 //! }
 //!

@@ -126,7 +126,7 @@ impl ::rorm::crud::decoder::Decoder for __Unregistered_Decoder {
 impl ::rorm::model::Patch for Unregistered {
     type Model = Unregistered;
     type ValueSpaceImpl = __Unregistered_ValueSpaceImpl;
-    fn push_columns(columns: &mut Vec<&'static str>) {
+    fn push_columns(columns: &mut Vec<::rorm::fields::utils::column_name::ColumnName>) {
         columns
             .extend(
                 ::rorm::fields::proxy::columns(|| {
