@@ -112,7 +112,7 @@ impl<'post_query> JoinTable<'post_query> for JoinTableImpl<'_, 'post_query> {
             #[cfg(feature = "sqlite")]
             JoinTableImpl::SQLite(d) => write!(
                 s,
-                "{} {} AS {} ON {}",
+                "{} \"{}\" AS {} ON {}",
                 d.join_type,
                 d.table_name,
                 d.join_alias,

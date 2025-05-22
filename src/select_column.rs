@@ -64,10 +64,10 @@ impl SelectColumn for SelectColumnImpl<'_> {
                 }
 
                 if let Some(table_name) = d.table_name {
-                    write!(s, "{table_name}.").unwrap();
+                    write!(s, "\"{table_name}\".").unwrap();
                 }
 
-                write!(s, "{}", d.column_name).unwrap();
+                write!(s, "\"{}\"", d.column_name).unwrap();
 
                 if d.aggregation.is_some() {
                     write!(s, ")").unwrap();

@@ -63,7 +63,7 @@ impl DropTable for DropTableImpl<'_> {
         match self {
             #[cfg(feature = "sqlite")]
             DropTableImpl::SQLite(d) => format!(
-                "DROP TABLE {}{};",
+                "DROP TABLE \"{}\"{};",
                 d.name,
                 if d.if_exists { " IF EXISTS" } else { "" }
             ),

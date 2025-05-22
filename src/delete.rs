@@ -78,7 +78,7 @@ impl<'until_build, 'post_query> Delete<'until_build, 'post_query>
         match self {
             #[cfg(feature = "sqlite")]
             DeleteImpl::SQLite(mut d) => {
-                let mut s = format!("DELETE FROM {} ", d.model);
+                let mut s = format!("DELETE FROM \"{}\" ", d.model);
 
                 if d.where_clause.is_some() {
                     write!(

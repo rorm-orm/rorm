@@ -412,6 +412,7 @@ impl DBImpl {
     */
     pub fn update<'until_build, 'post_query>(
         &self,
+
         table_name: &'until_build str,
     ) -> impl Update<'until_build, 'post_query>
     where

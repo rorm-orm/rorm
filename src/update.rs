@@ -150,11 +150,11 @@ impl<'until_build, 'post_build> Update<'until_build, 'post_build>
                 let update_index = d.updates.len() - 1;
                 for (idx, (name, value)) in d.updates.into_iter().enumerate() {
                     if let Value::Choice(c) = value {
-                        write!(s, "{name} = {}", sqlite::fmt(c)).unwrap();
+                        write!(s, "\"{name}\" = {}", sqlite::fmt(c)).unwrap();
                     } else if let Value::Null(NullType::Choice) = value {
-                        write!(s, "{name} = NULL").unwrap();
+                        write!(s, "\"{name}\" = NULL").unwrap();
                     } else {
-                        write!(s, "{name} = ?").unwrap();
+                        write!(s, "\"{name}\" = ?").unwrap();
                         d.lookup.push(value);
                     }
                     if idx != update_index {

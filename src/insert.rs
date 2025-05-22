@@ -89,7 +89,7 @@ impl<'post_build> Insert<'post_build> for InsertImpl<'_, 'post_build> {
                 // Handle case, if no columns should be inserted, aka an empty insert
                 if d.columns.is_empty() {
                     let mut s = format!(
-                        "INSERT {}INTO {} DEFAULT VALUES",
+                        "INSERT {}INTO \"{}\" DEFAULT VALUES",
                         match d.on_conflict {
                             OnConflict::ABORT => "OR ABORT ",
                             OnConflict::ROLLBACK => "OR ROLLBACK ",
@@ -114,7 +114,7 @@ impl<'post_build> Insert<'post_build> for InsertImpl<'_, 'post_build> {
                 }
 
                 let mut s = format!(
-                    "INSERT {}INTO {} (",
+                    "INSERT {}INTO \"{}\" (",
                     match d.on_conflict {
                         OnConflict::ABORT => "OR ABORT ",
                         OnConflict::ROLLBACK => "OR ROLLBACK ",
@@ -122,7 +122,7 @@ impl<'post_build> Insert<'post_build> for InsertImpl<'_, 'post_build> {
                     d.into_clause,
                 );
                 for (idx, x) in d.columns.iter().enumerate() {
-                    write!(s, "{x}").unwrap();
+                    write!(s, "\"{x}\"").unwrap();
                     if idx != d.columns.len() - 1 {
                         write!(s, ", ").unwrap();
                     }
@@ -133,7 +133,7 @@ impl<'post_build> Insert<'post_build> for InsertImpl<'_, 'post_build> {
                     write!(s, "(").unwrap();
                     for (idx_2, y) in x.iter().enumerate() {
                         match y {
-                            Value::Ident(st) => write!(s, "{}", *st).unwrap(),
+                            Value::Ident(st) => write!(s, "\"{}\"", *st).unwrap(),
                             Value::Choice(c) => write!(s, "{}", sqlite::fmt(c)).unwrap(),
                             Value::Null(NullType::Choice) => write!(s, "NULL").unwrap(),
                             _ => {

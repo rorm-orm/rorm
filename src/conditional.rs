@@ -235,7 +235,7 @@ impl<'a> BuildCondition<'a> for Condition<'a> {
                     #[cfg(feature = "sqlite")]
                     DBImpl::SQLite => {
                         if let Some(table_name) = table_name {
-                            write!(writer, "{table_name}.")?;
+                            write!(writer, "\"{table_name}\".")?;
                         }
                         write!(writer, "{column_name}")
                     }
