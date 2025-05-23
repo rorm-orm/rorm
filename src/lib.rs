@@ -151,6 +151,7 @@ pub use rorm_macro::rorm_main;
 /// }
 /// ```
 pub use rorm_macro::DbEnum;
+pub use rorm_macro::FieldType;
 /// ```no_run
 /// use rorm::Model;
 ///

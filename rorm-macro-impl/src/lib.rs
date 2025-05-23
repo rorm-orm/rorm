@@ -3,11 +3,14 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
+use crate::analyze::field_type::analyze_field_type;
 use crate::analyze::model::analyze_model;
 use crate::generate::db_enum::generate_db_enum;
+use crate::generate::field_type::generate_field_type;
 use crate::generate::model::generate_model;
 use crate::generate::patch::generate_patch;
 use crate::parse::db_enum::parse_db_enum;
+use crate::parse::field_type::parse_field_type;
 use crate::parse::model::parse_model;
 use crate::parse::patch::parse_patch;
 
@@ -36,6 +39,14 @@ pub fn derive_model(input: TokenStream, config: MacroConfig) -> TokenStream {
 pub fn derive_patch(input: TokenStream, config: MacroConfig) -> TokenStream {
     match parse_patch(input) {
         Ok(patch) => generate_patch(&patch, &config),
+        Err(error) => error.write_errors(),
+    }
+}
+
+/// Implementation of `rorm`'s `#[derive(FieldType)]` macro
+pub fn derive_field_type(input: TokenStream, config: MacroConfig) -> TokenStream {
+    match parse_field_type(input).and_then(analyze_field_type) {
+        Ok(patch) => generate_field_type(&patch, &config),
         Err(error) => error.write_errors(),
     }
 }
