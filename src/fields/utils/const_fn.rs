@@ -184,12 +184,12 @@ macro_rules! const_fn {
         $vis const fn $fun_name($( $arg_name : $arg_type ),*) -> $ret_type $body
         const _: () = {
             impl $crate::fields::utils::const_fn::ConstFn<($($arg_type,)+), $ret_type> for $fun_name {
-                type Body<T: $crate::fields::utils::const_fn::Contains<($($arg_type,)+)>> = Body<T>;
+                type Body<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)+)>> = Body<(Self, Arg)>;
             }
-            $vis struct Body<T: $crate::fields::utils::const_fn::Contains<($($arg_type,)+)>>(::std::marker::PhantomData<T>);
-            impl<T: $crate::fields::utils::const_fn::Contains<($($arg_type,)+)>> $crate::fields::utils::const_fn::Contains<$ret_type> for Body<T> {
+            $vis struct Body<T>(::std::marker::PhantomData<T>);
+            impl<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)+)>> $crate::fields::utils::const_fn::Contains<$ret_type> for Body<($fun_name, Arg)> {
                 const ITEM: $ret_type = {
-                    let ($($arg_name,)+) = T::ITEM;
+                    let ($($arg_name,)+) = Arg::ITEM;
                     $fun_name($($arg_name,)*)
                 };
             }
@@ -205,10 +205,10 @@ macro_rules! const_fn {
         $vis const fn $fun_name<const $gen_name: $gen_type>($( $arg_name : $arg_type ),*) -> $ret_type $body
         const _: () = {
             impl<const $gen_name: $gen_type> $crate::fields::utils::const_fn::ConstFn<($($arg_type,)*), $ret_type> for $fun_name<$gen_name> {
-                type Body<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)*)>> = Body<Arg, $gen_name>;
+                type Body<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)*)>> = Body<(Self, Arg)>;
             }
-            $vis struct Body<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)*)>, const $gen_name: $gen_type>(::std::marker::PhantomData<Arg>);
-            impl<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)*)>, const $gen_name: $gen_type> $crate::fields::utils::const_fn::Contains<$ret_type> for Body<Arg, $gen_name> {
+            $vis struct Body<T>(::std::marker::PhantomData<T>);
+            impl<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)*)>, const $gen_name: $gen_type> $crate::fields::utils::const_fn::Contains<$ret_type> for Body<($fun_name<$gen_name>, Arg)> {
                 const ITEM: $ret_type = {
                     let ($($arg_name,)*) = Arg::ITEM;
                     $fun_name::<$gen_name>($($arg_name,)*)
@@ -226,10 +226,10 @@ macro_rules! const_fn {
         $vis const fn $fun_name<$generic $(:$bound)?>($( $arg_name : $arg_type ),*) -> $ret_type $body
         const _: () = {
             impl<$generic $(:$bound)?> $crate::fields::utils::const_fn::ConstFn<($($arg_type,)*), $ret_type> for $fun_name<$generic> {
-                type Body<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)*)>> = Body<Arg, $generic>;
+                type Body<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)*)>> = Body<(Self, Arg)>;
             }
-            $vis struct Body<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)*)>, $generic $(:$bound)?>(::std::marker::PhantomData<Arg>, ::std::marker::PhantomData<$generic>);
-            impl<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)*)>, $generic $(:$bound)?> $crate::fields::utils::const_fn::Contains<$ret_type> for Body<Arg, $generic> {
+            $vis struct Body<T>(::std::marker::PhantomData<T>);
+            impl<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)*)>, $generic $(:$bound)?> $crate::fields::utils::const_fn::Contains<$ret_type> for Body<($fun_name<$generic>, Arg)> {
                 const ITEM: $ret_type = {
                     let ($($arg_name,)*) = Arg::ITEM;
                     $fun_name::<$generic>($($arg_name,)*)
