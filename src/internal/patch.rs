@@ -1,6 +1,13 @@
 //! Utility stuff around [Patch]
 
+use crate::internal::ConstRef;
 use crate::model::Patch;
+use crate::Model;
+
+/// Helper used by macros to access a [`Model`]'s `Fields` with less syntactic noise
+pub const fn model_fields<M: Model>() -> &'static M::Fields<M> {
+    ConstRef::REF
+}
 
 /// Like [`std::borrow::Cow`] but for internal use
 pub enum PatchCow<'p, P: Patch> {

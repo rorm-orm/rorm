@@ -98,17 +98,11 @@ pub struct __Generic_Fields_Struct<
 impl<
     X: rorm::fields::traits::FieldType,
     Path: ::rorm::internal::relation_path::Path,
-> ::rorm::internal::ConstNew for __Generic_Fields_Struct<X, Path> {
-    const NEW: Self = Self {
+> ::rorm::internal::ConstRef for __Generic_Fields_Struct<X, Path> {
+    const REF: &'static Self = &Self {
         id: ::rorm::fields::proxy::new(),
         x: ::rorm::fields::proxy::new(),
     };
-}
-impl<
-    X: rorm::fields::traits::FieldType,
-    Path: ::rorm::internal::relation_path::Path,
-> ::rorm::internal::ConstRef for __Generic_Fields_Struct<X, Path> {
-    const REF: &'static Self = &<Self as ::rorm::internal::ConstNew>::NEW;
 }
 impl<X: rorm::fields::traits::FieldType> ::std::ops::Deref
 for __Generic_ValueSpaceImpl<X> {
@@ -123,8 +117,6 @@ impl<X: rorm::fields::traits::FieldType> ::rorm::model::Model for Generic<X> {
         X,
         P,
     >;
-    const F: __Generic_Fields_Struct<X, Self> = ::rorm::internal::ConstNew::NEW;
-    const FIELDS: __Generic_Fields_Struct<X, Self> = ::rorm::internal::ConstNew::NEW;
     const TABLE: &'static str = "generic";
     const SOURCE: ::rorm::internal::hmr::Source = ::rorm::internal::hmr::Source {
         file: ::std::file!(),
@@ -161,8 +153,10 @@ for __Generic_ValueSpaceImpl<X> {
         ctx: &mut ::rorm::internal::query_context::QueryContext,
     ) -> Self::Decoder {
         __Generic_Decoder {
-            id: <Generic<X> as ::rorm::model::Model>::FIELDS.id.select(&mut *ctx),
-            x: <Generic<X> as ::rorm::model::Model>::FIELDS.x.select(&mut *ctx),
+            id: ::rorm::internal::patch::model_fields::<Generic<X>>()
+                .id
+                .select(&mut *ctx),
+            x: ::rorm::internal::patch::model_fields::<Generic<X>>().x.select(&mut *ctx),
         }
     }
 }
@@ -201,15 +195,13 @@ impl<X: rorm::fields::traits::FieldType> ::rorm::model::Patch for Generic<X> {
         columns
             .extend(
                 ::rorm::fields::proxy::columns(|| {
-                    <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS
-                        .id
+                    ::rorm::internal::patch::model_fields::<Generic<X>>().id
                 }),
             );
         columns
             .extend(
                 ::rorm::fields::proxy::columns(|| {
-                    <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS
-                        .x
+                    ::rorm::internal::patch::model_fields::<Generic<X>>().x
                 }),
             );
     }

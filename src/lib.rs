@@ -95,7 +95,8 @@ macro_rules! get_field {
         <<$patch as $crate::model::Patch>::Model as $crate::model::FieldByIndex<
             {
                 $crate::fields::proxy::index(|| {
-                    <<Self as $crate::model::Patch>::Model as $crate::model::Model>::FIELDS.$field
+                    $crate::internal::patch::model_fields::<<Self as $crate::model::Patch>::Model>()
+                        .$field
                 })
             },
         >>::Field

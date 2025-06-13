@@ -44,15 +44,11 @@ pub struct __Unregistered_Fields_Struct<Path: ::rorm::internal::relation_path::P
     ///[`Unregistered`]'s `id` field
     pub id: ::rorm::fields::proxy::FieldProxy<(__Unregistered_id, Path)>,
 }
-impl<Path: ::rorm::internal::relation_path::Path> ::rorm::internal::ConstNew
-for __Unregistered_Fields_Struct<Path> {
-    const NEW: Self = Self {
-        id: ::rorm::fields::proxy::new(),
-    };
-}
 impl<Path: ::rorm::internal::relation_path::Path> ::rorm::internal::ConstRef
 for __Unregistered_Fields_Struct<Path> {
-    const REF: &'static Self = &<Self as ::rorm::internal::ConstNew>::NEW;
+    const REF: &'static Self = &Self {
+        id: ::rorm::fields::proxy::new(),
+    };
 }
 impl ::std::ops::Deref for __Unregistered_ValueSpaceImpl {
     type Target = <Unregistered as ::rorm::Model>::Fields<Unregistered>;
@@ -65,8 +61,6 @@ impl ::rorm::model::Model for Unregistered {
     type Fields<P: ::rorm::internal::relation_path::Path> = __Unregistered_Fields_Struct<
         P,
     >;
-    const F: __Unregistered_Fields_Struct<Self> = ::rorm::internal::ConstNew::NEW;
-    const FIELDS: __Unregistered_Fields_Struct<Self> = ::rorm::internal::ConstNew::NEW;
     const TABLE: &'static str = "unregistered";
     const SOURCE: ::rorm::internal::hmr::Source = ::rorm::internal::hmr::Source {
         file: ::std::file!(),
@@ -100,7 +94,9 @@ impl ::rorm::crud::selector::Selector for __Unregistered_ValueSpaceImpl {
         ctx: &mut ::rorm::internal::query_context::QueryContext,
     ) -> Self::Decoder {
         __Unregistered_Decoder {
-            id: <Unregistered as ::rorm::model::Model>::FIELDS.id.select(&mut *ctx),
+            id: ::rorm::internal::patch::model_fields::<Unregistered>()
+                .id
+                .select(&mut *ctx),
         }
     }
 }
@@ -135,8 +131,7 @@ impl ::rorm::model::Patch for Unregistered {
         columns
             .extend(
                 ::rorm::fields::proxy::columns(|| {
-                    <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS
-                        .id
+                    ::rorm::internal::patch::model_fields::<Unregistered>().id
                 }),
             );
     }

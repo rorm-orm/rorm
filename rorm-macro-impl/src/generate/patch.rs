@@ -115,7 +115,7 @@ pub fn partially_generate_patch<'a>(
             const INSERT_COMPATIBLE: bool = true;
             fn select(self, ctx: &mut #rorm_path::internal::query_context::QueryContext) -> Self::Decoder {
                 #decoder {#(
-                    #fields_4: <#model #type_generics as #rorm_path::model::Model>::FIELDS.#fields_4.select(&mut *ctx),
+                    #fields_4: #rorm_path::internal::patch::model_fields::<#model #type_generics>().#fields_4.select(&mut *ctx),
                 )*}
             }
         }
@@ -149,7 +149,7 @@ pub fn partially_generate_patch<'a>(
 
             fn push_columns(columns: &mut Vec<#rorm_path::fields::utils::column_name::ColumnName>) {#(
                 columns.extend(
-                    #rorm_path::fields::proxy::columns(|| <<Self as #rorm_path::model::Patch>::Model as #rorm_path::model::Model>::FIELDS.#fields_5)
+                    #rorm_path::fields::proxy::columns(|| #rorm_path::internal::patch::model_fields::<#model #type_generics>().#fields_5)
                 );
             )*}
 
