@@ -49,15 +49,11 @@ pub struct __BasicModel_Fields_Struct<Path: ::rorm::internal::relation_path::Pat
     ///[`BasicModel`]'s `id` field
     pub id: ::rorm::fields::proxy::FieldProxy<(__BasicModel_id, Path)>,
 }
-impl<Path: ::rorm::internal::relation_path::Path> ::rorm::internal::ConstNew
-for __BasicModel_Fields_Struct<Path> {
-    const NEW: Self = Self {
-        id: ::rorm::fields::proxy::new(),
-    };
-}
 impl<Path: ::rorm::internal::relation_path::Path> ::rorm::internal::ConstRef
 for __BasicModel_Fields_Struct<Path> {
-    const REF: &'static Self = &<Self as ::rorm::internal::ConstNew>::NEW;
+    const REF: &'static Self = &Self {
+        id: ::rorm::fields::proxy::new(),
+    };
 }
 impl ::std::ops::Deref for __BasicModel_ValueSpaceImpl {
     type Target = <BasicModel as ::rorm::Model>::Fields<BasicModel>;
@@ -70,8 +66,6 @@ impl ::rorm::model::Model for BasicModel {
     type Fields<P: ::rorm::internal::relation_path::Path> = __BasicModel_Fields_Struct<
         P,
     >;
-    const F: __BasicModel_Fields_Struct<Self> = ::rorm::internal::ConstNew::NEW;
-    const FIELDS: __BasicModel_Fields_Struct<Self> = ::rorm::internal::ConstNew::NEW;
     const TABLE: &'static str = "basicmodel";
     const SOURCE: ::rorm::internal::hmr::Source = ::rorm::internal::hmr::Source {
         file: ::std::file!(),
@@ -105,7 +99,9 @@ impl ::rorm::crud::selector::Selector for __BasicModel_ValueSpaceImpl {
         ctx: &mut ::rorm::internal::query_context::QueryContext,
     ) -> Self::Decoder {
         __BasicModel_Decoder {
-            id: <BasicModel as ::rorm::model::Model>::FIELDS.id.select(&mut *ctx),
+            id: ::rorm::internal::patch::model_fields::<BasicModel>()
+                .id
+                .select(&mut *ctx),
         }
     }
 }
@@ -140,8 +136,7 @@ impl ::rorm::model::Patch for BasicModel {
         columns
             .extend(
                 ::rorm::fields::proxy::columns(|| {
-                    <<Self as ::rorm::model::Patch>::Model as ::rorm::model::Model>::FIELDS
-                        .id
+                    ::rorm::internal::patch::model_fields::<BasicModel>().id
                 }),
             );
     }

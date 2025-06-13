@@ -65,19 +65,8 @@ pub trait Model: Patch<Model = Self> {
     /// The primary key
     type Primary: Field<Model = Self> + SingleColumnField;
 
-    /// A struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`](crate::internal::field::Field)).
-    ///
-    /// The struct is constructed once in the [`Model::FIELDS`] constant.
+    /// A struct which "maps" field identifiers their descriptions (i.e. [`Field`](crate::internal::field::Field)).
     type Fields<P: Path>: ConstRef;
-
-    /// A constant struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`](crate::internal::field::Field)).
-    const FIELDS: Self::Fields<Self>;
-
-    /// Shorthand version of [`FIELDS`]
-    ///
-    /// [`FIELDS`]: Model::FIELDS
-    #[deprecated(note = "Use `Model.field` instead of `Model::F.field`")]
-    const F: Self::Fields<Self>;
 
     /// The model's table name
     const TABLE: &'static str;

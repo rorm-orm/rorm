@@ -1,5 +1,5 @@
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use quote::{format_ident, quote, quote_spanned};
 use syn::{GenericParam, LitStr};
 
 use crate::analyze::model::{AnalyzedField, AnalyzedModel, AnalyzedModelFieldAnnotations};
@@ -50,17 +50,6 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
         .params
         .push(GenericParam::Type(syn::parse_quote!(P)));
     let (_, type_generics_with_path, _) = generics_with_path.split_for_impl();
-    let type_generics_with_self = {
-        let tokens = type_generics.to_token_stream();
-        if tokens.is_empty() {
-            quote! { <Self> }
-        } else {
-            let mut tokens: Vec<_> = tokens.into_iter().collect();
-            tokens.pop();
-            tokens.extend(quote! { , Self >});
-            TokenStream::from_iter(tokens)
-        }
-    };
 
     let mut tokens = quote! {
         #field_declarations
@@ -77,8 +66,6 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
             type Primary = #primary_struct #type_generics;
 
             type Fields<P: #rorm_path::internal::relation_path::Path> = #fields_struct_ident #type_generics_with_path;
-            const F: #fields_struct_ident #type_generics_with_self = #rorm_path::internal::ConstNew::NEW;
-            const FIELDS: #fields_struct_ident #type_generics_with_self = #rorm_path::internal::ConstNew::NEW;
 
             const TABLE: &'static str = #table;
             const SOURCE: #rorm_path::internal::hmr::Source = #source;
@@ -357,15 +344,12 @@ fn generate_fields_struct(model: &AnalyzedModel, config: &MacroConfig) -> (Ident
                 #fields_vis #fields_ident_1: #rorm_path::fields::proxy::FieldProxy<(#fields_type #type_generics, Path)>,
             )*
         }
-        impl #impl_generics_with_path #rorm_path::internal::ConstNew for #ident #type_generics_with_path #where_clause {
-            const NEW: Self = Self {
+        impl #impl_generics_with_path #rorm_path::internal::ConstRef for #ident #type_generics_with_path #where_clause {
+            const REF: &'static Self = &Self {
                 #(
                     #fields_ident_2: #rorm_path::fields::proxy::new(),
                 )*
             };
-        }
-        impl #impl_generics_with_path #rorm_path::internal::ConstRef for #ident #type_generics_with_path #where_clause {
-            const REF: &'static Self = &<Self as #rorm_path::internal::ConstNew>::NEW;
         }
     };
     (ident, tokens)
