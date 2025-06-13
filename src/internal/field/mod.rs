@@ -47,7 +47,7 @@ use crate::fields::proxy::FieldProxyImpl;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::{AsImr, Source};
 use crate::internal::relation_path::{Path, PathField};
-use crate::model::{ConstNew, Model};
+use crate::model::Model;
 
 pub mod decoder;
 pub mod fake_field;
@@ -58,6 +58,7 @@ use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::utils::column_name::ColumnName;
 use crate::fields::utils::const_fn::{ConstFn, Contains};
 use crate::internal::const_concat::ConstString;
+use crate::internal::ConstRef;
 
 /// This trait is implemented by the `#[derive(Model)]` macro on unique unit struct for each of a model's fields.
 ///
@@ -202,7 +203,7 @@ where
 /// - For multi-column fields, its their "contained" fields
 pub trait ContainerField<T: FieldType, P: Path>: Field<Type = T> {
     /// Struct of contained fields
-    type Target: ConstNew;
+    type Target: ConstRef;
 }
 
 impl<I, T, F, P> std::ops::Deref for FieldProxy<I>
@@ -215,7 +216,7 @@ where
     type Target = F::Target;
 
     fn deref(&self) -> &'static Self::Target {
-        ConstNew::REF
+        ConstRef::REF
     }
 }
 

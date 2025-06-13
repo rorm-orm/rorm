@@ -9,6 +9,7 @@ use crate::fields::utils::column_name::ColumnName;
 use crate::internal::field::{Field, SingleColumnField};
 use crate::internal::hmr::{AsImr, Source};
 use crate::internal::relation_path::Path;
+use crate::internal::ConstRef;
 
 /// Trait implemented on Patches i.e. a subset of a model's fields.
 ///
@@ -67,7 +68,7 @@ pub trait Model: Patch<Model = Self> {
     /// A struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`](crate::internal::field::Field)).
     ///
     /// The struct is constructed once in the [`Model::FIELDS`] constant.
-    type Fields<P: Path>: ConstNew;
+    type Fields<P: Path>: ConstRef;
 
     /// A constant struct which "maps" field identifiers their descriptions (i.e. [`Field<T>`](crate::internal::field::Field)).
     const FIELDS: Self::Fields<Self>;
@@ -160,19 +161,4 @@ impl<M: Model, P: Patch<Model = M> + GetField<M::Primary>> Identifiable for P {
     fn get_primary_key(&self) -> &<M::Primary as Field>::Type {
         <Self as GetField<M::Primary>>::borrow_field(self)
     }
-}
-
-/// exposes a `NEW` constant, which act like [Default::default] but constant.
-///
-/// It's workaround for not having const methods in traits
-pub trait ConstNew: 'static {
-    /// A new or default instance
-    const NEW: Self;
-
-    /// A static reference to an default instance
-    ///
-    /// Sadly writing `const REF: &'static Self = &Self::NEW;` doesn't work for all `Self`.
-    /// Rust doesn't allow references to types with interior mutability to be stored in constants.
-    /// Since this can't be enforced by generic, `ConstNew` impls have to write this line themselves.
-    const REF: &'static Self;
 }

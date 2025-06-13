@@ -44,17 +44,20 @@ pub struct __Unregistered_Fields_Struct<Path: ::rorm::internal::relation_path::P
     ///[`Unregistered`]'s `id` field
     pub id: ::rorm::fields::proxy::FieldProxy<(__Unregistered_id, Path)>,
 }
-impl<Path: ::rorm::internal::relation_path::Path> ::rorm::model::ConstNew
+impl<Path: ::rorm::internal::relation_path::Path> ::rorm::internal::ConstNew
 for __Unregistered_Fields_Struct<Path> {
     const NEW: Self = Self {
         id: ::rorm::fields::proxy::new(),
     };
-    const REF: &'static Self = &Self::NEW;
+}
+impl<Path: ::rorm::internal::relation_path::Path> ::rorm::internal::ConstRef
+for __Unregistered_Fields_Struct<Path> {
+    const REF: &'static Self = &<Self as ::rorm::internal::ConstNew>::NEW;
 }
 impl ::std::ops::Deref for __Unregistered_ValueSpaceImpl {
     type Target = <Unregistered as ::rorm::Model>::Fields<Unregistered>;
     fn deref(&self) -> &Self::Target {
-        ::rorm::model::ConstNew::REF
+        ::rorm::internal::ConstRef::REF
     }
 }
 impl ::rorm::model::Model for Unregistered {
@@ -62,8 +65,8 @@ impl ::rorm::model::Model for Unregistered {
     type Fields<P: ::rorm::internal::relation_path::Path> = __Unregistered_Fields_Struct<
         P,
     >;
-    const F: __Unregistered_Fields_Struct<Self> = ::rorm::model::ConstNew::NEW;
-    const FIELDS: __Unregistered_Fields_Struct<Self> = ::rorm::model::ConstNew::NEW;
+    const F: __Unregistered_Fields_Struct<Self> = ::rorm::internal::ConstNew::NEW;
+    const FIELDS: __Unregistered_Fields_Struct<Self> = ::rorm::internal::ConstNew::NEW;
     const TABLE: &'static str = "unregistered";
     const SOURCE: ::rorm::internal::hmr::Source = ::rorm::internal::hmr::Source {
         file: ::std::file!(),
