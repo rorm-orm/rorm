@@ -49,17 +49,20 @@ pub struct __BasicModel_Fields_Struct<Path: ::rorm::internal::relation_path::Pat
     ///[`BasicModel`]'s `id` field
     pub id: ::rorm::fields::proxy::FieldProxy<(__BasicModel_id, Path)>,
 }
-impl<Path: ::rorm::internal::relation_path::Path> ::rorm::model::ConstNew
+impl<Path: ::rorm::internal::relation_path::Path> ::rorm::internal::ConstNew
 for __BasicModel_Fields_Struct<Path> {
     const NEW: Self = Self {
         id: ::rorm::fields::proxy::new(),
     };
-    const REF: &'static Self = &Self::NEW;
+}
+impl<Path: ::rorm::internal::relation_path::Path> ::rorm::internal::ConstRef
+for __BasicModel_Fields_Struct<Path> {
+    const REF: &'static Self = &<Self as ::rorm::internal::ConstNew>::NEW;
 }
 impl ::std::ops::Deref for __BasicModel_ValueSpaceImpl {
     type Target = <BasicModel as ::rorm::Model>::Fields<BasicModel>;
     fn deref(&self) -> &Self::Target {
-        ::rorm::model::ConstNew::REF
+        ::rorm::internal::ConstRef::REF
     }
 }
 impl ::rorm::model::Model for BasicModel {
@@ -67,8 +70,8 @@ impl ::rorm::model::Model for BasicModel {
     type Fields<P: ::rorm::internal::relation_path::Path> = __BasicModel_Fields_Struct<
         P,
     >;
-    const F: __BasicModel_Fields_Struct<Self> = ::rorm::model::ConstNew::NEW;
-    const FIELDS: __BasicModel_Fields_Struct<Self> = ::rorm::model::ConstNew::NEW;
+    const F: __BasicModel_Fields_Struct<Self> = ::rorm::internal::ConstNew::NEW;
+    const FIELDS: __BasicModel_Fields_Struct<Self> = ::rorm::internal::ConstNew::NEW;
     const TABLE: &'static str = "basicmodel";
     const SOURCE: ::rorm::internal::hmr::Source = ::rorm::internal::hmr::Source {
         file: ::std::file!(),

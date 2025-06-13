@@ -98,18 +98,23 @@ pub struct __Generic_Fields_Struct<
 impl<
     X: rorm::fields::traits::FieldType,
     Path: ::rorm::internal::relation_path::Path,
-> ::rorm::model::ConstNew for __Generic_Fields_Struct<X, Path> {
+> ::rorm::internal::ConstNew for __Generic_Fields_Struct<X, Path> {
     const NEW: Self = Self {
         id: ::rorm::fields::proxy::new(),
         x: ::rorm::fields::proxy::new(),
     };
-    const REF: &'static Self = &Self::NEW;
+}
+impl<
+    X: rorm::fields::traits::FieldType,
+    Path: ::rorm::internal::relation_path::Path,
+> ::rorm::internal::ConstRef for __Generic_Fields_Struct<X, Path> {
+    const REF: &'static Self = &<Self as ::rorm::internal::ConstNew>::NEW;
 }
 impl<X: rorm::fields::traits::FieldType> ::std::ops::Deref
 for __Generic_ValueSpaceImpl<X> {
     type Target = <Generic<X> as ::rorm::Model>::Fields<Generic<X>>;
     fn deref(&self) -> &Self::Target {
-        ::rorm::model::ConstNew::REF
+        ::rorm::internal::ConstRef::REF
     }
 }
 impl<X: rorm::fields::traits::FieldType> ::rorm::model::Model for Generic<X> {
@@ -118,8 +123,8 @@ impl<X: rorm::fields::traits::FieldType> ::rorm::model::Model for Generic<X> {
         X,
         P,
     >;
-    const F: __Generic_Fields_Struct<X, Self> = ::rorm::model::ConstNew::NEW;
-    const FIELDS: __Generic_Fields_Struct<X, Self> = ::rorm::model::ConstNew::NEW;
+    const F: __Generic_Fields_Struct<X, Self> = ::rorm::internal::ConstNew::NEW;
+    const FIELDS: __Generic_Fields_Struct<X, Self> = ::rorm::internal::ConstNew::NEW;
     const TABLE: &'static str = "generic";
     const SOURCE: ::rorm::internal::hmr::Source = ::rorm::internal::hmr::Source {
         file: ::std::file!(),

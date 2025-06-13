@@ -70,15 +70,15 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
             type Target = <#ident #type_generics as #rorm_path::Model>::Fields<#ident  #type_generics>;
 
             fn deref(&self) -> &Self::Target {
-                #rorm_path::model::ConstNew::REF
+                #rorm_path::internal::ConstRef::REF
             }
         }
         impl #impl_generics #rorm_path::model::Model for #ident #type_generics #where_clause {
             type Primary = #primary_struct #type_generics;
 
             type Fields<P: #rorm_path::internal::relation_path::Path> = #fields_struct_ident #type_generics_with_path;
-            const F: #fields_struct_ident #type_generics_with_self = #rorm_path::model::ConstNew::NEW;
-            const FIELDS: #fields_struct_ident #type_generics_with_self = #rorm_path::model::ConstNew::NEW;
+            const F: #fields_struct_ident #type_generics_with_self = #rorm_path::internal::ConstNew::NEW;
+            const FIELDS: #fields_struct_ident #type_generics_with_self = #rorm_path::internal::ConstNew::NEW;
 
             const TABLE: &'static str = #table;
             const SOURCE: #rorm_path::internal::hmr::Source = #source;
@@ -357,13 +357,15 @@ fn generate_fields_struct(model: &AnalyzedModel, config: &MacroConfig) -> (Ident
                 #fields_vis #fields_ident_1: #rorm_path::fields::proxy::FieldProxy<(#fields_type #type_generics, Path)>,
             )*
         }
-        impl #impl_generics_with_path #rorm_path::model::ConstNew for #ident #type_generics_with_path #where_clause {
+        impl #impl_generics_with_path #rorm_path::internal::ConstNew for #ident #type_generics_with_path #where_clause {
             const NEW: Self = Self {
                 #(
                     #fields_ident_2: #rorm_path::fields::proxy::new(),
                 )*
             };
-            const REF: &'static Self = &Self::NEW;
+        }
+        impl #impl_generics_with_path #rorm_path::internal::ConstRef for #ident #type_generics_with_path #where_clause {
+            const REF: &'static Self = &<Self as #rorm_path::internal::ConstNew>::NEW;
         }
     };
     (ident, tokens)
