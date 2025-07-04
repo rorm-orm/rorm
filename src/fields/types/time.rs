@@ -2,11 +2,21 @@ use rorm_db::sql::value::NullType;
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 
 use crate::conditions::Value;
-use crate::{impl_FieldEq, impl_FieldMin_FieldMax, impl_FieldOrd, impl_FieldType};
+use crate::fields::traits::simple::SimpleFieldEq;
+use crate::{impl_FieldMin_FieldMax, impl_FieldOrd, impl_FieldType};
 
 impl_FieldType!(Time, TimeTime, Value::TimeTime);
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Time> for Time { Value::TimeTime });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<Time>> for Option<Time> { |option: Self| option.map(Value::TimeTime).unwrap_or(Value::Null(NullType::TimeTime)) });
+impl<'rhs> SimpleFieldEq<'rhs, Time> for Time {
+    fn into_value(rhs: Time) -> Value<'rhs> {
+        Value::TimeTime(rhs)
+    }
+}
+impl<'rhs> SimpleFieldEq<'rhs, Option<Time>> for Option<Time> {
+    fn into_value(rhs: Option<Time>) -> Value<'rhs> {
+        rhs.map(Value::TimeTime)
+            .unwrap_or(Value::Null(NullType::TimeTime))
+    }
+}
 impl_FieldOrd!(Time, Time, Value::TimeTime);
 impl_FieldOrd!(Option<Time>, Option<Time>, |option: Self| option
     .map(Value::TimeTime)
@@ -14,8 +24,17 @@ impl_FieldOrd!(Option<Time>, Option<Time>, |option: Self| option
 impl_FieldMin_FieldMax!(Time);
 
 impl_FieldType!(Date, TimeDate, Value::TimeDate);
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Date> for Date { Value::TimeDate });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<Date>> for Option<Date> { |option: Self| option.map(Value::TimeDate).unwrap_or(Value::Null(NullType::TimeDate)) });
+impl<'rhs> SimpleFieldEq<'rhs, Date> for Date {
+    fn into_value(rhs: Date) -> Value<'rhs> {
+        Value::TimeDate(rhs)
+    }
+}
+impl<'rhs> SimpleFieldEq<'rhs, Option<Date>> for Option<Date> {
+    fn into_value(rhs: Option<Date>) -> Value<'rhs> {
+        rhs.map(Value::TimeDate)
+            .unwrap_or(Value::Null(NullType::TimeDate))
+    }
+}
 impl_FieldOrd!(Date, Date, Value::TimeDate);
 impl_FieldOrd!(Option<Date>, Option<Date>, |option: Self| option
     .map(Value::TimeDate)
@@ -27,8 +46,17 @@ impl_FieldType!(
     TimeOffsetDateTime,
     Value::TimeOffsetDateTime
 );
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, OffsetDateTime> for OffsetDateTime { Value::TimeOffsetDateTime });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<OffsetDateTime>> for Option<OffsetDateTime> { |option: Self| option.map(Value::TimeOffsetDateTime).unwrap_or(Value::Null(NullType::TimeOffsetDateTime)) });
+impl<'rhs> SimpleFieldEq<'rhs, OffsetDateTime> for OffsetDateTime {
+    fn into_value(rhs: OffsetDateTime) -> Value<'rhs> {
+        Value::TimeOffsetDateTime(rhs)
+    }
+}
+impl<'rhs> SimpleFieldEq<'rhs, Option<OffsetDateTime>> for Option<OffsetDateTime> {
+    fn into_value(rhs: Option<OffsetDateTime>) -> Value<'rhs> {
+        rhs.map(Value::TimeOffsetDateTime)
+            .unwrap_or(Value::Null(NullType::TimeOffsetDateTime))
+    }
+}
 impl_FieldOrd!(OffsetDateTime, OffsetDateTime, Value::TimeOffsetDateTime);
 impl_FieldOrd!(
     Option<OffsetDateTime>,
@@ -44,8 +72,17 @@ impl_FieldType!(
     TimePrimitiveDateTime,
     Value::TimePrimitiveDateTime
 );
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, PrimitiveDateTime> for PrimitiveDateTime { Value::TimePrimitiveDateTime });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, Option<PrimitiveDateTime>> for Option<PrimitiveDateTime> { |option: Self| option.map(Value::TimePrimitiveDateTime).unwrap_or(Value::Null(NullType::TimePrimitiveDateTime)) });
+impl<'rhs> SimpleFieldEq<'rhs, PrimitiveDateTime> for PrimitiveDateTime {
+    fn into_value(rhs: PrimitiveDateTime) -> Value<'rhs> {
+        Value::TimePrimitiveDateTime(rhs)
+    }
+}
+impl<'rhs> SimpleFieldEq<'rhs, Option<PrimitiveDateTime>> for Option<PrimitiveDateTime> {
+    fn into_value(rhs: Option<PrimitiveDateTime>) -> Value<'rhs> {
+        rhs.map(Value::TimePrimitiveDateTime)
+            .unwrap_or(Value::Null(NullType::TimePrimitiveDateTime))
+    }
+}
 impl_FieldOrd!(
     PrimitiveDateTime,
     PrimitiveDateTime,
