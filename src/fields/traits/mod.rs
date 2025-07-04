@@ -22,6 +22,7 @@ use crate::sealed;
 
 pub mod aggregate;
 pub mod cmp;
+pub mod simple;
 
 /// Base trait for types which are allowed as fields in models
 pub trait FieldType: 'static {

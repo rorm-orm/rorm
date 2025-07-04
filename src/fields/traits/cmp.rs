@@ -105,6 +105,7 @@ pub trait FieldRegexp<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
 /// whose body is a closure which converts the `Rhs` into a [`Value`]
 #[doc(hidden)]
 #[allow(non_snake_case)] // makes it clearer that a trait and which trait is meant
+#[deprecated(note = "Use SimpleFieldEq instead")]
 #[macro_export]
 macro_rules! impl_FieldEq {
     (impl<'rhs $(, $generic:ident $( $const_name:ident : $const_type:ty )?)*> FieldEq<'rhs, $rhs:ty $(, $any:ty)?> for $lhs:ty $(where $( $bound_left:path : $bound_right:path ,)*)? { $into_value:expr }) => {

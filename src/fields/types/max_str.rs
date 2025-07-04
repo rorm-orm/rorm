@@ -14,13 +14,13 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::conditions::Value;
 use crate::crud::decoder::Decoder;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
+use crate::fields::traits::simple::SimpleFieldEq;
 use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::types::max_str_impl::{LenImpl, NumBytes};
 use crate::fields::utils::check::shared_linter_check;
 use crate::fields::utils::const_fn::Contains;
 use crate::fields::utils::get_annotations::merge_annotations;
 use crate::fields::utils::get_names::single_column_name;
-use crate::impl_FieldEq;
 use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::Field;
 use crate::internal::hmr::annotations::{Annotations, MaxLength};
@@ -331,22 +331,84 @@ impl<const MAX_LEN: usize> Contains<Annotations> for ImplicitMaxLengthAndNullabl
     };
 }
 
-impl_FieldEq!(impl<'rhs, const MAX_LEN: usize, Impl> FieldEq<'rhs, &'rhs str> for MaxStr<MAX_LEN, Impl> { conv_string });
-impl_FieldEq!(impl<'rhs, const MAX_LEN: usize, Impl> FieldEq<'rhs, &'rhs String> for MaxStr<MAX_LEN, Impl> { conv_string });
-impl_FieldEq!(impl<'rhs, const MAX_LEN: usize, Impl> FieldEq<'rhs, String> for MaxStr<MAX_LEN, Impl> { conv_string });
-impl_FieldEq!(impl<'rhs, const MAX_LEN: usize, Impl> FieldEq<'rhs, Cow<'rhs, str>> for MaxStr<MAX_LEN, Impl> { conv_string });
-impl_FieldEq!(impl<'rhs, const MAX_LEN: usize, Impl> FieldEq<'rhs, &'rhs MaxStr<MAX_LEN, Impl>> for MaxStr<MAX_LEN, Impl> { |str: &'rhs MaxStr<MAX_LEN, Impl>| conv_string(&**str) });
-impl_FieldEq!(impl<'rhs, const MAX_LEN: usize, Impl> FieldEq<'rhs, MaxStr<MAX_LEN, Impl>> for MaxStr<MAX_LEN, Impl> { |str: MaxStr<MAX_LEN, Impl>| conv_string(str.into_inner()) });
-impl_FieldEq!(impl<'rhs, const MAX_LEN: usize, Impl> FieldEq<'rhs, Option<&'rhs str>> for Option<MaxStr<MAX_LEN, Impl>> { conv_opt_string });
-impl_FieldEq!(impl<'rhs, const MAX_LEN: usize, Impl> FieldEq<'rhs, Option<&'rhs String>> for Option<MaxStr<MAX_LEN, Impl>> { conv_opt_string });
-impl_FieldEq!(impl<'rhs, const MAX_LEN: usize, Impl> FieldEq<'rhs, Option<String>> for Option<MaxStr<MAX_LEN, Impl>> { conv_opt_string });
-impl_FieldEq!(impl<'rhs, const MAX_LEN: usize, Impl> FieldEq<'rhs, Option<Cow<'rhs, str>>> for Option<MaxStr<MAX_LEN, Impl>> { conv_opt_string });
-impl_FieldEq!(impl<'rhs, const MAX_LEN: usize, Impl> FieldEq<'rhs, Option<&'rhs MaxStr<MAX_LEN, Impl>>> for MaxStr<MAX_LEN, Impl> {
-    |opt_str: Option<&'rhs MaxStr<MAX_LEN, Impl>>| conv_opt_string(opt_str.map(|str| &**str))
-});
-impl_FieldEq!(impl<'rhs, const MAX_LEN: usize, Impl> FieldEq<'rhs, Option<MaxStr<MAX_LEN, Impl>>> for MaxStr<MAX_LEN, Impl> {
-    |opt_str: Option<MaxStr<MAX_LEN, Impl>>| conv_opt_string(opt_str.map(MaxStr::into_inner))
-});
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, &'rhs str> for MaxStr<MAX_LEN, Impl> {
+    fn into_value(rhs: &'rhs str) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, &'rhs String> for MaxStr<MAX_LEN, Impl> {
+    fn into_value(rhs: &'rhs String) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, String> for MaxStr<MAX_LEN, Impl> {
+    fn into_value(rhs: String) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Cow<'rhs, str>>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: Cow<'rhs, str>) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, &'rhs MaxStr<MAX_LEN, Impl>>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: &'rhs MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
+        conv_string(&**rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, MaxStr<MAX_LEN, Impl>>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
+        conv_string(rhs.into_inner())
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Option<&'rhs str>>
+    for Option<MaxStr<MAX_LEN, Impl>>
+{
+    fn into_value(rhs: Option<&'rhs str>) -> Value<'rhs> {
+        conv_opt_string(rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Option<&'rhs String>>
+    for Option<MaxStr<MAX_LEN, Impl>>
+{
+    fn into_value(rhs: Option<&'rhs String>) -> Value<'rhs> {
+        conv_opt_string(rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Option<String>>
+    for Option<MaxStr<MAX_LEN, Impl>>
+{
+    fn into_value(rhs: Option<String>) -> Value<'rhs> {
+        conv_opt_string(rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Option<Cow<'rhs, str>>>
+    for Option<MaxStr<MAX_LEN, Impl>>
+{
+    fn into_value(rhs: Option<Cow<'rhs, str>>) -> Value<'rhs> {
+        conv_opt_string(rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Option<&'rhs MaxStr<MAX_LEN, Impl>>>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: Option<&'rhs MaxStr<MAX_LEN, Impl>>) -> Value<'rhs> {
+        conv_opt_string(rhs.map(|str| &**str))
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Option<MaxStr<MAX_LEN, Impl>>>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: Option<MaxStr<MAX_LEN, Impl>>) -> Value<'rhs> {
+        conv_opt_string(rhs.map(|str| str.into_inner()))
+    }
+}
 fn conv_string<'a>(value: impl Into<Cow<'a, str>>) -> Value<'a> {
     Value::String(value.into())
 }
