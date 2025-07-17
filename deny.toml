@@ -27,6 +27,7 @@ allow = [
     "Unicode-3.0",
     "LicenseRef-ring",
     "Zlib",
+    "CDLA-Permissive-2.0",
 ]
 
 [[licenses.clarify]]
