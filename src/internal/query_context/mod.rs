@@ -13,6 +13,7 @@ use tracing::{trace, trace_span, Span};
 use crate::conditions::{BinaryOperator, Condition, Value};
 use crate::crud::selector::AggregatedColumn;
 use crate::fields::proxy::FieldProxyImpl;
+use crate::fields::utils::column_name::ColumnName;
 use crate::internal::field::Field;
 use crate::internal::query_context::flat_conditions::{FlatCondition, GetConditionError};
 use crate::internal::relation_path::{Path, PathField, PathId};
@@ -63,7 +64,7 @@ impl<'v> QueryContext<'v> {
 
         self.selects.push(Select {
             table_name: path_id,
-            column_name: F::NAME,
+            column_name: &F::NAME,
             select_alias: alias.clone(),
             aggregation: None,
         });
@@ -71,7 +72,7 @@ impl<'v> QueryContext<'v> {
         self.span.in_scope(|| {
             trace!(
                 table_name = self.join_aliases.get(&path_id),
-                column_name = F::NAME,
+                column_name = &*F::NAME,
                 alias,
                 index,
                 "QueryContext::select_field"
@@ -92,7 +93,7 @@ impl<'v> QueryContext<'v> {
 
         self.selects.push(Select {
             table_name: path_id,
-            column_name: I::Field::NAME,
+            column_name: &I::Field::NAME,
             select_alias: alias.clone(),
             aggregation: Some(column.sql),
         });
@@ -100,7 +101,7 @@ impl<'v> QueryContext<'v> {
         self.span.in_scope(|| {
             trace!(
                 table_name = self.join_aliases.get(&path_id),
-                column_name = I::Field::NAME,
+                column_name = &*I::Field::NAME,
                 alias,
                 index,
                 aggregation = ?column.sql,
@@ -140,7 +141,7 @@ impl<'v> QueryContext<'v> {
     pub fn order_by_field<F: Field, P: Path>(&mut self, ordering: Ordering) {
         let path_id = P::add_to_context(self);
         self.order_bys.push(OrderBy {
-            column_name: F::NAME,
+            column_name: &F::NAME,
             table_name: path_id,
             ordering,
         });
@@ -148,7 +149,7 @@ impl<'v> QueryContext<'v> {
         self.span.in_scope(|| {
             trace!(
                 table_name = self.join_aliases.get(&path_id),
-                column_name = F::NAME,
+                column_name = &*F::NAME,
                 ?ordering,
                 "QueryContext::order_by_field"
             )
@@ -276,7 +277,7 @@ impl<'v> QueryContext<'v> {
                 return None;
             }
 
-            returning.push(select.column_name);
+            returning.push(select.column_name.as_str());
         }
         Some(returning)
     }
@@ -407,8 +408,8 @@ impl QueryContext<'_> {
             });
             self.conditions.extend([
                 FlatCondition::BinaryCondition(BinaryOperator::Equals),
-                FlatCondition::Column(path_id, <F as PathField<_>>::ChildField::NAME),
-                FlatCondition::Column(parent_id, <F as PathField<_>>::ParentField::NAME),
+                FlatCondition::Column(path_id, &<F as PathField<_>>::ChildField::NAME),
+                FlatCondition::Column(parent_id, &<F as PathField<_>>::ParentField::NAME),
             ]);
         }
         path_id
@@ -469,7 +470,7 @@ impl<'v> ConditionBuilder<'_, 'v> {
 #[derive(Debug, Clone)]
 struct Select {
     table_name: PathId,
-    column_name: &'static str,
+    column_name: &'static ColumnName,
     select_alias: String,
     aggregation: Option<rorm_db::sql::aggregation::SelectAggregator>,
 }
@@ -483,7 +484,7 @@ struct Join {
 
 #[derive(Debug, Clone)]
 struct OrderBy {
-    column_name: &'static str,
+    column_name: &'static ColumnName,
     table_name: PathId,
     ordering: Ordering,
 }

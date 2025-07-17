@@ -11,7 +11,9 @@ impl ::rorm::internal::field::Field for __Unregistered_id {
     type Type = i64;
     type Model = Unregistered;
     const INDEX: usize = 0usize;
-    const NAME: &'static str = "id";
+    const NAME: ::rorm::fields::utils::column_name::ColumnName = ::rorm::fields::utils::column_name::ColumnName::new(
+        "id",
+    );
     const EXPLICIT_ANNOTATIONS: ::rorm::internal::hmr::annotations::Annotations = ::rorm::internal::hmr::annotations::Annotations {
         auto_create_time: None,
         auto_update_time: None,

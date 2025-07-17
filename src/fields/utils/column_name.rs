@@ -1,5 +1,8 @@
 //! A column's name
 
+use std::fmt;
+use std::ops::Deref;
+
 /// A column's name
 #[derive(Copy, Clone)]
 pub struct ColumnName(ConstString<63>);
@@ -28,6 +31,11 @@ impl ColumnName {
         self.0.as_str()
     }
 
+    /// Extracts a byte slice containing the entire `ColumnName`.
+    pub const fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+
     /// Joins the name of a sub filed onto `self`
     ///
     /// # Panics
@@ -39,6 +47,25 @@ impl ColumnName {
             panic!("Column names can't be larger than 63 bytes. Please choose a shorter name or consider using #[rorm(rename = \"...\")].");
         }
         self
+    }
+}
+
+impl Deref for ColumnName {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl fmt::Debug for ColumnName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self.as_str(), f)
+    }
+}
+
+impl fmt::Display for ColumnName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(self.as_str(), f)
     }
 }
 

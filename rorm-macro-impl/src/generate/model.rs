@@ -192,7 +192,7 @@ fn generate_fields(model: &AnalyzedModel, config: &MacroConfig) -> TokenStream {
                 type Type = #ty;
                 type Model = #model_ident #type_generics;
                 const INDEX: usize = #index;
-                const NAME: &'static str = #column;
+                const NAME: #rorm_path::fields::utils::column_name::ColumnName = #rorm_path::fields::utils::column_name::ColumnName::new(#column);
                 const EXPLICIT_ANNOTATIONS: #rorm_path::internal::hmr::annotations::Annotations = #annos;
                 const SOURCE: #rorm_path::internal::hmr::Source = #source;
                 fn new() -> Self {

@@ -75,7 +75,7 @@ pub trait Field: 'static + Copy {
     const INDEX: usize;
 
     /// A db safe name of this field
-    const NAME: &'static str;
+    const NAME: ColumnName;
 
     /// List of annotations which were set by the user
     const EXPLICIT_ANNOTATIONS: Annotations;
@@ -254,6 +254,6 @@ mod contains {
 
     pub struct Name<F: Field>(PhantomData<F>);
     impl<F: Field> Contains<ColumnName> for Name<F> {
-        const ITEM: ColumnName = ColumnName::new(F::NAME);
+        const ITEM: ColumnName = F::NAME;
     }
 }

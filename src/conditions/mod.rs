@@ -210,7 +210,7 @@ pub struct Column<I: FieldProxyImpl>(pub FieldProxy<I>);
 impl<'a, I: FieldProxyImpl> Condition<'a> for Column<I> {
     fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
         let path_id = builder.add_path::<I::Path>();
-        builder.push_condition(FlatCondition::Column(path_id, <I::Field as Field>::NAME));
+        builder.push_condition(FlatCondition::Column(path_id, &<I::Field as Field>::NAME));
     }
 }
 

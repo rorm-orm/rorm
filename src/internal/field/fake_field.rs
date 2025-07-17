@@ -30,7 +30,7 @@ where
     type Type = T;
     type Model = F::Model;
     const INDEX: usize = F::INDEX;
-    const NAME: &'static str = F::NAME;
+    const NAME: ColumnName = F::NAME;
     const EXPLICIT_ANNOTATIONS: Annotations = F::EXPLICIT_ANNOTATIONS;
     const EFFECTIVE_ANNOTATIONS: FieldColumns<F::Type, Annotations> = F::EFFECTIVE_ANNOTATIONS;
     const EFFECTIVE_NAMES: FieldColumns<F::Type, ColumnName> = F::EFFECTIVE_NAMES;

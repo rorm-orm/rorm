@@ -4,6 +4,7 @@
 use rorm_declaration::{imr, lints};
 
 use super::AsImr;
+use crate::fields::utils::column_name::ColumnName;
 
 macro_rules! impl_annotations {
         ($($(#[doc = $doc:literal])* $anno:ident $(($data:ty))?,)*) => {
@@ -56,7 +57,7 @@ pub struct ForeignKey {
     /// Name of the table that should be referenced
     pub table_name: &'static str,
     /// Name of the column that should be referenced
-    pub column_name: &'static str,
+    pub column_name: &'static ColumnName,
 }
 
 /// Action to take on a foreign key in case of on delete

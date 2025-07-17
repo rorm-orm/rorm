@@ -14,7 +14,9 @@ for __Generic_id<X> {
     type Type = i64;
     type Model = Generic<X>;
     const INDEX: usize = 0usize;
-    const NAME: &'static str = "id";
+    const NAME: ::rorm::fields::utils::column_name::ColumnName = ::rorm::fields::utils::column_name::ColumnName::new(
+        "id",
+    );
     const EXPLICIT_ANNOTATIONS: ::rorm::internal::hmr::annotations::Annotations = ::rorm::internal::hmr::annotations::Annotations {
         auto_create_time: None,
         auto_update_time: None,
@@ -55,7 +57,9 @@ for __Generic_x<X> {
     type Type = X;
     type Model = Generic<X>;
     const INDEX: usize = 1usize;
-    const NAME: &'static str = "x";
+    const NAME: ::rorm::fields::utils::column_name::ColumnName = ::rorm::fields::utils::column_name::ColumnName::new(
+        "x",
+    );
     const EXPLICIT_ANNOTATIONS: ::rorm::internal::hmr::annotations::Annotations = ::rorm::internal::hmr::annotations::Annotations {
         auto_create_time: None,
         auto_update_time: None,

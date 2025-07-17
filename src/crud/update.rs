@@ -9,6 +9,7 @@ use rorm_db::executor::Executor;
 use crate::conditions::{Condition, DynamicCollection, Value};
 use crate::crud::selector::Selector;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
+use crate::fields::utils::column_name::ColumnName;
 use crate::internal::field::{Field, SingleColumnField};
 use crate::internal::patch::{IntoPatchCow, PatchCow};
 use crate::internal::query_context::QueryContext;
@@ -106,7 +107,7 @@ where
 #[must_use]
 pub struct UpdateBuilder<'rf, E, M, C> {
     executor: E,
-    columns: Vec<(&'static str, Value<'rf>)>,
+    columns: Vec<(&'static ColumnName, Value<'rf>)>,
 
     _phantom: PhantomData<(M, C)>,
 }
@@ -152,7 +153,7 @@ impl<'rf, E, M> UpdateBuilder<'rf, E, M, columns::MaybeEmpty> {
         I: FieldProxyImpl<Field: SingleColumnField, Path = M>,
     {
         self.columns.push((
-            <I::Field as Field>::NAME,
+            &<I::Field as Field>::NAME,
             <I::Field as SingleColumnField>::type_into_value(value),
         ));
         self
@@ -204,7 +205,7 @@ where
         I: FieldProxyImpl<Field: SingleColumnField, Path = M>,
     {
         self.columns.push((
-            <I::Field as Field>::NAME,
+            &<I::Field as Field>::NAME,
             <I::Field as SingleColumnField>::type_into_value(value),
         ));
         self.set_column_state()
@@ -223,7 +224,7 @@ where
         I: FieldProxyImpl<Field: SingleColumnField, Path = M>,
     {
         self.columns.push((
-            <I::Field as Field>::NAME,
+            &<I::Field as Field>::NAME,
             <I::Field as SingleColumnField>::type_into_value(value),
         ));
         self
@@ -287,7 +288,7 @@ where
         let columns: Vec<_> = self
             .columns
             .iter()
-            .map(|(name, value)| (*name, value.as_sql()))
+            .map(|(name, value)| (name.as_str(), value.as_sql()))
             .collect();
         let condition_index = context.add_condition(&condition);
         let condition = context.get_condition(condition_index);
@@ -299,7 +300,7 @@ where
         let columns: Vec<_> = self
             .columns
             .iter()
-            .map(|(name, value)| (*name, value.as_sql()))
+            .map(|(name, value)| (name.as_str(), value.as_sql()))
             .collect();
         database::update(self.executor, M::TABLE, &columns, None).await
     }

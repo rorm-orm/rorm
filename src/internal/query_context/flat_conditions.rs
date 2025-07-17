@@ -10,6 +10,7 @@
 
 use crate::conditions::collections::CollectionOperator;
 use crate::conditions::{BinaryOperator, TernaryOperator, UnaryOperator};
+use crate::fields::utils::column_name::ColumnName;
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::PathId;
 
@@ -26,7 +27,7 @@ pub(crate) enum FlatCondition {
     BinaryCondition(BinaryOperator),
     TernaryCondition(TernaryOperator),
     Value(usize),
-    Column(PathId, &'static str),
+    Column(PathId, &'static ColumnName),
 }
 
 /// Error returned by [`QueryContext::try_get_condition`]
@@ -123,7 +124,7 @@ impl QueryContext<'_> {
             FlatCondition::Column(table_name, column_name) => {
                 sql::Condition::Value(sql::Value::Column {
                     table_name: Some(self.join_aliases.get(&table_name).ok_or(UnknownAlias)?),
-                    column_name,
+                    column_name: &*column_name,
                 })
             }
         })
