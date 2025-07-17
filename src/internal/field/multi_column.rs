@@ -15,11 +15,13 @@
 //! use rorm::fields::utils::const_fn::{ConstFn, Contains};
 //! use rorm::internal::const_concat::ConstString;
 //! use rorm::internal::field::decoder::FieldDecoder;
-//! use rorm::internal::field::mulit_column::{slice_for_check, ArrayBuilder};
+//! use rorm::internal::field::multi_column::{slice_for_check, ArrayBuilder};
 //! use rorm::internal::field::Field;
 //! use rorm::internal::hmr::annotations::Annotations;
 //! use rorm::internal::query_context::QueryContext;
 //! use rorm::{const_fn, Row};
+//! use rorm::fields::proxy;
+//! use rorm::internal::hmr::Source;
 //!
 //! pub struct MyMcf {
 //!     pub foo: i32,
@@ -90,7 +92,12 @@
 //!     where
 //!         I: FieldProxyImpl<Field: Field<Type= Self::Result>>,
 //!     {
-//!         todo!()
+//!         // TODO: Path should be tweaked
+//!         MyMcfDecoder {
+//!             foo: <<i32 as FieldType>::Decoder as FieldDecoder>::new(&mut *ctx, proxy::new::<(MyMcf_foo_Field<I::Field>, I::Path)>()),
+//!             bar: <<String as FieldType>::Decoder as FieldDecoder>::new(&mut *ctx, proxy::new::<(MyMcf_bar_Field<I::Field>, I::Path)>()),
+//!             baz: <<bool as FieldType>::Decoder as FieldDecoder>::new(&mut *ctx, proxy::new::<(MyMcf_baz_Field<I::Field>, I::Path)>()),
+//!         }
 //!     }
 //! }
 //!
@@ -196,6 +203,72 @@
 //!
 //!         Ok(())
 //!     };
+//! }
+//!
+//! struct MyMcf_foo_Field<F>(PhantomData<F>);
+//! impl<F> Copy for MyMcf_foo_Field<F> {}
+//! impl<F> Clone for MyMcf_foo_Field<F> {
+//!     fn clone(&self) -> Self {
+//!         *self
+//!     }
+//! }
+//! impl<F> Field for MyMcf_foo_Field<F>
+//! where
+//!     F: Field<Type = MyMcf>
+//! {
+//!     type Type = i32;
+//!     type Model = F::Model;
+//!     const INDEX: usize = 0;
+//!     const NAME: ColumnName = F::EFFECTIVE_NAMES[Self::INDEX];
+//!     const EXPLICIT_ANNOTATIONS: Annotations = F::EFFECTIVE_ANNOTATIONS[Self::INDEX];
+//!     const SOURCE: Source = F::SOURCE;
+//!     fn new() -> Self {
+//!         Self(PhantomData)
+//!     }
+//! }
+//!
+//! struct MyMcf_bar_Field<F>(PhantomData<F>);
+//! impl<F> Copy for MyMcf_bar_Field<F> {}
+//! impl<F> Clone for MyMcf_bar_Field<F> {
+//!     fn clone(&self) -> Self {
+//!         *self
+//!     }
+//! }
+//! impl<F> Field for MyMcf_bar_Field<F>
+//! where
+//!     F: Field<Type = MyMcf>
+//! {
+//!     type Type = String;
+//!     type Model = F::Model;
+//!     const INDEX: usize = 1;
+//!     const NAME: ColumnName = F::EFFECTIVE_NAMES[Self::INDEX];
+//!     const EXPLICIT_ANNOTATIONS: Annotations = F::EFFECTIVE_ANNOTATIONS[Self::INDEX];
+//!     const SOURCE: Source = F::SOURCE;
+//!     fn new() -> Self {
+//!         Self(PhantomData)
+//!     }
+//! }
+//!
+//! struct MyMcf_baz_Field<F>(PhantomData<F>);
+//! impl<F> Copy for MyMcf_baz_Field<F> {}
+//! impl<F> Clone for MyMcf_baz_Field<F> {
+//!     fn clone(&self) -> Self {
+//!         *self
+//!     }
+//! }
+//! impl<F> Field for MyMcf_baz_Field<F>
+//! where
+//!     F: Field<Type = MyMcf>
+//! {
+//!     type Type = bool;
+//!     type Model = F::Model;
+//!     const INDEX: usize = 2;
+//!     const NAME: ColumnName = F::EFFECTIVE_NAMES[Self::INDEX];
+//!     const EXPLICIT_ANNOTATIONS: Annotations = F::EFFECTIVE_ANNOTATIONS[Self::INDEX];
+//!     const SOURCE: Source = F::SOURCE;
+//!     fn new() -> Self {
+//!         Self(PhantomData)
+//!     }
 //! }
 //! ```
 
