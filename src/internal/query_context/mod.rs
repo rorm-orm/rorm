@@ -58,13 +58,16 @@ impl<'v> QueryContext<'v> {
 
     /// Add a field to select returning its index and alias
     pub fn select_field<F: Field, P: Path>(&mut self) -> (usize, String) {
+        self._select_field::<P>(&F::NAME)
+    }
+    fn _select_field<P: Path>(&mut self, column_name: &'static ColumnName) -> (usize, String) {
         let path_id = P::add_to_context(self);
         let alias = format!("{}", NumberAsAZ(self.selects.len()));
         let index = self.selects.len();
 
         self.selects.push(Select {
             table_name: path_id,
-            column_name: &F::NAME,
+            column_name,
             select_alias: alias.clone(),
             aggregation: None,
         });
@@ -72,7 +75,7 @@ impl<'v> QueryContext<'v> {
         self.span.in_scope(|| {
             trace!(
                 table_name = self.join_aliases.get(&path_id),
-                column_name = &*F::NAME,
+                column_name = &**column_name,
                 alias,
                 index,
                 "QueryContext::select_field"
