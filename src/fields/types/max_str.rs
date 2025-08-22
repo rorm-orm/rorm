@@ -105,10 +105,15 @@ where
     }
 
     /// Borrow the wrapped string while remembering its `MAX_LEN`.
-    pub fn as_ref(&self) -> MaxStr<MAX_LEN, &Impl, &str> {
+    ///
+    /// This method is the in inverse of [`MaxStr::to_owned`].
+    pub fn as_ref(&self) -> MaxStr<MAX_LEN, Impl, &str>
+    where
+        Impl: Clone,
+    {
         MaxStr {
             string: &self.string,
-            len_impl: &self.len_impl,
+            len_impl: self.len_impl.clone(),
         }
     }
 }
@@ -116,6 +121,42 @@ impl<const MAX_LEN: usize, Impl, Str> MaxStr<MAX_LEN, Impl, Str> {
     /// Get the actual string, discarding the length guarantee
     pub fn into_inner(self) -> Str {
         self.string
+    }
+}
+impl<const MAX_LEN: usize> MaxStr<MAX_LEN, NumBytes, &'static str> {
+    /// Converts a static string to a `MaxStr`.
+    ///
+    /// This function checks the static string to not exceed the `MAX_LEN`.
+    ///
+    /// # Panics
+    /// When the static string is too long.
+    pub const fn from_static(string: &'static str) -> Self {
+        if string.len() > MAX_LEN {
+            // The compiler will not evaluate the constant (and panic and compile-time)
+            // if it can prove that the `if` branch is never taken.
+            const {
+                panic!("Static string is too long");
+            }
+        }
+        Self {
+            string,
+            len_impl: NumBytes,
+        }
+    }
+}
+
+impl<const MAX_LEN: usize, Impl: Clone> MaxStr<MAX_LEN, Impl, &'_ str> {
+    /// Allocates the wrapped string while remembering its `MAX_LEN`.
+    ///
+    /// This method is the in inverse of [`MaxStr::as_ref`].
+    pub fn to_owned<Str>(&self) -> MaxStr<MAX_LEN, Impl, Str>
+    where
+        Str: for<'a> From<&'a str>,
+    {
+        MaxStr {
+            string: self.string.into(),
+            len_impl: self.len_impl.clone(),
+        }
     }
 }
 
