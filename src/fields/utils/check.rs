@@ -40,6 +40,9 @@ const_fn! {
             if let Err(err) = column.as_lint().check() {
                 return Err(ConstString::error(&["invalid annotations: ", err]));
             }
+            if column.primary_key.is_some() && column.nullable {
+                return Err(ConstString::error(&["invalid annotations: primary_key can't be Option"]));
+            }
         }
         Ok(())
     }
