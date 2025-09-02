@@ -275,10 +275,10 @@ where
         for patch in &owned {
             conditions.push(patch.as_condition());
         }
-        if conditions.is_empty() {
-            Ok(0)
+        if let Some(condition) = DynamicCollection::or(conditions) {
+            self.condition(condition).await
         } else {
-            self.condition(DynamicCollection::or(conditions)).await
+            Ok(0)
         }
     }
 

@@ -89,7 +89,18 @@ where
     Self: Condition<'a>,
 {
     /// Create a vector of conditions joined by AND
-    pub fn and(vector: Vec<T>) -> Self {
+    ///
+    /// # `None`
+    /// if the vector is empty
+    pub fn and(vector: Vec<T>) -> Option<Self> {
+        Self::new_checked(CollectionOperator::And, vector)
+    }
+
+    /// Create a vector of conditions joined by AND
+    ///
+    /// You must check `vector` to be non-empty.
+    /// We suggest using [`Self::and`] instead.
+    pub fn and_unchecked(vector: Vec<T>) -> Self {
         Self {
             operator: CollectionOperator::And,
             vector,
@@ -97,10 +108,27 @@ where
     }
 
     /// Create a vector of conditions joined by OR
-    pub fn or(vector: Vec<T>) -> Self {
+    pub fn or(vector: Vec<T>) -> Option<Self> {
+        Self::new_checked(CollectionOperator::Or, vector)
+    }
+
+    /// Create a vector of conditions joined by OR
+    ///
+    /// You must check `vector` to be non-empty.
+    /// We suggest using [`Self::or`] instead.
+    pub fn or_unchecked(vector: Vec<T>) -> Self {
         Self {
             operator: CollectionOperator::Or,
             vector,
+        }
+    }
+
+    /// Creates a new `DynamicCollection` after checking the `vector` to be non-empty
+    fn new_checked(operator: CollectionOperator, vector: Vec<T>) -> Option<Self> {
+        if vector.is_empty() {
+            None
+        } else {
+            Some(Self { operator, vector })
         }
     }
 }
@@ -243,7 +271,7 @@ macro_rules! create_collection {
             $(
                 $crate::conditions::collections::Condition::boxed($other),
             )+
-        ])
+        ]).unwrap_or_else(|| unreachable!("Vector should contain at least 8 conditions"))
     };
     ($method:ident, $($other:expr),+ $(,)?) => {
         $crate::conditions::collections::StaticCollection::$method(($(
