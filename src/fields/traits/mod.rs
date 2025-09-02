@@ -1,7 +1,5 @@
 //! Traits defining types which can be used as fields.
 
-use std::marker::PhantomData;
-
 use rorm_db::row::RowError;
 use rorm_db::sql::value::NullType;
 use rorm_db::Row;
@@ -20,7 +18,7 @@ use crate::internal::field::fake_field::FakeField;
 use crate::internal::field::Field;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::query_context::QueryContext;
-use crate::{const_fn, sealed};
+use crate::{const_fn, raw_const_fn, sealed};
 
 pub mod aggregate;
 pub mod cmp;
@@ -166,20 +164,17 @@ impl<T: FieldType> Decoder for OptionDecoder<T> {
     }
 }
 
-/// [`FieldType::GetAnnotations`] for `Option<T>`
-pub struct OptionGetAnnotations<T: FieldType>(PhantomData<T::GetAnnotations>);
-impl<T: FieldType> ConstFn<(Annotations,), FieldColumns<T, Annotations>>
-    for OptionGetAnnotations<T>
-{
-    type Body<Arg: Contains<(Annotations,)>> = OptionGetAnnotationsBody<T, Arg>;
-}
-
-/// [`ConstFn::Body`] for [`OptionGetAnnotations<T>`]
-pub struct OptionGetAnnotationsBody<T: FieldType, Arg>(PhantomData<(T::GetAnnotations, Arg)>);
-impl<T: FieldType, Arg: Contains<(Annotations,)>> Contains<FieldColumns<T, Annotations>>
-    for OptionGetAnnotationsBody<T, Arg>
-{
-    const ITEM: FieldColumns<T, Annotations> = {
+raw_const_fn!(
+    attrs: [#[doc = "[`FieldType::GetAnnotations`] for `Option<T>`"]],
+    vis: pub,
+    name: OptionGetAnnotations,
+    type_generics: [T],
+    impl_generics: [T: FieldType],
+    phantom_generics: T::GetAnnotations,
+    arg_type: (Annotations,),
+    arg_param: Arg,
+    ret_type: FieldColumns<T, Annotations>,
+    body: {
         type CallInner<T, Arg> = <<T as FieldType>::GetAnnotations as ConstFn<
             (Annotations,),
             FieldColumns<T, Annotations>,
@@ -189,8 +184,8 @@ impl<T: FieldType, Arg: Contains<(Annotations,)>> Contains<FieldColumns<T, Annot
             FieldColumns<T, Annotations>,
         >>::Body<Arg>;
         <CallOuter<T, (CallInner<T, Arg>,)> as Contains<_>>::ITEM
-    };
-}
+    },
+);
 
 /// Provides the "default" implementation of [`FieldType`].
 ///

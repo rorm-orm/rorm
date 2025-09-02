@@ -174,66 +174,157 @@ pub trait ConstFn<Arg, Ret> {
 /// ```
 #[macro_export]
 macro_rules! const_fn {
+    // Parse non-generic function
     ($(#[$attr:meta])* $vis:vis fn $fun_name:ident($( $arg_name:tt : $arg_type:ty ),+ $(,)?) -> $ret_type:ty $body:block) => {
-        /// `ConstFn` version of
-        #[doc = concat!("[`", stringify!($fun_name), "`](fn@", stringify!($fun_name), ")")]
-        #[allow(non_camel_case_types)]
-        $vis struct $fun_name { phantom: ::core::marker::PhantomData<()> }
-
         $(#[$attr])*
         $vis const fn $fun_name($( $arg_name : $arg_type ),*) -> $ret_type $body
-        const _: () = {
-            impl $crate::fields::utils::const_fn::ConstFn<($($arg_type,)+), $ret_type> for $fun_name {
-                type Body<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)+)>> = Body<(Self, Arg)>;
-            }
-            $vis struct Body<T>(::std::marker::PhantomData<T>);
-            impl<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)+)>> $crate::fields::utils::const_fn::Contains<$ret_type> for Body<($fun_name, Arg)> {
-                const ITEM: $ret_type = {
-                    let ($($arg_name,)+) = Arg::ITEM;
-                    $fun_name($($arg_name,)*)
-                };
-            }
-        };
-    };
-    ($(#[$attr:meta])* $vis:vis fn $fun_name:ident<const $gen_name:ident: $gen_type:ty> ($( $arg_name:tt : $arg_type:ty ),* $(,)?) -> $ret_type:ty $body:block) => {
-        /// `ConstFn` version of
-        #[doc = concat!("[`", stringify!($fun_name), "`](fn@", stringify!($fun_name), ")")]
-        #[allow(non_camel_case_types)]
-        $vis struct $fun_name<const $gen_name: $gen_type> { phantom: ::core::marker::PhantomData<()> }
 
-        $(#[$attr])*
-        $vis const fn $fun_name<const $gen_name: $gen_type>($( $arg_name : $arg_type ),*) -> $ret_type $body
-        const _: () = {
-            impl<const $gen_name: $gen_type> $crate::fields::utils::const_fn::ConstFn<($($arg_type,)*), $ret_type> for $fun_name<$gen_name> {
-                type Body<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)*)>> = Body<(Self, Arg)>;
-            }
-            $vis struct Body<T>(::std::marker::PhantomData<T>);
-            impl<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)*)>, const $gen_name: $gen_type> $crate::fields::utils::const_fn::Contains<$ret_type> for Body<($fun_name<$gen_name>, Arg)> {
-                const ITEM: $ret_type = {
-                    let ($($arg_name,)*) = Arg::ITEM;
-                    $fun_name::<$gen_name>($($arg_name,)*)
-                };
-            }
-        };
+        $crate::raw_const_fn!(
+            attrs: [
+                #[doc = concat!("`ConstFn` version of [`", stringify!($fun_name), "`](fn@", stringify!($fun_name), ")")]
+                #[allow(non_camel_case_types)]
+            ],
+            vis: $vis,
+            name: $fun_name,
+            arg_type: ($($arg_type,)+),
+            arg_param: Arg,
+            ret_type: $ret_type,
+            body: {
+                let ($($arg_name,)+) = Arg::ITEM;
+                $fun_name($($arg_name,)*)
+            },
+        );
     };
-    ($(#[$attr:meta])* $vis:vis fn $fun_name:ident<$generic:ident $(: $bound:path)?> ($( $arg_name:tt : $arg_type:ty ),* $(,)?) -> $ret_type:ty $body:block) => {
-        /// `ConstFn` version of
-        #[doc = concat!("[`", stringify!($fun_name), "`](fn@", stringify!($fun_name), ")")]
-        #[allow(non_camel_case_types)]
-        $vis struct $fun_name<$generic $(:$bound)?> { phantom: ::core::marker::PhantomData<$generic> }
+    // Parse start of generic function
+    (
+        $(#[$attr:meta])* $vis:vis fn $fn_name:ident<$($rest:tt)+
+    ) => {
+        $(#[$attr])* $vis const fn $fn_name<$($rest)+
+        $crate::const_fn!(
+            @parse_generic
+            vis: $vis,
+            name: $fn_name,
+            comma: [],
+            type_generics: [],
+            impl_generics: [],
+            phantom_generics: [(),],
+            rest: [$($rest)+],
+        );
+    };
+        // Parse single const generic
+    (
+        @parse_generic
+        vis: $vis:vis,
+        name: $name:ident,
+        comma: [$($comma:tt)?],
+        type_generics: [$($tg:tt)*],
+        impl_generics: [$($ig:tt)*],
+        phantom_generics: [$($pg:tt)*],
+        rest: [$(,)? const $N:ident : $Type:ident $($rest:tt)+ ],
+    ) => {
+        $crate::const_fn!(
+            @parse_generic
+            vis: $vis,
+            name: $name,
+            comma: [,],
+            type_generics:    [$($tg)* $($comma)? $N],
+            impl_generics:    [$($ig)* $($comma)? const $N: $Type],
+            phantom_generics: [$($pg)*],
+            rest: [$($rest)+],
+        );
+    };
+    // Parse single type generic
+    (
+        @parse_generic
+        vis: $vis:vis,
+        name: $name:ident,
+        comma: [$($comma:tt)?],
+        type_generics: [$($tg:tt)*],
+        impl_generics: [$($ig:tt)*],
+        phantom_generics: [$($pg:tt)*],
+        rest: [$(,)? $T:ident $(: $bound:path)? $(> $($rest1:tt)+)? $(, $($rest2:tt)+)? ],
+    ) => {
+        $crate::const_fn!(
+            @parse_generic
+            vis: $vis,
+            name: $name,
+            comma: [,],
+            type_generics:    [$($tg)* $($comma)? $T],
+            impl_generics:    [$($ig)* $($comma)? $T $(: $bound)?],
+            phantom_generics: [$($pg)* $T,],
+            rest: [$(> $($rest1)+)? $(, $($rest2)+)?],
+        );
+    };
+    // Parse end of generic function
+    (
+        @parse_generic
+        vis: $vis:vis,
+        name: $name:ident,
+        comma: [$(,)?],
+        type_generics: [$($tg:tt)+],
+        impl_generics: [$($ig:tt)+],
+        phantom_generics: [$($pg:tt)*],
+        rest: [> ($( $arg_name:tt : $arg_type:ty ),+ $(,)?) -> $ret_type:ty $body:block],
+    ) => {
+        $crate::raw_const_fn!(
+            attrs: [
+                #[doc = concat!("`ConstFn` version of [`", stringify!($name), "`](fn@", stringify!($name), ")")]
+                #[allow(non_camel_case_types)]
+            ],
+            vis: $vis,
+            name: $name,
+            type_generics: [$($tg)+],
+            impl_generics: [$($ig)+],
+            phantom_generics: ($($pg)*),
+            arg_type: ($($arg_type,)+),
+            arg_param: Arg,
+            ret_type: $ret_type,
+            body: {
+                let ($($arg_name,)+) = Arg::ITEM;
+                $name::<$($tg)+>($($arg_name,)*)
+            },
+        );
+    };
+}
 
+/// Defines a [`ConstFn`]
+///
+/// This macros API is very direct and expects a lot of knowledge from its user.
+///
+/// Normal developer should try [`const_fn!`](crate::const_fn).
+/// This macro is its implementation detail.
+/// It is exported if `const_fn` is not flexible enough.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! raw_const_fn {
+    (
+        attrs: [$(#[$attr:meta])*],
+        vis: $vis:vis,
+        name: $Name:ident,
+        $(
+            type_generics: [$($TG:tt)+],
+            impl_generics: [$($IG:tt)+],
+            phantom_generics: $PG:ty,
+        )?
+        arg_type: $ArgType:ty,
+        arg_param: $Arg:ident,
+        ret_type: $RetType:ty,
+        body: $body:block,
+    ) => {
         $(#[$attr])*
-        $vis const fn $fun_name<$generic $(:$bound)?>($( $arg_name : $arg_type ),*) -> $ret_type $body
+        $vis struct $Name $(< $($IG)+ >)? {
+            $( phantom: ::core::marker::PhantomData<$PG> )?
+        }
+
         const _: () = {
-            impl<$generic $(:$bound)?> $crate::fields::utils::const_fn::ConstFn<($($arg_type,)*), $ret_type> for $fun_name<$generic> {
-                type Body<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)*)>> = Body<(Self, Arg)>;
+            impl $( < $($IG)+ > )? $crate::fields::utils::const_fn::ConstFn<$ArgType, $RetType> for $Name $( < $($TG)+ > )? {
+                type Body<Arg: $crate::fields::utils::const_fn::Contains<$ArgType>> = Body<(Self, Arg)>;
             }
             $vis struct Body<T>(::std::marker::PhantomData<T>);
-            impl<Arg: $crate::fields::utils::const_fn::Contains<($($arg_type,)*)>, $generic $(:$bound)?> $crate::fields::utils::const_fn::Contains<$ret_type> for Body<($fun_name<$generic>, Arg)> {
-                const ITEM: $ret_type = {
-                    let ($($arg_name,)*) = Arg::ITEM;
-                    $fun_name::<$generic>($($arg_name,)*)
-                };
+            impl<$Arg: $crate::fields::utils::const_fn::Contains<$ArgType> $( , $($IG)+)?>
+                $crate::fields::utils::const_fn::Contains<$RetType> for Body<($Name $( < $($TG)+ > )?, $Arg)>
+            {
+                const ITEM: $RetType = $body;
             }
         };
     };
@@ -256,3 +347,22 @@ impl_tuples! [
     (C1: T1, C2: T2, C3: T3, C4: T4),
     (C1: T1, C2: T2, C3: T3, C4: T4, C5: T5),
 ];
+
+#[cfg(debug_assertions)]
+mod compile_tests {
+    const_fn! {
+        fn non_generic(_arg: ()) -> () {}
+    }
+    const_fn! {
+        fn single_const_generic<const N: usize>(_arg: ()) -> () {}
+    }
+    const_fn! {
+        fn single_type_generic<T>(_arg: ()) -> () {}
+    }
+    const_fn! {
+        fn single_type_generic_with_bound<T: Copy>(_arg: ()) -> () {}
+    }
+    const_fn! {
+        fn mixed_generics<const N: usize, T, U, const O: usize>(_arg: ()) -> () {}
+    }
+}
