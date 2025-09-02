@@ -201,7 +201,7 @@ fn generate_fields(model: &AnalyzedModel, config: &MacroConfig) -> TokenStream {
             }
         });
         if !model.experimental_unregistered {
-            tokens.extend(quote! {
+            tokens.extend(quote_spanned! {ident.span()=>
                 const _: () = {
                     if let Err(err) = #rorm_path::internal::field::check::<#unit>() {
                         panic!("{}", err.as_str());
