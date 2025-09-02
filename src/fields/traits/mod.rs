@@ -1,5 +1,7 @@
 //! Traits defining types which can be used as fields.
 
+use std::marker::PhantomData;
+
 use rorm_db::row::RowError;
 use rorm_db::sql::value::NullType;
 use rorm_db::Row;
@@ -11,14 +13,14 @@ use crate::crud::decoder::Decoder;
 use crate::fields::proxy;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
 use crate::fields::utils::column_name::ColumnName;
-use crate::fields::utils::const_fn::ConstFn;
+use crate::fields::utils::const_fn::{ConstFn, Contains};
 use crate::internal::const_concat::ConstString;
 use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::fake_field::FakeField;
 use crate::internal::field::Field;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::query_context::QueryContext;
-use crate::sealed;
+use crate::{const_fn, sealed};
 
 pub mod aggregate;
 pub mod cmp;
@@ -58,11 +60,6 @@ pub trait FieldType: 'static {
         (Annotations, FieldColumns<Self, Annotations>),
         Result<(), ConstString<1024>>,
     >;
-
-    #[doc(hidden)]
-    fn is_option<Private: crate::private::Private>() -> bool {
-        false
-    }
 }
 /// Shorthand for constructing an array with the length for the [`FieldType`]'s columns
 pub type FieldColumns<F, T> = <<F as FieldType>::Columns as Columns>::Array<T>;
@@ -81,6 +78,9 @@ pub trait Columns {
 
     /// The number of columns
     const NUM: usize;
+
+    /// Iterates over all annotations and sets the `nullable` flag.
+    type SetNull: ConstFn<(Self::Array<Annotations>,), Self::Array<Annotations>>;
 }
 
 /// Implementor of [`Columns`] used to specify the number of a [`FieldType`]'s columns
@@ -96,6 +96,21 @@ impl<const N: usize> Columns for Array<N> {
     }
 
     const NUM: usize = N;
+
+    type SetNull = set_null<N>;
+}
+
+const_fn! {
+    /// Iterates over all annotations and sets the `nullable` flag.
+    pub fn set_null<const N: usize>(annotations: [Annotations; N]) -> [Annotations; N] {
+        let mut annotations = annotations;
+        let mut i = 0;
+        while i < annotations.len() {
+            annotations[i].nullable = true;
+            i += 1;
+        }
+        annotations
+    }
 }
 
 impl<T: FieldType> FieldType for Option<T> {
@@ -116,15 +131,8 @@ impl<T: FieldType> FieldType for Option<T> {
 
     type Decoder = OptionDecoder<T>;
     type GetNames = T::GetNames;
-    // Sadly we can't iterate over the array returned by T::GetAnnotations
-    // in a const context in order to set nullable.
-    // Therefore, we have to resort to "fixing" it at runtime in the `push_imr` function.
-    type GetAnnotations = T::GetAnnotations;
+    type GetAnnotations = OptionGetAnnotations<T>;
     type Check = T::Check;
-
-    fn is_option<Private: crate::private::Private>() -> bool {
-        true
-    }
 }
 
 /// [`FieldDecoder`] for [`Option<T>`]
@@ -158,6 +166,32 @@ impl<T: FieldType> Decoder for OptionDecoder<T> {
     }
 }
 
+/// [`FieldType::GetAnnotations`] for `Option<T>`
+pub struct OptionGetAnnotations<T: FieldType>(PhantomData<T::GetAnnotations>);
+impl<T: FieldType> ConstFn<(Annotations,), FieldColumns<T, Annotations>>
+    for OptionGetAnnotations<T>
+{
+    type Body<Arg: Contains<(Annotations,)>> = OptionGetAnnotationsBody<T, Arg>;
+}
+
+/// [`ConstFn::Body`] for [`OptionGetAnnotations<T>`]
+pub struct OptionGetAnnotationsBody<T: FieldType, Arg>(PhantomData<(T::GetAnnotations, Arg)>);
+impl<T: FieldType, Arg: Contains<(Annotations,)>> Contains<FieldColumns<T, Annotations>>
+    for OptionGetAnnotationsBody<T, Arg>
+{
+    const ITEM: FieldColumns<T, Annotations> = {
+        type CallInner<T, Arg> = <<T as FieldType>::GetAnnotations as ConstFn<
+            (Annotations,),
+            FieldColumns<T, Annotations>,
+        >>::Body<Arg>;
+        type CallOuter<T, Arg> = <<<T as FieldType>::Columns as Columns>::SetNull as ConstFn<
+            (FieldColumns<T, Annotations>,),
+            FieldColumns<T, Annotations>,
+        >>::Body<Arg>;
+        <CallOuter<T, (CallInner<T, Arg>,)> as Contains<_>>::ITEM
+    };
+}
+
 /// Provides the "default" implementation of [`FieldType`].
 ///
 /// ## Usages
@@ -165,7 +199,7 @@ impl<T: FieldType> Decoder for OptionDecoder<T> {
 ///     - `RustType` is the type to implement the traits on.
 ///     - `NullType` is the database type to associate with (variant of [`NullType`](crate::db::sql::value::NullType)).
 ///     - `into_value` is used to convert `RustType` into a [`Value<'static>`] (must implement `Fn(RustType) -> Value<'static>`).
-///     - `as_value` is used to convert `&'a RustType` into a [`Value<'a>`] (must implement `Fn(&'_ RustType) -> Value<'_>`).
+///     - `as_value` is used to convert `&onstFn<Annotations, >'a RustType` into a [`Value<'a>`] (must implement `Fn(&'_ RustType) -> Value<'_>`).
 ///       If `RustType` implements `Copy`, `as_value` can be omitted and will use `into_value` instead.
 #[doc(hidden)]
 #[allow(non_snake_case)] // makes it clearer that a trait and which trait is meant

@@ -108,14 +108,12 @@ pub fn push_imr<F: Field>(imr: &mut Vec<imr::Field>) {
     let db_types = F::Type::NULL;
     let annotations = F::EFFECTIVE_ANNOTATIONS;
     let source_defined_at = F::SOURCE.as_imr();
-    let is_option = F::Type::is_option::<()>();
 
     for ((name, mut annotations), null_type) in names
         .into_iter()
         .zip(annotations.into_iter())
         .zip(db_types.into_iter())
     {
-        annotations.nullable |= is_option;
         imr.push(imr::Field {
             name: name.as_str().to_string(),
             db_type: match null_type {
