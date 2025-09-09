@@ -139,16 +139,4 @@ impl<const MAX_LEN: usize> ConstString<MAX_LEN> {
         }
         Ok(())
     }
-
-    /// Appends a given string slice onto the end of this `ConstString`,
-    ///
-    /// # Panics
-    /// if the resulting string would be larger than `MAX_LEN`.
-    ///
-    /// See [`ConstString::try_push_str`] for a version which does not panic.
-    pub const fn push_str(&mut self, string: &str) {
-        if self.try_push_str(string).is_err() {
-            panic!("Resulting string would be larger than MAX_LEN");
-        }
-    }
 }
