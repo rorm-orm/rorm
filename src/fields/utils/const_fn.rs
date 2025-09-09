@@ -174,113 +174,152 @@ pub trait ConstFn<Arg, Ret> {
 /// ```
 #[macro_export]
 macro_rules! const_fn {
+    /*
+     * Start by parsing until start of generics
+     */
+
     // Parse start non-generic function
-    ($(#[$attr:meta])* $vis:vis fn $fun_name:ident($($rest:tt)+) -> $ret_type:ty $body:block) => {
+    ($(#[$attr:meta])* $vis:vis fn $fn_name:ident($($rest:tt)+) -> $ret_type:ty $body:block) => {
         $crate::const_fn!(
             @parse_args
-            attrs: [$(#[$attr])*],
-            vis: $vis,
-            name: $fun_name,
             ret_type: $ret_type,
             body: $body,
             rest: [$($rest)+],
+            {
+                attrs: [$(#[$attr])*],
+                vis: $vis,
+                name: $fn_name,
+            }
         );
     };
     // Parse start of generic function
-    (
-        $(#[$attr:meta])* $vis:vis fn $fn_name:ident<$($rest:tt)+
-    ) => {
+    ($(#[$attr:meta])* $vis:vis fn $fn_name:ident<$($rest:tt)+) => {
         $crate::const_fn!(
             @parse_generic
-            attrs: [$(#[$attr])*],
-            vis: $vis,
-            name: $fn_name,
             comma: [],
             type_generics: [],
             impl_generics: [],
             phantom_generics: [(),],
             rest: [$($rest)+],
+            {
+                attrs: [$(#[$attr])*],
+                vis: $vis,
+                name: $fn_name,
+            }
         );
     };
-    // Parse single const generic
+
+    // Parse some const generic
     (
         @parse_generic
-        attrs: [$($attr:tt)*],
-        vis: $vis:vis,
-        name: $name:ident,
         comma: [$($comma:tt)?],
         type_generics: [$($tg:tt)*],
         impl_generics: [$($ig:tt)*],
         phantom_generics: [$($pg:tt)*],
-        rest: [$(,)? const $N:ident : $Type:ident $($rest:tt)+ ],
+        rest: [const $N:ident: $Type:ident, $($rest:tt)+ ],
+        {$($passthrough:tt)*}
     ) => {
         $crate::const_fn!(
             @parse_generic
-            attrs: [$($attr)*],
-            vis: $vis,
-            name: $name,
             comma: [,],
             type_generics:    [$($tg)* $($comma)? $N],
             impl_generics:    [$($ig)* $($comma)? const $N: $Type],
             phantom_generics: [$($pg)*],
             rest: [$($rest)+],
+            {$($passthrough)*}
         );
     };
-    // Parse single type generic
+    // Parse last const generic
     (
         @parse_generic
-        attrs: [$($attr:tt)*],
-        vis: $vis:vis,
-        name: $name:ident,
         comma: [$($comma:tt)?],
         type_generics: [$($tg:tt)*],
         impl_generics: [$($ig:tt)*],
         phantom_generics: [$($pg:tt)*],
-        rest: [$(,)? $T:ident $(: $bound:path)? $(> $($rest1:tt)+)? $(, $($rest2:tt)+)? ],
+        rest: [const $N:ident: $Type:ident >($($rest:tt)+) -> $ret_type:ty $body:block ],
+        {$($passthrough:tt)*}
+    ) => {
+        $crate::const_fn!(
+            @parse_args
+            type_generics:    [$($tg)* $($comma)? $N],
+            impl_generics:    [$($ig)* $($comma)? const $N: $Type],
+            phantom_generics: [$($pg)*],
+            ret_type: $ret_type,
+            body: $body,
+            rest: [$($rest)+],
+            {$($passthrough)*}
+        );
+    };
+    // Parse some type generic
+    (
+        @parse_generic
+        comma: [$($comma:tt)?],
+        type_generics: [$($tg:tt)*],
+        impl_generics: [$($ig:tt)*],
+        phantom_generics: [$($pg:tt)*],
+        rest: [$T:ident $(: $bound:path)?, $($rest:tt)+ ],
+        {$($passthrough:tt)*}
     ) => {
         $crate::const_fn!(
             @parse_generic
-            attrs: [$($attr)*],
-            vis: $vis,
-            name: $name,
             comma: [,],
             type_generics:    [$($tg)* $($comma)? $T],
             impl_generics:    [$($ig)* $($comma)? $T $(: $bound)?],
             phantom_generics: [$($pg)* $T,],
-            rest: [$(> $($rest1)+)? $(, $($rest2)+)?],
+            rest: [$($rest)+],
+            {$($passthrough)*}
+        );
+    };
+    // Parse last type generic
+    (
+        @parse_generic
+        comma: [$($comma:tt)?],
+        type_generics: [$($tg:tt)*],
+        impl_generics: [$($ig:tt)*],
+        phantom_generics: [$($pg:tt)*],
+        rest: [$T:ident $(: $bound:path)? >($($rest:tt)+) -> $ret_type:ty $body:block ],
+        {$($passthrough:tt)*}
+    ) => {
+        $crate::const_fn!(
+            @parse_args
+            type_generics:    [$($tg)* $($comma)? $T],
+            impl_generics:    [$($ig)* $($comma)? $T $(: $bound)?],
+            phantom_generics: [$($pg)* $T,],
+            ret_type: $ret_type,
+            body: $body,
+            rest: [$($rest)+],
+            {$($passthrough)*}
         );
     };
     // Parse end of generic function
     (
         @parse_generic
-        attrs: [$($attr:tt)*],
-        vis: $vis:vis,
-        name: $name:ident,
         comma: [$(,)?],
         type_generics: [$($tg:tt)+],
         impl_generics: [$($ig:tt)+],
         phantom_generics: [$($pg:tt)*],
         rest: [> ($($rest:tt)+) -> $ret_type:ty $body:block],
+        {$($passthrough:tt)*}
     ) => {
         $crate::const_fn!(
             @parse_args
-            attrs: [$($attr)*],
-            vis: $vis,
-            name: $name,
             type_generics: [$($tg)+],
             impl_generics: [$($ig)+],
             phantom_generics: [$($pg)*],
             ret_type: $ret_type,
             body: $body,
             rest: [$($rest)+],
+            {$($passthrough)*}
         );
     };
+
+    /*
+     * Finish by parsing the arguments
+     */
+
     // Parse normal arguments
     (
         @parse_args
-        attrs: [$($attr:tt)*],
-        vis: $vis:vis,
-        name: $name:ident,
         $(
             type_generics: [$($tg:tt)+],
             impl_generics: [$($ig:tt)+],
@@ -289,6 +328,11 @@ macro_rules! const_fn {
         ret_type: $RetType:ty,
         body: $body:block,
         rest: [$( $arg_name:tt : $ArgType:ty ),+ $(,)?],
+        {
+            attrs: [$($attr:tt)*],
+            vis: $vis:vis,
+            name: $name:ident,
+        }
     ) => {
         $($attr)* $vis const fn $name $(< $($ig)+ >)?($( $arg_name : $ArgType ),+) -> $RetType $body
 
@@ -316,9 +360,6 @@ macro_rules! const_fn {
     // Parse raw arguments
     (
         @parse_args
-        attrs: [$($attr:tt)*],
-        vis: $vis:vis,
-        name: $name:ident,
         $(
             type_generics: [$($tg:tt)+],
             impl_generics: [$($ig:tt)+],
@@ -327,6 +368,11 @@ macro_rules! const_fn {
         ret_type: $RetType:ty,
         body: $body:block,
         rest: [#[raw] $arg_name:ident: $ArgType:ty],
+        {
+            attrs: [$($attr:tt)*],
+            vis: $vis:vis,
+            name: $name:ident,
+        }
     ) => {
         $crate::raw_const_fn!(
             attrs: [

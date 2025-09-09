@@ -129,7 +129,7 @@ impl<T: FieldType> FieldType for Option<T> {
 
     type Decoder = OptionDecoder<T>;
     type GetNames = T::GetNames;
-    type GetAnnotations = OptionGetAnnotations<T>;
+    type GetAnnotations = get_option_annotations<T>;
     type Check = T::Check;
 }
 
@@ -164,17 +164,8 @@ impl<T: FieldType> Decoder for OptionDecoder<T> {
     }
 }
 
-raw_const_fn!(
-    attrs: [#[doc = "[`FieldType::GetAnnotations`] for `Option<T>`"]],
-    vis: pub,
-    name: OptionGetAnnotations,
-    type_generics: [T],
-    impl_generics: [T: FieldType],
-    phantom_generics: T::GetAnnotations,
-    arg_type: (Annotations,),
-    arg_param: Arg,
-    ret_type: FieldColumns<T, Annotations>,
-    body: {
+const_fn! {
+    pub fn get_option_annotations<T: FieldType>(#[raw] Arg: (Annotations,)) -> FieldColumns<T, Annotations> {
         type CallInner<T, Arg> = <<T as FieldType>::GetAnnotations as ConstFn<
             (Annotations,),
             FieldColumns<T, Annotations>,
@@ -184,8 +175,8 @@ raw_const_fn!(
             FieldColumns<T, Annotations>,
         >>::Body<Arg>;
         <CallOuter<T, (CallInner<T, Arg>,)> as Contains<_>>::ITEM
-    },
-);
+    }
+}
 
 /// Provides the "default" implementation of [`FieldType`].
 ///
