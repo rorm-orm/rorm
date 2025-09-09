@@ -18,7 +18,7 @@ use crate::internal::field::fake_field::FakeField;
 use crate::internal::field::Field;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::query_context::QueryContext;
-use crate::{const_fn, raw_const_fn, sealed};
+use crate::{const_fn, sealed};
 
 pub mod aggregate;
 pub mod cmp;
