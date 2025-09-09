@@ -165,6 +165,7 @@ impl<T: FieldType> Decoder for OptionDecoder<T> {
 }
 
 const_fn! {
+    /// [`FieldType::GetAnnotations`] implementation for `Option<T>`
     pub fn get_option_annotations<T: FieldType>(#[raw] Arg: (Annotations,)) -> FieldColumns<T, Annotations> {
         type CallInner<T, Arg> = <<T as FieldType>::GetAnnotations as ConstFn<
             (Annotations,),
