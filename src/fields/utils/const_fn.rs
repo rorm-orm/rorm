@@ -366,7 +366,7 @@ macro_rules! const_fn {
     ) => {
         $crate::raw_const_fn!(
             attrs: [
-                #[doc = concat!("`ConstFn` version of [`", stringify!($name), "`](fn@", stringify!($name), ")")]
+                $($attr)*
                 #[allow(non_camel_case_types)]
             ],
             vis: $vis,

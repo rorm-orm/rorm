@@ -101,15 +101,8 @@
 //!     }
 //! }
 //!
-//! pub struct get_MyMcf_names;
-//! impl ConstFn<(ColumnName,), FieldColumns<MyMcf, ColumnName>> for get_MyMcf_names {
-//!     type Body<T: Contains<(ColumnName,)>> = get_MyMcf_names_Body<T>;
-//! }
-//! pub struct get_MyMcf_names_Body<T>(PhantomData<T>);
-//! impl<T: Contains<(ColumnName,)>> Contains<FieldColumns<MyMcf, ColumnName>>
-//! for get_MyMcf_names_Body<T>
-//! {
-//!     const ITEM: FieldColumns<MyMcf, ColumnName> = {
+//! const_fn! {
+//!     pub fn get_MyMcf_names(#[raw] T: (ColumnName,)) -> FieldColumns<MyMcf, ColumnName> {
 //!         let mut builder = ArrayBuilder::new([ColumnName::placeholder(); 3]);
 //!         builder.extend_const(
 //!             <<<i32 as FieldType>::GetNames as ConstFn<_, _>>::Body<(
@@ -127,34 +120,30 @@
 //!             )> as Contains<_>>::ITEM,
 //!         );
 //!         builder.finish_const()
-//!     };
+//!     }
 //! }
 //!
 //! const_fn! {
+//!     #[allow(non_snake_case)]
 //!     pub fn get_MyMcf_foo_name(column_name: ColumnName) -> ColumnName {
 //!         column_name.join("foo")
 //!     }
 //! }
 //! const_fn! {
+//!     #[allow(non_snake_case)]
 //!     pub fn get_MyMcf_bar_name(column_name: ColumnName) -> ColumnName {
 //!         column_name.join("bar")
 //!     }
 //! }
 //! const_fn! {
+//!     #[allow(non_snake_case)]
 //!     pub fn get_MyMcf_baz_name(column_name: ColumnName) -> ColumnName {
 //!         column_name.join("baz")
 //!     }
 //! }
 //!
-//! pub struct get_MyMcf_annotations;
-//! impl ConstFn<(Annotations,), FieldColumns<MyMcf, Annotations>> for get_MyMcf_annotations {
-//!     type Body<T: Contains<(Annotations,)>> = get_MyMcf_annotations_Body<T>;
-//! }
-//! pub struct get_MyMcf_annotations_Body<T>(PhantomData<T>);
-//! impl<T: Contains<(Annotations,)>> Contains<FieldColumns<MyMcf, Annotations>>
-//! for get_MyMcf_annotations_Body<T>
-//! {
-//!     const ITEM: FieldColumns<MyMcf, Annotations> = {
+//! const_fn! {
+//!     pub fn get_MyMcf_annotations(#[raw] T: (Annotations,)) -> FieldColumns<MyMcf, Annotations> {
 //!         let mut builder = ArrayBuilder::new([Annotations::empty(); 3]);
 //!         builder.extend_const(
 //!             <<<i32 as FieldType>::GetAnnotations as ConstFn<_, _>>::Body<T> as Contains<_>>::ITEM,
@@ -166,43 +155,36 @@
 //!             <<<bool as FieldType>::GetAnnotations as ConstFn<_, _>>::Body<T> as Contains<_>>::ITEM,
 //!         );
 //!         builder.finish_const()
-//!     };
+//!     }
 //! }
 //!
-//! pub struct check_MyMcf;
-//! impl ConstFn<(Annotations, FieldColumns<MyMcf, Annotations>), Result<(), ConstString<1024>>>
-//! for check_MyMcf
-//! {
-//!     type Body<T: Contains<(Annotations, FieldColumns<MyMcf, Annotations>)>> = check_MyMcf_Body<T>;
-//! }
-//! pub struct check_MyMcf_Body<T>(PhantomData<T>);
-//! impl<T: Contains<(Annotations, FieldColumns<MyMcf, Annotations>)>>
-//! Contains<Result<(), ConstString<1024>>> for check_MyMcf_Body<T>
-//! {
-//!     const ITEM: Result<(), ConstString<1024>> = 'result: {
-//!         let result = <<<i32 as FieldType>::Check as ConstFn<_, _>>::Body<
-//!             <slice_for_check<3, 1, 0> as ConstFn<_, _>>::Body<T>,
-//!         > as Contains<_>>::ITEM;
-//!         if matches!(result, Err(_)) {
-//!             break 'result result;
-//!         }
+//! const_fn! {
+//!     pub fn check_MyMcf(#[raw] T: (Annotations, FieldColumns<MyMcf, Annotations>)) -> Result<(), ConstString<1024>> {
+//!         'result: {
+//!             let result = <<<i32 as FieldType>::Check as ConstFn<_, _>>::Body<
+//!                 <slice_for_check<3, 1, 0> as ConstFn<_, _>>::Body<T>,
+//!             > as Contains<_>>::ITEM;
+//!             if matches!(result, Err(_)) {
+//!                 break 'result result;
+//!             }
 //!
-//!         let result = <<<String as FieldType>::Check as ConstFn<_, _>>::Body<
-//!             <slice_for_check<3, 1, 0> as ConstFn<_, _>>::Body<T>,
-//!         > as Contains<_>>::ITEM;
-//!         if matches!(result, Err(_)) {
-//!             break 'result result;
-//!         }
+//!             let result = <<<String as FieldType>::Check as ConstFn<_, _>>::Body<
+//!                 <slice_for_check<3, 1, 0> as ConstFn<_, _>>::Body<T>,
+//!             > as Contains<_>>::ITEM;
+//!             if matches!(result, Err(_)) {
+//!                 break 'result result;
+//!             }
 //!
-//!         let result = <<<bool as FieldType>::Check as ConstFn<_, _>>::Body<
-//!             <slice_for_check<3, 1, 0> as ConstFn<_, _>>::Body<T>,
-//!         > as Contains<_>>::ITEM;
-//!         if matches!(result, Err(_)) {
-//!             break 'result result;
-//!         }
+//!             let result = <<<bool as FieldType>::Check as ConstFn<_, _>>::Body<
+//!                 <slice_for_check<3, 1, 0> as ConstFn<_, _>>::Body<T>,
+//!             > as Contains<_>>::ITEM;
+//!             if matches!(result, Err(_)) {
+//!                 break 'result result;
+//!             }
 //!
-//!         Ok(())
-//!     };
+//!             Ok(())
+//!         }
+//!     }
 //! }
 //!
 //! struct MyMcf_foo_Field<F>(PhantomData<F>);
@@ -272,9 +254,7 @@
 //! }
 //! ```
 
-use std::marker::PhantomData;
-
-use crate::fields::utils::const_fn::{ConstFn, Contains};
+use crate::const_fn;
 use crate::internal::hmr::annotations::Annotations;
 
 /// Constructs arrays by concatenating others
@@ -335,26 +315,16 @@ impl<T, const N: usize> ArrayBuilder<T, N> {
     }
 }
 
-#[allow(non_camel_case_types)]
-pub struct slice_for_check<const N: usize, const M: usize, const I: usize>;
-impl<const N: usize, const M: usize, const I: usize>
-    ConstFn<(Annotations, [Annotations; N]), (Annotations, [Annotations; M])>
-    for slice_for_check<N, M, I>
-{
-    type Body<T: Contains<(Annotations, [Annotations; N])>> = slice_for_check_Body<N, M, I, T>;
-}
-#[doc(hidden)]
-#[allow(non_camel_case_types)]
-pub struct slice_for_check_Body<const N: usize, const M: usize, const I: usize, T>(PhantomData<T>);
-impl<
-        const N: usize,
-        const M: usize,
-        const I: usize,
-        T: Contains<(Annotations, [Annotations; N])>,
-    > Contains<(Annotations, [Annotations; M])> for slice_for_check_Body<N, M, I, T>
-{
-    const ITEM: (Annotations, [Annotations; M]) = {
-        let (single, items) = T::ITEM;
+const_fn! {
+    /// Helper for a multi-column `FieldType`'s `Check` implementation.
+    ///
+    /// The multi-column type would have to "call" each subfield's check function.
+    /// Each of which takes an array of annotations of some unique length `M`.
+    /// The multi-column type only has an array of length `N` which is the sum of all `M`s.
+    ///
+    /// This function takes the field's array of length `N` and extracts a subarray of length `M`
+    /// starting at position `I`.
+    pub fn slice_for_check<const N: usize, const M: usize, const I: usize>(single: Annotations, items: [Annotations; N]) -> (Annotations, [Annotations; M]) {
         let mut array = [Annotations::empty(); M];
 
         let mut i = 0;
@@ -365,5 +335,5 @@ impl<
         }
 
         (single, array)
-    };
+    }
 }
