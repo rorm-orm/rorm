@@ -174,34 +174,25 @@ pub trait ConstFn<Arg, Ret> {
 /// ```
 #[macro_export]
 macro_rules! const_fn {
-    // Parse non-generic function
-    ($(#[$attr:meta])* $vis:vis fn $fun_name:ident($( $arg_name:tt : $arg_type:ty ),+ $(,)?) -> $ret_type:ty $body:block) => {
-        $(#[$attr])*
-        $vis const fn $fun_name($( $arg_name : $arg_type ),*) -> $ret_type $body
-
-        $crate::raw_const_fn!(
-            attrs: [
-                #[doc = concat!("`ConstFn` version of [`", stringify!($fun_name), "`](fn@", stringify!($fun_name), ")")]
-                #[allow(non_camel_case_types)]
-            ],
+    // Parse start non-generic function
+    ($(#[$attr:meta])* $vis:vis fn $fun_name:ident($($rest:tt)+) -> $ret_type:ty $body:block) => {
+        $crate::const_fn!(
+            @parse_args
+            attrs: [$(#[$attr])*],
             vis: $vis,
             name: $fun_name,
-            arg_type: ($($arg_type,)+),
-            arg_param: Arg,
             ret_type: $ret_type,
-            body: {
-                let ($($arg_name,)+) = Arg::ITEM;
-                $fun_name($($arg_name,)*)
-            },
+            body: $body,
+            rest: [$($rest)+],
         );
     };
     // Parse start of generic function
     (
         $(#[$attr:meta])* $vis:vis fn $fn_name:ident<$($rest:tt)+
     ) => {
-        $(#[$attr])* $vis const fn $fn_name<$($rest)+
         $crate::const_fn!(
             @parse_generic
+            attrs: [$(#[$attr])*],
             vis: $vis,
             name: $fn_name,
             comma: [],
@@ -211,9 +202,10 @@ macro_rules! const_fn {
             rest: [$($rest)+],
         );
     };
-        // Parse single const generic
+    // Parse single const generic
     (
         @parse_generic
+        attrs: [$($attr:tt)*],
         vis: $vis:vis,
         name: $name:ident,
         comma: [$($comma:tt)?],
@@ -224,6 +216,7 @@ macro_rules! const_fn {
     ) => {
         $crate::const_fn!(
             @parse_generic
+            attrs: [$($attr)*],
             vis: $vis,
             name: $name,
             comma: [,],
@@ -236,6 +229,7 @@ macro_rules! const_fn {
     // Parse single type generic
     (
         @parse_generic
+        attrs: [$($attr:tt)*],
         vis: $vis:vis,
         name: $name:ident,
         comma: [$($comma:tt)?],
@@ -246,6 +240,7 @@ macro_rules! const_fn {
     ) => {
         $crate::const_fn!(
             @parse_generic
+            attrs: [$($attr)*],
             vis: $vis,
             name: $name,
             comma: [,],
@@ -258,13 +253,80 @@ macro_rules! const_fn {
     // Parse end of generic function
     (
         @parse_generic
+        attrs: [$($attr:tt)*],
         vis: $vis:vis,
         name: $name:ident,
         comma: [$(,)?],
         type_generics: [$($tg:tt)+],
         impl_generics: [$($ig:tt)+],
         phantom_generics: [$($pg:tt)*],
-        rest: [> ($( $arg_name:tt : $arg_type:ty ),+ $(,)?) -> $ret_type:ty $body:block],
+        rest: [> ($($rest:tt)+) -> $ret_type:ty $body:block],
+    ) => {
+        $crate::const_fn!(
+            @parse_args
+            attrs: [$($attr)*],
+            vis: $vis,
+            name: $name,
+            type_generics: [$($tg)+],
+            impl_generics: [$($ig)+],
+            phantom_generics: [$($pg)*],
+            ret_type: $ret_type,
+            body: $body,
+            rest: [$($rest)+],
+        );
+    };
+    // Parse normal arguments
+    (
+        @parse_args
+        attrs: [$($attr:tt)*],
+        vis: $vis:vis,
+        name: $name:ident,
+        $(
+            type_generics: [$($tg:tt)+],
+            impl_generics: [$($ig:tt)+],
+            phantom_generics: [$($pg:tt)*],
+        )?
+        ret_type: $RetType:ty,
+        body: $body:block,
+        rest: [$( $arg_name:tt : $ArgType:ty ),+ $(,)?],
+    ) => {
+        $($attr)* $vis const fn $name $(< $($ig)+ >)?($( $arg_name : $ArgType ),+) -> $RetType $body
+
+        $crate::raw_const_fn!(
+            attrs: [
+                #[doc = concat!("`ConstFn` version of [`", stringify!($name), "`](fn@", stringify!($name), ")")]
+                #[allow(non_camel_case_types)]
+            ],
+            vis: $vis,
+            name: $name,
+            $(
+                type_generics: [$($tg)+],
+                impl_generics: [$($ig)+],
+                phantom_generics: ($($pg)*),
+            )?
+            arg_type: ($($ArgType,)+),
+            arg_param: Arg,
+            ret_type: $RetType,
+            body: {
+                let ($($arg_name,)+) = Arg::ITEM;
+                $name $( ::<$($tg)+> )? ($($arg_name,)*)
+            },
+        );
+    };
+    // Parse raw arguments
+    (
+        @parse_args
+        attrs: [$($attr:tt)*],
+        vis: $vis:vis,
+        name: $name:ident,
+        $(
+            type_generics: [$($tg:tt)+],
+            impl_generics: [$($ig:tt)+],
+            phantom_generics: [$($pg:tt)*],
+        )?
+        ret_type: $RetType:ty,
+        body: $body:block,
+        rest: [#[raw] $arg_name:ident: $ArgType:ty],
     ) => {
         $crate::raw_const_fn!(
             attrs: [
@@ -273,16 +335,15 @@ macro_rules! const_fn {
             ],
             vis: $vis,
             name: $name,
-            type_generics: [$($tg)+],
-            impl_generics: [$($ig)+],
-            phantom_generics: ($($pg)*),
-            arg_type: ($($arg_type,)+),
-            arg_param: Arg,
-            ret_type: $ret_type,
-            body: {
-                let ($($arg_name,)+) = Arg::ITEM;
-                $name::<$($tg)+>($($arg_name,)*)
-            },
+            $(
+                type_generics: [$($tg)+],
+                impl_generics: [$($ig)+],
+                phantom_generics: ($($pg)*),
+            )?
+            arg_type: $ArgType,
+            arg_param: $arg_name,
+            ret_type: $RetType,
+            body: $body,
         );
     };
 }
@@ -364,5 +425,11 @@ mod compile_tests {
     }
     const_fn! {
         fn mixed_generics<const N: usize, T, U, const O: usize>(_arg: ()) -> () {}
+    }
+
+    const_fn! {
+        fn raw_arg(#[raw] _Arg: ()) -> () {
+            _Arg::ITEM
+        }
     }
 }
