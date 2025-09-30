@@ -2,6 +2,7 @@ Since 0.7.1
 -----------
 - Implemented `FieldEq` for any single column `Option<T>`
 - Implemented `FieldLike` for `String` and `MaxStr`
+- Implemented `FieldLike` for any single column `Option<T>`
 - Deprecated `DynamicCollection` constructors for `..._checked` alternatives
 - Added `ForeignModelByField::query_as`
 - Added `ForeignModelByField::as_condition`

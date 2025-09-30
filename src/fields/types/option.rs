@@ -6,7 +6,7 @@ use crate::conditions::{Column, Condition, Unary, UnaryOperator, Value};
 use crate::crud::decoder::Decoder;
 use crate::fields::proxy;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
-use crate::fields::traits::{Array, Columns, FieldEq};
+use crate::fields::traits::{Array, Columns, FieldEq, FieldLike};
 use crate::fields::traits::{FieldColumns, FieldType};
 use crate::fields::utils::const_fn::{ConstFn, Contains};
 use crate::internal::field::decoder::FieldDecoder;
@@ -53,7 +53,42 @@ where
     }
 }
 
-/// Condition produced by `Option<T>`'s [`FieldEq`] implementation
+impl<'rhs, T, Rhs: 'rhs, Any> FieldLike<'rhs, Option<Rhs>, private::OptionFieldLike<Any>>
+    for Option<T>
+where
+    T: FieldType<Columns = Array<1>>,
+    T: FieldLike<'rhs, Rhs, Any>,
+{
+    type LiCond<I: FieldProxyImpl> =
+        OptionFieldEqCond<I, <T as FieldLike<'rhs, Rhs, Any>>::LiCond<I>>;
+
+    fn field_like<I: FieldProxyImpl>(field: FieldProxy<I>, value: Option<Rhs>) -> Self::LiCond<I> {
+        OptionFieldEqCond {
+            not: false,
+            // where clause required `T` to be a single column field
+            column: field,
+            value: value.map(|value| <T as FieldLike<'rhs, Rhs, Any>>::field_like(field, value)),
+        }
+    }
+
+    type NlCond<I: FieldProxyImpl> =
+        OptionFieldEqCond<I, <T as FieldLike<'rhs, Rhs, Any>>::NlCond<I>>;
+
+    fn field_not_like<I: FieldProxyImpl>(
+        field: FieldProxy<I>,
+        value: Option<Rhs>,
+    ) -> Self::NlCond<I> {
+        OptionFieldEqCond {
+            not: true,
+            // where clause required `T` to be a single column field
+            column: field,
+            value: value
+                .map(|value| <T as FieldLike<'rhs, Rhs, Any>>::field_not_like(field, value)),
+        }
+    }
+}
+
+/// Condition produced by `Option<T>`'s [`FieldEq`] (and c[`FieldLike`]) implementation
 ///
 /// It wraps an optional condition produced by `T`'s `FieldEq` implementation.
 ///
@@ -189,4 +224,5 @@ mod private {
     use std::marker::PhantomData;
 
     pub struct OptionFieldEq<T>(PhantomData<T>);
+    pub struct OptionFieldLike<T>(PhantomData<T>);
 }
