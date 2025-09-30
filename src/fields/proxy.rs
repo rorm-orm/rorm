@@ -199,6 +199,39 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
         <FieldType!(I)>::field_not_like(self, rhs)
     }
 
+    /// Uses `LIKE` to check whether the field contains the string `rhs`
+    pub fn contains<'rhs, Any>(
+        self,
+        rhs: &str,
+    ) -> <FieldType!(I) as FieldLike<'rhs, String, Any>>::LiCond<I>
+    where
+        FieldType!(I): FieldLike<'rhs, String, Any>,
+    {
+        self.like(format!("%{}%", escape_like(&rhs.to_string())))
+    }
+
+    /// Uses `LIKE` to check whether the field starts with the string `rhs`
+    pub fn starts_with<'rhs, Any>(
+        self,
+        rhs: &str,
+    ) -> <FieldType!(I) as FieldLike<'rhs, String, Any>>::LiCond<I>
+    where
+        FieldType!(I): FieldLike<'rhs, String, Any>,
+    {
+        self.like(format!("{}%", escape_like(&rhs.to_string())))
+    }
+
+    /// Uses `LIKE` to check whether the field ends with the string `rhs`
+    pub fn ends_with<'rhs, Any>(
+        self,
+        rhs: &str,
+    ) -> <FieldType!(I) as FieldLike<'rhs, String, Any>>::LiCond<I>
+    where
+        FieldType!(I): FieldLike<'rhs, String, Any>,
+    {
+        self.like(format!("%{}", escape_like(&rhs.to_string())))
+    }
+
     /// Compare the field to another value using `>=`
     pub fn regexp<'rhs, Rhs: 'rhs, Any>(
         self,
@@ -371,4 +404,12 @@ pub const fn columns<T: FieldProxyImpl>(
     _: fn() -> FieldProxy<T>,
 ) -> FieldColumns<<T::Field as Field>::Type, ColumnName> {
     <T::Field as Field>::EFFECTIVE_NAMES
+}
+
+/// Escape the special character from an argument to `LIKE`
+fn escape_like(string: &str) -> String {
+    string
+        .replace('\\', r"\\")
+        .replace('%', r"\%")
+        .replace('_', r"\_")
 }
