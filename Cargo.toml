@@ -11,7 +11,7 @@ members = [
 
 [package]
 name = "rorm"
-version = "0.7.1"
+version = "0.8.0"
 edition = "2021"
 repository = "https://github.com/rorm-orm/rorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
@@ -45,7 +45,7 @@ linkme = { version = "~0.3" } # Used to collect all models declared by any crate
 pin-project = { version = "~1" } # Used to wrap futures and streams which are !Unpin
 
 rorm-db = { version = "~0.10", path = "./rorm-db", features = ["serde"] }
-rorm-macro = { version = "~0.9", path = "./rorm-macro" }
+rorm-macro = { version = "~0.10", path = "./rorm-macro" }
 rorm-declaration = { version = "~0.4", path = "./rorm-declaration" }
 
 # rorm-cli exposes interfaces to integrate the cli as library
