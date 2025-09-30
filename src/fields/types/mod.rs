@@ -11,6 +11,7 @@ mod max_str;
 pub mod max_str_impl;
 #[cfg(feature = "msgpack")]
 mod msgpack;
+mod option;
 #[cfg(feature = "postgres-only")]
 pub(crate) mod postgres_only;
 mod std;
