@@ -154,30 +154,8 @@ where
     }
 }
 
-impl<'rhs, FF> SimpleFieldEq<'rhs, FF::Type, FieldEq_ForeignModelByField_Owned>
-    for Option<ForeignModelByField<FF>>
-where
-    FF: SingleColumnField,
-    FF::Type: FieldType<Columns = Array<1>>,
-{
-    fn into_value(rhs: FF::Type) -> Value<'rhs> {
-        <FF as SingleColumnField>::type_into_value(rhs)
-    }
-}
-
 impl<'rhs, FF> SimpleFieldEq<'rhs, &'rhs FF::Type, FieldEq_ForeignModelByField_Borrowed>
     for ForeignModelByField<FF>
-where
-    FF: SingleColumnField,
-    FF::Type: FieldType<Columns = Array<1>>,
-{
-    fn into_value(rhs: &'rhs FF::Type) -> Value<'rhs> {
-        <FF as SingleColumnField>::type_as_value(rhs)
-    }
-}
-
-impl<'rhs, FF> SimpleFieldEq<'rhs, &'rhs FF::Type, FieldEq_ForeignModelByField_Borrowed>
-    for Option<ForeignModelByField<FF>>
 where
     FF: SingleColumnField,
     FF::Type: FieldType<Columns = Array<1>>,

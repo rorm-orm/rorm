@@ -1,5 +1,6 @@
 Since 0.7.1
 -----------
+- Implemented `FieldEq` for any single column `Option<T>`
 - Deprecated `DynamicCollection` constructors for `..._checked` alternatives
 - Added `ForeignModelByField::query_as`
 - Added `ForeignModelByField::as_condition`
@@ -7,7 +8,7 @@ Since 0.7.1
 - Added `MaxStr::from_static`
 - Added `MaxStr::to_owned`
 - Enforced column names to be at most 63 bytes
-- Depreacted `impl_FieldEq!` macro for `SimpleFieldEq` trait
+- Deprecated `impl_FieldEq!` macro for `SimpleFieldEq` trait
 - Fixed / improved some field lints
 
 Notes for publishing

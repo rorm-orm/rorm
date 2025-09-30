@@ -11,12 +11,7 @@ impl<'rhs> SimpleFieldEq<'rhs, Time> for Time {
         Value::TimeTime(rhs)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, Option<Time>> for Option<Time> {
-    fn into_value(rhs: Option<Time>) -> Value<'rhs> {
-        rhs.map(Value::TimeTime)
-            .unwrap_or(Value::Null(NullType::TimeTime))
-    }
-}
+
 impl_FieldOrd!(Time, Time, Value::TimeTime);
 impl_FieldOrd!(Option<Time>, Option<Time>, |option: Self| option
     .map(Value::TimeTime)
@@ -29,12 +24,7 @@ impl<'rhs> SimpleFieldEq<'rhs, Date> for Date {
         Value::TimeDate(rhs)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, Option<Date>> for Option<Date> {
-    fn into_value(rhs: Option<Date>) -> Value<'rhs> {
-        rhs.map(Value::TimeDate)
-            .unwrap_or(Value::Null(NullType::TimeDate))
-    }
-}
+
 impl_FieldOrd!(Date, Date, Value::TimeDate);
 impl_FieldOrd!(Option<Date>, Option<Date>, |option: Self| option
     .map(Value::TimeDate)
@@ -51,12 +41,7 @@ impl<'rhs> SimpleFieldEq<'rhs, OffsetDateTime> for OffsetDateTime {
         Value::TimeOffsetDateTime(rhs)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, Option<OffsetDateTime>> for Option<OffsetDateTime> {
-    fn into_value(rhs: Option<OffsetDateTime>) -> Value<'rhs> {
-        rhs.map(Value::TimeOffsetDateTime)
-            .unwrap_or(Value::Null(NullType::TimeOffsetDateTime))
-    }
-}
+
 impl_FieldOrd!(OffsetDateTime, OffsetDateTime, Value::TimeOffsetDateTime);
 impl_FieldOrd!(
     Option<OffsetDateTime>,
@@ -77,12 +62,7 @@ impl<'rhs> SimpleFieldEq<'rhs, PrimitiveDateTime> for PrimitiveDateTime {
         Value::TimePrimitiveDateTime(rhs)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, Option<PrimitiveDateTime>> for Option<PrimitiveDateTime> {
-    fn into_value(rhs: Option<PrimitiveDateTime>) -> Value<'rhs> {
-        rhs.map(Value::TimePrimitiveDateTime)
-            .unwrap_or(Value::Null(NullType::TimePrimitiveDateTime))
-    }
-}
+
 impl_FieldOrd!(
     PrimitiveDateTime,
     PrimitiveDateTime,

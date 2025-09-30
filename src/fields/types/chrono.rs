@@ -11,12 +11,6 @@ impl<'rhs> SimpleFieldEq<'rhs, NaiveTime> for NaiveTime {
         Value::ChronoNaiveTime(rhs)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, Option<NaiveTime>> for Option<NaiveTime> {
-    fn into_value(rhs: Option<NaiveTime>) -> Value<'rhs> {
-        rhs.map(Value::ChronoNaiveTime)
-            .unwrap_or(Value::Null(NullType::ChronoNaiveTime))
-    }
-}
 impl_FieldOrd!(NaiveTime, NaiveTime, Value::ChronoNaiveTime);
 impl_FieldOrd!(Option<NaiveTime>, Option<NaiveTime>, |option: Self| option
     .map(Value::ChronoNaiveTime)
@@ -27,12 +21,6 @@ impl_FieldType!(NaiveDate, ChronoNaiveDate, Value::ChronoNaiveDate);
 impl<'rhs> SimpleFieldEq<'rhs, NaiveDate> for NaiveDate {
     fn into_value(rhs: NaiveDate) -> Value<'rhs> {
         Value::ChronoNaiveDate(rhs)
-    }
-}
-impl<'rhs> SimpleFieldEq<'rhs, Option<NaiveDate>> for Option<NaiveDate> {
-    fn into_value(rhs: Option<NaiveDate>) -> Value<'rhs> {
-        rhs.map(Value::ChronoNaiveDate)
-            .unwrap_or(Value::Null(NullType::ChronoNaiveDate))
     }
 }
 impl_FieldOrd!(NaiveDate, NaiveDate, Value::ChronoNaiveDate);
@@ -51,12 +39,6 @@ impl<'rhs> SimpleFieldEq<'rhs, NaiveDateTime> for NaiveDateTime {
         Value::ChronoNaiveDateTime(rhs)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, Option<NaiveDateTime>> for Option<NaiveDateTime> {
-    fn into_value(rhs: Option<NaiveDateTime>) -> Value<'rhs> {
-        rhs.map(Value::ChronoNaiveDateTime)
-            .unwrap_or(Value::Null(NullType::ChronoNaiveDateTime))
-    }
-}
 impl_FieldOrd!(NaiveDateTime, NaiveDateTime, Value::ChronoNaiveDateTime);
 impl_FieldOrd!(
     Option<NaiveDateTime>,
@@ -71,12 +53,6 @@ impl_FieldType!(DateTime<Utc>, ChronoDateTime, Value::ChronoDateTime);
 impl<'rhs> SimpleFieldEq<'rhs, DateTime<Utc>> for DateTime<Utc> {
     fn into_value(rhs: DateTime<Utc>) -> Value<'rhs> {
         Value::ChronoDateTime(rhs)
-    }
-}
-impl<'rhs> SimpleFieldEq<'rhs, Option<DateTime<Utc>>> for Option<DateTime<Utc>> {
-    fn into_value(rhs: Option<DateTime<Utc>>) -> Value<'rhs> {
-        rhs.map(Value::ChronoDateTime)
-            .unwrap_or(Value::Null(NullType::ChronoDateTime))
     }
 }
 impl_FieldOrd!(DateTime<Utc>, DateTime<Utc>, Value::ChronoDateTime);

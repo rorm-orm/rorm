@@ -398,55 +398,8 @@ impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, MaxStr<MAX_LEN, Impl>
         conv_string(rhs.into_inner())
     }
 }
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Option<&'rhs str>>
-    for Option<MaxStr<MAX_LEN, Impl>>
-{
-    fn into_value(rhs: Option<&'rhs str>) -> Value<'rhs> {
-        conv_opt_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Option<&'rhs String>>
-    for Option<MaxStr<MAX_LEN, Impl>>
-{
-    fn into_value(rhs: Option<&'rhs String>) -> Value<'rhs> {
-        conv_opt_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Option<String>>
-    for Option<MaxStr<MAX_LEN, Impl>>
-{
-    fn into_value(rhs: Option<String>) -> Value<'rhs> {
-        conv_opt_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Option<Cow<'rhs, str>>>
-    for Option<MaxStr<MAX_LEN, Impl>>
-{
-    fn into_value(rhs: Option<Cow<'rhs, str>>) -> Value<'rhs> {
-        conv_opt_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Option<&'rhs MaxStr<MAX_LEN, Impl>>>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: Option<&'rhs MaxStr<MAX_LEN, Impl>>) -> Value<'rhs> {
-        conv_opt_string(rhs.map(|str| &**str))
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Option<MaxStr<MAX_LEN, Impl>>>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: Option<MaxStr<MAX_LEN, Impl>>) -> Value<'rhs> {
-        conv_opt_string(rhs.map(|str| str.into_inner()))
-    }
-}
 fn conv_string<'a>(value: impl Into<Cow<'a, str>>) -> Value<'a> {
     Value::String(value.into())
-}
-fn conv_opt_string<'a>(value: Option<impl Into<Cow<'a, str>>>) -> Value<'a> {
-    value
-        .map(conv_string)
-        .unwrap_or(Value::Null(NullType::String))
 }
 
 #[cfg(feature = "utoipa")]
