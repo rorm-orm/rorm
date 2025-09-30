@@ -340,6 +340,7 @@ impl<'v> QueryContext<'v> {
             )
         });
 
+        #[allow(clippy::mem_replace_option_with_some)]
         WithBasePath {
             prev_span: mem::replace(&mut self.span, new_span),
             prev_base_path: mem::replace(&mut self.base_path, Some(new_base_path)),

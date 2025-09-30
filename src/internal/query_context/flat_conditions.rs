@@ -124,7 +124,7 @@ impl QueryContext<'_> {
             FlatCondition::Column(table_name, column_name) => {
                 sql::Condition::Value(sql::Value::Column {
                     table_name: Some(self.join_aliases.get(&table_name).ok_or(UnknownAlias)?),
-                    column_name: &*column_name,
+                    column_name,
                 })
             }
         })

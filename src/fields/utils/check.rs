@@ -8,6 +8,7 @@ use crate::internal::hmr::annotations::Annotations;
 
 const_fn! {
     /// [`FieldType::Check`] which checks the explicit annotations to be empty.
+    #[allow(clippy::result_large_err, reason = "There is no heap in const")]
     pub fn disallow_annotations_check<const N: usize>(field: Annotations, _columns: [Annotations; N]) -> Result<(), ConstString<1024>> {
         match field {
             Annotations {
@@ -32,6 +33,7 @@ const_fn! {
 
 const_fn! {
     /// [`FieldType::Check`] which runs the linter shared with `rorm-cli` on every column.
+    #[allow(clippy::result_large_err, reason = "There is no heap in const")]
     pub fn shared_linter_check<const N: usize>(_field: Annotations, columns: [Annotations; N]) -> Result<(), ConstString<1024>> {
         let mut columns = columns.as_slice();
         while let [column, tail @ ..] = columns {
@@ -51,6 +53,7 @@ const_fn! {
 const_fn! {
     /// [`FieldType::Check`] which runs the linter shared with `rorm-cli` on every column
     /// and checks `max_length` to be set.
+    #[allow(clippy::result_large_err, reason = "There is no heap in const")]
     pub fn string_check(_field: Annotations, [column]: [Annotations; 1]) -> Result<(), ConstString<1024>> {
         if let Err(error) = shared_linter_check(_field, [column]) {
             return Err(error);

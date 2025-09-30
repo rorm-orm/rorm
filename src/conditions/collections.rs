@@ -74,8 +74,8 @@ pub enum CollectionOperator {
 ///
 /// ## Disadvantage:
 /// - All conditions have to be of the same type.
-///     This can be mitigated by erasing their type using [`Condition::boxed`].
-///     In this case use [`Box<dyn Condition>`] for the generic variable `T`.
+///   This can be mitigated by erasing their type using [`Condition::boxed`].
+///   In this case use [`Box<dyn Condition>`] for the generic variable `T`.
 #[derive(Clone)]
 pub struct DynamicCollection<T> {
     /// Operator used for joining, i.e. `and` or `or`
@@ -175,7 +175,7 @@ impl<'a, T: Condition<'a>> Condition<'a> for DynamicCollection<Option<T>> {
 ///
 /// ## Disadvantage
 /// - Due to rust's limitations, there has to be a maximum number of elements this tuple can hold.
-///     Currently, it is set to 8, which is an arbitrary choice, but there has to be one.
+///   Currently, it is set to 8, which is an arbitrary choice, but there has to be one.
 #[derive(Copy, Clone)]
 pub struct StaticCollection<T> {
     /// Operator used for joining, i.e. `and` or `or`

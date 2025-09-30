@@ -27,7 +27,7 @@ impl ColumnName {
     }
 
     /// Extracts a string slice containing the entire `ColumnName`.
-    pub const fn as_str<'a>(&'a self) -> &'a str {
+    pub const fn as_str(&self) -> &str {
         self.0.as_str()
     }
 
@@ -99,7 +99,7 @@ impl<const MAX_LEN: usize> ConstString<MAX_LEN> {
     }
 
     /// Extracts a string slice containing the entire `ConstString`.
-    pub const fn as_str<'a>(&'a self) -> &'a str {
+    pub const fn as_str(&self) -> &str {
         let bytes = self.as_bytes();
 
         // SAFETY:

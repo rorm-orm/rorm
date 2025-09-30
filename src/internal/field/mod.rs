@@ -154,6 +154,7 @@ pub fn push_imr<F: Field>(imr: &mut Vec<imr::Field>) {
 /// Check a [`Field`] for correctness by evaluating its [`FieldType`]'s `Check`
 ///
 /// This function is called and its error reported by the `#[derive(Model)]` macro.
+#[allow(clippy::result_large_err, reason = "There is no heap in const")]
 pub const fn check<F: Field>() -> Result<(), ConstString<1024>> {
     <<<F::Type as FieldType>::Check as ConstFn<_, _>>::Body<(
         contains::ExplicitAnnotations<F>,

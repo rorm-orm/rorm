@@ -136,9 +136,9 @@ pub struct ModelFieldAnnotations {
     /// It accepts four different syntax's:
     /// - `#[rorm(index)]`
     /// - `#[rorm(index())]`
-    ///    *(semantically identical to first one)*
+    ///   *(semantically identical to first one)*
     /// - `#[rorm(index(name = <string literal>))]`
     /// - `#[rorm(index(name = <string literal>, priority = <integer literal>))]`
-    ///    *(insensitive to argument order)*
+    ///   *(insensitive to argument order)*
     pub index: Option<Index>,
 }

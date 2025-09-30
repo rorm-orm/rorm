@@ -20,8 +20,8 @@ use crate::sealed;
 /// Create a SELECT query.
 ///
 /// 1. Give a reference to your db and the patch to query.
-///     If you just need a few fields and don't want to create a patch for it,
-///     you can specify these fields directly as a tuple as well.
+///    If you just need a few fields and don't want to create a patch for it,
+///    you can specify these fields directly as a tuple as well.
 ///
 ///     `query!(&db, MyModelType)`
 ///
@@ -57,7 +57,7 @@ use crate::sealed;
 ///         `.optional().await`
 ///
 ///     Each of these methods decodes the database's rows into the patch you specified in step 1.
-///     If you want to work with raw rows, each of the methods in step 4 has a `*_as_row` twin.
+///    If you want to work with raw rows, each of the methods in step 4 has a `*_as_row` twin.
 ///
 /// Example:
 /// ```no_run

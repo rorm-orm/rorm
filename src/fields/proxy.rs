@@ -207,7 +207,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     where
         FieldType!(I): FieldLike<'rhs, String, Any>,
     {
-        self.like(format!("%{}%", escape_like(&rhs.to_string())))
+        self.like(format!("%{}%", escape_like(rhs)))
     }
 
     /// Uses `LIKE` to check whether the field starts with the string `rhs`
@@ -218,7 +218,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     where
         FieldType!(I): FieldLike<'rhs, String, Any>,
     {
-        self.like(format!("{}%", escape_like(&rhs.to_string())))
+        self.like(format!("{}%", escape_like(rhs)))
     }
 
     /// Uses `LIKE` to check whether the field ends with the string `rhs`
@@ -229,7 +229,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     where
         FieldType!(I): FieldLike<'rhs, String, Any>,
     {
-        self.like(format!("%{}", escape_like(&rhs.to_string())))
+        self.like(format!("%{}", escape_like(rhs)))
     }
 
     /// Compare the field to another value using `>=`
