@@ -127,7 +127,7 @@ where
         for patch in &owned {
             conditions.push(patch.as_condition());
         }
-        if let Some(condition) = DynamicCollection::or_checked(conditions) {
+        if let Some(condition) = DynamicCollection::or(conditions) {
             self.condition(condition).await
         } else {
             Ok(0)
