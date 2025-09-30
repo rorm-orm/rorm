@@ -167,7 +167,7 @@ pub trait SingleColumnField: Field {
     const EFFECTIVE_ANNOTATION: Annotations;
 
     /// Borrow an instance of the field's type as a [`Value`]
-    fn type_as_value(field: &Self::Type) -> Value;
+    fn type_as_value(field: &Self::Type) -> Value<'_>;
 
     /// Convert an instance of the field's type into a static [`Value`]
     fn type_into_value(field: Self::Type) -> Value<'static>;
@@ -182,7 +182,7 @@ where
         annos
     };
 
-    fn type_as_value(field: &Self::Type) -> Value {
+    fn type_as_value(field: &Self::Type) -> Value<'_> {
         let [value] = field.as_values();
         value
     }

@@ -361,16 +361,6 @@ impl<const MAX_LEN: usize> Contains<Annotations> for ImplicitMaxLength<MAX_LEN> 
         annos
     };
 }
-/// Type passed to [`merge_annotations`] to set the `max_length` and `nullable` annotation;
-pub struct ImplicitMaxLengthAndNullable<const MAX_LEN: usize>;
-impl<const MAX_LEN: usize> Contains<Annotations> for ImplicitMaxLengthAndNullable<MAX_LEN> {
-    const ITEM: Annotations = {
-        let mut annos = Annotations::empty();
-        annos.max_length = Some(MaxLength(MAX_LEN as i32));
-        annos.nullable = true;
-        annos
-    };
-}
 
 impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, &'rhs str> for MaxStr<MAX_LEN, Impl> {
     fn into_value(rhs: &'rhs str) -> Value<'rhs> {

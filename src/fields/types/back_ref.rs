@@ -77,7 +77,7 @@ where
     FMF::Model: GetField<FMF>, // always true
     foreign_model::RF<FMF>: SingleColumnField,
 {
-    fn model_as_condition<BRP>(patch: &BRP) -> impl Condition
+    fn model_as_condition<BRP>(patch: &BRP) -> impl Condition<'_>
     where
         BRP: Patch<Model = BRF::Model>,
         BRP: GetField<foreign_model::RF<FMF>>,

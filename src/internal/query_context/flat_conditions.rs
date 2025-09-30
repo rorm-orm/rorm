@@ -56,7 +56,7 @@ impl QueryContext<'_> {
         &self,
         head: FlatCondition,
         tail: &mut impl Iterator<Item = FlatCondition>,
-    ) -> Result<sql::Condition, GetConditionError> {
+    ) -> Result<sql::Condition<'_>, GetConditionError> {
         use GetConditionError::*;
 
         Ok(match head {

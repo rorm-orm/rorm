@@ -75,19 +75,6 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Json<T> {
     type GetNames = single_column_name;
 }
 
-new_converting_decoder!(
-    pub OptionJsonDecoder<T: Serialize + DeserializeOwned>,
-    |value: Option<Vec<u8>>| -> Option<Json<T>> {
-        value
-            .map(|value| {
-                serde_json::from_slice(&value)
-                    .map(Json)
-                    .map_err(|err| format!("Couldn't decoder json: {err}"))
-            })
-            .transpose()
-    }
-);
-
 // From
 impl<T: Serialize + DeserializeOwned> From<T> for Json<T> {
     fn from(value: T) -> Self {

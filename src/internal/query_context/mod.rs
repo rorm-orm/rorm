@@ -160,7 +160,7 @@ impl<'v> QueryContext<'v> {
     }
 
     /// Create a vector borrowing the joins in rorm_db's format which can be passed to it as slice.
-    pub fn get_joins(&self) -> Vec<rorm_db::database::JoinTable> {
+    pub fn get_joins(&self) -> Vec<rorm_db::database::JoinTable<'_, '_>> {
         self.joins
             .iter()
             .map(
@@ -179,7 +179,7 @@ impl<'v> QueryContext<'v> {
     }
 
     /// Create a vector borrowing the selects in rorm_db's format which can be passed to it as slice.
-    pub fn get_selects(&self) -> Vec<rorm_db::database::ColumnSelector> {
+    pub fn get_selects(&self) -> Vec<rorm_db::database::ColumnSelector<'_>> {
         self.selects
             .iter()
             .map(
@@ -211,7 +211,7 @@ impl<'v> QueryContext<'v> {
     pub fn try_get_condition(
         &self,
         index: usize,
-    ) -> Result<rorm_db::sql::conditional::Condition, GetConditionError> {
+    ) -> Result<rorm_db::sql::conditional::Condition<'_>, GetConditionError> {
         let (head, mut tail) = self
             .conditions
             .get(index..)
@@ -233,7 +233,7 @@ impl<'v> QueryContext<'v> {
     /// # Panics
     /// If the index is invalid (wasn't returned by a previous call to [`QueryContext::add_condition`])
     /// or the `Condition`'s implementation left the query context in an invalid state.
-    pub fn get_condition(&self, index: usize) -> rorm_db::sql::conditional::Condition {
+    pub fn get_condition(&self, index: usize) -> rorm_db::sql::conditional::Condition<'_> {
         self.try_get_condition(index)
             .expect("Got invalid condition index")
     }
@@ -242,12 +242,12 @@ impl<'v> QueryContext<'v> {
     pub fn get_condition_opt(
         &self,
         index: Option<usize>,
-    ) -> Option<rorm_db::sql::conditional::Condition> {
+    ) -> Option<rorm_db::sql::conditional::Condition<'_>> {
         index.map(|index| self.get_condition(index))
     }
 
     /// Create a vector borrowing the order bys in rorm_db's format which can be passed to it as slice.
-    pub fn get_order_bys(&self) -> Vec<rorm_db::sql::ordering::OrderByEntry> {
+    pub fn get_order_bys(&self) -> Vec<rorm_db::sql::ordering::OrderByEntry<'_>> {
         self.order_bys
             .iter()
             .map(|order_by| rorm_db::sql::ordering::OrderByEntry {

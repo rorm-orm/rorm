@@ -43,7 +43,7 @@ pub trait Patch: Sized + 'static {
     fn push_values(self, values: &mut Vec<Value>);
 
     /// Create a [`Vec`] borrowing the patch's condition values
-    fn references(&self) -> Vec<Value> {
+    fn references(&self) -> Vec<Value<'_>> {
         let mut values = Vec::new();
         self.push_references(&mut values);
         values
@@ -147,7 +147,7 @@ pub trait Identifiable: Patch {
 
     /// Build a [Condition](crate::conditions::Condition)
     /// which only applies to this instance by comparing the primary key.
-    fn as_condition(&self) -> PatchAsCondition<Self> {
+    fn as_condition(&self) -> PatchAsCondition<'_, Self> {
         Binary {
             operator: BinaryOperator::Equals,
             fst_arg: Column(proxy::new()),

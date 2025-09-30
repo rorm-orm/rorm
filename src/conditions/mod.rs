@@ -157,7 +157,7 @@ pub enum Value<'a> {
 }
 impl Value<'_> {
     /// Convert into an [`sql::Value`](value::Value) instead of an [`sql::Condition`](rorm_db::sql::conditional::Condition) directly.
-    pub fn as_sql(&self) -> value::Value {
+    pub fn as_sql(&self) -> value::Value<'_> {
         match self {
             Value::Null(null_type) => value::Value::Null(*null_type),
             Value::String(v) => value::Value::String(v.as_ref()),

@@ -446,6 +446,7 @@ impl_tuples! [
 ];
 
 #[cfg(debug_assertions)]
+#[allow(dead_code)]
 mod compile_tests {
     const_fn! {
         fn non_generic(_arg: ()) -> () {}
