@@ -28,7 +28,7 @@ pub enum OwnedRowIndex {
 
 impl OwnedRowIndex {
     /// Gets index's borrowed version
-    pub fn as_borrowed(&self) -> RowIndex {
+    pub fn as_borrowed(&self) -> RowIndex<'_> {
         match self {
             OwnedRowIndex::Position(index) => (*index).into(),
             OwnedRowIndex::Name(index) => index.as_ref().into(),
