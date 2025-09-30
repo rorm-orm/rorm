@@ -92,15 +92,16 @@ where
     ///
     /// # `None`
     /// if the vector is empty
-    pub fn and(vector: Vec<T>) -> Option<Self> {
+    pub fn and_checked(vector: Vec<T>) -> Option<Self> {
         Self::new_checked(CollectionOperator::And, vector)
     }
 
     /// Create a vector of conditions joined by AND
     ///
     /// You must check `vector` to be non-empty.
-    /// We suggest using [`Self::and`] instead.
-    pub fn and_unchecked(vector: Vec<T>) -> Self {
+    /// We suggest using [`Self::and_checked`] instead.
+    #[deprecated(note = "Use `and_checked` instead")]
+    pub fn and(vector: Vec<T>) -> Self {
         Self {
             operator: CollectionOperator::And,
             vector,
@@ -108,15 +109,16 @@ where
     }
 
     /// Create a vector of conditions joined by OR
-    pub fn or(vector: Vec<T>) -> Option<Self> {
+    pub fn or_checked(vector: Vec<T>) -> Option<Self> {
         Self::new_checked(CollectionOperator::Or, vector)
     }
 
     /// Create a vector of conditions joined by OR
     ///
     /// You must check `vector` to be non-empty.
-    /// We suggest using [`Self::or`] instead.
-    pub fn or_unchecked(vector: Vec<T>) -> Self {
+    /// We suggest using [`Self::or_checked`] instead.
+    #[deprecated(note = "Use `or_checked` instead")]
+    pub fn or(vector: Vec<T>) -> Self {
         Self {
             operator: CollectionOperator::Or,
             vector,

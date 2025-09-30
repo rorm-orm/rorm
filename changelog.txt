@@ -1,6 +1,6 @@
 Since 0.7.1
 -----------
-- Changed return type of `DynamicCollection` constructors
+- Deprecated `DynamicCollection` constructors for `..._checked` alternatives
 - Added `ForeignModelByField::query_as`
 - Added `ForeignModelByField::as_condition`
 - Added `ForeignModelByField::into_condition`
