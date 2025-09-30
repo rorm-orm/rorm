@@ -2,7 +2,7 @@
 
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
 use crate::fields::proxy;
-use crate::fields::traits::{FieldEq, FieldType};
+use crate::fields::traits::{FieldEq, FieldLike, FieldType};
 
 /// A simpler alternative to [`FieldEq`]
 ///
@@ -41,8 +41,50 @@ where
         }
     }
 }
+
+/// A simpler alternative to [`FieldLike`]
+///
+/// It will convert the `rhs` into a sql value and compare it using the normal
+/// like and not like operators.
+pub trait SimpleFieldLike<'rhs, Rhs, Any = ()> {
+    /// Converts the rhs into a sql value
+    fn into_value(rhs: Rhs) -> Value<'rhs>;
+}
+impl<'rhs, Rhs, Any, T> FieldLike<'rhs, Rhs, private::SimpleFieldLike<Any>> for T
+where
+    Rhs: 'rhs,
+    T: SimpleFieldLike<'rhs, Rhs, Any> + FieldType,
+{
+    type LiCond<I: proxy::FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
+
+    fn field_like<I: proxy::FieldProxyImpl>(
+        field: proxy::FieldProxy<I>,
+        value: Rhs,
+    ) -> Self::LiCond<I> {
+        Binary {
+            operator: BinaryOperator::Like,
+            fst_arg: Column(field),
+            snd_arg: Self::into_value(value),
+        }
+    }
+
+    type NlCond<I: proxy::FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
+
+    fn field_not_like<I: proxy::FieldProxyImpl>(
+        field: proxy::FieldProxy<I>,
+        value: Rhs,
+    ) -> Self::NlCond<I> {
+        Binary {
+            operator: BinaryOperator::NotLike,
+            fst_arg: Column(field),
+            snd_arg: Self::into_value(value),
+        }
+    }
+}
+
 mod private {
     use std::marker::PhantomData;
 
     pub struct SimpleFieldEq<T>(PhantomData<T>);
+    pub struct SimpleFieldLike<T>(PhantomData<T>);
 }

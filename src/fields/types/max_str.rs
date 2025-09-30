@@ -14,7 +14,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::conditions::Value;
 use crate::crud::decoder::Decoder;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
-use crate::fields::traits::simple::SimpleFieldEq;
+use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldLike};
 use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::types::max_str_impl::{LenImpl, NumBytes};
 use crate::fields::utils::check::shared_linter_check;
@@ -398,6 +398,46 @@ impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, MaxStr<MAX_LEN, Impl>
         conv_string(rhs.into_inner())
     }
 }
+
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, &'rhs str> for MaxStr<MAX_LEN, Impl> {
+    fn into_value(rhs: &'rhs str) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, &'rhs String>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: &'rhs String) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, String> for MaxStr<MAX_LEN, Impl> {
+    fn into_value(rhs: String) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, Cow<'rhs, str>>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: Cow<'rhs, str>) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, &'rhs MaxStr<MAX_LEN, Impl>>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: &'rhs MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
+        conv_string(&**rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, MaxStr<MAX_LEN, Impl>>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
+        conv_string(rhs.into_inner())
+    }
+}
+
 fn conv_string<'a>(value: impl Into<Cow<'a, str>>) -> Value<'a> {
     Value::String(value.into())
 }
