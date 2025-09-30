@@ -92,14 +92,14 @@ where
     ///
     /// # `None`
     /// if the vector is empty
-    pub fn and_checked(vector: Vec<T>) -> Option<Self> {
+    pub fn and(vector: Vec<T>) -> Option<Self> {
         Self::new_checked(CollectionOperator::And, vector)
     }
 
     /// Create a vector of conditions joined by AND
     ///
     /// You must check `vector` to be non-empty.
-    /// We suggest using [`Self::and_checked`] instead.
+    /// We suggest using [`Self::and`] instead.
     pub fn and_unchecked(vector: Vec<T>) -> Self {
         Self {
             operator: CollectionOperator::And,
@@ -107,44 +107,16 @@ where
         }
     }
 
-    /// Create a vector of conditions joined by AND
-    ///
-    /// You must check `vector` to be non-empty.
-    /// We suggest using [`Self::and_checked`] instead.
-    #[deprecated(
-        note = "This function's signature will change. Either use the new stable name `and_unchecked` or migrate to the new signature which is already available as `and_checked`"
-    )]
-    pub fn and(vector: Vec<T>) -> Self {
-        Self {
-            operator: CollectionOperator::And,
-            vector,
-        }
-    }
-
     /// Create a vector of conditions joined by OR
-    pub fn or_checked(vector: Vec<T>) -> Option<Self> {
+    pub fn or(vector: Vec<T>) -> Option<Self> {
         Self::new_checked(CollectionOperator::Or, vector)
     }
 
     /// Create a vector of conditions joined by OR
     ///
     /// You must check `vector` to be non-empty.
-    /// We suggest using [`Self::or_checked`] instead.
+    /// We suggest using [`Self::or`] instead.
     pub fn or_unchecked(vector: Vec<T>) -> Self {
-        Self {
-            operator: CollectionOperator::Or,
-            vector,
-        }
-    }
-
-    /// Create a vector of conditions joined by OR
-    ///
-    /// You must check `vector` to be non-empty.
-    /// We suggest using [`Self::or_checked`] instead.
-    #[deprecated(
-        note = "This function's signature will change. Either use the new stable name `or_unchecked` or migrate to the new signature which is already available as `or_checked`"
-    )]
-    pub fn or(vector: Vec<T>) -> Self {
         Self {
             operator: CollectionOperator::Or,
             vector,
