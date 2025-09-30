@@ -84,7 +84,7 @@ This strips also migrations, that were replaced.
 
 **Parameter**:
 - `migration_dir`: [&str] The directory to search for files.
-    this point onwards.
+  this point onwards.
 */
 pub fn get_existing_migrations(migration_dir: &str) -> anyhow::Result<Vec<Migration>> {
     let migrations = get_all_existing_migrations(migration_dir)?;
