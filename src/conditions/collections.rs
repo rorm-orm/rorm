@@ -315,7 +315,7 @@ macro_rules! create_collection {
 #[macro_export]
 macro_rules! or {
     ($($condition:expr),+ $(,)?) => {
-        $crate::create_collection!(or, $($condition),+);
+        $crate::create_collection!(or, $($condition),+)
     };
 }
 
@@ -326,7 +326,7 @@ macro_rules! or {
 #[macro_export]
 macro_rules! and {
     ($($condition:expr),+ $(,)?) => {
-        $crate::create_collection!(and, $($condition),+);
+        $crate::create_collection!(and, $($condition),+)
     };
 }
 
