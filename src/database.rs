@@ -165,9 +165,9 @@ impl Drop for Database {
 /// - `conditions`: Optional conditions to apply.
 /// - `order_by_clause`: Columns to order the rows by.
 /// - `limit`: Optional limit / offset to apply to the query.
-///     Depending on the query strategy, this is either [`LimitClause`](rorm_sql::limit_clause::LimitClause)
-///     (for [`All`] and [`Stream`](crate::executor::Stream))
-///     or a simple [`u64`] (for [`One`] and [`Optional`](crate::executor::Optional)).
+///   Depending on the query strategy, this is either [`LimitClause`](rorm_sql::limit_clause::LimitClause)
+///   (for [`All`] and [`Stream`](crate::executor::Stream))
+///   or a simple [`u64`] (for [`One`] and [`Optional`](crate::executor::Optional)).
 #[allow(clippy::too_many_arguments)]
 pub fn query<'result, 'db: 'result, 'post_query: 'result, Q: QueryStrategy + GetLimitClause>(
     executor: impl Executor<'db>,
@@ -345,8 +345,8 @@ pub async fn delete<'post_build>(
     condition: Option<&conditional::Condition<'post_build>>,
 ) -> Result<u64, Error> {
     let mut q = executor.dialect().delete(model);
-    if condition.is_some() {
-        q = q.where_clause(condition.unwrap());
+    if let Some(condition) = condition {
+        q = q.where_clause(condition);
     }
 
     let (query_string, bind_params) = q.build();
@@ -361,7 +361,7 @@ pub async fn delete<'post_build>(
 /// **Parameter**:
 /// - `model`: Name of the model to update rows from
 /// - `updates`: A list of updates. An update is a tuple that consists of a list of columns to
-///     update as well as the value to set to the columns.
+///   update as well as the value to set to the columns.
 /// - `condition`: Optional condition to apply.
 /// - `transaction`: Optional transaction to execute the query on.
 ///
