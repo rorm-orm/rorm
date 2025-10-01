@@ -125,6 +125,7 @@ impl<'a> BuildCondition<'a> for BinaryCondition<'a> {
         lhs.build_to_writer(writer, dialect, lookup)?;
         write!(writer, " {keyword} ")?;
         rhs.build_to_writer(writer, dialect, lookup)?;
+        #[cfg(feature = "sqlite")]
         if matches!(dialect, DBImpl::SQLite) && matches!(keyword, "LIKE" | "NOT LIKE") {
             // Sqlite does not default it
             write!(writer, " ESCAPE '\'")?;
