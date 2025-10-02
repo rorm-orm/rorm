@@ -2,6 +2,8 @@ use std::borrow::Cow;
 
 use crate::conditions::Value;
 use crate::db::sql::value::NullType;
+#[cfg(feature = "postgres-only")]
+use crate::fields::traits::simple::SimpleFieldILike;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldLike};
 use crate::fields::utils::check;
 use crate::{impl_FieldMin_FieldMax, impl_FieldOrd, impl_FieldSum_FieldAvg, impl_FieldType};
@@ -126,6 +128,30 @@ impl<'rhs> SimpleFieldLike<'rhs, String> for String {
     }
 }
 impl<'rhs> SimpleFieldLike<'rhs, Cow<'rhs, str>> for String {
+    fn into_value(rhs: Cow<'rhs, str>) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+#[cfg(feature = "postgres-only")]
+impl<'rhs> SimpleFieldILike<'rhs, &'rhs str> for String {
+    fn into_value(rhs: &'rhs str) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+#[cfg(feature = "postgres-only")]
+impl<'rhs> SimpleFieldILike<'rhs, &'rhs String> for String {
+    fn into_value(rhs: &'rhs String) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+#[cfg(feature = "postgres-only")]
+impl<'rhs> SimpleFieldILike<'rhs, String> for String {
+    fn into_value(rhs: String) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+#[cfg(feature = "postgres-only")]
+impl<'rhs> SimpleFieldILike<'rhs, Cow<'rhs, str>> for String {
     fn into_value(rhs: Cow<'rhs, str>) -> Value<'rhs> {
         conv_string(rhs)
     }

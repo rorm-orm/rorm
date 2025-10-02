@@ -7,6 +7,8 @@ use rorm_db::sql::aggregation::SelectAggregator;
 
 use crate::conditions::{Binary, Column, In, InOperator, Unary, UnaryOperator, Value};
 use crate::crud::selector::{AggregatedColumn, PathedSelector, Selector};
+#[cfg(feature = "postgres-only")]
+use crate::fields::traits::FieldILike;
 use crate::fields::traits::{
     FieldAvg, FieldColumns, FieldCount, FieldEq, FieldLike, FieldMax, FieldMin, FieldOrd,
     FieldRegexp, FieldSum,
@@ -322,6 +324,64 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
             field: self,
             result: PhantomData,
         }
+    }
+}
+
+#[cfg(feature = "postgres-only")]
+impl<I: FieldProxyImpl> FieldProxy<I> {
+    /// Compare the field to another value using `ILIKE`
+    pub fn like_ignore_case<'rhs, Rhs: 'rhs, Any>(
+        self,
+        rhs: Rhs,
+    ) -> <FieldType!(I) as FieldILike<'rhs, Rhs, Any>>::IliCond<I>
+    where
+        FieldType!(I): FieldILike<'rhs, Rhs, Any>,
+    {
+        <FieldType!(I)>::field_ilike(self, rhs)
+    }
+
+    /// Compare the field to another value using `NOT ILIKE`
+    pub fn not_like_ignore_case<'rhs, Rhs: 'rhs, Any>(
+        self,
+        rhs: Rhs,
+    ) -> <FieldType!(I) as FieldILike<'rhs, Rhs, Any>>::NilCond<I>
+    where
+        FieldType!(I): FieldILike<'rhs, Rhs, Any>,
+    {
+        <FieldType!(I)>::field_not_ilike(self, rhs)
+    }
+
+    /// Uses `ILIKE` to check whether the field contains the string `rhs` while ignoring case
+    pub fn contains_ignore_case<'rhs, Any>(
+        self,
+        rhs: &str,
+    ) -> <FieldType!(I) as FieldILike<'rhs, String, Any>>::IliCond<I>
+    where
+        FieldType!(I): FieldILike<'rhs, String, Any>,
+    {
+        self.like_ignore_case(format!("%{}%", escape_like(rhs)))
+    }
+
+    /// Uses `ILIKE` to check whether the field starts with the string `rhs` while ignoring case
+    pub fn starts_with_ignore_case<'rhs, Any>(
+        self,
+        rhs: &str,
+    ) -> <FieldType!(I) as FieldILike<'rhs, String, Any>>::IliCond<I>
+    where
+        FieldType!(I): FieldILike<'rhs, String, Any>,
+    {
+        self.like_ignore_case(format!("{}%", escape_like(rhs)))
+    }
+
+    /// Uses `ILIKE` to check whether the field ends with the string `rhs` while ignoring case
+    pub fn ends_with_ignore_case<'rhs, Any>(
+        self,
+        rhs: &str,
+    ) -> <FieldType!(I) as FieldILike<'rhs, String, Any>>::IliCond<I>
+    where
+        FieldType!(I): FieldILike<'rhs, String, Any>,
+    {
+        self.like_ignore_case(format!("%{}", escape_like(rhs)))
     }
 }
 

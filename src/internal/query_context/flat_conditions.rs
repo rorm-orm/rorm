@@ -101,6 +101,18 @@ impl QueryContext<'_> {
                     BinaryOperator::NotLike => sql::BinaryCondition::NotLike,
                     BinaryOperator::Regexp => sql::BinaryCondition::Regexp,
                     BinaryOperator::NotRegexp => sql::BinaryCondition::NotRegexp,
+                    #[cfg(feature = "postgres-only")]
+                    BinaryOperator::ILike => sql::BinaryCondition::ILike,
+                    #[cfg(feature = "postgres-only")]
+                    BinaryOperator::NotILike => sql::BinaryCondition::NotILike,
+                    #[cfg(feature = "postgres-only")]
+                    BinaryOperator::Contained => sql::BinaryCondition::Contained,
+                    #[cfg(feature = "postgres-only")]
+                    BinaryOperator::ContainedOrEquals => sql::BinaryCondition::ContainedOrEquals,
+                    #[cfg(feature = "postgres-only")]
+                    BinaryOperator::Contains => sql::BinaryCondition::Contains,
+                    #[cfg(feature = "postgres-only")]
+                    BinaryOperator::ContainsOrEquals => sql::BinaryCondition::ContainsOrEquals,
                 };
                 sql::Condition::BinaryCondition(op(Box::new([
                     self.get_condition_inner(tail.next().ok_or(MissingNodes)?, tail)?,

@@ -2,6 +2,8 @@
 
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
 use crate::fields::proxy;
+#[cfg(feature = "postgres-only")]
+use crate::fields::traits::FieldILike;
 use crate::fields::traits::{FieldEq, FieldLike, FieldType};
 
 /// A simpler alternative to [`FieldEq`]
@@ -82,9 +84,53 @@ where
     }
 }
 
+/// A simpler alternative to [`FieldILike`]
+///
+/// It will convert the `rhs` into a sql value and compare it using the normal
+/// ilike and not ilike operators.
+#[cfg(feature = "postgres-only")]
+pub trait SimpleFieldILike<'rhs, Rhs, Any = ()> {
+    /// Converts the rhs into a sql value
+    fn into_value(rhs: Rhs) -> Value<'rhs>;
+}
+#[cfg(feature = "postgres-only")]
+impl<'rhs, Rhs, Any, T> FieldILike<'rhs, Rhs, private::SimpleFieldILike<Any>> for T
+where
+    Rhs: 'rhs,
+    T: SimpleFieldLike<'rhs, Rhs, Any> + FieldType,
+{
+    type IliCond<I: proxy::FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
+
+    fn field_ilike<I: proxy::FieldProxyImpl>(
+        field: proxy::FieldProxy<I>,
+        value: Rhs,
+    ) -> Self::IliCond<I> {
+        Binary {
+            operator: BinaryOperator::Like,
+            fst_arg: Column(field),
+            snd_arg: Self::into_value(value),
+        }
+    }
+
+    type NilCond<I: proxy::FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
+
+    fn field_not_ilike<I: proxy::FieldProxyImpl>(
+        field: proxy::FieldProxy<I>,
+        value: Rhs,
+    ) -> Self::NilCond<I> {
+        Binary {
+            operator: BinaryOperator::NotLike,
+            fst_arg: Column(field),
+            snd_arg: Self::into_value(value),
+        }
+    }
+}
+
 mod private {
     use std::marker::PhantomData;
 
     pub struct SimpleFieldEq<T>(PhantomData<T>);
     pub struct SimpleFieldLike<T>(PhantomData<T>);
+    #[cfg(feature = "postgres-only")]
+    pub struct SimpleFieldILike<T>(PhantomData<T>);
 }

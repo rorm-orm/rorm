@@ -44,12 +44,12 @@ linkme = { version = "~0.3" } # Used to collect all models declared by any crate
 # Macro implemeting pin-projection
 pin-project = { version = "~1" } # Used to wrap futures and streams which are !Unpin
 
-rorm-db = { version = "~0.10", path = "./rorm-db", features = ["serde"] }
+rorm-db = { version = "~0.11", path = "./rorm-db", features = ["serde"] }
 rorm-macro = { version = "~0.10", path = "./rorm-macro" }
 rorm-declaration = { version = "~0.4", path = "./rorm-declaration" }
 
 # rorm-cli exposes interfaces to integrate the cli as library
-rorm-cli = { version = "~0.8", path = "./rorm-cli", default-features = false, optional = true }
+rorm-cli = { version = "~0.9", path = "./rorm-cli", default-features = false, optional = true }
 
 # Mac address support (postgres-only)
 mac_address = { version = "~1", optional = true }

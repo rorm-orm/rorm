@@ -249,6 +249,24 @@ pub enum BinaryOperator {
     Regexp,
     /// Representation of "{} NOT REGEXP {}" in SQL
     NotRegexp,
+    /// Representation of "{} ILIKE {}" in PostgreSQL
+    #[cfg(feature = "postgres-only")]
+    ILike,
+    /// Representation of "{} NOT ILIKE {}" in PostgreSQL
+    #[cfg(feature = "postgres-only")]
+    NotILike,
+    /// Representation of "{} << {}" for `inet` in PostgreSQL
+    #[cfg(feature = "postgres-only")]
+    Contained,
+    /// Representation of "{} <<= {}" for `inet` in PostgreSQL
+    #[cfg(feature = "postgres-only")]
+    ContainedOrEquals,
+    /// Representation of "{} >> {}" for `inet` in PostgreSQL
+    #[cfg(feature = "postgres-only")]
+    Contains,
+    /// Representation of "{} >>= {}" for `inet` in PostgreSQL
+    #[cfg(feature = "postgres-only")]
+    ContainsOrEquals,
 }
 impl<'a, A: Condition<'a>, B: Condition<'a>> Condition<'a> for Binary<A, B> {
     fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {

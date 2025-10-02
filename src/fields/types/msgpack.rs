@@ -73,19 +73,6 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for MsgPack<T> {
     type GetNames = single_column_name;
 }
 
-new_converting_decoder!(
-    pub OptionMsgPackDecoder<T: Serialize + DeserializeOwned>,
-    |value: Option<Vec<u8>>| -> Option<MsgPack<T>> {
-        value
-            .map(|value| {
-                rmp_serde::from_slice(&value)
-                    .map(MsgPack)
-                    .map_err(|err| format!("Couldn't decode msg pack: {err}"))
-            })
-            .transpose()
-    }
-);
-
 // From
 impl<T: Serialize + DeserializeOwned> From<T> for MsgPack<T> {
     fn from(value: T) -> Self {

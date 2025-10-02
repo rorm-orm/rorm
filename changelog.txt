@@ -1,18 +1,6 @@
-Since 0.7.1
+Since 0.8.0
 -----------
-- Changed return type of `DynamicCollection` constructors
-- Implemented `FieldEq` for any single column `Option<T>`
-- Implemented `FieldLike` for `String` and `MaxStr`
-- Implemented `FieldLike` for any single column `Option<T>`
-- Added `ForeignModelByField::query_as`
-- Added `ForeignModelByField::as_condition`
-- Added `ForeignModelByField::into_condition`
-- Added `MaxStr::from_static`
-- Added `MaxStr::to_owned`
-- Added `contains`, `starts_with` and `ends_with` using `like`
-- Enforced column names to be at most 63 bytes
-- Deprecated `impl_FieldEq!` macro for `SimpleFieldEq` trait
-- Fixed / improved some field lints
+- Implemented ILIKE for postgres-only
 
 Notes for publishing
 --------------------

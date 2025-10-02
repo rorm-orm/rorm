@@ -14,6 +14,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::conditions::Value;
 use crate::crud::decoder::Decoder;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
+#[cfg(feature = "postgres-only")]
+use crate::fields::traits::simple::SimpleFieldILike;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldLike};
 use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::types::max_str_impl::{LenImpl, NumBytes};
@@ -431,6 +433,51 @@ impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, &'rhs MaxStr<MAX_LE
     }
 }
 impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, MaxStr<MAX_LEN, Impl>>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
+        conv_string(rhs.into_inner())
+    }
+}
+
+#[cfg(feature = "postgres-only")]
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, &'rhs str> for MaxStr<MAX_LEN, Impl> {
+    fn into_value(rhs: &'rhs str) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+#[cfg(feature = "postgres-only")]
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, &'rhs String>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: &'rhs String) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+#[cfg(feature = "postgres-only")]
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, String> for MaxStr<MAX_LEN, Impl> {
+    fn into_value(rhs: String) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+#[cfg(feature = "postgres-only")]
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, Cow<'rhs, str>>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: Cow<'rhs, str>) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+#[cfg(feature = "postgres-only")]
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, &'rhs MaxStr<MAX_LEN, Impl>>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: &'rhs MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
+        conv_string(&**rhs)
+    }
+}
+#[cfg(feature = "postgres-only")]
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, MaxStr<MAX_LEN, Impl>>
     for MaxStr<MAX_LEN, Impl>
 {
     fn into_value(rhs: MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {

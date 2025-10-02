@@ -3,13 +3,22 @@ use ipnetwork::IpNetwork;
 use mac_address::MacAddress;
 
 use crate::conditions::Value;
-use crate::{impl_FieldEq, impl_FieldType};
+use crate::fields::traits::simple::SimpleFieldEq;
+use crate::impl_FieldType;
 
 impl_FieldType!(MacAddress, MacAddress, Value::MacAddress);
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, MacAddress> for MacAddress { Value::MacAddress });
+impl<'rhs> SimpleFieldEq<'rhs, MacAddress> for MacAddress {
+    fn into_value(rhs: MacAddress) -> Value<'rhs> {
+        Value::MacAddress(rhs)
+    }
+}
 
 impl_FieldType!(IpNetwork, IpNetwork, Value::IpNetwork);
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, IpNetwork> for IpNetwork { Value::IpNetwork });
+impl<'rhs> SimpleFieldEq<'rhs, IpNetwork> for IpNetwork {
+    fn into_value(rhs: IpNetwork) -> Value<'rhs> {
+        Value::IpNetwork(rhs)
+    }
+}
 
 impl_FieldType!(
     BitVec,
@@ -17,8 +26,16 @@ impl_FieldType!(
     |vec| Value::BitVec(BitCow::Owned(vec)),
     |vec| Value::BitVec(BitCow::Borrowed(vec))
 );
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, &'rhs BitVec> for BitVec { |vec| Value::BitVec(BitCow::Borrowed(vec)) });
-impl_FieldEq!(impl<'rhs> FieldEq<'rhs, BitVec> for BitVec { |vec| Value::BitVec(BitCow::Owned(vec)) });
+impl<'rhs> SimpleFieldEq<'rhs, &'rhs BitVec> for BitVec {
+    fn into_value(rhs: &'rhs BitVec) -> Value<'rhs> {
+        Value::BitVec(BitCow::Borrowed(rhs))
+    }
+}
+impl<'rhs> SimpleFieldEq<'rhs, BitVec> for BitVec {
+    fn into_value(rhs: BitVec) -> Value<'rhs> {
+        Value::BitVec(BitCow::Owned(rhs))
+    }
+}
 
 #[derive(Clone, Debug)]
 pub enum BitCow<'a> {

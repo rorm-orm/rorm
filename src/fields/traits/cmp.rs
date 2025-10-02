@@ -97,6 +97,24 @@ pub trait FieldRegexp<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
     fn field_not_regexp<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::NrCond<I>;
 }
 
+/// Trait for field types to implement postgresql's `ILIKE` comparison.
+///
+/// **Read module notes, before using.**
+#[cfg(feature = "postgres-only")]
+pub trait FieldILike<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
+    /// Condition type returned from [`FieldLike::field_ilike`]
+    type IliCond<I: FieldProxyImpl>: Condition<'rhs>;
+
+    /// Compare the field to another value using `LIKE`
+    fn field_ilike<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::IliCond<I>;
+
+    /// Condition type returned from [`FieldLike::field_not_ilike`]
+    type NilCond<I: FieldProxyImpl>: Condition<'rhs>;
+
+    /// Compare the field to another value using `NOT LIKE`
+    fn field_not_ilike<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::NilCond<I>;
+}
+
 // TODO: null check, BETWEEN, IN
 
 /// Provides the "default" implementation of [`FieldEq`].
