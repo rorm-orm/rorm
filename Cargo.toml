@@ -1,6 +1,6 @@
 [package]
 name = "rorm-declaration"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 repository = "https://github.com/rorm-orm/rorm-declaration"
 categories = ["database"]
@@ -23,9 +23,6 @@ serde = { version = "~1" }
 
 # Macros and Traits for working with enums
 strum = { version = "~0.25" }
-
-[build-dependencies]
-rustc_version = { version = "~0.4" }
 
 [features]
 default = [
