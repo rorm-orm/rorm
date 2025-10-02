@@ -98,6 +98,24 @@ pub enum BinaryCondition<'a> {
     In(Box<[Condition<'a>; 2]>),
     /// Representation of "{} NOT IN {}" in SQL
     NotIn(Box<[Condition<'a>; 2]>),
+    /// Representation of "{} ILIKE {}" in PostgreSQL
+    #[cfg(feature = "postgres-only")]
+    ILike(Box<[Condition<'a>; 2]>),
+    /// Representation of "{} NOT ILIKE {}" in PostgreSQL
+    #[cfg(feature = "postgres-only")]
+    NotILike(Box<[Condition<'a>; 2]>),
+    /// Representation of "{} << {}" for `inet` in PostgreSQL
+    #[cfg(feature = "postgres-only")]
+    Contained(Box<[Condition<'a>; 2]>),
+    /// Representation of "{} <<= {}" for `inet` in PostgreSQL
+    #[cfg(feature = "postgres-only")]
+    ContainedOrEquals(Box<[Condition<'a>; 2]>),
+    /// Representation of "{} >> {}" for `inet` in PostgreSQL
+    #[cfg(feature = "postgres-only")]
+    Contains(Box<[Condition<'a>; 2]>),
+    /// Representation of "{} >>= {}" for `inet` in PostgreSQL
+    #[cfg(feature = "postgres-only")]
+    ContainsOrEquals(Box<[Condition<'a>; 2]>),
 }
 
 impl<'a> BuildCondition<'a> for BinaryCondition<'a> {
@@ -120,6 +138,18 @@ impl<'a> BuildCondition<'a> for BinaryCondition<'a> {
             BinaryCondition::NotRegexp(params) => ("NOT REGEXP", params.as_ref()),
             BinaryCondition::In(params) => ("IN", params.as_ref()),
             BinaryCondition::NotIn(params) => ("NOT IN", params.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            BinaryCondition::ILike(params) => ("ILIKE", params.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            BinaryCondition::NotILike(params) => ("NOT ILIKE", params.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            BinaryCondition::Contained(params) => ("<<", params.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            BinaryCondition::ContainedOrEquals(params) => ("<<=", params.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            BinaryCondition::Contains(params) => (">>", params.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            BinaryCondition::ContainsOrEquals(params) => (">>=", params.as_ref()),
         };
         write!(writer, "(")?;
         lhs.build_to_writer(writer, dialect, lookup)?;
