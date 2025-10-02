@@ -3,8 +3,12 @@
 use std::marker::PhantomData;
 use std::mem::ManuallyDrop;
 
+#[cfg(feature = "postgres-only")]
+use ipnetwork::IpNetwork;
 use rorm_db::sql::aggregation::SelectAggregator;
 
+#[cfg(feature = "postgres-only")]
+use crate::conditions::BinaryOperator;
 use crate::conditions::{Binary, Column, In, InOperator, Unary, UnaryOperator, Value};
 use crate::crud::selector::{AggregatedColumn, PathedSelector, Selector};
 #[cfg(feature = "postgres-only")]
@@ -382,6 +386,49 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
         FieldType!(I): FieldILike<'rhs, String, Any>,
     {
         self.like_ignore_case(format!("%{}", escape_like(rhs)))
+    }
+}
+
+#[cfg(feature = "postgres-only")]
+impl<'a, I> FieldProxy<I>
+where
+    I: FieldProxyImpl,
+    I::Field: Field<Type = IpNetwork>,
+{
+    /// Compare the field to another value using postgresql's `<<`
+    pub fn net_contained_in(self, rhs: IpNetwork) -> Binary<Column<I>, Value<'a>> {
+        Binary {
+            operator: BinaryOperator::Contained,
+            fst_arg: Column(self),
+            snd_arg: Value::IpNetwork(rhs),
+        }
+    }
+
+    /// Compare the field to another value using postgresql's `<<=`
+    pub fn net_contained_in_or_equals(self, rhs: IpNetwork) -> Binary<Column<I>, Value<'a>> {
+        Binary {
+            operator: BinaryOperator::ContainedOrEquals,
+            fst_arg: Column(self),
+            snd_arg: Value::IpNetwork(rhs),
+        }
+    }
+
+    /// Compare the field to another value using postgresql's `>>`
+    pub fn net_contains(self, rhs: IpNetwork) -> Binary<Column<I>, Value<'a>> {
+        Binary {
+            operator: BinaryOperator::Contains,
+            fst_arg: Column(self),
+            snd_arg: Value::IpNetwork(rhs),
+        }
+    }
+
+    /// Compare the field to another value using postgresql's `>>=`
+    pub fn net_contains_or_equals(self, rhs: IpNetwork) -> Binary<Column<I>, Value<'a>> {
+        Binary {
+            operator: BinaryOperator::ContainsOrEquals,
+            fst_arg: Column(self),
+            snd_arg: Value::IpNetwork(rhs),
+        }
     }
 }
 
