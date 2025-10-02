@@ -2,7 +2,7 @@
 //!
 //! Rust specific features will be exposed through the `rorm` crate.
 //! `rorm-lib` implements C bindings for this crate.
-#![cfg_attr(all(doc, CHANNEL_NIGHTLY), feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(missing_docs)]
 
 pub mod database;
