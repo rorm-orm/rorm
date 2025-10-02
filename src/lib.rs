@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 /// Reexport the config
 pub use rorm_declaration::config;
 

@@ -22,7 +22,6 @@ path = "src/main.rs"
 [dependencies]
 # Internal dependencies
 rorm-declaration = { version = "~0.4", path = "../rorm-declaration" }
-rorm-sql = { version = "~0.9", path = "../rorm-sql" }
 rorm-db = { version = "~0.10", path = "../rorm-db" }
 
 # CLI parsing tool
@@ -45,9 +44,6 @@ once_cell = { version = "~1" }
 # Runtime
 tokio = { version = ">=1.23.1", features = ["macros", "rt"] }
 
-# Enum simplification
-strum = { version = "~0.25" }
-
 # Read passwords from cli
 rpassword = { version = "~7" }
 
@@ -65,15 +61,12 @@ default = [
 sqlite = [
     "rorm-db/sqlite",
     "rorm-declaration/sqlite",
-    "rorm-sql/sqlite",
 ]
 mysql = [
     "rorm-db/mysql",
     "rorm-declaration/mysql",
-    "rorm-sql/mysql",
 ]
 postgres = [
     "rorm-db/postgres",
     "rorm-declaration/postgres",
-    "rorm-sql/postgres",
 ]

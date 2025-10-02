@@ -3,13 +3,13 @@ use std::path::Path;
 
 use anyhow::{anyhow, Context};
 use rorm_db::executor::{Executor, Nothing, Optional};
+use rorm_db::sql::create_table::CreateTable;
+use rorm_db::sql::insert::Insert;
+use rorm_db::sql::DBImpl;
 use rorm_db::Database;
 use rorm_declaration::config::DatabaseConfig;
 use rorm_declaration::imr::{Annotation, DbType};
 use rorm_declaration::migration::Migration;
-use rorm_sql::create_table::CreateTable;
-use rorm_sql::insert::Insert;
-use rorm_sql::DBImpl;
 
 use crate::log_sql;
 use crate::migrate::config::{create_db_config, deserialize_db_conf};
@@ -58,7 +58,8 @@ pub async fn apply_migration(
         return Err(e);
     }
 
-    let v: &[&[rorm_sql::value::Value]] = &[&[rorm_sql::value::Value::I32(migration.id as i32)]];
+    let v: &[&[rorm_db::sql::value::Value]] =
+        &[&[rorm_db::sql::value::Value::I32(migration.id as i32)]];
     let (query_string, bind_params) = dialect
         .insert(last_migration_table_name, &["migration_id"], v, None)
         .rollback_transaction()

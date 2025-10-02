@@ -1,11 +1,11 @@
 use rorm_db::executor::{Executor, Nothing};
+use rorm_db::sql::alter_table::{AlterTable, AlterTableOperation};
+use rorm_db::sql::create_table::CreateTable;
+use rorm_db::sql::drop_table::DropTable;
+use rorm_db::sql::value::Value;
+use rorm_db::sql::DBImpl;
 use rorm_db::transaction::Transaction;
 use rorm_declaration::migration::{Migration, Operation};
-use rorm_sql::alter_table::{AlterTable, AlterTableOperation};
-use rorm_sql::create_table::CreateTable;
-use rorm_sql::drop_table::DropTable;
-use rorm_sql::value::Value;
-use rorm_sql::DBImpl;
 
 /// Helper method to convert a migration to a transaction string
 ///
