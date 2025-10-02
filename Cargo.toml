@@ -11,7 +11,7 @@ members = [
 
 [package]
 name = "rorm"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2021"
 repository = "https://github.com/rorm-orm/rorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
@@ -78,9 +78,6 @@ utoipa = { version = "~4", optional = true }
 
 # `JsonSchema` support for `MaxStr`
 schemars = { version = "~0.8", optional = true }
-
-[build-dependencies]
-rustc_version = "0.4.0"
 
 [package.metadata.docs.rs]
 features = [

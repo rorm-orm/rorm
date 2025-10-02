@@ -1,7 +1,7 @@
 //! Rorm is a rust orm.
 //!
 //! [List of all types valid as model fields](fields)
-#![cfg_attr(all(doc, CHANNEL_NIGHTLY), feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(missing_docs)]
 
 #[cfg(all(feature = "all-drivers", feature = "postgres-only"))]
