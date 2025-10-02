@@ -1,6 +1,6 @@
 [package]
 name = "rorm-sql"
-version = "0.10.1"
+version = "0.10.2"
 edition = "2021"
 keywords = ["database", "abstraction-layer", "sqlite", "postgres", "mysql"]
 categories = ["database"]
@@ -17,7 +17,6 @@ chrono = { version = ">=0.4.20", default-features = false }
 time = { version = "~0.3" }
 
 # Serialization library
-serde = { version = "~1" }
 serde_json = { version = "~1" }
 
 # Uuid support
@@ -34,9 +33,6 @@ ipnetwork = { version = "~0.20", optional = true }
 mac_address = { version = "~1", optional = true }
 
 rorm-declaration = { version = "0.4.1", path = "../rorm-declaration" }
-
-[build-dependencies]
-rustc_version = "0.4.0"
 
 [package.metadata.docs.rs]
 all-features = true
