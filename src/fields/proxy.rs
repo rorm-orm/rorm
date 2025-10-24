@@ -80,7 +80,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     }
 
     /// Compare the field to another value using `==`
-    pub fn equals<'rhs, Rhs: 'rhs, Any>(
+    pub fn equals<'rhs, Rhs, Any>(
         self,
         rhs: Rhs,
     ) -> <FieldType!(I) as FieldEq<'rhs, Rhs, Any>>::EqCond<I>
@@ -91,7 +91,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     }
 
     /// Compare the field to another value using `!=`
-    pub fn not_equals<'rhs, Rhs: 'rhs, Any>(
+    pub fn not_equals<'rhs, Rhs, Any>(
         self,
         rhs: Rhs,
     ) -> <FieldType!(I) as FieldEq<'rhs, Rhs, Any>>::NeCond<I>
@@ -102,7 +102,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     }
 
     /// Check if the field's value is in a given list of values
-    pub fn r#in<'rhs, Rhs: 'rhs, Any>(
+    pub fn r#in<'rhs, Rhs, Any>(
         self,
         rhs: Rhs,
     ) -> <FieldType!(I) as FieldIn<'rhs, Rhs, Any>>::InCond<I>
@@ -113,7 +113,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     }
 
     /// Check if the field's value is not in a given list of values
-    pub fn not_in<'rhs, Rhs: 'rhs, Any>(
+    pub fn not_in<'rhs, Rhs, Any>(
         self,
         rhs: Rhs,
     ) -> <FieldType!(I) as FieldIn<'rhs, Rhs, Any>>::NiCond<I>
@@ -124,7 +124,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     }
 
     /// Compare the field to another value using `<`
-    pub fn less_than<'rhs, Rhs: 'rhs, Any>(
+    pub fn less_than<'rhs, Rhs, Any>(
         self,
         rhs: Rhs,
     ) -> <FieldType!(I) as FieldOrd<'rhs, Rhs, Any>>::LtCond<I>
@@ -135,7 +135,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     }
 
     /// Compare the field to another value using `<=`
-    pub fn less_equals<'rhs, Rhs: 'rhs, Any>(
+    pub fn less_equals<'rhs, Rhs, Any>(
         self,
         rhs: Rhs,
     ) -> <FieldType!(I) as FieldOrd<'rhs, Rhs, Any>>::LeCond<I>
@@ -146,7 +146,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     }
 
     /// Compare the field to another value using `<`
-    pub fn greater_than<'rhs, Rhs: 'rhs, Any>(
+    pub fn greater_than<'rhs, Rhs, Any>(
         self,
         rhs: Rhs,
     ) -> <FieldType!(I) as FieldOrd<'rhs, Rhs, Any>>::GtCond<I>
@@ -157,7 +157,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     }
 
     /// Compare the field to another value using `>=`
-    pub fn greater_equals<'rhs, Rhs: 'rhs, Any>(
+    pub fn greater_equals<'rhs, Rhs, Any>(
         self,
         rhs: Rhs,
     ) -> <FieldType!(I) as FieldOrd<'rhs, Rhs, Any>>::GeCond<I>
@@ -168,7 +168,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     }
 
     /// Compare the field to another value using `LIKE`
-    pub fn like<'rhs, Rhs: 'rhs, Any>(
+    pub fn like<'rhs, Rhs, Any>(
         self,
         rhs: Rhs,
     ) -> <FieldType!(I) as FieldLike<'rhs, Rhs, Any>>::LiCond<I>
@@ -179,7 +179,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     }
 
     /// Compare the field to another value using `NOT LIKE`
-    pub fn not_like<'rhs, Rhs: 'rhs, Any>(
+    pub fn not_like<'rhs, Rhs, Any>(
         self,
         rhs: Rhs,
     ) -> <FieldType!(I) as FieldLike<'rhs, Rhs, Any>>::NlCond<I>
