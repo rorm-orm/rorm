@@ -2,11 +2,16 @@ use rorm_db::sql::value::NullType;
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 
 use crate::conditions::Value;
-use crate::fields::traits::simple::SimpleFieldEq;
+use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
 use crate::{impl_FieldMin_FieldMax, impl_FieldOrd, impl_FieldType};
 
 impl_FieldType!(Time, TimeTime, Value::TimeTime);
 impl<'rhs> SimpleFieldEq<'rhs, Time> for Time {
+    fn into_value(rhs: Time) -> Value<'rhs> {
+        Value::TimeTime(rhs)
+    }
+}
+impl<'rhs> SimpleFieldIn<'rhs, Time> for Time {
     fn into_value(rhs: Time) -> Value<'rhs> {
         Value::TimeTime(rhs)
     }
@@ -20,6 +25,11 @@ impl_FieldMin_FieldMax!(Time);
 
 impl_FieldType!(Date, TimeDate, Value::TimeDate);
 impl<'rhs> SimpleFieldEq<'rhs, Date> for Date {
+    fn into_value(rhs: Date) -> Value<'rhs> {
+        Value::TimeDate(rhs)
+    }
+}
+impl<'rhs> SimpleFieldIn<'rhs, Date> for Date {
     fn into_value(rhs: Date) -> Value<'rhs> {
         Value::TimeDate(rhs)
     }
@@ -41,6 +51,11 @@ impl<'rhs> SimpleFieldEq<'rhs, OffsetDateTime> for OffsetDateTime {
         Value::TimeOffsetDateTime(rhs)
     }
 }
+impl<'rhs> SimpleFieldIn<'rhs, OffsetDateTime> for OffsetDateTime {
+    fn into_value(rhs: OffsetDateTime) -> Value<'rhs> {
+        Value::TimeOffsetDateTime(rhs)
+    }
+}
 
 impl_FieldOrd!(OffsetDateTime, OffsetDateTime, Value::TimeOffsetDateTime);
 impl_FieldOrd!(
@@ -58,6 +73,11 @@ impl_FieldType!(
     Value::TimePrimitiveDateTime
 );
 impl<'rhs> SimpleFieldEq<'rhs, PrimitiveDateTime> for PrimitiveDateTime {
+    fn into_value(rhs: PrimitiveDateTime) -> Value<'rhs> {
+        Value::TimePrimitiveDateTime(rhs)
+    }
+}
+impl<'rhs> SimpleFieldIn<'rhs, PrimitiveDateTime> for PrimitiveDateTime {
     fn into_value(rhs: PrimitiveDateTime) -> Value<'rhs> {
         Value::TimePrimitiveDateTime(rhs)
     }

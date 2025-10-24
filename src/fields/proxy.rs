@@ -8,13 +8,13 @@ use ipnetwork::IpNetwork;
 use rorm_db::sql::aggregation::SelectAggregator;
 
 #[cfg(feature = "postgres-only")]
-use crate::conditions::BinaryOperator;
-use crate::conditions::{Binary, Column, In, InOperator, Unary, UnaryOperator, Value};
+use crate::conditions::{Binary, BinaryOperator, Value};
+use crate::conditions::{Column, Unary, UnaryOperator};
 use crate::crud::selector::{AggregatedColumn, PathedSelector, Selector};
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::FieldILike;
 use crate::fields::traits::{
-    FieldAvg, FieldColumns, FieldCount, FieldEq, FieldLike, FieldMax, FieldMin, FieldOrd,
+    FieldAvg, FieldColumns, FieldCount, FieldEq, FieldIn, FieldLike, FieldMax, FieldMin, FieldOrd,
     FieldRegexp, FieldSum,
 };
 use crate::fields::utils::column_name::ColumnName;
@@ -104,39 +104,23 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     /// Check if the field's value is in a given list of values
     pub fn r#in<'rhs, Rhs: 'rhs, Any>(
         self,
-        rhs: impl IntoIterator<Item = Rhs>,
-    ) -> In<Column<I>, Value<'rhs>>
+        rhs: Rhs,
+    ) -> <FieldType!(I) as FieldIn<'rhs, Rhs, Any>>::InCond<I>
     where
-        FieldType!(I): FieldEq<'rhs, Rhs, Any, EqCond<I> = Binary<Column<I>, Value<'rhs>>>,
+        FieldType!(I): FieldIn<'rhs, Rhs, Any>,
     {
-        let values = rhs
-            .into_iter()
-            .map(|rhs| self.equals(rhs).snd_arg)
-            .collect();
-        In {
-            operator: InOperator::In,
-            fst_arg: Column(self),
-            snd_arg: values,
-        }
+        <FieldType!(I)>::field_in(self, rhs)
     }
 
     /// Check if the field's value is not in a given list of values
     pub fn not_in<'rhs, Rhs: 'rhs, Any>(
         self,
-        rhs: impl IntoIterator<Item = Rhs>,
-    ) -> In<Column<I>, Value<'rhs>>
+        rhs: Rhs,
+    ) -> <FieldType!(I) as FieldIn<'rhs, Rhs, Any>>::NiCond<I>
     where
-        FieldType!(I): FieldEq<'rhs, Rhs, Any, EqCond<I> = Binary<Column<I>, Value<'rhs>>>,
+        FieldType!(I): FieldIn<'rhs, Rhs, Any>,
     {
-        let values = rhs
-            .into_iter()
-            .map(|rhs| self.equals(rhs).snd_arg)
-            .collect();
-        In {
-            operator: InOperator::NotIn,
-            fst_arg: Column(self),
-            snd_arg: values,
-        }
+        <FieldType!(I)>::field_not_in(self, rhs)
     }
 
     /// Compare the field to another value using `<`

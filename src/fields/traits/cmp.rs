@@ -97,6 +97,23 @@ pub trait FieldRegexp<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
     fn field_not_regexp<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::NrCond<I>;
 }
 
+/// Trait for field types to implement sql's `IN` comparison.
+///
+/// **Read module notes, before using.**
+pub trait FieldIn<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
+    /// Condition type returned from [`FieldRegexp::field_in`]
+    type InCond<I: FieldProxyImpl>: Condition<'rhs>;
+
+    /// Compare the field to another value using `IN`
+    fn field_in<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::InCond<I>;
+
+    /// Condition type returned from [`FieldRegexp::field_not_in`]
+    type NiCond<I: FieldProxyImpl>: Condition<'rhs>;
+
+    /// Compare the field to another value using `NOT IN`
+    fn field_not_in<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::NiCond<I>;
+}
+
 /// Trait for field types to implement postgresql's `ILIKE` comparison.
 ///
 /// **Read module notes, before using.**

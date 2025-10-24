@@ -9,7 +9,7 @@ use crate::const_fn;
 use crate::crud::decoder::Decoder;
 use crate::fields::proxy;
 use crate::fields::proxy::FieldProxyImpl;
-use crate::fields::traits::simple::SimpleFieldEq;
+use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
 use crate::fields::traits::{Array, FieldColumns};
 use crate::fields::types::ForeignModelByField;
 use crate::fields::utils::get_names::single_column_name;
@@ -153,8 +153,28 @@ where
         <FF as SingleColumnField>::type_into_value(rhs)
     }
 }
+impl<'rhs, FF> SimpleFieldIn<'rhs, FF::Type, FieldIn_ForeignModelByField_Owned>
+    for ForeignModelByField<FF>
+where
+    FF: SingleColumnField,
+    FF::Type: FieldType<Columns = Array<1>>,
+{
+    fn into_value(rhs: FF::Type) -> Value<'rhs> {
+        <FF as SingleColumnField>::type_into_value(rhs)
+    }
+}
 
 impl<'rhs, FF> SimpleFieldEq<'rhs, &'rhs FF::Type, FieldEq_ForeignModelByField_Borrowed>
+    for ForeignModelByField<FF>
+where
+    FF: SingleColumnField,
+    FF::Type: FieldType<Columns = Array<1>>,
+{
+    fn into_value(rhs: &'rhs FF::Type) -> Value<'rhs> {
+        <FF as SingleColumnField>::type_as_value(rhs)
+    }
+}
+impl<'rhs, FF> SimpleFieldIn<'rhs, &'rhs FF::Type, FieldIn_ForeignModelByField_Borrowed>
     for ForeignModelByField<FF>
 where
     FF: SingleColumnField,
@@ -171,3 +191,10 @@ pub struct FieldEq_ForeignModelByField_Owned;
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
 pub struct FieldEq_ForeignModelByField_Borrowed;
+
+#[doc(hidden)]
+#[allow(non_camel_case_types)]
+pub struct FieldIn_ForeignModelByField_Owned;
+#[doc(hidden)]
+#[allow(non_camel_case_types)]
+pub struct FieldIn_ForeignModelByField_Borrowed;

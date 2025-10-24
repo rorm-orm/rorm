@@ -1,10 +1,10 @@
 //! Various helper for implementing the `FieldType` traits
 
-use crate::conditions::{Binary, BinaryOperator, Column, Value};
+use crate::conditions::{Binary, BinaryOperator, Column, In, InOperator, Value};
 use crate::fields::proxy;
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::FieldILike;
-use crate::fields::traits::{FieldEq, FieldLike, FieldType};
+use crate::fields::traits::{FieldEq, FieldIn, FieldLike, FieldType};
 
 /// A simpler alternative to [`FieldEq`]
 ///
@@ -84,6 +84,47 @@ where
     }
 }
 
+/// A simpler alternative to [`FieldIn`]
+///
+/// It will convert the `rhs`'s items into a sql value and compare it using the normal
+/// in and not in operators.
+pub trait SimpleFieldIn<'rhs, RhsItem, Any = ()> {
+    /// Converts the rhs into a sql value
+    fn into_value(rhs_item: RhsItem) -> Value<'rhs>;
+}
+impl<'rhs, Rhs, Any, T> FieldIn<'rhs, Rhs, private::SimpleFieldIn<Any>> for T
+where
+    Rhs: 'rhs,
+    Rhs: IntoIterator,
+    T: SimpleFieldIn<'rhs, Rhs::Item, Any> + FieldType,
+{
+    type InCond<I: proxy::FieldProxyImpl> = In<Column<I>, Value<'rhs>>;
+
+    fn field_in<I: proxy::FieldProxyImpl>(
+        field: proxy::FieldProxy<I>,
+        value: Rhs,
+    ) -> Self::InCond<I> {
+        In {
+            operator: InOperator::In,
+            fst_arg: Column(field),
+            snd_arg: value.into_iter().map(Self::into_value).collect(),
+        }
+    }
+
+    type NiCond<I: proxy::FieldProxyImpl> = In<Column<I>, Value<'rhs>>;
+
+    fn field_not_in<I: proxy::FieldProxyImpl>(
+        field: proxy::FieldProxy<I>,
+        value: Rhs,
+    ) -> Self::NiCond<I> {
+        In {
+            operator: InOperator::NotIn,
+            fst_arg: Column(field),
+            snd_arg: value.into_iter().map(Self::into_value).collect(),
+        }
+    }
+}
+
 /// A simpler alternative to [`FieldILike`]
 ///
 /// It will convert the `rhs` into a sql value and compare it using the normal
@@ -131,6 +172,7 @@ mod private {
 
     pub struct SimpleFieldEq<T>(PhantomData<T>);
     pub struct SimpleFieldLike<T>(PhantomData<T>);
+    pub struct SimpleFieldIn<T>(PhantomData<T>);
     #[cfg(feature = "postgres-only")]
     pub struct SimpleFieldILike<T>(PhantomData<T>);
 }

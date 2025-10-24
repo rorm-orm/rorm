@@ -4,7 +4,7 @@ use crate::conditions::Value;
 use crate::db::sql::value::NullType;
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::simple::SimpleFieldILike;
-use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldLike};
+use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn, SimpleFieldLike};
 use crate::fields::utils::check;
 use crate::{impl_FieldMin_FieldMax, impl_FieldOrd, impl_FieldSum_FieldAvg, impl_FieldType};
 
@@ -14,9 +14,19 @@ impl<'rhs> SimpleFieldEq<'rhs, bool> for bool {
         Value::Bool(rhs)
     }
 }
+impl<'rhs> SimpleFieldIn<'rhs, bool> for bool {
+    fn into_value(rhs: bool) -> Value<'rhs> {
+        Value::Bool(rhs)
+    }
+}
 
 impl_FieldType!(i16, I16, Value::I16);
 impl<'rhs> SimpleFieldEq<'rhs, i16> for i16 {
+    fn into_value(rhs: i16) -> Value<'rhs> {
+        Value::I16(rhs)
+    }
+}
+impl<'rhs> SimpleFieldIn<'rhs, i16> for i16 {
     fn into_value(rhs: i16) -> Value<'rhs> {
         Value::I16(rhs)
     }
@@ -35,6 +45,11 @@ impl<'rhs> SimpleFieldEq<'rhs, i32> for i32 {
         Value::I32(rhs)
     }
 }
+impl<'rhs> SimpleFieldIn<'rhs, i32> for i32 {
+    fn into_value(rhs: i32) -> Value<'rhs> {
+        Value::I32(rhs)
+    }
+}
 
 impl_FieldOrd!(i32, i32, Value::I32);
 impl_FieldOrd!(Option<i32>, Option<i32>, |option: Self| option
@@ -45,6 +60,11 @@ impl_FieldMin_FieldMax!(i32);
 
 impl_FieldType!(i64, I64, Value::I64);
 impl<'rhs> SimpleFieldEq<'rhs, i64> for i64 {
+    fn into_value(rhs: i64) -> Value<'rhs> {
+        Value::I64(rhs)
+    }
+}
+impl<'rhs> SimpleFieldIn<'rhs, i64> for i64 {
     fn into_value(rhs: i64) -> Value<'rhs> {
         Value::I64(rhs)
     }
@@ -63,6 +83,11 @@ impl<'rhs> SimpleFieldEq<'rhs, f32> for f32 {
         Value::F32(rhs)
     }
 }
+impl<'rhs> SimpleFieldIn<'rhs, f32> for f32 {
+    fn into_value(rhs: f32) -> Value<'rhs> {
+        Value::F32(rhs)
+    }
+}
 
 impl_FieldOrd!(f32, f32, Value::F32);
 impl_FieldOrd!(Option<f32>, Option<f32>, |option: Self| option
@@ -73,6 +98,11 @@ impl_FieldMin_FieldMax!(f32);
 
 impl_FieldType!(f64, F64, Value::F64);
 impl<'rhs> SimpleFieldEq<'rhs, f64> for f64 {
+    fn into_value(rhs: f64) -> Value<'rhs> {
+        Value::F64(rhs)
+    }
+}
+impl<'rhs> SimpleFieldIn<'rhs, f64> for f64 {
     fn into_value(rhs: f64) -> Value<'rhs> {
         Value::F64(rhs)
     }
@@ -97,7 +127,17 @@ impl<'rhs> SimpleFieldEq<'rhs, &'rhs str> for String {
         conv_string(rhs)
     }
 }
+impl<'rhs> SimpleFieldIn<'rhs, &'rhs str> for String {
+    fn into_value(rhs: &'rhs str) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
 impl<'rhs> SimpleFieldEq<'rhs, &'rhs String> for String {
+    fn into_value(rhs: &'rhs String) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+impl<'rhs> SimpleFieldIn<'rhs, &'rhs String> for String {
     fn into_value(rhs: &'rhs String) -> Value<'rhs> {
         conv_string(rhs)
     }
@@ -107,7 +147,17 @@ impl<'rhs> SimpleFieldEq<'rhs, String> for String {
         conv_string(rhs)
     }
 }
+impl<'rhs> SimpleFieldIn<'rhs, String> for String {
+    fn into_value(rhs: String) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
 impl<'rhs> SimpleFieldEq<'rhs, Cow<'rhs, str>> for String {
+    fn into_value(rhs: Cow<'rhs, str>) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+impl<'rhs> SimpleFieldIn<'rhs, Cow<'rhs, str>> for String {
     fn into_value(rhs: Cow<'rhs, str>) -> Value<'rhs> {
         conv_string(rhs)
     }

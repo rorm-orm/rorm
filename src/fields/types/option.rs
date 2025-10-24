@@ -2,11 +2,12 @@ use rorm_db::row::RowError;
 use rorm_db::sql::value::NullType;
 use rorm_db::Row;
 
-use crate::conditions::{Column, Condition, Unary, UnaryOperator, Value};
+use crate::conditions::{Column, Condition, In, InOperator, Unary, UnaryOperator, Value};
 use crate::crud::decoder::Decoder;
 use crate::fields::proxy;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
-use crate::fields::traits::{Array, Columns, FieldEq, FieldLike};
+use crate::fields::traits::simple::SimpleFieldIn;
+use crate::fields::traits::{Array, Columns, FieldEq, FieldIn, FieldLike};
 use crate::fields::traits::{FieldColumns, FieldType};
 use crate::fields::utils::const_fn::{ConstFn, Contains};
 use crate::internal::field::decoder::FieldDecoder;
@@ -49,6 +50,33 @@ where
             column: field,
             value: value
                 .map(|value| <T as FieldEq<'rhs, Rhs, Any>>::field_not_equals(field, value)),
+        }
+    }
+}
+
+impl<'rhs, Rhs, Any, T> FieldIn<'rhs, Rhs, private::OptionFieldIn<Any>> for Option<T>
+where
+    Rhs: 'rhs,
+    Rhs: IntoIterator,
+    T: SimpleFieldIn<'rhs, Rhs::Item, Any> + FieldType,
+{
+    type InCond<I: FieldProxyImpl> = In<Column<I>, Value<'rhs>>;
+
+    fn field_in<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::InCond<I> {
+        In {
+            operator: InOperator::In,
+            fst_arg: Column(field),
+            snd_arg: value.into_iter().map(T::into_value).collect(),
+        }
+    }
+
+    type NiCond<I: FieldProxyImpl> = In<Column<I>, Value<'rhs>>;
+
+    fn field_not_in<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::NiCond<I> {
+        In {
+            operator: InOperator::NotIn,
+            fst_arg: Column(field),
+            snd_arg: value.into_iter().map(T::into_value).collect(),
         }
     }
 }
@@ -224,5 +252,6 @@ mod private {
     use std::marker::PhantomData;
 
     pub struct OptionFieldEq<T>(PhantomData<T>);
+    pub struct OptionFieldIn<T>(PhantomData<T>);
     pub struct OptionFieldLike<T>(PhantomData<T>);
 }

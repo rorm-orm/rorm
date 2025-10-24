@@ -16,7 +16,7 @@ use crate::crud::decoder::Decoder;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::simple::SimpleFieldILike;
-use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldLike};
+use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn, SimpleFieldLike};
 use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::types::max_str_impl::{LenImpl, NumBytes};
 use crate::fields::utils::check::shared_linter_check;
@@ -369,7 +369,17 @@ impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, &'rhs str> for MaxStr
         conv_string(rhs)
     }
 }
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, &'rhs str> for MaxStr<MAX_LEN, Impl> {
+    fn into_value(rhs: &'rhs str) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
 impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, &'rhs String> for MaxStr<MAX_LEN, Impl> {
+    fn into_value(rhs: &'rhs String) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, &'rhs String> for MaxStr<MAX_LEN, Impl> {
     fn into_value(rhs: &'rhs String) -> Value<'rhs> {
         conv_string(rhs)
     }
@@ -379,7 +389,19 @@ impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, String> for MaxStr<MA
         conv_string(rhs)
     }
 }
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, String> for MaxStr<MAX_LEN, Impl> {
+    fn into_value(rhs: String) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
 impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Cow<'rhs, str>>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: Cow<'rhs, str>) -> Value<'rhs> {
+        conv_string(rhs)
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, Cow<'rhs, str>>
     for MaxStr<MAX_LEN, Impl>
 {
     fn into_value(rhs: Cow<'rhs, str>) -> Value<'rhs> {
@@ -393,7 +415,21 @@ impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, &'rhs MaxStr<MAX_LEN,
         conv_string(&**rhs)
     }
 }
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, &'rhs MaxStr<MAX_LEN, Impl>>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: &'rhs MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
+        conv_string(&**rhs)
+    }
+}
 impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, MaxStr<MAX_LEN, Impl>>
+    for MaxStr<MAX_LEN, Impl>
+{
+    fn into_value(rhs: MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
+        conv_string(rhs.into_inner())
+    }
+}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, MaxStr<MAX_LEN, Impl>>
     for MaxStr<MAX_LEN, Impl>
 {
     fn into_value(rhs: MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {

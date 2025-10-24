@@ -4,7 +4,7 @@ use rorm_db::sql::value::NullType;
 use url::Url;
 
 use crate::conditions::Value;
-use crate::fields::traits::simple::SimpleFieldEq;
+use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
 use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::utils::check::string_check;
 use crate::fields::utils::get_annotations::forward_annotations;
@@ -16,7 +16,17 @@ impl<'rhs> SimpleFieldEq<'rhs, &'rhs Url> for Url {
         Value::String(Cow::Borrowed(rhs.as_str()))
     }
 }
+impl<'rhs> SimpleFieldIn<'rhs, &'rhs Url> for Url {
+    fn into_value(rhs: &'rhs Url) -> Value<'rhs> {
+        Value::String(Cow::Borrowed(rhs.as_str()))
+    }
+}
 impl<'rhs> SimpleFieldEq<'rhs, Url> for Url {
+    fn into_value(rhs: Url) -> Value<'rhs> {
+        Value::String(Cow::Owned(rhs.into()))
+    }
+}
+impl<'rhs> SimpleFieldIn<'rhs, Url> for Url {
     fn into_value(rhs: Url) -> Value<'rhs> {
         Value::String(Cow::Owned(rhs.into()))
     }

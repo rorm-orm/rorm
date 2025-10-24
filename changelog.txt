@@ -1,6 +1,6 @@
-Since 0.8.0
+Since 0.9.0
 -----------
-- Implemented ILIKE for postgres-only
+- Replaced IN hack with proper trait
 
 Notes for publishing
 --------------------

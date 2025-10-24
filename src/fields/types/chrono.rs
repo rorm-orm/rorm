@@ -2,11 +2,16 @@ use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use rorm_db::sql::value::NullType;
 
 use crate::conditions::Value;
-use crate::fields::traits::simple::SimpleFieldEq;
+use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
 use crate::{impl_FieldMin_FieldMax, impl_FieldOrd, impl_FieldType};
 
 impl_FieldType!(NaiveTime, ChronoNaiveTime, Value::ChronoNaiveTime);
 impl<'rhs> SimpleFieldEq<'rhs, NaiveTime> for NaiveTime {
+    fn into_value(rhs: NaiveTime) -> Value<'rhs> {
+        Value::ChronoNaiveTime(rhs)
+    }
+}
+impl<'rhs> SimpleFieldIn<'rhs, NaiveTime> for NaiveTime {
     fn into_value(rhs: NaiveTime) -> Value<'rhs> {
         Value::ChronoNaiveTime(rhs)
     }
@@ -19,6 +24,11 @@ impl_FieldMin_FieldMax!(NaiveTime);
 
 impl_FieldType!(NaiveDate, ChronoNaiveDate, Value::ChronoNaiveDate);
 impl<'rhs> SimpleFieldEq<'rhs, NaiveDate> for NaiveDate {
+    fn into_value(rhs: NaiveDate) -> Value<'rhs> {
+        Value::ChronoNaiveDate(rhs)
+    }
+}
+impl<'rhs> SimpleFieldIn<'rhs, NaiveDate> for NaiveDate {
     fn into_value(rhs: NaiveDate) -> Value<'rhs> {
         Value::ChronoNaiveDate(rhs)
     }
@@ -39,6 +49,11 @@ impl<'rhs> SimpleFieldEq<'rhs, NaiveDateTime> for NaiveDateTime {
         Value::ChronoNaiveDateTime(rhs)
     }
 }
+impl<'rhs> SimpleFieldIn<'rhs, NaiveDateTime> for NaiveDateTime {
+    fn into_value(rhs: NaiveDateTime) -> Value<'rhs> {
+        Value::ChronoNaiveDateTime(rhs)
+    }
+}
 impl_FieldOrd!(NaiveDateTime, NaiveDateTime, Value::ChronoNaiveDateTime);
 impl_FieldOrd!(
     Option<NaiveDateTime>,
@@ -51,6 +66,11 @@ impl_FieldMin_FieldMax!(NaiveDateTime);
 
 impl_FieldType!(DateTime<Utc>, ChronoDateTime, Value::ChronoDateTime);
 impl<'rhs> SimpleFieldEq<'rhs, DateTime<Utc>> for DateTime<Utc> {
+    fn into_value(rhs: DateTime<Utc>) -> Value<'rhs> {
+        Value::ChronoDateTime(rhs)
+    }
+}
+impl<'rhs> SimpleFieldIn<'rhs, DateTime<Utc>> for DateTime<Utc> {
     fn into_value(rhs: DateTime<Utc>) -> Value<'rhs> {
         Value::ChronoDateTime(rhs)
     }
