@@ -56,8 +56,8 @@ where
 
 impl<'rhs, Rhs, Any, T> FieldIn<'rhs, Rhs, private::OptionFieldIn<Any>> for Option<T>
 where
-    Rhs: 'rhs,
     Rhs: IntoIterator,
+    Rhs::Item: 'rhs,
     T: SimpleFieldIn<'rhs, Rhs::Item, Any> + FieldType,
 {
     type InCond<I: FieldProxyImpl> = In<Column<I>, Value<'rhs>>;

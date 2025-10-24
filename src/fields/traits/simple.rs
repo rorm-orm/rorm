@@ -94,8 +94,8 @@ pub trait SimpleFieldIn<'rhs, RhsItem, Any = ()> {
 }
 impl<'rhs, Rhs, Any, T> FieldIn<'rhs, Rhs, private::SimpleFieldIn<Any>> for T
 where
-    Rhs: 'rhs,
     Rhs: IntoIterator,
+    Rhs::Item: 'rhs,
     T: SimpleFieldIn<'rhs, Rhs::Item, Any> + FieldType,
 {
     type InCond<I: proxy::FieldProxyImpl> = In<Column<I>, Value<'rhs>>;

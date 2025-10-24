@@ -19,7 +19,7 @@ use crate::internal::field::{Field, SingleColumnField};
 /// Trait for equality comparisons.
 ///
 /// **Read module notes, before using.**
-pub trait FieldEq<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
+pub trait FieldEq<'rhs, Rhs, Any = ()>: FieldType {
     /// Condition type returned from [`FieldEq::field_equals`]
     type EqCond<I: FieldProxyImpl>: Condition<'rhs>;
 
@@ -36,7 +36,7 @@ pub trait FieldEq<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
 /// Trait for field types that form an order.
 ///
 /// **Read module notes, before using.**
-pub trait FieldOrd<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
+pub trait FieldOrd<'rhs, Rhs, Any = ()>: FieldType {
     /// Condition type returned from [`FieldOrd::field_less_than`]
     type LtCond<I: FieldProxyImpl>: Condition<'rhs>;
 
@@ -66,7 +66,7 @@ pub trait FieldOrd<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
 /// Trait for field types to implement sql's `LIKE` comparison.
 ///
 /// **Read module notes, before using.**
-pub trait FieldLike<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
+pub trait FieldLike<'rhs, Rhs, Any = ()>: FieldType {
     /// Condition type returned from [`FieldLike::field_like`]
     type LiCond<I: FieldProxyImpl>: Condition<'rhs>;
 
@@ -83,7 +83,7 @@ pub trait FieldLike<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
 /// Trait for field types to implement sql's `REGEXP` comparison.
 ///
 /// **Read module notes, before using.**
-pub trait FieldRegexp<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
+pub trait FieldRegexp<'rhs, Rhs, Any = ()>: FieldType {
     /// Condition type returned from [`FieldRegexp::field_regexp`]
     type ReCond<I: FieldProxyImpl>: Condition<'rhs>;
 
@@ -100,7 +100,7 @@ pub trait FieldRegexp<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
 /// Trait for field types to implement sql's `IN` comparison.
 ///
 /// **Read module notes, before using.**
-pub trait FieldIn<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
+pub trait FieldIn<'rhs, Rhs, Any = ()>: FieldType {
     /// Condition type returned from [`FieldRegexp::field_in`]
     type InCond<I: FieldProxyImpl>: Condition<'rhs>;
 
@@ -118,7 +118,7 @@ pub trait FieldIn<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
 ///
 /// **Read module notes, before using.**
 #[cfg(feature = "postgres-only")]
-pub trait FieldILike<'rhs, Rhs: 'rhs, Any = ()>: FieldType {
+pub trait FieldILike<'rhs, Rhs, Any = ()>: FieldType {
     /// Condition type returned from [`FieldLike::field_ilike`]
     type IliCond<I: FieldProxyImpl>: Condition<'rhs>;
 
