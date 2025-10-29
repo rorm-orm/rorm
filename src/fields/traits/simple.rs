@@ -147,7 +147,7 @@ where
         value: Rhs,
     ) -> Self::IliCond<I> {
         Binary {
-            operator: BinaryOperator::Like,
+            operator: BinaryOperator::ILike,
             fst_arg: Column(field),
             snd_arg: Self::into_value(value),
         }
@@ -160,7 +160,7 @@ where
         value: Rhs,
     ) -> Self::NilCond<I> {
         Binary {
-            operator: BinaryOperator::NotLike,
+            operator: BinaryOperator::NotILike,
             fst_arg: Column(field),
             snd_arg: Self::into_value(value),
         }
