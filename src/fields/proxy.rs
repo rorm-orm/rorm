@@ -371,6 +371,17 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     {
         self.like_ignore_case(format!("%{}", escape_like(rhs)))
     }
+
+    /// Uses `ILIKE` to check whether the field is equal to the string `rhs` while ignoring case
+    pub fn equals_ignore_case<'rhs, Any>(
+        self,
+        rhs: &str,
+    ) -> <FieldType!(I) as FieldILike<'rhs, String, Any>>::IliCond<I>
+    where
+        FieldType!(I): FieldILike<'rhs, String, Any>,
+    {
+        self.like_ignore_case(format!("{}", escape_like(rhs)))
+    }
 }
 
 #[cfg(feature = "postgres-only")]
