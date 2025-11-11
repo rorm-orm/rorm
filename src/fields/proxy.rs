@@ -380,7 +380,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     where
         FieldType!(I): FieldILike<'rhs, String, Any>,
     {
-        self.like_ignore_case(format!("{}", escape_like(rhs)))
+        self.like_ignore_case(escape_like(rhs))
     }
 }
 
