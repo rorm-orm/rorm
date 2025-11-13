@@ -194,16 +194,19 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
 
         // Check if a model was renamed
         if !new_models.is_empty() && !deleted_models.is_empty() {
-            for x in &new_models {
-                for y in &deleted_models {
-                    if x.fields == y.fields
+            for new_model in &new_models {
+                for old_model in &deleted_models {
+                    if new_model.fields == old_model.fields
                         && question(
-                            format!("Did you rename the model {} to {}?", &y.name, &x.name)
-                                .as_str(),
+                            format!(
+                                "Did you rename the model {} to {}?",
+                                old_model.name, new_model.name
+                            )
+                            .as_str(),
                         )
                     {
-                        println!("Renamed model {} to {}.", &y.name, &x.name);
-                        renamed_models.push((y, x));
+                        println!("Renamed model {} to {}.", old_model.name, new_model.name);
+                        renamed_models.push((old_model, new_model));
                     }
                 }
             }
@@ -265,28 +268,28 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             println!("Deleted model {}", x.name);
         });
 
-        for (x, new_fields) in &new_fields {
-            if let Some(old_fields) = deleted_fields.get(x) {
+        for (model_name, new_fields) in &new_fields {
+            if let Some(old_fields) = deleted_fields.get(model_name) {
                 for new_field in new_fields {
                     for old_field in old_fields {
                         if new_field.db_type == old_field.db_type
                             && new_field.annotations == old_field.annotations
                             && question(
                                 format!(
-                                    "Did you rename the field {} of model {} to {}?",
-                                    &old_field.name, &x, &new_field.name
+                                    "Did you rename the field {} of model {model_name} to {}?",
+                                    old_field.name, new_field.name
                                 )
                                 .as_str(),
                             )
                         {
-                            if !renamed_fields.contains_key(x) {
-                                renamed_fields.insert(x.clone(), vec![]);
+                            if !renamed_fields.contains_key(model_name) {
+                                renamed_fields.insert(model_name.clone(), vec![]);
                             }
                             let f = renamed_fields.get_mut(x).unwrap();
                             f.push((old_field, new_field));
                             println!(
-                                "Renamed field {} of model {} to {}.",
-                                &new_field.name, &x, &old_field.name
+                                "Renamed field {} of model {model_name} to {}.",
+                                new_field.name, old_field.name
                             );
                         }
                     }
