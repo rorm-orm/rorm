@@ -289,7 +289,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                             f.push((old_field, new_field));
                             println!(
                                 "Renamed field {} of model {model_name} to {}.",
-                                new_field.name, old_field.name
+                                old_field.name, new_field.name
                             );
                         }
                     }
