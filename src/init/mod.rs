@@ -5,7 +5,7 @@ use std::process::exit;
 
 use rorm_declaration::config::{DatabaseConfig, DatabaseDriver};
 
-use crate::entry::InitDriver;
+use crate::cli::InitDriver;
 use crate::migrate::config::DatabaseConfigFile;
 
 /// Create the database configuration file

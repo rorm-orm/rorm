@@ -4,7 +4,7 @@
 pub use rorm_declaration::config;
 
 /// Reexports for executing the defined cli parser via another
-pub mod entry;
+pub mod cli;
 /// This module is used for creating a configuration file that can be used by the
 /// binary version.
 pub mod init;
