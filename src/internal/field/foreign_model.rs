@@ -1,5 +1,7 @@
 //! Implementation detail of [`ForeignModelByField`]
 
+use std::marker::PhantomData;
+
 use rorm_db::row::RowError;
 use rorm_db::sql::value::NullType;
 use rorm_db::Row;
@@ -10,7 +12,9 @@ use crate::crud::decoder::Decoder;
 use crate::fields::proxy;
 use crate::fields::proxy::FieldProxyImpl;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
-use crate::fields::traits::{Array, FieldColumns};
+#[cfg(feature = "postgres-only")]
+use crate::fields::traits::FieldILike;
+use crate::fields::traits::{Array, FieldColumns, FieldLike};
 use crate::fields::types::ForeignModelByField;
 use crate::fields::utils::get_names::single_column_name;
 use crate::internal::field::decoder::FieldDecoder;
@@ -184,6 +188,44 @@ where
         <FF as SingleColumnField>::type_as_value(rhs)
     }
 }
+impl<'rhs, Rhs, Any, FF> FieldLike<'rhs, Rhs, FieldLike_ForeignModelByField<Any>>
+    for ForeignModelByField<FF>
+where
+    FF: SingleColumnField,
+    FF::Type: FieldLike<'rhs, Rhs, Any> + FieldType<Columns = Array<1>>,
+{
+    type LiCond<I: FieldProxyImpl> = <FF::Type as FieldLike<'rhs, Rhs, Any>>::LiCond<I>;
+
+    fn field_like<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::LiCond<I> {
+        <FF::Type as FieldLike<'rhs, Rhs, Any>>::field_like(field, value)
+    }
+
+    type NlCond<I: FieldProxyImpl> = <FF::Type as FieldLike<'rhs, Rhs, Any>>::NlCond<I>;
+
+    fn field_not_like<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::NlCond<I> {
+        <FF::Type as FieldLike<'rhs, Rhs, Any>>::field_not_like(field, value)
+    }
+}
+
+#[cfg(feature = "postgres-only")]
+impl<'rhs, Rhs, Any, FF> FieldILike<'rhs, Rhs, FieldLike_ForeignModelByField<Any>>
+    for ForeignModelByField<FF>
+where
+    FF: SingleColumnField,
+    FF::Type: FieldILike<'rhs, Rhs, Any> + FieldType<Columns = Array<1>>,
+{
+    type IliCond<I: FieldProxyImpl> = <FF::Type as FieldILike<'rhs, Rhs, Any>>::IliCond<I>;
+
+    fn field_ilike<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::IliCond<I> {
+        <FF::Type as FieldILike<'rhs, Rhs, Any>>::field_ilike(field, value)
+    }
+
+    type NilCond<I: FieldProxyImpl> = <FF::Type as FieldILike<'rhs, Rhs, Any>>::NilCond<I>;
+
+    fn field_not_ilike<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::NilCond<I> {
+        <FF::Type as FieldILike<'rhs, Rhs, Any>>::field_not_ilike(field, value)
+    }
+}
 
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
@@ -198,3 +240,11 @@ pub struct FieldIn_ForeignModelByField_Owned;
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
 pub struct FieldIn_ForeignModelByField_Borrowed;
+
+#[doc(hidden)]
+#[allow(non_camel_case_types)]
+pub struct FieldLike_ForeignModelByField<Any>(PhantomData<Any>);
+#[doc(hidden)]
+#[allow(non_camel_case_types)]
+#[cfg(feature = "postgres-only")]
+pub struct FieldILike_ForeignModelByField<Any>(PhantomData<Any>);
