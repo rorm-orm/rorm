@@ -4,20 +4,17 @@ use std::path::Path;
 use anyhow::{anyhow, Context};
 use rorm_db::executor::{Executor, Nothing, Optional};
 use rorm_db::sql::create_table::CreateTable;
-use rorm_db::sql::insert::Insert;
-use rorm_db::sql::DBImpl;
 use rorm_db::Database;
 use rorm_declaration::config::DatabaseConfig;
 use rorm_declaration::imr::{Annotation, DbType};
-use rorm_declaration::migration::Migration;
 
 use crate::log_sql;
+use crate::migrate::apply::apply_migration;
 use crate::migrate::config::{create_db_config, deserialize_db_conf};
-use crate::migrate::sql_builder::migration_to_sql;
 use crate::utils::migrations::get_existing_migrations;
 
+pub mod apply;
 pub mod config;
-pub mod sql_builder;
 
 /// Options for running migrations
 pub struct MigrateOptions {
@@ -32,56 +29,6 @@ pub struct MigrateOptions {
 
     /// Apply only to (inclusive) the given id, if set
     pub apply_until: Option<u16>,
-}
-
-/// Helper method to apply one migration. Writes also to last migration table.
-///
-/// - `migration`: [`&Migration`](Migration): Reference to the migration to apply.
-/// - `db`: [`&Database`](Database): Database to apply the migration onto.
-/// - `last_migration_table_name`: [`&str`]: Name of the table to insert successful applied migrations into.
-pub async fn apply_migration(
-    dialect: DBImpl,
-    migration: &Migration,
-    db: &Database,
-    last_migration_table_name: &str,
-    do_log: bool,
-) -> anyhow::Result<()> {
-    let mut tx = db
-        .start_transaction()
-        .await
-        .with_context(|| format!("Error while starting transaction {}", migration.id))?;
-
-    if let Err(e) = migration_to_sql(&mut tx, dialect, migration, do_log).await {
-        tx.rollback()
-            .await
-            .with_context(|| "Error while rollback in transaction")?;
-        return Err(e);
-    }
-
-    let v: &[&[rorm_db::sql::value::Value]] =
-        &[&[rorm_db::sql::value::Value::I32(migration.id as i32)]];
-    let (query_string, bind_params) = dialect
-        .insert(last_migration_table_name, &["migration_id"], v, None)
-        .rollback_transaction()
-        .build();
-
-    if do_log {
-        println!("{query_string}");
-    }
-
-    tx.execute::<Nothing>(query_string, bind_params).await.with_context(|| {
-        format!(
-            "Error while inserting applied migration {last_migration_table_name} into last migration table",
-        )
-    })?;
-
-    println!("Applied migration {:04}_{}", migration.id, migration.name);
-
-    tx.commit().await.with_context(|| {
-        format!("Error while committing transaction {last_migration_table_name}",)
-    })?;
-
-    Ok(())
 }
 
 /// Applies migrations on the given database with a given driver
@@ -185,14 +132,8 @@ pub async fn run_migrate_custom(
         None => {
             // Apply all migrations
             for migration in &existing_migrations {
-                apply_migration(
-                    db_impl,
-                    migration,
-                    &pool,
-                    last_migration_table_name,
-                    log_sql,
-                )
-                .await?;
+                apply_migration(&pool, migration, last_migration_table_name).await?;
+                println!("Applied migration {:04}_{}", migration.id, migration.name);
 
                 if let Some(apply_until) = apply_until {
                     if migration.id == apply_until {
@@ -211,14 +152,8 @@ pub async fn run_migrate_custom(
                 let mut apply = false;
                 for (idx, migration) in existing_migrations.iter().enumerate() {
                     if apply {
-                        apply_migration(
-                            db_impl,
-                            migration,
-                            &pool,
-                            last_migration_table_name,
-                            log_sql,
-                        )
-                        .await?;
+                        apply_migration(&pool, migration, last_migration_table_name).await?;
+                        println!("Applied migration {:04}_{}", migration.id, migration.name);
                         continue;
                     }
 

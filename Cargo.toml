@@ -32,8 +32,11 @@ serde = { version = "~1", features = ["derive"] }
 serde_json = { version = "~1" }
 toml = { version = "~0.7" }
 
-# Generic error package
+# Error handling for binaries
 anyhow = { version = "~1" }
+
+# Error handling for libraries
+thiserror = { version = "~2" }
 
 # Regex
 regex = { version = "~1" }
