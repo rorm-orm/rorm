@@ -1,6 +1,8 @@
 //! The [ForeignModel] field type
 
+use std::cmp::Ordering;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 
 use rorm_db::Executor;
 
@@ -64,6 +66,14 @@ impl<FF: SingleColumnField> ForeignModelByField<FF> {
     }
 }
 
+impl<FF: SingleColumnField> fmt::Display for ForeignModelByField<FF>
+where
+    FF::Type: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)
+    }
+}
 impl<FF: SingleColumnField> fmt::Debug for ForeignModelByField<FF>
 where
     FF::Type: fmt::Debug,
@@ -81,3 +91,36 @@ where
     }
 }
 impl<FF: SingleColumnField> Copy for ForeignModelByField<FF> where FF::Type: Copy {}
+impl<FF: SingleColumnField> PartialOrd for ForeignModelByField<FF>
+where
+    FF::Type: PartialOrd,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+impl<FF: SingleColumnField> Ord for ForeignModelByField<FF>
+where
+    FF::Type: Ord,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+impl<FF: SingleColumnField> PartialEq for ForeignModelByField<FF>
+where
+    FF::Type: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq(&other.0)
+    }
+}
+impl<FF: SingleColumnField> Eq for ForeignModelByField<FF> where FF::Type: Eq {}
+impl<FF: SingleColumnField> Hash for ForeignModelByField<FF>
+where
+    FF::Type: Hash,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
+}

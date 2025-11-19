@@ -1,6 +1,7 @@
 Since 0.9.3
 -----------
-- Implemented like and ilike on ForeignModel
+- Implemented like and ilike for ForeignModel
+- Implemented Display, Ord, PartialOrd, Eq, PartialEq and Hash for ForeignModel
 
 Notes for publishing
 --------------------
