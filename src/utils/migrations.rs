@@ -169,95 +169,87 @@ pub fn convert_migrations_to_internal_models(
 ) -> anyhow::Result<InternalModelFormat> {
     let mut m = vec![];
 
-    let res: anyhow::Result<_> = migrations.iter().try_for_each(|x| {
-        x.operations.iter().try_for_each(|y| match y {
-            Operation::CreateModel { name, fields } => {
-                m.push(Model {
-                    name: name.clone(),
-                    fields: fields.clone(),
-                    source_defined_at: None,
-                });
-                Ok(())
-            }
-            Operation::RenameModel { old, new } => {
-                m = m
-                    .iter()
-                    .map(|z| {
-                        let mut a = z.clone();
-                        if &a.name == old {
-                            a.name = new.to_string();
+    for x in migrations {
+        for y in &x.operations {
+            match y {
+                Operation::CreateModel { name, fields } => {
+                    m.push(Model {
+                        name: name.clone(),
+                        fields: fields.clone(),
+                        source_defined_at: None,
+                    });
+                }
+                Operation::RenameModel { old, new } => {
+                    m = m
+                        .iter()
+                        .map(|z| {
+                            let mut a = z.clone();
+                            if &a.name == old {
+                                a.name = new.to_string();
+                            }
+                            a
+                        })
+                        .collect();
+                }
+                Operation::DeleteModel { name } => {
+                    m.retain(|z| z.name != *name);
+                }
+                Operation::CreateField { model, field } => {
+                    for i in &mut m {
+                        if i.name == *model {
+                            i.fields.push(field.clone());
                         }
-                        a
-                    })
-                    .collect();
-                Ok(())
-            }
-            Operation::DeleteModel { name } => {
-                m.retain(|z| z.name != *name);
-                Ok(())
-            }
-            Operation::CreateField { model, field } => {
-                for i in &mut m {
-                    if i.name == *model {
-                        i.fields.push(field.clone());
                     }
                 }
-                Ok(())
-            }
-            Operation::RenameField {
-                table_name,
-                old,
-                new,
-            } => {
-                m = m
-                    .iter()
-                    .map(|z| {
-                        let mut a = z.clone();
-                        if &a.name == table_name {
-                            a.fields = a
-                                .fields
-                                .iter()
-                                .map(|b| {
-                                    let mut c = b.clone();
-                                    if &c.name == old {
-                                        c.name = new.to_string();
-                                    }
-                                    c
-                                })
-                                .collect();
+                Operation::RenameField {
+                    table_name,
+                    old,
+                    new,
+                } => {
+                    m = m
+                        .iter()
+                        .map(|z| {
+                            let mut a = z.clone();
+                            if &a.name == table_name {
+                                a.fields = a
+                                    .fields
+                                    .iter()
+                                    .map(|b| {
+                                        let mut c = b.clone();
+                                        if &c.name == old {
+                                            c.name = new.to_string();
+                                        }
+                                        c
+                                    })
+                                    .collect();
+                            }
+                            a
+                        })
+                        .collect();
+                }
+                Operation::DeleteField { model, name } => {
+                    for i in &mut m {
+                        if i.name == *model {
+                            i.fields.retain(|z| z.name != *name);
                         }
-                        a
-                    })
-                    .collect();
-                Ok(())
-            }
-            Operation::DeleteField { model, name } => {
-                for i in &mut m {
-                    if i.name == *model {
-                        i.fields.retain(|z| z.name != *name);
                     }
                 }
-                Ok(())
-            }
-            Operation::RawSQL { structure_safe, .. } => {
-                if *structure_safe {
-                    Ok(())
-                } else {
-                    Err(anyhow!(
-                        r#"RawSQL migration without StructureSafe flag found!
+                Operation::RawSQL { structure_safe, .. } => {
+                    if !*structure_safe {
+                        return Err(anyhow!(
+                            r#"RawSQL migration without StructureSafe flag found!
 
 Can not proceed to generate migrations as the current database state can not be determined anymore!
 You can still write migrations with all available operations yourself.
 
 To use the make-migrations feature again, check that all RawSQL operations don't change any 
 structure and mark them as StructureSafe or delete all RawSQL operations."#
-                    ))
+                        ));
+                    }
                 }
             }
-        })
-    });
-
-    res?;
+        }
+    }
 
     Ok(InternalModelFormat { models: m })
 }
