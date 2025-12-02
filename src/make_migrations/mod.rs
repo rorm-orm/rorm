@@ -135,59 +135,70 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
         let mut altered_fields: HashMap<String, Vec<(&Field, &Field)>> = HashMap::new();
 
         // Check if any new models exist
-        for x in &internal_models.models {
-            if !old_lookup.iter().any(|(a, _)| x.name == *a) {
-                new_models.push(x);
+        for new_model in &internal_models.models {
+            if !old_lookup.iter().any(|(a, _)| new_model.name == *a) {
+                new_models.push(new_model);
             }
         }
 
         // Check if any old model got deleted
-        for x in &constructed.models {
-            if !new_lookup.iter().any(|(a, _)| x.name == *a) {
-                deleted_models.push(x);
+        for old_model in &constructed.models {
+            if !new_lookup.iter().any(|(a, _)| old_model.name == *a) {
+                deleted_models.push(old_model);
             }
         }
 
         // Iterate over all models, that are in the constructed
         // as well as in the new internal models
-        for x in &internal_models.models {
-            if !old_lookup.contains_key(x.name.as_str()) {
+        for new_model in &internal_models.models {
+            if !old_lookup.contains_key(new_model.name.as_str()) {
                 continue;
             }
 
             // Check if a new field has been added
-            for y in &x.fields {
-                if !old_lookup[x.name.as_str()]
+            for new_field in &new_model.fields {
+                if !old_lookup[new_model.name.as_str()]
                     .fields
                     .iter()
-                    .any(|z| z.name == y.name)
+                    .any(|z| z.name == new_field.name)
                 {
-                    if !new_fields.contains_key(x.name.as_str()) {
-                        new_fields.insert(x.name.clone(), vec![]);
+                    if !new_fields.contains_key(new_model.name.as_str()) {
+                        new_fields.insert(new_model.name.clone(), vec![]);
                     }
-                    new_fields.get_mut(x.name.as_str()).unwrap().push(y);
+                    new_fields
+                        .get_mut(new_model.name.as_str())
+                        .unwrap()
+                        .push(new_field);
                 }
             }
 
             // Check if a existing field got deleted
-            for y in &old_lookup[x.name.as_str()].fields {
-                if !x.fields.iter().any(|z| z.name == y.name) {
-                    if !deleted_fields.contains_key(x.name.as_str()) {
-                        deleted_fields.insert(x.name.clone(), vec![]);
+            for old_field in &old_lookup[new_model.name.as_str()].fields {
+                if !new_model.fields.iter().any(|z| z.name == old_field.name) {
+                    if !deleted_fields.contains_key(new_model.name.as_str()) {
+                        deleted_fields.insert(new_model.name.clone(), vec![]);
                     }
-                    deleted_fields.get_mut(x.name.as_str()).unwrap().push(y);
+                    deleted_fields
+                        .get_mut(new_model.name.as_str())
+                        .unwrap()
+                        .push(old_field);
                 }
             }
 
             // Check if a existing field got altered
-            for y in &old_lookup[x.name.as_str()].fields {
-                for z in &x.fields {
+            for old_field in &old_lookup[new_model.name.as_str()].fields {
+                for new_field in &new_model.fields {
                     // Check for differences
-                    if y.db_type != z.db_type || y.annotations != z.annotations {
-                        if !altered_fields.contains_key(x.name.as_str()) {
-                            altered_fields.insert(x.name.clone(), vec![]);
+                    if old_field.db_type != new_field.db_type
+                        || old_field.annotations != new_field.annotations
+                    {
+                        if !altered_fields.contains_key(new_model.name.as_str()) {
+                            altered_fields.insert(new_model.name.clone(), vec![]);
                         }
-                        altered_fields.get_mut(&x.name).unwrap().push((y, z));
+                        altered_fields
+                            .get_mut(&new_model.name)
+                            .unwrap()
+                            .push((old_field, new_field));
                     }
                 }
             }
@@ -227,28 +238,29 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
         let mut references: HashMap<String, Vec<Field>> = HashMap::new();
 
         // Create migration operations for new models
-        for x in &new_models {
+        for new_model in &new_models {
             let mut normal_fields = vec![];
 
-            for y in &x.fields {
-                if y.annotations
+            for new_field in &new_model.fields {
+                if new_field
+                    .annotations
                     .iter()
                     .any(|z| z.eq_shallow(&Annotation::ForeignKey(Default::default())))
                 {
                     references
-                        .entry(x.name.clone())
+                        .entry(new_model.name.clone())
                         .or_default()
-                        .push(y.clone());
+                        .push(new_field.clone());
                 } else {
-                    normal_fields.push(y.clone());
+                    normal_fields.push(new_field.clone());
                 }
             }
 
             op.push(Operation::CreateModel {
-                name: x.name.clone(),
+                name: new_model.name.clone(),
                 fields: normal_fields,
             });
-            info!("Created model {}", x.name);
+            info!("Created model {}", new_model.name);
         }
 
         // Create referencing fields for new models
@@ -262,11 +274,11 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
         }
 
         // Create migration operations for deleted models
-        for x in &deleted_models {
+        for deleted_model in &deleted_models {
             op.push(Operation::DeleteModel {
-                name: x.name.clone(),
+                name: deleted_model.name.clone(),
             });
-            info!("Deleted model {}", x.name);
+            info!("Deleted model {}", deleted_model.name);
         }
 
         for (model_name, new_fields) in &new_fields {
@@ -319,24 +331,24 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
         }
 
         // Create migration operations for new fields in existing models
-        for (x, y) in &new_fields {
-            for z in y {
+        for (model_name, fields) in &new_fields {
+            for field in fields {
                 op.push(Operation::CreateField {
-                    model: x.clone(),
-                    field: (*z).clone(),
+                    model: model_name.clone(),
+                    field: (*field).clone(),
                 });
-                info!("Added field {} to model {}", z.name, x);
+                info!("Added field {} to model {}", field.name, model_name);
             }
         }
 
         // Create migration operations for deleted fields in existing models
-        for (x, y) in &deleted_fields {
-            for z in y {
+        for (model_name, fields) in &deleted_fields {
+            for field in fields {
                 op.push(Operation::DeleteField {
-                    model: x.clone(),
-                    name: z.name.clone(),
+                    model: model_name.clone(),
+                    name: field.name.clone(),
                 });
-                info!("Deleted field {} from model {}", z.name, x);
+                info!("Deleted field {} from model {}", field.name, model_name);
             }
         }
 
@@ -397,28 +409,29 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             let mut operations = vec![];
             let mut references: HashMap<String, Vec<Field>> = HashMap::new();
 
-            operations.extend(internal_models.models.iter().map(|x| {
+            operations.extend(internal_models.models.iter().map(|model| {
                 let mut normal_fields = vec![];
 
-                for y in &x.fields {
-                    if y.annotations
+                for field in &model.fields {
+                    if field
+                        .annotations
                         .iter()
                         .any(|z| z.eq_shallow(&Annotation::ForeignKey(Default::default())))
                     {
                         references
-                            .entry(x.name.clone())
+                            .entry(model.name.clone())
                             .or_default()
-                            .push(y.clone());
+                            .push(field.clone());
                     } else {
-                        normal_fields.push(y.clone());
+                        normal_fields.push(field.clone());
                     }
                 }
 
                 let o = Operation::CreateModel {
-                    name: x.name.clone(),
+                    name: model.name.clone(),
                     fields: normal_fields,
                 };
-                info!("Created model {}", x.name);
+                info!("Created model {}", model.name);
                 o
             }));
 
