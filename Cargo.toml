@@ -11,14 +11,6 @@ documentation = "https://docs.rorm.rs"
 license = "MIT"
 description = "The cli tool for managing rorm applications."
 
-[lib]
-path = "src/lib.rs"
-name = "rorm_cli"
-
-[[bin]]
-name = "rorm-cli"
-path = "src/main.rs"
-
 [dependencies]
 # Internal dependencies
 rorm-declaration = { version = "~0.4", path = "../rorm-declaration" }
@@ -50,15 +42,24 @@ tokio = { version = ">=1.23.1", features = ["macros", "rt"] }
 # Read passwords from cli
 rpassword = { version = "~7" }
 
+tracing = { version = "~0.1" }
+tracing-subscriber = { version = "0.3", optional = true }
+
 [dev-dependencies]
 # Creating and clearing temporary directories
 temp-dir = { version = "~0.1" }
 
 [features]
 default = [
+    "bin",
     "sqlite",
     "mysql",
     "postgres",
+]
+
+# Feature required to use rorm-cli as standalone executable
+bin = [
+    "tracing-subscriber",
 ]
 
 sqlite = [

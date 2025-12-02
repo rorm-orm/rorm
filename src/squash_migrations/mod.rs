@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use tracing::error;
+
 use crate::utils::migrations::get_existing_migrations;
 
 pub async fn squash_migrations(
@@ -9,7 +11,7 @@ pub async fn squash_migrations(
 ) -> anyhow::Result<()> {
     let p = Path::new(migration_dir.as_str());
     if !p.exists() || p.is_file() {
-        println!(
+        error!(
             "Couldn't find the migration directory in {} \n\n\
             You can specify an alternative path with --migration-dir <PATH>",
             migration_dir.as_str()
@@ -28,7 +30,7 @@ pub async fn squash_migrations(
     }
 
     if !first {
-        println!(
+        error!(
             "Could not find migration {first_migration}.\n\n\
             This could be due to a missing migration or because the \n\
             migration is currently a squashed migration"
@@ -37,7 +39,7 @@ pub async fn squash_migrations(
     }
 
     if !last {
-        println!(
+        error!(
             "Could not find migration {last_migration}.\n\n\
             This could be due to a missing migration or because the \n\
             migration is currently a squashed migration"

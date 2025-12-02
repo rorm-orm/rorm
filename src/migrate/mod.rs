@@ -7,6 +7,7 @@ use rorm_db::sql::create_table::CreateTable;
 use rorm_db::Database;
 use rorm_declaration::config::DatabaseConfig;
 use rorm_declaration::imr::{Annotation, DbType};
+use tracing::{error, info};
 
 use crate::migrate::apply::apply_migration;
 use crate::migrate::config::{create_db_config, deserialize_db_conf};
@@ -35,7 +36,7 @@ pub async fn run_migrate_custom(
 ) -> anyhow::Result<()> {
     let p = Path::new(migration_dir.as_str());
     if !p.exists() || p.is_file() {
-        println!(
+        error!(
             "Couldn't find the migration directory in {} \n\n\
             You can specify an alternative path with --migration-dir <PATH>",
             migration_dir.as_str()
@@ -47,7 +48,7 @@ pub async fn run_migrate_custom(
         .with_context(|| "Couldn't retrieve existing migrations")?;
 
     if existing_migrations.is_empty() {
-        println!("No migrations found.\nExiting.");
+        info!("No migrations found.\nExiting.");
         return Ok(());
     }
 
@@ -121,11 +122,11 @@ pub async fn run_migrate_custom(
             // Apply all migrations
             for migration in &existing_migrations {
                 apply_migration(&pool, migration, last_migration_table_name).await?;
-                println!("Applied migration {:04}_{}", migration.id, migration.name);
+                info!("Applied migration {:04}_{}", migration.id, migration.name);
 
                 if let Some(apply_until) = apply_until {
                     if migration.id == apply_until {
-                        println!(
+                        info!(
                             "Applied all migrations until (inclusive) migration {apply_until:04}"
                         );
                         break;
@@ -141,7 +142,7 @@ pub async fn run_migrate_custom(
                 for (idx, migration) in existing_migrations.iter().enumerate() {
                     if apply {
                         apply_migration(&pool, migration, last_migration_table_name).await?;
-                        println!("Applied migration {:04}_{}", migration.id, migration.name);
+                        info!("Applied migration {:04}_{}", migration.id, migration.name);
                         continue;
                     }
 
@@ -149,7 +150,7 @@ pub async fn run_migrate_custom(
                         apply = true;
 
                         if idx == existing_migrations.len() - 1 {
-                            println!("All migration have already been applied.");
+                            info!("All migration have already been applied.");
                         }
                     }
 
@@ -157,11 +158,11 @@ pub async fn run_migrate_custom(
                         match migration.id.cmp(&apply_until) {
                             Ordering::Equal => {
                                 if apply {
-                                    println!(
+                                    info!(
                                         "Applied all migrations until (inclusive) migration {apply_until:04}"
                                     );
                                 } else {
-                                    println!(
+                                    info!(
                                         "All migrations until (inclusive) migration {apply_until:04} have already been applied"
                                     );
                                 }
@@ -193,7 +194,7 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
     let db_conf_path = Path::new(options.database_config.as_str());
 
     if !&db_conf_path.exists() {
-        println!(
+        error!(
             "Couldn't find the database configuration file, created {} and exiting",
             options.database_config.as_str()
         );

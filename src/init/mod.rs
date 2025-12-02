@@ -1,9 +1,8 @@
-use std::fs::File;
-use std::io::Write;
+use std::fs;
 use std::path::Path;
-use std::process::exit;
 
 use rorm_declaration::config::{DatabaseConfig, DatabaseDriver};
+use tracing::{error, info};
 
 use crate::cli::InitDriver;
 use crate::migrate::config::DatabaseConfigFile;
@@ -12,8 +11,8 @@ use crate::migrate::config::DatabaseConfigFile;
 pub fn init(database_configuration: String, driver: InitDriver, force: bool) -> anyhow::Result<()> {
     let p = Path::new(&database_configuration);
     if p.exists() && !force {
-        println!("Database configuration at {} does already exists. Use --force to overwrite the existing file.", &database_configuration);
-        exit(1);
+        error!("Database configuration at {} does already exists. Use --force to overwrite the existing file.", &database_configuration);
+        return Ok(());
     }
 
     match driver {
@@ -28,10 +27,7 @@ pub fn init(database_configuration: String, driver: InitDriver, force: bool) -> 
 
             let serialized = toml::to_string_pretty(&config_file)?;
 
-            let mut f = File::create(p)?;
-            write!(f, "{}", &serialized)?;
-
-            println!("Configuration was written to {}.", &database_configuration);
+            fs::write(p, serialized)?;
         }
         #[cfg(feature = "mysql")]
         InitDriver::Mysql {
@@ -63,10 +59,7 @@ pub fn init(database_configuration: String, driver: InitDriver, force: bool) -> 
 
             let serialized = toml::to_string_pretty(&config_file)?;
 
-            let mut f = File::create(p)?;
-            write!(f, "{}", &serialized)?;
-
-            println!("Configuration was written to {}.", &database_configuration);
+            fs::write(p, serialized)?;
         }
         #[cfg(feature = "postgres")]
         InitDriver::Postgres {
@@ -98,12 +91,11 @@ pub fn init(database_configuration: String, driver: InitDriver, force: bool) -> 
 
             let serialized = toml::to_string_pretty(&config_file)?;
 
-            let mut f = File::create(p)?;
-            write!(f, "{}", &serialized)?;
-
-            println!("Configuration was written to {}.", &database_configuration);
+            fs::write(p, serialized)?;
         }
-    };
+    }
+
+    info!("Configuration was written to {}.", &database_configuration);
 
     Ok(())
 }

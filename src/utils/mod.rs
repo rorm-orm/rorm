@@ -1,6 +1,8 @@
 use std::io;
 use std::io::Write;
 
+use tracing::error;
+
 pub mod migrations;
 pub mod re;
 
@@ -19,7 +21,7 @@ pub(crate) fn question(question: &str) -> bool {
                 }
             }
             Err(error) => {
-                println!("error: {error}");
+                error!("error: {error}");
                 return false;
             }
         }

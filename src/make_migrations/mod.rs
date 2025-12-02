@@ -7,6 +7,7 @@ use std::path::Path;
 use anyhow::{anyhow, Context};
 use rorm_declaration::imr::{Annotation, Field, InternalModelFormat, Model};
 use rorm_declaration::migration::{Migration, Operation};
+use tracing::info;
 
 use crate::linter;
 use crate::utils::migrations::{
@@ -97,7 +98,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
 
         // If hash matches with the one of the current models, exiting
         if last_migration.hash == h.to_string() {
-            println!("No changes - nothing to do.");
+            info!("No changes - nothing to do.");
             return Ok(());
         }
 
@@ -205,7 +206,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                             .as_str(),
                         )
                     {
-                        println!("Renamed model {} to {}.", old_model.name, new_model.name);
+                        info!("Renamed model {} to {}.", old_model.name, new_model.name);
                         renamed_models.push((old_model, new_model));
                     }
                 }
@@ -247,7 +248,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                 name: x.name.clone(),
                 fields: normal_fields,
             });
-            println!("Created model {}", x.name);
+            info!("Created model {}", x.name);
         });
 
         // Create referencing fields for new models
@@ -265,7 +266,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             op.push(Operation::DeleteModel {
                 name: x.name.clone(),
             });
-            println!("Deleted model {}", x.name);
+            info!("Deleted model {}", x.name);
         });
 
         for (model_name, new_fields) in &new_fields {
@@ -285,9 +286,9 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                             if !renamed_fields.contains_key(model_name) {
                                 renamed_fields.insert(model_name.clone(), vec![]);
                             }
-                            let f = renamed_fields.get_mut(x).unwrap();
+                            let f = renamed_fields.get_mut(model_name).unwrap();
                             f.push((old_field, new_field));
-                            println!(
+                            info!(
                                 "Renamed field {} of model {model_name} to {}.",
                                 old_field.name, new_field.name
                             );
@@ -324,7 +325,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                     model: x.clone(),
                     field: (*z).clone(),
                 });
-                println!("Added field {} to model {}", z.name, x);
+                info!("Added field {} to model {}", z.name, x);
             })
         });
 
@@ -335,7 +336,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                     model: x.clone(),
                     name: z.name.clone(),
                 });
-                println!("Deleted field {} from model {}", z.name, x);
+                info!("Deleted field {} from model {}", z.name, x);
             })
         });
 
@@ -360,7 +361,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                                 model: model.clone(),
                                 field: (*new).clone(),
                             });
-                            println!("Recreated field {} on model {}", &new.name, &model);
+                            info!("Recreated field {} on model {}", &new.name, &model);
                         }
                     }
                 } else {
@@ -373,7 +374,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                         model: model.clone(),
                         field: (*new).clone(),
                     });
-                    println!("Recreated field {} on model {}", &new.name, &model);
+                    info!("Recreated field {} on model {}", &new.name, &model);
                 }
             });
         });
@@ -390,7 +391,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
     } else {
         // If there are no models yet, no migrations must be created
         if internal_models.models.is_empty() {
-            println!("No models found.");
+            info!("No models found.");
         // New migration must be generated as no migration exists
         } else {
             let mut operations = vec![];
@@ -417,7 +418,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                     name: x.name.clone(),
                     fields: normal_fields,
                 };
-                println!("Created model {}", x.name);
+                info!("Created model {}", x.name);
                 o
             }));
 
@@ -454,7 +455,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             .with_context(|| "Error occurred while converting migration to file")?;
     }
 
-    println!("Done.");
+    info!("Done.");
 
     Ok(())
 }
