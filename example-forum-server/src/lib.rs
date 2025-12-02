@@ -88,7 +88,6 @@ pub async fn run_main(cli: Cli) -> anyhow::Result<()> {
                     last_migration_table_name: None,
                 },
                 migrations_dir,
-                false,
                 None,
             )
             .await?
