@@ -8,7 +8,6 @@ use rorm_db::Database;
 use rorm_declaration::config::DatabaseConfig;
 use rorm_declaration::imr::{Annotation, DbType};
 
-use crate::log_sql;
 use crate::migrate::apply::apply_migration;
 use crate::migrate::config::{create_db_config, deserialize_db_conf};
 use crate::utils::migrations::get_existing_migrations;
@@ -24,9 +23,6 @@ pub struct MigrateOptions {
     /// Path to the database configuration file
     pub database_config: String,
 
-    /// Log all SQL statements
-    pub log_queries: bool,
-
     /// Apply only to (inclusive) the given id, if set
     pub apply_until: Option<u16>,
 }
@@ -35,7 +31,6 @@ pub struct MigrateOptions {
 pub async fn run_migrate_custom(
     db_conf: DatabaseConfig,
     migration_dir: String,
-    log_sql: bool,
     apply_until: Option<u16>,
 ) -> anyhow::Result<()> {
     let p = Path::new(migration_dir.as_str());
@@ -98,10 +93,6 @@ pub async fn run_migrate_custom(
         .with_context(|| "Could not create transaction")?;
 
     for (query_string, bind_params) in statements {
-        if log_sql {
-            println!("{}", query_string.as_str());
-        }
-
         tx.execute::<Nothing>(query_string, bind_params)
             .await
             .with_context(|| "Couldn't create internal last migration table")?;
@@ -113,12 +104,9 @@ pub async fn run_migrate_custom(
 
     let last_migration: Option<i32> = pool
         .execute::<Optional>(
-            log_sql!(
-                format!(
-                    "SELECT migration_id FROM {} ORDER BY id DESC LIMIT 1;",
-                    &last_migration_table_name
-                ),
-                log_sql
+            format!(
+                "SELECT migration_id FROM {} ORDER BY id DESC LIMIT 1;",
+                &last_migration_table_name
             ),
             Vec::new(),
         )
@@ -215,11 +203,5 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
 
     let db_conf = deserialize_db_conf(db_conf_path)?;
 
-    run_migrate_custom(
-        db_conf,
-        options.migration_dir,
-        options.log_queries,
-        options.apply_until,
-    )
-    .await
+    run_migrate_custom(db_conf, options.migration_dir, options.apply_until).await
 }

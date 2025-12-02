@@ -4,17 +4,6 @@ use std::io::Write;
 pub mod migrations;
 pub mod re;
 
-#[macro_export]
-macro_rules! log_sql {
-    ($query:expr, $do_log:expr) => {{
-        let log_sql_q: String = $query;
-        if $do_log {
-            println!("{}", log_sql_q);
-        }
-        log_sql_q
-    }};
-}
-
 pub(crate) fn question(question: &str) -> bool {
     loop {
         print!("{question} [yN] ");

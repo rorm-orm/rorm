@@ -134,10 +134,6 @@ pub enum Command {
         #[clap(default_value = "./database.toml")]
         database_config: String,
 
-        /// If turned on, all queries to the database will be logged.
-        #[clap(long)]
-        log_sql: bool,
-
         /// Only apply the migrations to (inclusive) the given migration.
         #[clap(long)]
         #[clap(id = "MIGRATION_ID")]
@@ -196,13 +192,11 @@ impl Cli {
             Command::Migrate {
                 migration_dir,
                 database_config,
-                log_sql,
                 apply_until,
             } => {
                 run_migrate(MigrateOptions {
                     migration_dir,
                     database_config,
-                    log_queries: log_sql,
                     apply_until,
                 })
                 .await?;
