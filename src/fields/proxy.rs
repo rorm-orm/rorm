@@ -450,9 +450,6 @@ pub trait FieldProxyImpl: 'static {
 
     /// Path the field is accessed through
     type Path: Path;
-
-    /// "Type level function" which swap's the `Path` for a new one
-    type Through<NewPath: Path>: FieldProxyImpl<Field = Self::Field, Path = NewPath>;
 }
 
 impl<F, P> FieldProxyImpl for (F, P)
@@ -464,7 +461,6 @@ where
 
     type Field = F;
     type Path = P;
-    type Through<NewPath: Path> = (F, NewPath);
 }
 
 /// Construct a new `FieldProxy`
@@ -483,18 +479,6 @@ pub const fn new<I: FieldProxyImpl>() -> FieldProxy<I> {
 /// This function is used by the [`get_field`](crate::get_field) and [`field`](crate::field) macros.
 pub const fn index<I: FieldProxyImpl>(_: fn() -> FieldProxy<I>) -> usize {
     <I::Field as Field>::INDEX
-}
-
-/// Change a `FieldProxy`'s path
-///
-/// *Not relevant for the average rorm user*
-///
-/// This function is used by the `#[derive(Patch)]` to construct a `Selector` with a custom path.
-/// This is subject to change.
-pub const fn through<I: FieldProxyImpl, NewPath: Path>(
-    _: fn() -> FieldProxy<I>,
-) -> FieldProxy<I::Through<NewPath>> {
-    new()
 }
 
 /// Get the names of the columns which store the field
