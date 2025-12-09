@@ -31,9 +31,7 @@ pub struct MakeMigrationsOptions {
     pub warnings_disabled: bool,
 }
 
-/**
-Checks the options
-*/
+/// Checks the options
 pub fn check_options(options: &MakeMigrationsOptions) -> anyhow::Result<()> {
     let models_file = Path::new(options.models_file.as_str());
     if !models_file.exists() || !models_file.is_file() {
@@ -59,11 +57,9 @@ pub fn check_options(options: &MakeMigrationsOptions) -> anyhow::Result<()> {
     Ok(())
 }
 
-/**
-A helper function to retrieve the internal models from a given location.
-
-`models_file`: [&str]: The path to the models file.
-*/
+/// A helper function to retrieve the internal models from a given location.
+///
+/// `models_file`: [&str]: The path to the models file.
 pub fn get_internal_models(models_file: &str) -> anyhow::Result<InternalModelFormat> {
     let internal_str = read_to_string(Path::new(&models_file))
         .with_context(|| "Couldn't read internal models file")?;
@@ -73,9 +69,7 @@ pub fn get_internal_models(models_file: &str) -> anyhow::Result<InternalModelFor
     Ok(internal)
 }
 
-/**
-Runs the make-migrations tool
-*/
+/// Runs the make-migrations tool
 pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()> {
     check_options(&options).with_context(|| "Error while checking options")?;
 
@@ -106,7 +100,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             .with_context(|| "Error while parsing existing migration files")?;
 
         let last_id: u16 = last_migration.id + 1;
-        let name = options.name.as_ref().map_or("placeholder", |x| x.as_str());
+        let name = options.name.as_deref().unwrap_or("placeholder");
 
         let mut op: Vec<Operation> = vec![];
 
@@ -151,53 +145,40 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
         // Iterate over all models, that are in the constructed
         // as well as in the new internal models
         for new_model in &internal_models.models {
-            if !old_lookup.contains_key(new_model.name.as_str()) {
+            let Some(old_model) = old_lookup.get(&new_model.name) else {
                 continue;
-            }
+            };
 
             // Check if a new field has been added
             for new_field in &new_model.fields {
-                if !old_lookup[new_model.name.as_str()]
-                    .fields
-                    .iter()
-                    .any(|z| z.name == new_field.name)
-                {
-                    if !new_fields.contains_key(new_model.name.as_str()) {
-                        new_fields.insert(new_model.name.clone(), vec![]);
-                    }
+                if !old_model.fields.iter().any(|z| z.name == new_field.name) {
                     new_fields
-                        .get_mut(new_model.name.as_str())
-                        .unwrap()
+                        .entry(new_model.name.clone())
+                        .or_default()
                         .push(new_field);
                 }
             }
 
             // Check if a existing field got deleted
-            for old_field in &old_lookup[new_model.name.as_str()].fields {
+            for old_field in &old_model.fields {
                 if !new_model.fields.iter().any(|z| z.name == old_field.name) {
-                    if !deleted_fields.contains_key(new_model.name.as_str()) {
-                        deleted_fields.insert(new_model.name.clone(), vec![]);
-                    }
                     deleted_fields
-                        .get_mut(new_model.name.as_str())
-                        .unwrap()
+                        .entry(new_model.name.clone())
+                        .or_default()
                         .push(old_field);
                 }
             }
 
             // Check if a existing field got altered
-            for old_field in &old_lookup[new_model.name.as_str()].fields {
+            for old_field in &old_model.fields {
                 for new_field in &new_model.fields {
                     // Check for differences
                     if old_field.db_type != new_field.db_type
                         || old_field.annotations != new_field.annotations
                     {
-                        if !altered_fields.contains_key(new_model.name.as_str()) {
-                            altered_fields.insert(new_model.name.clone(), vec![]);
-                        }
                         altered_fields
-                            .get_mut(&new_model.name)
-                            .unwrap()
+                            .entry(new_model.name.clone())
+                            .or_default()
                             .push((old_field, new_field));
                     }
                 }
@@ -245,7 +226,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                 if new_field
                     .annotations
                     .iter()
-                    .any(|z| z.eq_shallow(&Annotation::ForeignKey(Default::default())))
+                    .any(|x| matches!(x, Annotation::ForeignKey(_)))
                 {
                     references
                         .entry(new_model.name.clone())
@@ -295,11 +276,10 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                                 .as_str(),
                             )
                         {
-                            if !renamed_fields.contains_key(model_name) {
-                                renamed_fields.insert(model_name.clone(), vec![]);
-                            }
-                            let f = renamed_fields.get_mut(model_name).unwrap();
-                            f.push((old_field, new_field));
+                            renamed_fields
+                                .entry(model_name.clone())
+                                .or_default()
+                                .push((old_field, new_field));
                             info!(
                                 "Renamed field {} of model {model_name} to {}.",
                                 old_field.name, new_field.name
@@ -416,7 +396,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                     if field
                         .annotations
                         .iter()
-                        .any(|z| z.eq_shallow(&Annotation::ForeignKey(Default::default())))
+                        .any(|x| matches!(x, Annotation::ForeignKey(_)))
                     {
                         references
                             .entry(model.name.clone())
@@ -427,12 +407,11 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                     }
                 }
 
-                let o = Operation::CreateModel {
+                info!("Created model {}", model.name);
+                Operation::CreateModel {
                     name: model.name.clone(),
                     fields: normal_fields,
-                };
-                info!("Created model {}", model.name);
-                o
+                }
             }));
 
             operations.extend(references.into_iter().flat_map(|(model, fields)| {
