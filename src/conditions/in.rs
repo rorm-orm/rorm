@@ -32,12 +32,28 @@ where
     B: Condition<'a>,
 {
     fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
+        let bool_fallback;
+        let collection_operator;
+        let binary_operator;
+        match self.operator {
+            InOperator::In => {
+                bool_fallback = false;
+                collection_operator = CollectionOperator::Or;
+                binary_operator = BinaryOperator::Equals;
+            }
+            InOperator::NotIn => {
+                bool_fallback = true;
+                collection_operator = CollectionOperator::And;
+                binary_operator = BinaryOperator::NotEquals;
+            }
+        }
+
         if self.snd_arg.is_empty() {
-            Value::Bool(false).build(builder);
+            Value::Bool(bool_fallback).build(builder);
         } else {
-            builder.push_condition(FlatCondition::StartCollection(CollectionOperator::Or));
+            builder.push_condition(FlatCondition::StartCollection(collection_operator));
             for snd_arg in self.snd_arg.iter() {
-                builder.push_condition(FlatCondition::BinaryCondition(BinaryOperator::Equals));
+                builder.push_condition(FlatCondition::BinaryCondition(binary_operator));
                 self.fst_arg.build(builder.reborrow());
                 snd_arg.build(builder.reborrow());
             }

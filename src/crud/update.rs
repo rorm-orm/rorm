@@ -229,6 +229,20 @@ where
         ));
         self
     }
+
+    /// Add a column to update if `value` is `Some`
+    ///
+    /// Can be called multiple times.
+    pub fn set_if<I>(self, field: FieldProxy<I>, value: Option<<I::Field as Field>::Type>) -> Self
+    where
+        I: FieldProxyImpl<Field: SingleColumnField, Path = M>,
+    {
+        if let Some(value) = value {
+            self.set(field, value)
+        } else {
+            self
+        }
+    }
 }
 
 impl<'ex, 'rf, E, M> UpdateBuilder<'rf, E, M, columns::NonEmpty>
