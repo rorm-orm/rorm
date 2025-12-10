@@ -11,7 +11,7 @@ members = [
 
 [package]
 name = "rorm"
-version = "0.9.5"
+version = "0.9.6"
 edition = "2021"
 repository = "https://github.com/rorm-orm/rorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
