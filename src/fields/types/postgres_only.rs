@@ -1,41 +1,65 @@
 use bit_vec::BitVec;
 use ipnetwork::IpNetwork;
 use mac_address::MacAddress;
+use rorm_db::sql::value::NullType;
 
 use crate::conditions::Value;
-use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
-use crate::impl_FieldType;
+use crate::crud::decoder::DirectDecoder;
+use crate::fields::proxy::LayerStackBase;
+use crate::fields::traits::{Array, FieldColumns, FieldType};
+use crate::fields::utils::field_proxy_layer::SimpleEq;
+use crate::fields::utils::{check, get_annotations, get_names};
 
-impl_FieldType!(MacAddress, MacAddress, Value::MacAddress);
-impl<'rhs> SimpleFieldEq<'rhs, MacAddress> for MacAddress {
-    fn into_value(rhs: MacAddress) -> Value<'rhs> {
-        Value::MacAddress(rhs)
+impl FieldType for MacAddress {
+    type Columns = Array<1>;
+    const NULL: FieldColumns<Self, NullType> = [NullType::MacAddress];
+    type FieldProxyLayers = SimpleEq<Self, LayerStackBase>;
+    type OptionFieldProxyLayers = SimpleEq<Option<Self>, LayerStackBase>;
+    fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
+        [Value::MacAddress(self)]
     }
-}
-impl<'rhs> SimpleFieldIn<'rhs, MacAddress> for MacAddress {
-    fn into_value(rhs: MacAddress) -> Value<'rhs> {
-        Value::MacAddress(rhs)
+    fn as_values(&self) -> FieldColumns<Self, Value<'_>> {
+        [Value::MacAddress(*self)]
     }
-}
-
-impl_FieldType!(IpNetwork, IpNetwork, Value::IpNetwork);
-impl<'rhs> SimpleFieldEq<'rhs, IpNetwork> for IpNetwork {
-    fn into_value(rhs: IpNetwork) -> Value<'rhs> {
-        Value::IpNetwork(rhs)
-    }
-}
-impl<'rhs> SimpleFieldIn<'rhs, IpNetwork> for IpNetwork {
-    fn into_value(rhs: IpNetwork) -> Value<'rhs> {
-        Value::IpNetwork(rhs)
-    }
+    type Decoder = DirectDecoder<Self>;
+    type GetNames = get_names::single_column_name;
+    type GetAnnotations = get_annotations::forward_annotations<1>;
+    type Check = check::shared_linter_check<1>;
 }
 
-impl_FieldType!(
-    BitVec,
-    BitVec,
-    |vec| Value::BitVec(BitCow::Owned(vec)),
-    |vec| Value::BitVec(BitCow::Borrowed(vec))
-);
+impl FieldType for IpNetwork {
+    type Columns = Array<1>;
+    const NULL: FieldColumns<Self, NullType> = [NullType::IpNetwork];
+    type FieldProxyLayers = SimpleEq<Self, LayerStackBase>;
+    type OptionFieldProxyLayers = SimpleEq<Option<Self>, LayerStackBase>;
+    fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
+        [Value::IpNetwork(self)]
+    }
+    fn as_values(&self) -> FieldColumns<Self, Value<'_>> {
+        [Value::IpNetwork(*self)]
+    }
+    type Decoder = DirectDecoder<Self>;
+    type GetNames = get_names::single_column_name;
+    type GetAnnotations = get_annotations::forward_annotations<1>;
+    type Check = check::shared_linter_check<1>;
+}
+
+impl FieldType for BitVec {
+    type Columns = Array<1>;
+    const NULL: FieldColumns<Self, NullType> = [NullType::BitVec];
+    type FieldProxyLayers = LayerStackBase;
+    type OptionFieldProxyLayers = LayerStackBase;
+    fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
+        [Value::BitVec(BitCow::Owned(self))]
+    }
+    fn as_values(&self) -> FieldColumns<Self, Value<'_>> {
+        [Value::BitVec(BitCow::Borrowed(self))]
+    }
+    type Decoder = DirectDecoder<Self>;
+    type GetNames = get_names::single_column_name;
+    type GetAnnotations = get_annotations::forward_annotations<1>;
+    type Check = check::shared_linter_check<1>;
+}
 impl<'rhs> SimpleFieldEq<'rhs, &'rhs BitVec> for BitVec {
     fn into_value(rhs: &'rhs BitVec) -> Value<'rhs> {
         Value::BitVec(BitCow::Borrowed(rhs))

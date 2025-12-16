@@ -3,6 +3,8 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::future::poll_fn;
+use std::marker::PhantomData;
+use std::mem::ManuallyDrop;
 use std::pin::pin;
 
 use futures_core::Stream;
@@ -15,7 +17,7 @@ use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollec
 use crate::crud::decoder::NoopDecoder;
 use crate::crud::query::query;
 use crate::fields::proxy;
-use crate::fields::proxy::FieldProxy;
+use crate::fields::proxy::{FieldProxy, FieldProxyImpl, FieldProxyLayerStackBase, LayerStackBase};
 use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::utils::check::disallow_annotations_check;
 use crate::fields::utils::get_annotations::forward_annotations;
@@ -23,6 +25,7 @@ use crate::fields::utils::get_names::no_columns_names;
 use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
 use crate::internal::field::{foreign_model, Field, SingleColumnField};
 use crate::model::GetField;
+use crate::Model;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
 use crate::Patch;
 
@@ -66,6 +69,17 @@ impl<FMF: ForeignModelField> FieldType for BackRef<FMF> {
     type Check = disallow_annotations_check<0>;
 
     type GetNames = no_columns_names;
+
+    type FieldProxyLayers = BackRefFieldProxyLayerStackBase<FMF>;
+    type OptionFieldProxyLayers = LayerStackBase;
+}
+
+pub struct BackRefFieldProxyLayerStackBase<FMF>(PhantomData<ManuallyDrop<FMF>>);
+impl<FMF> FieldProxyLayerStackBase for BackRefFieldProxyLayerStackBase<FMF>
+where
+    FMF: ForeignModelField,
+{
+    type SetImpl<I: FieldProxyImpl> = <FMF::Model as Model>::Fields<(I::Field, I::Path)>;
 }
 
 impl<BRF, FMF> FieldProxy<(BRF, BRF::Model)>
@@ -84,7 +98,7 @@ where
     {
         Binary {
             operator: BinaryOperator::Equals,
-            fst_arg: Column(proxy::new::<(FMF, FMF::Model)>()),
+            fst_arg: Column(proxy::new::<(FMF, FMF::Model, LayerStackBase)>()),
             snd_arg: foreign_model::RF::<FMF>::type_as_value(patch.borrow_field()),
         }
     }

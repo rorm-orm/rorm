@@ -30,6 +30,10 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum, config: &MacroConfig) -> TokenStr
                     #rorm_path::db::sql::value::NullType::Choice
                 ];
 
+                type FieldProxyLayers = #rorm_path::fields::utils::field_proxy_layer::SimpleEq<Self>;
+
+                type OptionFieldProxyLayers = #rorm_path::fields::utils::field_proxy_layer::SimpleEq<Option<Self>>;
+
                 fn into_values<'a>(self) -> #rorm_path::fields::traits::FieldColumns<Self, #rorm_path::conditions::Value<'a>> {
                     [#rorm_path::conditions::Value::Choice(::std::borrow::Cow::Borrowed(match self {
                         #(
@@ -67,12 +71,6 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum, config: &MacroConfig) -> TokenStr
                     }
                 }
             );
-            impl<'rhs> #rorm_path::fields::traits::simple::SimpleFieldEq<'rhs, #ident> for #ident {
-                fn into_value(rhs: #ident) -> #rorm_path::conditions::Value<'rhs> {
-                    let [value] = <#ident as #rorm_path::fields::traits::FieldType>::into_values(rhs);
-                    value
-                }
-            }
 
             #rorm_path::const_fn! {
                 pub fn get_db_enum_annotations(

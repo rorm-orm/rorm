@@ -43,10 +43,8 @@ use rorm_declaration::imr;
 
 use crate::conditions::Value;
 use crate::fields::proxy::FieldProxy;
-use crate::fields::proxy::FieldProxyImpl;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::{AsImr, Source};
-use crate::internal::relation_path::{Path, PathField};
 use crate::model::Model;
 
 pub mod decoder;
@@ -58,7 +56,6 @@ use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::utils::column_name::ColumnName;
 use crate::fields::utils::const_fn::{ConstFn, Contains};
 use crate::internal::const_concat::ConstString;
-use crate::internal::ConstRef;
 
 /// This trait is implemented by the `#[derive(Model)]` macro on unique unit struct for each of a model's fields.
 ///
@@ -193,40 +190,6 @@ where
         let [value] = field.into_values();
         value
     }
-}
-
-/// A field whose proxy should implement [`Deref`](std::ops::Deref) to some collection of fields.
-///
-/// Depending on the field, this collection might differ in meaning
-/// - For [`BackRef`](crate::fields::types::BackRef) and [`ForeignModel`](crate::fields::types::ForeignModelByField),
-///   its their related model's fields
-/// - For multi-column fields, its their "contained" fields
-pub trait ContainerField<T: FieldType, P: Path>: Field<Type = T> {
-    /// Struct of contained fields
-    type Target: ConstRef;
-}
-
-impl<I, T, F, P> std::ops::Deref for FieldProxy<I>
-where
-    T: FieldType,
-    F: Field<Type = T> + ContainerField<T, P>,
-    P: Path,
-    I: FieldProxyImpl<Field = F, Path = P>,
-{
-    type Target = F::Target;
-
-    fn deref(&self) -> &'static Self::Target {
-        ConstRef::REF
-    }
-}
-
-impl<T, F, P> ContainerField<T, P> for F
-where
-    T: FieldType,
-    F: Field<Type = T> + PathField<T>,
-    P: Path<Current = <F::ParentField as Field>::Model>,
-{
-    type Target = <<F::ChildField as Field>::Model as Model>::Fields<P::Step<F>>;
 }
 
 /// Helper structs implementing [`Contains`] to expose

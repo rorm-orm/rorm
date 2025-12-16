@@ -5,10 +5,10 @@ use rorm_declaration::imr;
 use crate::conditions::{Binary, BinaryOperator, Column, Value};
 use crate::crud::selector::Selector;
 use crate::fields::proxy;
+use crate::fields::proxy::LayerStackBase;
 use crate::fields::utils::column_name::ColumnName;
 use crate::internal::field::{Field, SingleColumnField};
 use crate::internal::hmr::{AsImr, Source};
-use crate::internal::relation_path::Path;
 use crate::internal::ConstRef;
 
 /// Trait implemented on Patches i.e. a subset of a model's fields.
@@ -55,8 +55,14 @@ pub trait Patch: Sized + 'static {
 }
 
 /// The [Condition](crate::conditions::Condition) type returned by [Identifiable::as_condition]
-pub type PatchAsCondition<'a, P> =
-    Binary<Column<(<<P as Patch>::Model as Model>::Primary, <P as Patch>::Model)>, Value<'a>>;
+pub type PatchAsCondition<'a, P> = Binary<
+    Column<(
+        <<P as Patch>::Model as Model>::Primary,
+        <P as Patch>::Model,
+        LayerStackBase,
+    )>,
+    Value<'a>,
+>;
 
 /// Trait implementing most database interactions for a struct.
 ///
@@ -66,7 +72,7 @@ pub trait Model: Patch<Model = Self> {
     type Primary: Field<Model = Self> + SingleColumnField;
 
     /// A struct which "maps" field identifiers their descriptions (i.e. [`Field`](crate::internal::field::Field)).
-    type Fields<P: Path>: ConstRef;
+    type Fields<P: 'static>: ConstRef;
 
     /// The model's table name
     const TABLE: &'static str;

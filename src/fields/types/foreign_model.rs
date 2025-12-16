@@ -10,6 +10,7 @@ use crate::conditions::{Binary, BinaryOperator, Column, Condition};
 use crate::crud::query::query;
 use crate::crud::selector::Selector;
 use crate::fields::proxy;
+use crate::fields::proxy::LayerStackBase;
 use crate::internal::field::SingleColumnField;
 use crate::model::Model;
 use crate::Patch;
@@ -48,7 +49,7 @@ impl<FF: SingleColumnField> ForeignModelByField<FF> {
     pub fn as_condition(&self) -> impl Condition<'_> {
         Binary {
             operator: BinaryOperator::Equals,
-            fst_arg: Column(proxy::new::<(FF, FF::Model)>()),
+            fst_arg: Column(proxy::new::<(FF, FF::Model, LayerStackBase)>()),
             snd_arg: FF::type_as_value(&self.0),
         }
     }
@@ -60,7 +61,7 @@ impl<FF: SingleColumnField> ForeignModelByField<FF> {
     {
         Binary {
             operator: BinaryOperator::Equals,
-            fst_arg: Column(proxy::new::<(FF, FF::Model)>()),
+            fst_arg: Column(proxy::new::<(FF, FF::Model, LayerStackBase)>()),
             snd_arg: FF::type_into_value(self.0),
         }
     }

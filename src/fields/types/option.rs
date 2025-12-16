@@ -2,12 +2,11 @@ use rorm_db::row::RowError;
 use rorm_db::sql::value::NullType;
 use rorm_db::Row;
 
-use crate::conditions::{Column, Condition, In, InOperator, Unary, UnaryOperator, Value};
+use crate::conditions::{Column, Condition, Unary, UnaryOperator, Value};
 use crate::crud::decoder::Decoder;
 use crate::fields::proxy;
-use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
-use crate::fields::traits::simple::SimpleFieldIn;
-use crate::fields::traits::{Array, Columns, FieldEq, FieldIn, FieldLike};
+use crate::fields::proxy::{FieldProxy, FieldProxyImpl, LayerStackBase};
+use crate::fields::traits::Columns;
 use crate::fields::traits::{FieldColumns, FieldType};
 use crate::fields::utils::const_fn::{ConstFn, Contains};
 use crate::internal::field::decoder::FieldDecoder;
@@ -16,105 +15,6 @@ use crate::internal::field::Field;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::query_context::{ConditionBuilder, QueryContext};
 use crate::{and, const_fn, or};
-
-impl<'rhs, T, Rhs: 'rhs, Any> FieldEq<'rhs, Option<Rhs>, private::OptionFieldEq<Any>> for Option<T>
-where
-    T: FieldType<Columns = Array<1>>,
-    T: FieldEq<'rhs, Rhs, Any>,
-{
-    type EqCond<I: FieldProxyImpl> =
-        OptionFieldEqCond<I, <T as FieldEq<'rhs, Rhs, Any>>::EqCond<I>>;
-
-    fn field_equals<I: FieldProxyImpl>(
-        field: FieldProxy<I>,
-        value: Option<Rhs>,
-    ) -> Self::EqCond<I> {
-        OptionFieldEqCond {
-            not: false,
-            // where clause required `T` to be a single column field
-            column: field,
-            value: value.map(|value| <T as FieldEq<'rhs, Rhs, Any>>::field_equals(field, value)),
-        }
-    }
-
-    type NeCond<I: FieldProxyImpl> =
-        OptionFieldEqCond<I, <T as FieldEq<'rhs, Rhs, Any>>::NeCond<I>>;
-
-    fn field_not_equals<I: FieldProxyImpl>(
-        field: FieldProxy<I>,
-        value: Option<Rhs>,
-    ) -> Self::NeCond<I> {
-        OptionFieldEqCond {
-            not: true,
-            // where clause required `T` to be a single column field
-            column: field,
-            value: value
-                .map(|value| <T as FieldEq<'rhs, Rhs, Any>>::field_not_equals(field, value)),
-        }
-    }
-}
-
-impl<'rhs, Rhs, Any, T> FieldIn<'rhs, Rhs, private::OptionFieldIn<Any>> for Option<T>
-where
-    Rhs: IntoIterator,
-    Rhs::Item: 'rhs,
-    T: SimpleFieldIn<'rhs, Rhs::Item, Any> + FieldType,
-{
-    type InCond<I: FieldProxyImpl> = In<Column<I>, Value<'rhs>>;
-
-    fn field_in<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::InCond<I> {
-        In {
-            operator: InOperator::In,
-            fst_arg: Column(field),
-            snd_arg: value.into_iter().map(T::into_value).collect(),
-        }
-    }
-
-    type NiCond<I: FieldProxyImpl> = In<Column<I>, Value<'rhs>>;
-
-    fn field_not_in<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::NiCond<I> {
-        In {
-            operator: InOperator::NotIn,
-            fst_arg: Column(field),
-            snd_arg: value.into_iter().map(T::into_value).collect(),
-        }
-    }
-}
-
-impl<'rhs, T, Rhs: 'rhs, Any> FieldLike<'rhs, Option<Rhs>, private::OptionFieldLike<Any>>
-    for Option<T>
-where
-    T: FieldType<Columns = Array<1>>,
-    T: FieldLike<'rhs, Rhs, Any>,
-{
-    type LiCond<I: FieldProxyImpl> =
-        OptionFieldEqCond<I, <T as FieldLike<'rhs, Rhs, Any>>::LiCond<I>>;
-
-    fn field_like<I: FieldProxyImpl>(field: FieldProxy<I>, value: Option<Rhs>) -> Self::LiCond<I> {
-        OptionFieldEqCond {
-            not: false,
-            // where clause required `T` to be a single column field
-            column: field,
-            value: value.map(|value| <T as FieldLike<'rhs, Rhs, Any>>::field_like(field, value)),
-        }
-    }
-
-    type NlCond<I: FieldProxyImpl> =
-        OptionFieldEqCond<I, <T as FieldLike<'rhs, Rhs, Any>>::NlCond<I>>;
-
-    fn field_not_like<I: FieldProxyImpl>(
-        field: FieldProxy<I>,
-        value: Option<Rhs>,
-    ) -> Self::NlCond<I> {
-        OptionFieldEqCond {
-            not: true,
-            // where clause required `T` to be a single column field
-            column: field,
-            value: value
-                .map(|value| <T as FieldLike<'rhs, Rhs, Any>>::field_not_like(field, value)),
-        }
-    }
-}
 
 /// Condition produced by `Option<T>`'s [`FieldEq`] (and c[`FieldLike`]) implementation
 ///
@@ -185,6 +85,9 @@ impl<T: FieldType> FieldType for Option<T> {
 
     const NULL: FieldColumns<Self, NullType> = T::NULL;
 
+    type FieldProxyLayers = T::OptionFieldProxyLayers;
+    type OptionFieldProxyLayers = T::OptionFieldProxyLayers;
+
     fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
         self.map(T::into_values)
             .unwrap_or(T::Columns::map(T::NULL, Value::Null))
@@ -209,10 +112,11 @@ impl<T: FieldType> FieldDecoder for OptionDecoder<T> {
     where
         I: FieldProxyImpl<Field: Field<Type = Self::Result>>,
     {
-        Self(T::Decoder::new::<(FakeField<T, I::Field>, I::Path)>(
-            ctx,
-            proxy::new(),
-        ))
+        Self(T::Decoder::new::<(
+            FakeField<T, I::Field>,
+            I::Path,
+            LayerStackBase,
+        )>(ctx, proxy::new()))
     }
 }
 impl<T: FieldType> Decoder for OptionDecoder<T> {

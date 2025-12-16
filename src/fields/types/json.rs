@@ -8,6 +8,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::conditions::Value;
+use crate::fields::proxy::LayerStackBase;
 use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::utils::check::shared_linter_check;
 use crate::fields::utils::get_annotations::forward_annotations;
@@ -73,6 +74,8 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Json<T> {
     type Check = shared_linter_check<1>;
 
     type GetNames = single_column_name;
+    type FieldProxyLayers = LayerStackBase;
+    type OptionFieldProxyLayers = LayerStackBase;
 }
 
 // From

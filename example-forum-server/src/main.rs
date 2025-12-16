@@ -1,17 +1,60 @@
-use clap::Parser;
-use example_forum_server::{run_main, Cli};
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{fmt, EnvFilter};
+use std::ops::Deref;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let cli = Cli::parse();
+use rorm::prelude::{BackRef, ForeignModel};
+use rorm::{field, Model};
 
-    tracing_subscriber::registry()
-        .with(fmt::layer())
-        .with(EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new("INFO")))
-        .init();
+#[derive(Model)]
+pub struct SomeModel {
+    #[rorm(id)]
+    pub id: i64,
 
-    run_main(cli).await
+    pub other: ForeignModel<SomeModel>,
+}
+
+#[derive(Model)]
+pub struct Device {
+    #[rorm(id)]
+    pub id: i64,
+
+    pub tags: BackRef<field!(Tag.device)>,
+}
+
+#[derive(Model)]
+pub struct Tag {
+    #[rorm(id)]
+    pub id: i64,
+
+    pub device: ForeignModel<Device>,
+}
+
+fn main() {
+    let x = SomeModel.id;
+    let x = x;
+    x.equals(5);
+    let x = x.deref();
+    let x = x.deref();
+    let x = x.deref();
+    let x = x.deref();
+    let x = x.deref();
+    let _x = x;
+
+    let y = SomeModel.other;
+    let y = y;
+    y.greater_than(3);
+    let y = y.deref();
+
+    let z = SomeModel.other.other.other.other.id;
+    let z = z;
+    z.min();
+    let z = z.deref();
+    let z = z.deref();
+    let z = z.deref();
+    let z = z.deref();
+    let z = z.deref();
+    let _z = z;
+
+    let a = Device.tags;
+    let a = a.deref();
+
+    let b = Device.tags.id.equals(1337);
 }

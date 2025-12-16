@@ -1,26 +1,121 @@
 //! [`FieldProxy`] and some utility functions which are used by rorm's various macros
+#![allow(missing_docs)]
 
 use std::marker::PhantomData;
 use std::mem::ManuallyDrop;
+use std::ops::Deref;
 
-#[cfg(feature = "postgres-only")]
-use ipnetwork::IpNetwork;
 use rorm_db::sql::aggregation::SelectAggregator;
 
-#[cfg(feature = "postgres-only")]
-use crate::conditions::{Binary, BinaryOperator, Value};
-use crate::conditions::{Column, Unary, UnaryOperator};
 use crate::crud::selector::{AggregatedColumn, PathedSelector, Selector};
-#[cfg(feature = "postgres-only")]
-use crate::fields::traits::FieldILike;
-use crate::fields::traits::{
-    FieldAvg, FieldColumns, FieldCount, FieldEq, FieldIn, FieldLike, FieldMax, FieldMin, FieldOrd,
-    FieldRegexp, FieldSum,
-};
+use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::utils::column_name::ColumnName;
-use crate::internal::field::{Field, SingleColumnField};
+use crate::internal::field::Field;
 use crate::internal::relation_path::{Path, PathField};
+use crate::internal::ConstRef;
 use crate::sealed;
+
+#[macro_export]
+macro_rules! declare_proxy_layer {
+    (
+        $(#[doc = $doc:literal])*
+        $name:ident<$($T:ident,)* _>
+    ) => {
+        $(#[doc = $doc])*
+        pub struct $name<
+            $($T,)*
+            __L = $crate::fields::proxy::LayerStackBase
+        >(
+            ::std::marker::PhantomData<
+                ::std::mem::ManuallyDrop<($($T,)* __L, )>
+            >
+        );
+        impl<$($T,)* __L> $crate::internal::ConstRef for $name<$($T,)* __L>
+        where
+            __L: 'static,
+            $(
+                $T: 'static,
+            )*
+        {
+            const REF: &'static Self = &Self(::std::marker::PhantomData);
+        }
+        impl<$($T,)* __L> FieldProxyLayerStack for $name<$($T,)* __L>
+        where
+            __L:  FieldProxyLayerStack,
+            $(
+                $T: 'static,
+            )*
+        {
+            type SetImpl<__I: FieldProxyImpl> = $name<$($T,)* __I>;
+
+            type PopSelf = __L;
+
+            type ReplaceBase<NewBase: FieldProxyLayerStack> =
+                $name<$($T,)* <__L as FieldProxyLayerStack>::ReplaceBase<NewBase>>;
+        }
+        impl<$($T,)* __I> ::std::ops::Deref for $name<$($T,)* __I>
+        where
+            __I: FieldProxyImpl,
+        {
+            type Target = __I::DerefTarget;
+
+            fn deref(&self) -> &Self::Target {
+                $crate::internal::ConstRef::REF
+            }
+        }
+    };
+}
+
+/// A stack of layers a field proxy can be constructed from
+pub trait FieldProxyLayerStack: 'static {
+    type SetImpl<I: FieldProxyImpl>: ConstRef;
+
+    type PopSelf: FieldProxyLayerStack;
+
+    /// Replaces the final type, a proxy (build from this layer) `deref`s to, with `E`
+    type ReplaceBase<NewBase: FieldProxyLayerStack>: FieldProxyLayerStack;
+}
+
+pub trait FieldProxyLayerStackBase: 'static {
+    type SetImpl<I: FieldProxyImpl>: ConstRef;
+}
+impl<T: FieldProxyLayerStackBase> FieldProxyLayerStack for T {
+    type SetImpl<I: FieldProxyImpl> = <T as FieldProxyLayerStackBase>::SetImpl<I>;
+    type PopSelf = T;
+    type ReplaceBase<NewBase: FieldProxyLayerStack> = NewBase;
+}
+
+pub struct LayerStackBase(());
+impl ConstRef for LayerStackBase {
+    const REF: &'static Self = &Self(());
+}
+impl FieldProxyLayerStackBase for LayerStackBase {
+    type SetImpl<I: FieldProxyImpl> = LayerStackBase;
+}
+
+declare_proxy_layer!(NumberProxy<_>);
+impl<I: FieldProxyImpl, L> NumberProxy<(L, I)> {
+    pub fn greater_than(&self, _value: ()) -> () {
+        let condition = ();
+        condition
+    }
+}
+
+declare_proxy_layer!(StringProxy<_>);
+impl<I: FieldProxyImpl> StringProxy<I> {
+    pub fn contains(&self, _value: ()) -> () {
+        let condition = ();
+        condition
+    }
+}
+
+declare_proxy_layer!(EqualsProxy<_>);
+impl<I: FieldProxyImpl> EqualsProxy<I> {
+    pub fn equals(&self, _value: ()) -> () {
+        let condition = ();
+        condition
+    }
+}
 
 /// This unit struct acts as a proxy exposing a model's field (the field's declaration not its value)
 /// as a value to pass around and call methods on.
@@ -30,10 +125,19 @@ use crate::sealed;
 /// TODO: more docs
 pub struct FieldProxy<T>(PhantomData<ManuallyDrop<T>>);
 
-macro_rules! FieldType {
-    ($I:ident) => {
-        <<$I as FieldProxyImpl>::Field as Field>::Type
-    };
+impl<I> FieldProxy<I>
+where
+    I: FieldProxyImpl<Field: Field<Type: FieldType<Columns = Array<1>>>>,
+{
+    /// Returns the count of the number of times that the column is not null.
+    pub fn count(self) -> AggregatedColumn<I, i64> {
+        AggregatedColumn {
+            sql: SelectAggregator::Count,
+            alias: "count",
+            field: self,
+            result: PhantomData,
+        }
+    }
 }
 
 impl<F, P, I> FieldProxy<I>
@@ -54,376 +158,11 @@ where
     }
 }
 
-impl<I: FieldProxyImpl> FieldProxy<I> {
-    /// Checks if the column contains `None`
-    pub fn is_none<T>(self) -> Unary<Column<I>>
-    where
-        // This would have to be a trait for multi-column fields
-        I::Field: SingleColumnField<Type = Option<T>>,
-    {
-        Unary {
-            operator: UnaryOperator::IsNull,
-            fst_arg: Column(self),
-        }
-    }
+impl<I: FieldProxyImpl> Deref for FieldProxy<I> {
+    type Target = I::DerefTarget;
 
-    /// Checks if the column contains `Some`
-    pub fn is_some<T>(self) -> Unary<Column<I>>
-    where
-        // This would have to be a trait for multi-column fields
-        I::Field: SingleColumnField<Type = Option<T>>,
-    {
-        Unary {
-            operator: UnaryOperator::IsNotNull,
-            fst_arg: Column(self),
-        }
-    }
-
-    /// Compare the field to another value using `==`
-    pub fn equals<'rhs, Rhs, Any>(
-        self,
-        rhs: Rhs,
-    ) -> <FieldType!(I) as FieldEq<'rhs, Rhs, Any>>::EqCond<I>
-    where
-        FieldType!(I): FieldEq<'rhs, Rhs, Any>,
-    {
-        <FieldType!(I)>::field_equals(self, rhs)
-    }
-
-    /// Compare the field to another value using `!=`
-    pub fn not_equals<'rhs, Rhs, Any>(
-        self,
-        rhs: Rhs,
-    ) -> <FieldType!(I) as FieldEq<'rhs, Rhs, Any>>::NeCond<I>
-    where
-        FieldType!(I): FieldEq<'rhs, Rhs, Any>,
-    {
-        <FieldType!(I)>::field_not_equals(self, rhs)
-    }
-
-    /// Check if the field's value is in a given list of values
-    pub fn r#in<'rhs, Rhs, Any>(
-        self,
-        rhs: Rhs,
-    ) -> <FieldType!(I) as FieldIn<'rhs, Rhs, Any>>::InCond<I>
-    where
-        FieldType!(I): FieldIn<'rhs, Rhs, Any>,
-    {
-        <FieldType!(I)>::field_in(self, rhs)
-    }
-
-    /// Check if the field's value is not in a given list of values
-    pub fn not_in<'rhs, Rhs, Any>(
-        self,
-        rhs: Rhs,
-    ) -> <FieldType!(I) as FieldIn<'rhs, Rhs, Any>>::NiCond<I>
-    where
-        FieldType!(I): FieldIn<'rhs, Rhs, Any>,
-    {
-        <FieldType!(I)>::field_not_in(self, rhs)
-    }
-
-    /// Compare the field to another value using `<`
-    pub fn less_than<'rhs, Rhs, Any>(
-        self,
-        rhs: Rhs,
-    ) -> <FieldType!(I) as FieldOrd<'rhs, Rhs, Any>>::LtCond<I>
-    where
-        FieldType!(I): FieldOrd<'rhs, Rhs, Any>,
-    {
-        <FieldType!(I)>::field_less_than(self, rhs)
-    }
-
-    /// Compare the field to another value using `<=`
-    pub fn less_equals<'rhs, Rhs, Any>(
-        self,
-        rhs: Rhs,
-    ) -> <FieldType!(I) as FieldOrd<'rhs, Rhs, Any>>::LeCond<I>
-    where
-        FieldType!(I): FieldOrd<'rhs, Rhs, Any>,
-    {
-        <FieldType!(I)>::field_less_equals(self, rhs)
-    }
-
-    /// Compare the field to another value using `<`
-    pub fn greater_than<'rhs, Rhs, Any>(
-        self,
-        rhs: Rhs,
-    ) -> <FieldType!(I) as FieldOrd<'rhs, Rhs, Any>>::GtCond<I>
-    where
-        FieldType!(I): FieldOrd<'rhs, Rhs, Any>,
-    {
-        <FieldType!(I)>::field_greater_than(self, rhs)
-    }
-
-    /// Compare the field to another value using `>=`
-    pub fn greater_equals<'rhs, Rhs, Any>(
-        self,
-        rhs: Rhs,
-    ) -> <FieldType!(I) as FieldOrd<'rhs, Rhs, Any>>::GeCond<I>
-    where
-        FieldType!(I): FieldOrd<'rhs, Rhs, Any>,
-    {
-        <FieldType!(I)>::field_greater_equals(self, rhs)
-    }
-
-    /// Compare the field to another value using `LIKE`
-    pub fn like<'rhs, Rhs, Any>(
-        self,
-        rhs: Rhs,
-    ) -> <FieldType!(I) as FieldLike<'rhs, Rhs, Any>>::LiCond<I>
-    where
-        FieldType!(I): FieldLike<'rhs, Rhs, Any>,
-    {
-        <FieldType!(I)>::field_like(self, rhs)
-    }
-
-    /// Compare the field to another value using `NOT LIKE`
-    pub fn not_like<'rhs, Rhs, Any>(
-        self,
-        rhs: Rhs,
-    ) -> <FieldType!(I) as FieldLike<'rhs, Rhs, Any>>::NlCond<I>
-    where
-        FieldType!(I): FieldLike<'rhs, Rhs, Any>,
-    {
-        <FieldType!(I)>::field_not_like(self, rhs)
-    }
-
-    /// Uses `LIKE` to check whether the field contains the string `rhs`
-    pub fn contains<'rhs, Any>(
-        self,
-        rhs: &str,
-    ) -> <FieldType!(I) as FieldLike<'rhs, String, Any>>::LiCond<I>
-    where
-        FieldType!(I): FieldLike<'rhs, String, Any>,
-    {
-        self.like(format!("%{}%", escape_like(rhs)))
-    }
-
-    /// Uses `LIKE` to check whether the field starts with the string `rhs`
-    pub fn starts_with<'rhs, Any>(
-        self,
-        rhs: &str,
-    ) -> <FieldType!(I) as FieldLike<'rhs, String, Any>>::LiCond<I>
-    where
-        FieldType!(I): FieldLike<'rhs, String, Any>,
-    {
-        self.like(format!("{}%", escape_like(rhs)))
-    }
-
-    /// Uses `LIKE` to check whether the field ends with the string `rhs`
-    pub fn ends_with<'rhs, Any>(
-        self,
-        rhs: &str,
-    ) -> <FieldType!(I) as FieldLike<'rhs, String, Any>>::LiCond<I>
-    where
-        FieldType!(I): FieldLike<'rhs, String, Any>,
-    {
-        self.like(format!("%{}", escape_like(rhs)))
-    }
-
-    /// Compare the field to another value using `>=`
-    pub fn regexp<'rhs, Rhs: 'rhs, Any>(
-        self,
-        rhs: Rhs,
-    ) -> <FieldType!(I) as FieldRegexp<'rhs, Rhs, Any>>::ReCond<I>
-    where
-        FieldType!(I): FieldRegexp<'rhs, Rhs, Any>,
-    {
-        <FieldType!(I)>::field_regexp(self, rhs)
-    }
-
-    /// Compare the field to another value using `>=`
-    pub fn not_regexp<'rhs, Rhs: 'rhs, Any>(
-        self,
-        rhs: Rhs,
-    ) -> <FieldType!(I) as FieldRegexp<'rhs, Rhs, Any>>::NrCond<I>
-    where
-        FieldType!(I): FieldRegexp<'rhs, Rhs, Any>,
-    {
-        <FieldType!(I)>::field_not_regexp(self, rhs)
-    }
-
-    /// Returns the count of the number of times that the column is not null.
-    pub fn count(self) -> AggregatedColumn<I, i64>
-    where
-        FieldType!(I): FieldCount,
-    {
-        AggregatedColumn {
-            sql: SelectAggregator::Count,
-            alias: "count",
-            field: self,
-            result: PhantomData,
-        }
-    }
-
-    /// Returns the summary off all non-null values in the group.
-    /// If there are only null values in the group, this function will return null.
-    pub fn sum(self) -> AggregatedColumn<I, <FieldType!(I) as FieldSum>::Result>
-    where
-        FieldType!(I): FieldSum,
-    {
-        AggregatedColumn {
-            sql: SelectAggregator::Sum,
-            alias: "sum",
-            field: self,
-            result: PhantomData,
-        }
-    }
-
-    /// Returns the average value of all non-null values.
-    /// The result of avg is a floating point value, except all input values are null, than the
-    /// result will also be null.
-    pub fn avg(self) -> AggregatedColumn<I, Option<f64>>
-    where
-        FieldType!(I): FieldAvg,
-    {
-        AggregatedColumn {
-            sql: SelectAggregator::Avg,
-            alias: "avg",
-            field: self,
-            result: PhantomData,
-        }
-    }
-
-    /// Returns the maximum value of all values in the group.
-    /// If there are only null values in the group, this function will return null.
-    pub fn max(self) -> AggregatedColumn<I, <FieldType!(I) as FieldMax>::Result>
-    where
-        FieldType!(I): FieldMax,
-    {
-        AggregatedColumn {
-            sql: SelectAggregator::Max,
-            alias: "max",
-            field: self,
-            result: PhantomData,
-        }
-    }
-
-    /// Returns the minimum value of all values in the group.
-    /// If there are only null values in the group, this function will return null.
-    pub fn min(self) -> AggregatedColumn<I, <FieldType!(I) as FieldMin>::Result>
-    where
-        FieldType!(I): FieldMin,
-    {
-        AggregatedColumn {
-            sql: SelectAggregator::Min,
-            alias: "min",
-            field: self,
-            result: PhantomData,
-        }
-    }
-}
-
-#[cfg(feature = "postgres-only")]
-impl<I: FieldProxyImpl> FieldProxy<I> {
-    /// Compare the field to another value using `ILIKE`
-    pub fn like_ignore_case<'rhs, Rhs: 'rhs, Any>(
-        self,
-        rhs: Rhs,
-    ) -> <FieldType!(I) as FieldILike<'rhs, Rhs, Any>>::IliCond<I>
-    where
-        FieldType!(I): FieldILike<'rhs, Rhs, Any>,
-    {
-        <FieldType!(I)>::field_ilike(self, rhs)
-    }
-
-    /// Compare the field to another value using `NOT ILIKE`
-    pub fn not_like_ignore_case<'rhs, Rhs: 'rhs, Any>(
-        self,
-        rhs: Rhs,
-    ) -> <FieldType!(I) as FieldILike<'rhs, Rhs, Any>>::NilCond<I>
-    where
-        FieldType!(I): FieldILike<'rhs, Rhs, Any>,
-    {
-        <FieldType!(I)>::field_not_ilike(self, rhs)
-    }
-
-    /// Uses `ILIKE` to check whether the field contains the string `rhs` while ignoring case
-    pub fn contains_ignore_case<'rhs, Any>(
-        self,
-        rhs: &str,
-    ) -> <FieldType!(I) as FieldILike<'rhs, String, Any>>::IliCond<I>
-    where
-        FieldType!(I): FieldILike<'rhs, String, Any>,
-    {
-        self.like_ignore_case(format!("%{}%", escape_like(rhs)))
-    }
-
-    /// Uses `ILIKE` to check whether the field starts with the string `rhs` while ignoring case
-    pub fn starts_with_ignore_case<'rhs, Any>(
-        self,
-        rhs: &str,
-    ) -> <FieldType!(I) as FieldILike<'rhs, String, Any>>::IliCond<I>
-    where
-        FieldType!(I): FieldILike<'rhs, String, Any>,
-    {
-        self.like_ignore_case(format!("{}%", escape_like(rhs)))
-    }
-
-    /// Uses `ILIKE` to check whether the field ends with the string `rhs` while ignoring case
-    pub fn ends_with_ignore_case<'rhs, Any>(
-        self,
-        rhs: &str,
-    ) -> <FieldType!(I) as FieldILike<'rhs, String, Any>>::IliCond<I>
-    where
-        FieldType!(I): FieldILike<'rhs, String, Any>,
-    {
-        self.like_ignore_case(format!("%{}", escape_like(rhs)))
-    }
-
-    /// Uses `ILIKE` to check whether the field is equal to the string `rhs` while ignoring case
-    pub fn equals_ignore_case<'rhs, Any>(
-        self,
-        rhs: &str,
-    ) -> <FieldType!(I) as FieldILike<'rhs, String, Any>>::IliCond<I>
-    where
-        FieldType!(I): FieldILike<'rhs, String, Any>,
-    {
-        self.like_ignore_case(escape_like(rhs))
-    }
-}
-
-#[cfg(feature = "postgres-only")]
-impl<'a, I> FieldProxy<I>
-where
-    I: FieldProxyImpl,
-    I::Field: Field<Type = IpNetwork>,
-{
-    /// Compare the field to another value using postgresql's `<<`
-    pub fn net_contained_in(self, rhs: IpNetwork) -> Binary<Column<I>, Value<'a>> {
-        Binary {
-            operator: BinaryOperator::Contained,
-            fst_arg: Column(self),
-            snd_arg: Value::IpNetwork(rhs),
-        }
-    }
-
-    /// Compare the field to another value using postgresql's `<<=`
-    pub fn net_contained_in_or_equals(self, rhs: IpNetwork) -> Binary<Column<I>, Value<'a>> {
-        Binary {
-            operator: BinaryOperator::ContainedOrEquals,
-            fst_arg: Column(self),
-            snd_arg: Value::IpNetwork(rhs),
-        }
-    }
-
-    /// Compare the field to another value using postgresql's `>>`
-    pub fn net_contains(self, rhs: IpNetwork) -> Binary<Column<I>, Value<'a>> {
-        Binary {
-            operator: BinaryOperator::Contains,
-            fst_arg: Column(self),
-            snd_arg: Value::IpNetwork(rhs),
-        }
-    }
-
-    /// Compare the field to another value using postgresql's `>>=`
-    pub fn net_contains_or_equals(self, rhs: IpNetwork) -> Binary<Column<I>, Value<'a>> {
-        Binary {
-            operator: BinaryOperator::ContainsOrEquals,
-            fst_arg: Column(self),
-            snd_arg: Value::IpNetwork(rhs),
-        }
+    fn deref(&self) -> &Self::Target {
+        ConstRef::REF
     }
 }
 
@@ -450,17 +189,24 @@ pub trait FieldProxyImpl: 'static {
 
     /// Path the field is accessed through
     type Path: Path;
+
+    /// Target type this field proxy should deref to
+    ///
+    /// (i.e. the `Deref::Target`)
+    type DerefTarget: ConstRef;
 }
 
-impl<F, P> FieldProxyImpl for (F, P)
+impl<F, P, L> FieldProxyImpl for (F, P, L)
 where
     F: Field,
     P: Path,
+    L: FieldProxyLayerStack,
 {
     sealed!(impl);
 
     type Field = F;
     type Path = P;
+    type DerefTarget = L::SetImpl<(F, P, L::PopSelf)>;
 }
 
 /// Construct a new `FieldProxy`
@@ -468,7 +214,7 @@ where
 /// *Not relevant for the average rorm user*
 ///
 /// This function is used by the `#[derive(Model)]` macro to populate the Fields struct.
-pub const fn new<I: FieldProxyImpl>() -> FieldProxy<I> {
+pub const fn new<I: 'static>() -> FieldProxy<I> {
     FieldProxy(PhantomData)
 }
 
@@ -486,16 +232,8 @@ pub const fn index<I: FieldProxyImpl>(_: fn() -> FieldProxy<I>) -> usize {
 /// *Not relevant for the average rorm user*
 ///
 /// This function is used by the `#[derive(Patch)]` macro to gather a list of all columns.
-pub const fn columns<T: FieldProxyImpl>(
-    _: fn() -> FieldProxy<T>,
-) -> FieldColumns<<T::Field as Field>::Type, ColumnName> {
-    <T::Field as Field>::EFFECTIVE_NAMES
-}
-
-/// Escape the special character from an argument to `LIKE`
-fn escape_like(string: &str) -> String {
-    string
-        .replace('\\', r"\\")
-        .replace('%', r"\%")
-        .replace('_', r"\_")
+pub const fn columns<I: FieldProxyImpl>(
+    _: fn() -> FieldProxy<I>,
+) -> FieldColumns<<I::Field as Field>::Type, ColumnName> {
+    <I::Field as Field>::EFFECTIVE_NAMES
 }

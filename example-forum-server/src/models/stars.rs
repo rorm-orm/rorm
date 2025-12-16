@@ -2,6 +2,9 @@ use rorm::conditions::Value;
 use rorm::db::sql::value::NullType;
 use rorm::fields::traits::{Array, FieldColumns, FieldType};
 use rorm::fields::utils::check::shared_linter_check;
+use rorm::fields::utils::field_proxy_layer::{
+    OptionSimpleEqOrdMinMax, SimpleEqOrdMinMax, SimpleSumAvg,
+};
 use rorm::fields::utils::get_annotations::forward_annotations;
 use rorm::fields::utils::get_names::single_column_name;
 use rorm::prelude::ForeignModel;
@@ -73,6 +76,8 @@ impl FieldType for StarsAmount {
     type Columns = Array<1>;
 
     const NULL: FieldColumns<Self, NullType> = [NullType::I16];
+    type FieldProxyLayers = SimpleSumAvg<i64, SimpleEqOrdMinMax<i16>>;
+    type OptionFieldProxyLayers = SimpleSumAvg<i64, OptionSimpleEqOrdMinMax<i16>>;
 
     fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
         self.0.into_values()

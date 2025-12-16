@@ -4,38 +4,19 @@ use rorm_db::sql::value::NullType;
 use url::Url;
 
 use crate::conditions::Value;
-use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
 use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::utils::check::string_check;
+use crate::fields::utils::field_proxy_layer::StringLayers;
 use crate::fields::utils::get_annotations::forward_annotations;
 use crate::fields::utils::get_names::single_column_name;
 use crate::new_converting_decoder;
-
-impl<'rhs> SimpleFieldEq<'rhs, &'rhs Url> for Url {
-    fn into_value(rhs: &'rhs Url) -> Value<'rhs> {
-        Value::String(Cow::Borrowed(rhs.as_str()))
-    }
-}
-impl<'rhs> SimpleFieldIn<'rhs, &'rhs Url> for Url {
-    fn into_value(rhs: &'rhs Url) -> Value<'rhs> {
-        Value::String(Cow::Borrowed(rhs.as_str()))
-    }
-}
-impl<'rhs> SimpleFieldEq<'rhs, Url> for Url {
-    fn into_value(rhs: Url) -> Value<'rhs> {
-        Value::String(Cow::Owned(rhs.into()))
-    }
-}
-impl<'rhs> SimpleFieldIn<'rhs, Url> for Url {
-    fn into_value(rhs: Url) -> Value<'rhs> {
-        Value::String(Cow::Owned(rhs.into()))
-    }
-}
 
 impl FieldType for Url {
     type Columns = Array<1>;
 
     const NULL: FieldColumns<Self, NullType> = [NullType::String];
+    type FieldProxyLayers = StringLayers;
+    type OptionFieldProxyLayers = StringLayers;
 
     fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
         [Value::String(Cow::Owned(self.into()))]

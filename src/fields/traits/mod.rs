@@ -2,9 +2,9 @@
 
 use rorm_db::sql::value::NullType;
 
-pub use self::aggregate::*;
 pub use self::cmp::*;
 use crate::conditions::Value;
+use crate::fields::proxy::FieldProxyLayerStack;
 use crate::fields::utils::column_name::ColumnName;
 use crate::fields::utils::const_fn::ConstFn;
 use crate::internal::const_concat::ConstString;
@@ -12,9 +12,7 @@ use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::hmr::annotations::Annotations;
 use crate::{const_fn, sealed};
 
-pub mod aggregate;
 pub mod cmp;
-pub mod simple;
 
 /// Base trait for types which are allowed as fields in models
 pub trait FieldType: 'static {
@@ -26,6 +24,15 @@ pub trait FieldType: 'static {
     /// This is used to implement `into_values` and `as_values` for `Option<Self>`,
     /// as well as provide the columns' database types to the migrator.
     const NULL: FieldColumns<Self, NullType>;
+
+    /// The layers to use for field proxies to field of this type
+    ///
+    /// This type defines what methods can be called on `SomeModel.some_field`
+    /// where `some_field` is of type `Self`.
+    type FieldProxyLayers: FieldProxyLayerStack;
+
+    /// The [`FieldType::FieldProxyLayers`] of `Option<Self>`
+    type OptionFieldProxyLayers: FieldProxyLayerStack;
 
     /// Construct an array of [`Value`] representing `self` in the database via ownership
     fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>>;

@@ -10,7 +10,7 @@ use crate::conditions::Value;
 use crate::crud::decoder::Decoder;
 use crate::crud::selector::Selector;
 use crate::fields::proxy;
-use crate::fields::proxy::FieldProxy;
+use crate::fields::proxy::{FieldProxy, LayerStackBase};
 use crate::fields::utils::column_name::ColumnName;
 use crate::internal::patch::{IntoPatchCow, PatchCow};
 use crate::internal::query_context::QueryContext;
@@ -148,7 +148,9 @@ where
     }
 
     /// Return the tables primary key after performing the insert
-    pub fn return_primary_key(self) -> InsertBuilder<E, M, FieldProxy<(M::Primary, M)>> {
+    pub fn return_primary_key(
+        self,
+    ) -> InsertBuilder<E, M, FieldProxy<(M::Primary, M, LayerStackBase)>> {
         self.set_return(proxy::new())
     }
 

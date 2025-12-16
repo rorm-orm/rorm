@@ -1,6 +1,7 @@
 //! Implementation detail of [`ForeignModelByField`]
 
 use std::marker::PhantomData;
+use std::mem::ManuallyDrop;
 
 use rorm_db::row::RowError;
 use rorm_db::sql::value::NullType;
@@ -10,11 +11,10 @@ use crate::conditions::Value;
 use crate::const_fn;
 use crate::crud::decoder::Decoder;
 use crate::fields::proxy;
-use crate::fields::proxy::FieldProxyImpl;
-use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
-#[cfg(feature = "postgres-only")]
-use crate::fields::traits::FieldILike;
-use crate::fields::traits::{Array, FieldColumns, FieldLike};
+use crate::fields::proxy::{
+    FieldProxyImpl, FieldProxyLayerStack, FieldProxyLayerStackBase, LayerStackBase,
+};
+use crate::fields::traits::{Array, FieldColumns};
 use crate::fields::types::ForeignModelByField;
 use crate::fields::utils::get_names::single_column_name;
 use crate::internal::field::decoder::FieldDecoder;
@@ -50,6 +50,24 @@ where
     type Check = <FF::Type as FieldType>::Check;
 
     type GetNames = single_column_name;
+
+    type FieldProxyLayers =
+        <<FF::Type as FieldType>::FieldProxyLayers as FieldProxyLayerStack>::ReplaceBase<
+            ForeignModelFieldProxyLayerStackBase<FF>,
+        >;
+    type OptionFieldProxyLayers =
+        <<FF::Type as FieldType>::OptionFieldProxyLayers as FieldProxyLayerStack>::ReplaceBase<
+            ForeignModelFieldProxyLayerStackBase<FF>,
+        >;
+}
+
+pub struct ForeignModelFieldProxyLayerStackBase<FF>(PhantomData<ManuallyDrop<FF>>);
+impl<FF> FieldProxyLayerStackBase for ForeignModelFieldProxyLayerStackBase<FF>
+where
+    FF: SingleColumnField,
+    FF::Type: FieldType<Columns = Array<1>>,
+{
+    type SetImpl<I: FieldProxyImpl> = <FF::Model as Model>::Fields<(I::Field, I::Path)>;
 }
 
 #[doc(hidden)]
@@ -142,88 +160,8 @@ where
     {
         Self(FieldDecoder::new(
             ctx,
-            proxy::new::<(FakeField<FF::Type, I::Field>, I::Path)>(),
+            proxy::new::<(FakeField<FF::Type, I::Field>, I::Path, LayerStackBase)>(),
         ))
-    }
-}
-
-impl<'rhs, FF> SimpleFieldEq<'rhs, FF::Type, FieldEq_ForeignModelByField_Owned>
-    for ForeignModelByField<FF>
-where
-    FF: SingleColumnField,
-    FF::Type: FieldType<Columns = Array<1>>,
-{
-    fn into_value(rhs: FF::Type) -> Value<'rhs> {
-        <FF as SingleColumnField>::type_into_value(rhs)
-    }
-}
-impl<'rhs, FF> SimpleFieldIn<'rhs, FF::Type, FieldIn_ForeignModelByField_Owned>
-    for ForeignModelByField<FF>
-where
-    FF: SingleColumnField,
-    FF::Type: FieldType<Columns = Array<1>>,
-{
-    fn into_value(rhs: FF::Type) -> Value<'rhs> {
-        <FF as SingleColumnField>::type_into_value(rhs)
-    }
-}
-
-impl<'rhs, FF> SimpleFieldEq<'rhs, &'rhs FF::Type, FieldEq_ForeignModelByField_Borrowed>
-    for ForeignModelByField<FF>
-where
-    FF: SingleColumnField,
-    FF::Type: FieldType<Columns = Array<1>>,
-{
-    fn into_value(rhs: &'rhs FF::Type) -> Value<'rhs> {
-        <FF as SingleColumnField>::type_as_value(rhs)
-    }
-}
-impl<'rhs, FF> SimpleFieldIn<'rhs, &'rhs FF::Type, FieldIn_ForeignModelByField_Borrowed>
-    for ForeignModelByField<FF>
-where
-    FF: SingleColumnField,
-    FF::Type: FieldType<Columns = Array<1>>,
-{
-    fn into_value(rhs: &'rhs FF::Type) -> Value<'rhs> {
-        <FF as SingleColumnField>::type_as_value(rhs)
-    }
-}
-impl<'rhs, Rhs, Any, FF> FieldLike<'rhs, Rhs, FieldLike_ForeignModelByField<Any>>
-    for ForeignModelByField<FF>
-where
-    FF: SingleColumnField,
-    FF::Type: FieldLike<'rhs, Rhs, Any> + FieldType<Columns = Array<1>>,
-{
-    type LiCond<I: FieldProxyImpl> = <FF::Type as FieldLike<'rhs, Rhs, Any>>::LiCond<I>;
-
-    fn field_like<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::LiCond<I> {
-        <FF::Type as FieldLike<'rhs, Rhs, Any>>::field_like(field, value)
-    }
-
-    type NlCond<I: FieldProxyImpl> = <FF::Type as FieldLike<'rhs, Rhs, Any>>::NlCond<I>;
-
-    fn field_not_like<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::NlCond<I> {
-        <FF::Type as FieldLike<'rhs, Rhs, Any>>::field_not_like(field, value)
-    }
-}
-
-#[cfg(feature = "postgres-only")]
-impl<'rhs, Rhs, Any, FF> FieldILike<'rhs, Rhs, FieldLike_ForeignModelByField<Any>>
-    for ForeignModelByField<FF>
-where
-    FF: SingleColumnField,
-    FF::Type: FieldILike<'rhs, Rhs, Any> + FieldType<Columns = Array<1>>,
-{
-    type IliCond<I: FieldProxyImpl> = <FF::Type as FieldILike<'rhs, Rhs, Any>>::IliCond<I>;
-
-    fn field_ilike<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::IliCond<I> {
-        <FF::Type as FieldILike<'rhs, Rhs, Any>>::field_ilike(field, value)
-    }
-
-    type NilCond<I: FieldProxyImpl> = <FF::Type as FieldILike<'rhs, Rhs, Any>>::NilCond<I>;
-
-    fn field_not_ilike<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::NilCond<I> {
-        <FF::Type as FieldILike<'rhs, Rhs, Any>>::field_not_ilike(field, value)
     }
 }
 

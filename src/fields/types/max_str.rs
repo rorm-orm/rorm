@@ -14,13 +14,11 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::conditions::Value;
 use crate::crud::decoder::Decoder;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
-#[cfg(feature = "postgres-only")]
-use crate::fields::traits::simple::SimpleFieldILike;
-use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn, SimpleFieldLike};
 use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::types::max_str_impl::{LenImpl, NumBytes};
 use crate::fields::utils::check::shared_linter_check;
 use crate::fields::utils::const_fn::Contains;
+use crate::fields::utils::field_proxy_layer::StringLayers;
 use crate::fields::utils::get_annotations::merge_annotations;
 use crate::fields::utils::get_names::single_column_name;
 use crate::internal::field::decoder::FieldDecoder;
@@ -291,6 +289,8 @@ where
     type Columns = Array<1>;
 
     const NULL: FieldColumns<Self, NullType> = [NullType::String];
+    type FieldProxyLayers = StringLayers;
+    type OptionFieldProxyLayers = StringLayers;
 
     fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
         [Value::String(Cow::Owned(self.string))]
@@ -362,167 +362,6 @@ impl<const MAX_LEN: usize> Contains<Annotations> for ImplicitMaxLength<MAX_LEN> 
         annos.max_length = Some(MaxLength(MAX_LEN as i32));
         annos
     };
-}
-
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, &'rhs str> for MaxStr<MAX_LEN, Impl> {
-    fn into_value(rhs: &'rhs str) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, &'rhs str> for MaxStr<MAX_LEN, Impl> {
-    fn into_value(rhs: &'rhs str) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, &'rhs String> for MaxStr<MAX_LEN, Impl> {
-    fn into_value(rhs: &'rhs String) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, &'rhs String> for MaxStr<MAX_LEN, Impl> {
-    fn into_value(rhs: &'rhs String) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, String> for MaxStr<MAX_LEN, Impl> {
-    fn into_value(rhs: String) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, String> for MaxStr<MAX_LEN, Impl> {
-    fn into_value(rhs: String) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Cow<'rhs, str>>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: Cow<'rhs, str>) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, Cow<'rhs, str>>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: Cow<'rhs, str>) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, &'rhs MaxStr<MAX_LEN, Impl>>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: &'rhs MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
-        conv_string(&**rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, &'rhs MaxStr<MAX_LEN, Impl>>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: &'rhs MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
-        conv_string(&**rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, MaxStr<MAX_LEN, Impl>>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
-        conv_string(rhs.into_inner())
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, MaxStr<MAX_LEN, Impl>>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
-        conv_string(rhs.into_inner())
-    }
-}
-
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, &'rhs str> for MaxStr<MAX_LEN, Impl> {
-    fn into_value(rhs: &'rhs str) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, &'rhs String>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: &'rhs String) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, String> for MaxStr<MAX_LEN, Impl> {
-    fn into_value(rhs: String) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, Cow<'rhs, str>>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: Cow<'rhs, str>) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, &'rhs MaxStr<MAX_LEN, Impl>>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: &'rhs MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
-        conv_string(&**rhs)
-    }
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, MaxStr<MAX_LEN, Impl>>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
-        conv_string(rhs.into_inner())
-    }
-}
-
-#[cfg(feature = "postgres-only")]
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, &'rhs str> for MaxStr<MAX_LEN, Impl> {
-    fn into_value(rhs: &'rhs str) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-#[cfg(feature = "postgres-only")]
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, &'rhs String>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: &'rhs String) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-#[cfg(feature = "postgres-only")]
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, String> for MaxStr<MAX_LEN, Impl> {
-    fn into_value(rhs: String) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-#[cfg(feature = "postgres-only")]
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, Cow<'rhs, str>>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: Cow<'rhs, str>) -> Value<'rhs> {
-        conv_string(rhs)
-    }
-}
-#[cfg(feature = "postgres-only")]
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, &'rhs MaxStr<MAX_LEN, Impl>>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: &'rhs MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
-        conv_string(&**rhs)
-    }
-}
-#[cfg(feature = "postgres-only")]
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, MaxStr<MAX_LEN, Impl>>
-    for MaxStr<MAX_LEN, Impl>
-{
-    fn into_value(rhs: MaxStr<MAX_LEN, Impl>) -> Value<'rhs> {
-        conv_string(rhs.into_inner())
-    }
-}
-
-fn conv_string<'a>(value: impl Into<Cow<'a, str>>) -> Value<'a> {
-    Value::String(value.into())
 }
 
 #[cfg(feature = "utoipa")]

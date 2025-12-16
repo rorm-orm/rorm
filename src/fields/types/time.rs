@@ -2,97 +2,75 @@ use rorm_db::sql::value::NullType;
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 
 use crate::conditions::Value;
-use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
-use crate::{impl_FieldMin_FieldMax, impl_FieldOrd, impl_FieldType};
+use crate::crud::decoder::DirectDecoder;
+use crate::fields::traits::{Array, FieldColumns, FieldType};
+use crate::fields::utils::field_proxy_layer::{OptionSimpleEqOrdMinMax, SimpleEqOrdMinMax};
+use crate::fields::utils::{check, get_annotations, get_names};
 
-impl_FieldType!(Time, TimeTime, Value::TimeTime);
-impl<'rhs> SimpleFieldEq<'rhs, Time> for Time {
-    fn into_value(rhs: Time) -> Value<'rhs> {
-        Value::TimeTime(rhs)
+impl FieldType for Time {
+    type Columns = Array<1>;
+    const NULL: FieldColumns<Self, NullType> = [NullType::TimeTime];
+    type FieldProxyLayers = SimpleEqOrdMinMax<Self>;
+    type OptionFieldProxyLayers = OptionSimpleEqOrdMinMax<Self>;
+    fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
+        [Value::TimeTime(self)]
     }
-}
-impl<'rhs> SimpleFieldIn<'rhs, Time> for Time {
-    fn into_value(rhs: Time) -> Value<'rhs> {
-        Value::TimeTime(rhs)
+    fn as_values(&self) -> FieldColumns<Self, Value<'_>> {
+        [Value::TimeTime(*self)]
     }
-}
-
-impl_FieldOrd!(Time, Time, Value::TimeTime);
-impl_FieldOrd!(Option<Time>, Option<Time>, |option: Self| option
-    .map(Value::TimeTime)
-    .unwrap_or(Value::Null(NullType::TimeTime)));
-impl_FieldMin_FieldMax!(Time);
-
-impl_FieldType!(Date, TimeDate, Value::TimeDate);
-impl<'rhs> SimpleFieldEq<'rhs, Date> for Date {
-    fn into_value(rhs: Date) -> Value<'rhs> {
-        Value::TimeDate(rhs)
-    }
-}
-impl<'rhs> SimpleFieldIn<'rhs, Date> for Date {
-    fn into_value(rhs: Date) -> Value<'rhs> {
-        Value::TimeDate(rhs)
-    }
+    type Decoder = DirectDecoder<Self>;
+    type GetNames = get_names::single_column_name;
+    type GetAnnotations = get_annotations::forward_annotations<1>;
+    type Check = check::shared_linter_check<1>;
 }
 
-impl_FieldOrd!(Date, Date, Value::TimeDate);
-impl_FieldOrd!(Option<Date>, Option<Date>, |option: Self| option
-    .map(Value::TimeDate)
-    .unwrap_or(Value::Null(NullType::TimeDate)));
-impl_FieldMin_FieldMax!(Date);
-
-impl_FieldType!(
-    OffsetDateTime,
-    TimeOffsetDateTime,
-    Value::TimeOffsetDateTime
-);
-impl<'rhs> SimpleFieldEq<'rhs, OffsetDateTime> for OffsetDateTime {
-    fn into_value(rhs: OffsetDateTime) -> Value<'rhs> {
-        Value::TimeOffsetDateTime(rhs)
+impl FieldType for Date {
+    type Columns = Array<1>;
+    const NULL: FieldColumns<Self, NullType> = [NullType::TimeDate];
+    type FieldProxyLayers = SimpleEqOrdMinMax<Self>;
+    type OptionFieldProxyLayers = OptionSimpleEqOrdMinMax<Self>;
+    fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
+        [Value::TimeDate(self)]
     }
-}
-impl<'rhs> SimpleFieldIn<'rhs, OffsetDateTime> for OffsetDateTime {
-    fn into_value(rhs: OffsetDateTime) -> Value<'rhs> {
-        Value::TimeOffsetDateTime(rhs)
+    fn as_values(&self) -> FieldColumns<Self, Value<'_>> {
+        [Value::TimeDate(*self)]
     }
+    type Decoder = DirectDecoder<Self>;
+    type GetNames = get_names::single_column_name;
+    type GetAnnotations = get_annotations::forward_annotations<1>;
+    type Check = check::shared_linter_check<1>;
 }
 
-impl_FieldOrd!(OffsetDateTime, OffsetDateTime, Value::TimeOffsetDateTime);
-impl_FieldOrd!(
-    Option<OffsetDateTime>,
-    Option<OffsetDateTime>,
-    |option: Self| option
-        .map(Value::TimeOffsetDateTime)
-        .unwrap_or(Value::Null(NullType::TimeOffsetDateTime))
-);
-impl_FieldMin_FieldMax!(OffsetDateTime);
-
-impl_FieldType!(
-    PrimitiveDateTime,
-    TimePrimitiveDateTime,
-    Value::TimePrimitiveDateTime
-);
-impl<'rhs> SimpleFieldEq<'rhs, PrimitiveDateTime> for PrimitiveDateTime {
-    fn into_value(rhs: PrimitiveDateTime) -> Value<'rhs> {
-        Value::TimePrimitiveDateTime(rhs)
+impl FieldType for OffsetDateTime {
+    type Columns = Array<1>;
+    const NULL: FieldColumns<Self, NullType> = [NullType::TimeOffsetDateTime];
+    type FieldProxyLayers = SimpleEqOrdMinMax<Self>;
+    type OptionFieldProxyLayers = OptionSimpleEqOrdMinMax<Self>;
+    fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
+        [Value::TimeOffsetDateTime(self)]
     }
-}
-impl<'rhs> SimpleFieldIn<'rhs, PrimitiveDateTime> for PrimitiveDateTime {
-    fn into_value(rhs: PrimitiveDateTime) -> Value<'rhs> {
-        Value::TimePrimitiveDateTime(rhs)
+    fn as_values(&self) -> FieldColumns<Self, Value<'_>> {
+        [Value::TimeOffsetDateTime(*self)]
     }
+    type Decoder = DirectDecoder<Self>;
+    type GetNames = get_names::single_column_name;
+    type GetAnnotations = get_annotations::forward_annotations<1>;
+    type Check = check::shared_linter_check<1>;
 }
 
-impl_FieldOrd!(
-    PrimitiveDateTime,
-    PrimitiveDateTime,
-    Value::TimePrimitiveDateTime
-);
-impl_FieldOrd!(
-    Option<PrimitiveDateTime>,
-    Option<PrimitiveDateTime>,
-    |option: Self| option
-        .map(Value::TimePrimitiveDateTime)
-        .unwrap_or(Value::Null(NullType::TimePrimitiveDateTime))
-);
-impl_FieldMin_FieldMax!(PrimitiveDateTime);
+impl FieldType for PrimitiveDateTime {
+    type Columns = Array<1>;
+    const NULL: FieldColumns<Self, NullType> = [NullType::TimePrimitiveDateTime];
+    type FieldProxyLayers = SimpleEqOrdMinMax<Self>;
+    type OptionFieldProxyLayers = OptionSimpleEqOrdMinMax<Self>;
+    fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
+        [Value::TimePrimitiveDateTime(self)]
+    }
+    fn as_values(&self) -> FieldColumns<Self, Value<'_>> {
+        [Value::TimePrimitiveDateTime(*self)]
+    }
+    type Decoder = DirectDecoder<Self>;
+    type GetNames = get_names::single_column_name;
+    type GetAnnotations = get_annotations::forward_annotations<1>;
+    type Check = check::shared_linter_check<1>;
+}

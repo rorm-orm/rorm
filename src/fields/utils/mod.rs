@@ -3,5 +3,6 @@
 pub mod check;
 pub mod column_name;
 pub mod const_fn;
+pub mod field_proxy_layer;
 pub mod get_annotations;
 pub mod get_names;

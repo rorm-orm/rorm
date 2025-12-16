@@ -65,7 +65,7 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
         impl #impl_generics #rorm_path::model::Model for #ident #type_generics #where_clause {
             type Primary = #primary_struct #type_generics;
 
-            type Fields<P: #rorm_path::internal::relation_path::Path> = #fields_struct_ident #type_generics_with_path;
+            type Fields<P: 'static> = #fields_struct_ident #type_generics_with_path;
 
             const TABLE: &'static str = #table;
             const SOURCE: #rorm_path::internal::hmr::Source = #source;
@@ -326,12 +326,13 @@ fn generate_fields_struct(model: &AnalyzedModel, config: &MacroConfig) -> (Ident
     });
     let fields_ident_1 = model.fields.iter().map(|field| &field.ident);
     let fields_ident_2 = fields_ident_1.clone();
-    let fields_type = model.fields.iter().map(|field| &field.unit);
+    let fields_type = model.fields.iter().map(|field| &field.ty);
+    let fields_unit = model.fields.iter().map(|field| &field.unit);
 
     let mut generics = model.experimental_generics.clone();
-    generics.params.push(GenericParam::Type(
-        syn::parse_quote!(Path: #rorm_path::internal::relation_path::Path),
-    ));
+    generics
+        .params
+        .push(GenericParam::Type(syn::parse_quote!(Path: 'static)));
     let (impl_generics_with_path, type_generics_with_path, _) = generics.split_for_impl();
     let (_, type_generics, where_clause) = model.experimental_generics.split_for_impl();
 
@@ -341,7 +342,11 @@ fn generate_fields_struct(model: &AnalyzedModel, config: &MacroConfig) -> (Ident
         #vis struct #ident #impl_generics_with_path #where_clause {
             #(
                 #[doc = #fields_doc]
-                #fields_vis #fields_ident_1: #rorm_path::fields::proxy::FieldProxy<(#fields_type #type_generics, Path)>,
+                #fields_vis #fields_ident_1: #rorm_path::fields::proxy::FieldProxy<(
+                    #fields_unit #type_generics,
+                    Path,
+                    <#fields_type #type_generics as #rorm_path::fields::traits::FieldType>::FieldProxyLayers,
+                )>,
             )*
         }
         impl #impl_generics_with_path #rorm_path::internal::ConstRef for #ident #type_generics_with_path #where_clause {
