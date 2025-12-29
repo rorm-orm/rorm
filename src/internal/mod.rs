@@ -30,7 +30,7 @@ impl<F: Fn(&mut std::fmt::Formatter<'_>) -> std::fmt::Result> std::fmt::Display 
 /// This trait is a double workaround:
 /// 1. The is no const equivalent for [`Default`] because const functions are not stable
 /// 2. If 1 were fixed, one could not create a constant / static
-/// reference to this default value in a generic context:
+///    reference to this default value in a generic context:
 ///
 /// ```no_compile
 /// // Workaround for 1

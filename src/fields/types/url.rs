@@ -50,7 +50,7 @@ impl<'a> IntoValue<'a> for &'a Url {
         Value::String(Cow::Borrowed(self.as_str()))
     }
 }
-impl<'rhs> SimpleFieldEq<&'rhs Url> for Url {}
-impl<'rhs> SimpleFieldIn<&'rhs Url> for Url {}
+impl SimpleFieldEq<&'_ Url> for Url {}
+impl SimpleFieldIn<&'_ Url> for Url {}
 impl SimpleFieldEq<Url> for Url {}
 impl SimpleFieldIn<Url> for Url {}

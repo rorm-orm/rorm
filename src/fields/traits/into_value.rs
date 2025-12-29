@@ -1,8 +1,12 @@
+//! Trait converting types into SQL [`Value`]s
+
 use std::borrow::Cow;
 
 use crate::conditions::Value;
 
+/// A type which can be converted into an SQL [`Value`]
 pub trait IntoValue<'a> {
+    /// Converts `self` into an SQL [`Value`]
     fn into_value(self) -> Value<'a>;
 }
 

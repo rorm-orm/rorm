@@ -55,44 +55,44 @@ impl_FieldMin_FieldMax!(f64);
 impl_FieldType!(String, String, check::string_check);
 
 impl SimpleFieldEq for String {}
-impl<'rhs> SimpleFieldEq<&'rhs str> for String {}
-impl<'rhs> SimpleFieldEq<&'rhs String> for String {}
-impl<'rhs> SimpleFieldEq<Cow<'rhs, str>> for String {}
+impl SimpleFieldEq<&'_ str> for String {}
+impl SimpleFieldEq<&'_ String> for String {}
+impl SimpleFieldEq<Cow<'_, str>> for String {}
 
 impl SimpleFieldIn for String {}
-impl<'rhs> SimpleFieldIn<&'rhs str> for String {}
-impl<'rhs> SimpleFieldIn<&'rhs String> for String {}
-impl<'rhs> SimpleFieldIn<Cow<'rhs, str>> for String {}
+impl SimpleFieldIn<&'_ str> for String {}
+impl SimpleFieldIn<&'_ String> for String {}
+impl SimpleFieldIn<Cow<'_, str>> for String {}
 
 impl SimpleFieldOrd for String {}
-impl<'rhs> SimpleFieldOrd<&'rhs str> for String {}
-impl<'rhs> SimpleFieldOrd<&'rhs String> for String {}
-impl<'rhs> SimpleFieldOrd<Cow<'rhs, str>> for String {}
+impl SimpleFieldOrd<&'_ str> for String {}
+impl SimpleFieldOrd<&'_ String> for String {}
+impl SimpleFieldOrd<Cow<'_, str>> for String {}
 
 impl SimpleFieldLike for String {}
-impl<'rhs> SimpleFieldLike<&'rhs str> for String {}
-impl<'rhs> SimpleFieldLike<&'rhs String> for String {}
-impl<'rhs> SimpleFieldLike<Cow<'rhs, str>> for String {}
+impl SimpleFieldLike<&'_ str> for String {}
+impl SimpleFieldLike<&'_ String> for String {}
+impl SimpleFieldLike<Cow<'_, str>> for String {}
 
 #[cfg(feature = "postgres-only")]
 impl SimpleFieldILike for String {}
 #[cfg(feature = "postgres-only")]
-impl<'rhs> SimpleFieldILike<&'rhs str> for String {}
+impl SimpleFieldILike<&'_ str> for String {}
 #[cfg(feature = "postgres-only")]
-impl<'rhs> SimpleFieldILike<&'rhs String> for String {}
+impl SimpleFieldILike<&'_ String> for String {}
 #[cfg(feature = "postgres-only")]
-impl<'rhs> SimpleFieldILike<Cow<'rhs, str>> for String {}
+impl SimpleFieldILike<Cow<'_, str>> for String {}
 
 impl_FieldMin_FieldMax!(String);
 
 impl_FieldType!(Vec<u8>, Binary);
 
 impl SimpleFieldEq for Vec<u8> {}
-impl<'rhs> SimpleFieldEq<&'rhs [u8]> for Vec<u8> {}
-impl<'rhs> SimpleFieldEq<&'rhs Vec<u8>> for Vec<u8> {}
-impl<'rhs> SimpleFieldEq<Cow<'rhs, [u8]>> for Vec<u8> {}
+impl SimpleFieldEq<&'_ [u8]> for Vec<u8> {}
+impl SimpleFieldEq<&'_ Vec<u8>> for Vec<u8> {}
+impl SimpleFieldEq<Cow<'_, [u8]>> for Vec<u8> {}
 
 impl SimpleFieldOrd for Vec<u8> {}
-impl<'rhs> SimpleFieldOrd<&'rhs [u8]> for Vec<u8> {}
-impl<'rhs> SimpleFieldOrd<&'rhs Vec<u8>> for Vec<u8> {}
-impl<'rhs> SimpleFieldOrd<Cow<'rhs, [u8]>> for Vec<u8> {}
+impl SimpleFieldOrd<&'_ [u8]> for Vec<u8> {}
+impl SimpleFieldOrd<&'_ Vec<u8>> for Vec<u8> {}
+impl SimpleFieldOrd<Cow<'_, [u8]>> for Vec<u8> {}

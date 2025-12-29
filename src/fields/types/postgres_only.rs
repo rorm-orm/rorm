@@ -40,5 +40,5 @@ impl<'a> IntoValue<'a> for &'a BitVec {
 }
 impl SimpleFieldEq for BitVec {}
 impl SimpleFieldIn for BitVec {}
-impl<'rhs> SimpleFieldEq<&'rhs BitVec> for BitVec {}
-impl<'rhs> SimpleFieldIn<&'rhs BitVec> for BitVec {}
+impl SimpleFieldEq<&'_ BitVec> for BitVec {}
+impl SimpleFieldIn<&'_ BitVec> for BitVec {}
