@@ -52,15 +52,13 @@ const _: () = {
         Ok(BasicEnum::Baz), _ => Err(format!("Invalid value '{}' for enum '{}'", value,
         stringify!(BasicEnum))), } }
     );
-    impl<'rhs> ::rorm::fields::traits::simple::SimpleFieldEq<'rhs, BasicEnum>
-    for BasicEnum {
-        fn into_value(rhs: BasicEnum) -> ::rorm::conditions::Value<'rhs> {
-            let [value] = <BasicEnum as ::rorm::fields::traits::FieldType>::into_values(
-                rhs,
-            );
+    impl<'a> ::rorm::fields::traits::into_value::IntoValue<'a> for BasicEnum {
+        fn into_value(self) -> ::rorm::conditions::Value<'a> {
+            let [value] = ::rorm::fields::traits::FieldType::into_values(self);
             value
         }
     }
+    impl ::rorm::fields::traits::simple::SimpleFieldEq<BasicEnum> for BasicEnum {}
     ::rorm::const_fn! {
         pub fn get_db_enum_annotations(field :
         ::rorm::internal::hmr::annotations::Annotations) ->
