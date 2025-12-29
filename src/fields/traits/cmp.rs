@@ -175,6 +175,7 @@ where
 /// - a closure to convert the right hand side into a [`Value`]
 #[doc(hidden)]
 #[allow(non_snake_case)] // makes it clearer that a trait and which trait is meant
+#[deprecated(note = "Use `SimpleFieldOrd` instead")]
 #[macro_export]
 macro_rules! impl_FieldOrd {
     ($lhs:ty, $rhs:ty, $into_value:expr) => {

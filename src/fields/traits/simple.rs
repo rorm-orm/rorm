@@ -5,7 +5,7 @@ use crate::fields::proxy;
 use crate::fields::traits::into_value::IntoValue;
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::FieldILike;
-use crate::fields::traits::{FieldEq, FieldIn, FieldLike, FieldType};
+use crate::fields::traits::{FieldEq, FieldIn, FieldLike, FieldOrd, FieldType};
 
 /// A simpler alternative to [`FieldEq`]
 ///
@@ -35,6 +35,64 @@ where
     ) -> Self::NeCond<I> {
         Binary {
             operator: BinaryOperator::NotEquals,
+            fst_arg: Column(field),
+            snd_arg: value.into_value(),
+        }
+    }
+}
+
+/// A simpler alternative to [`FieldOrd`]
+///
+/// `Rhs` should implement [`IntoValue`] in order to be useful.
+pub trait SimpleFieldOrd<Rhs> {}
+impl<'rhs, Rhs, T> FieldOrd<'rhs, Rhs, private::Private> for T
+where
+    Rhs: IntoValue<'rhs>,
+    T: SimpleFieldOrd<Rhs> + FieldType,
+{
+    type LtCond<I: proxy::FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
+    fn field_less_than<I: proxy::FieldProxyImpl>(
+        field: proxy::FieldProxy<I>,
+        value: Rhs,
+    ) -> Self::LtCond<I> {
+        Binary {
+            operator: BinaryOperator::Less,
+            fst_arg: Column(field),
+            snd_arg: value.into_value(),
+        }
+    }
+
+    type LeCond<I: proxy::FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
+    fn field_less_equals<I: proxy::FieldProxyImpl>(
+        field: proxy::FieldProxy<I>,
+        value: Rhs,
+    ) -> Self::LeCond<I> {
+        Binary {
+            operator: BinaryOperator::LessOrEquals,
+            fst_arg: Column(field),
+            snd_arg: value.into_value(),
+        }
+    }
+
+    type GtCond<I: proxy::FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
+    fn field_greater_than<I: proxy::FieldProxyImpl>(
+        field: proxy::FieldProxy<I>,
+        value: Rhs,
+    ) -> Self::GtCond<I> {
+        Binary {
+            operator: BinaryOperator::Greater,
+            fst_arg: Column(field),
+            snd_arg: value.into_value(),
+        }
+    }
+
+    type GeCond<I: proxy::FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
+    fn field_greater_equals<I: proxy::FieldProxyImpl>(
+        field: proxy::FieldProxy<I>,
+        value: Rhs,
+    ) -> Self::GeCond<I> {
+        Binary {
+            operator: BinaryOperator::GreaterOrEquals,
             fst_arg: Column(field),
             snd_arg: value.into_value(),
         }

@@ -1,10 +1,9 @@
-use rorm_db::sql::value::NullType;
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 
 use crate::conditions::Value;
 use crate::fields::traits::into_value::IntoValue;
-use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
-use crate::{impl_FieldMin_FieldMax, impl_FieldOrd, impl_FieldType};
+use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn, SimpleFieldOrd};
+use crate::{impl_FieldMin_FieldMax, impl_FieldType};
 
 impl_FieldType!(Time, TimeTime);
 impl<'a> IntoValue<'a> for Time {
@@ -14,11 +13,7 @@ impl<'a> IntoValue<'a> for Time {
 }
 impl SimpleFieldEq<Time> for Time {}
 impl SimpleFieldIn<Time> for Time {}
-
-impl_FieldOrd!(Time, Time, Value::TimeTime);
-impl_FieldOrd!(Option<Time>, Option<Time>, |option: Self| option
-    .map(Value::TimeTime)
-    .unwrap_or(Value::Null(NullType::TimeTime)));
+impl SimpleFieldOrd<Time> for Time {}
 impl_FieldMin_FieldMax!(Time);
 
 impl_FieldType!(Date, TimeDate);
@@ -29,11 +24,7 @@ impl<'a> IntoValue<'a> for Date {
 }
 impl SimpleFieldEq<Date> for Date {}
 impl SimpleFieldIn<Date> for Date {}
-
-impl_FieldOrd!(Date, Date, Value::TimeDate);
-impl_FieldOrd!(Option<Date>, Option<Date>, |option: Self| option
-    .map(Value::TimeDate)
-    .unwrap_or(Value::Null(NullType::TimeDate)));
+impl SimpleFieldOrd<Date> for Date {}
 impl_FieldMin_FieldMax!(Date);
 
 impl_FieldType!(OffsetDateTime, TimeOffsetDateTime);
@@ -44,15 +35,7 @@ impl<'a> IntoValue<'a> for OffsetDateTime {
 }
 impl SimpleFieldEq<OffsetDateTime> for OffsetDateTime {}
 impl SimpleFieldIn<OffsetDateTime> for OffsetDateTime {}
-
-impl_FieldOrd!(OffsetDateTime, OffsetDateTime, Value::TimeOffsetDateTime);
-impl_FieldOrd!(
-    Option<OffsetDateTime>,
-    Option<OffsetDateTime>,
-    |option: Self| option
-        .map(Value::TimeOffsetDateTime)
-        .unwrap_or(Value::Null(NullType::TimeOffsetDateTime))
-);
+impl SimpleFieldOrd<OffsetDateTime> for OffsetDateTime {}
 impl_FieldMin_FieldMax!(OffsetDateTime);
 
 impl_FieldType!(PrimitiveDateTime, TimePrimitiveDateTime);
@@ -63,17 +46,5 @@ impl<'a> IntoValue<'a> for PrimitiveDateTime {
 }
 impl SimpleFieldEq<PrimitiveDateTime> for PrimitiveDateTime {}
 impl SimpleFieldIn<PrimitiveDateTime> for PrimitiveDateTime {}
-
-impl_FieldOrd!(
-    PrimitiveDateTime,
-    PrimitiveDateTime,
-    Value::TimePrimitiveDateTime
-);
-impl_FieldOrd!(
-    Option<PrimitiveDateTime>,
-    Option<PrimitiveDateTime>,
-    |option: Self| option
-        .map(Value::TimePrimitiveDateTime)
-        .unwrap_or(Value::Null(NullType::TimePrimitiveDateTime))
-);
+impl SimpleFieldOrd<PrimitiveDateTime> for PrimitiveDateTime {}
 impl_FieldMin_FieldMax!(PrimitiveDateTime);

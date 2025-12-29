@@ -2,13 +2,15 @@ use rorm_db::row::RowError;
 use rorm_db::sql::value::NullType;
 use rorm_db::Row;
 
-use crate::conditions::{Column, Condition, In, InOperator, Unary, UnaryOperator, Value};
+use crate::conditions::{
+    Binary, BinaryOperator, Column, Condition, In, InOperator, Unary, UnaryOperator, Value,
+};
 use crate::crud::decoder::Decoder;
 use crate::fields::proxy;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
 use crate::fields::traits::into_value::IntoValue;
-use crate::fields::traits::simple::SimpleFieldIn;
-use crate::fields::traits::{Array, Columns, FieldEq, FieldIn, FieldLike};
+use crate::fields::traits::simple::{SimpleFieldIn, SimpleFieldOrd};
+use crate::fields::traits::{Array, Columns, FieldEq, FieldIn, FieldLike, FieldOrd};
 use crate::fields::traits::{FieldColumns, FieldType};
 use crate::fields::utils::const_fn::{ConstFn, Contains};
 use crate::internal::field::decoder::FieldDecoder;
@@ -78,6 +80,68 @@ where
             operator: InOperator::NotIn,
             fst_arg: Column(field),
             snd_arg: value.into_iter().map(IntoValue::into_value).collect(),
+        }
+    }
+}
+
+impl<'rhs, T, Rhs> FieldOrd<'rhs, Option<Rhs>, private::OptionFieldOrd<()>> for Option<T>
+where
+    Rhs: IntoValue<'rhs>,
+    T: SimpleFieldOrd<Rhs> + FieldType<Columns = Array<1>>,
+{
+    type LtCond<I: FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
+    fn field_less_than<I: FieldProxyImpl>(
+        field: FieldProxy<I>,
+        value: Option<Rhs>,
+    ) -> Self::LtCond<I> {
+        Binary {
+            operator: BinaryOperator::Less,
+            fst_arg: Column(field),
+            snd_arg: value
+                .map(IntoValue::into_value)
+                .unwrap_or(Value::Null(T::NULL[0])),
+        }
+    }
+
+    type LeCond<I: FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
+    fn field_less_equals<I: FieldProxyImpl>(
+        field: FieldProxy<I>,
+        value: Option<Rhs>,
+    ) -> Self::LeCond<I> {
+        Binary {
+            operator: BinaryOperator::LessOrEquals,
+            fst_arg: Column(field),
+            snd_arg: value
+                .map(IntoValue::into_value)
+                .unwrap_or(Value::Null(T::NULL[0])),
+        }
+    }
+
+    type GtCond<I: FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
+    fn field_greater_than<I: FieldProxyImpl>(
+        field: FieldProxy<I>,
+        value: Option<Rhs>,
+    ) -> Self::GtCond<I> {
+        Binary {
+            operator: BinaryOperator::Greater,
+            fst_arg: Column(field),
+            snd_arg: value
+                .map(IntoValue::into_value)
+                .unwrap_or(Value::Null(T::NULL[0])),
+        }
+    }
+
+    type GeCond<I: FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
+    fn field_greater_equals<I: FieldProxyImpl>(
+        field: FieldProxy<I>,
+        value: Option<Rhs>,
+    ) -> Self::GeCond<I> {
+        Binary {
+            operator: BinaryOperator::GreaterOrEquals,
+            fst_arg: Column(field),
+            snd_arg: value
+                .map(IntoValue::into_value)
+                .unwrap_or(Value::Null(T::NULL[0])),
         }
     }
 }
@@ -254,5 +318,6 @@ mod private {
 
     pub struct OptionFieldEq<T>(PhantomData<T>);
     pub struct OptionFieldIn<T>(PhantomData<T>);
+    pub struct OptionFieldOrd<T>(PhantomData<T>);
     pub struct OptionFieldLike<T>(PhantomData<T>);
 }

@@ -3,6 +3,7 @@ Since 0.9.6
 - Introduced `IntoValue` trait
 - Simplified "simple" comparision traits even further
 - Removed `impl_FieldEq!` macro
+- Introduced `SimpleFieldOrd` and deprecated `impl_FieldOrd!`
 
 Notes for publishing
 --------------------
