@@ -1,5 +1,8 @@
 Since 0.9.6
 -----------
+- Introduced `IntoValue` trait
+- Simplified "simple" comparision traits even further
+- Removed `impl_FieldEq!` macro
 
 Notes for publishing
 --------------------

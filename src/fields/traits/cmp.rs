@@ -134,58 +134,6 @@ pub trait FieldILike<'rhs, Rhs, Any = ()>: FieldType {
 
 // TODO: null check, BETWEEN, IN
 
-/// Provides the "default" implementation of [`FieldEq`].
-///
-/// It expects a "usual" impl block
-/// whose body is a closure which converts the `Rhs` into a [`Value`]
-#[doc(hidden)]
-#[allow(non_snake_case)] // makes it clearer that a trait and which trait is meant
-#[deprecated(note = "Use SimpleFieldEq instead")]
-#[macro_export]
-macro_rules! impl_FieldEq {
-    (impl<'rhs $(, $generic:ident $( $const_name:ident : $const_type:ty )?)*> FieldEq<'rhs, $rhs:ty $(, $any:ty)?> for $lhs:ty $(where $( $bound_left:path : $bound_right:path ,)*)? { $into_value:expr }) => {
-        impl<'rhs $(, $generic $($const_name : $const_type)?)*> $crate::fields::traits::cmp::FieldEq<'rhs, $rhs $(, $any)?> for $lhs
-        where
-            $lhs: $crate::fields::traits::FieldType,
-            $($( $bound_left : $bound_right ,)*)?
-        {
-            type EqCond<I: $crate::fields::proxy::FieldProxyImpl>
-                = $crate::conditions::Binary<
-                    $crate::conditions::Column<I>,
-                    $crate::conditions::Value<'rhs>,
-                >;
-            fn field_equals<I: $crate::fields::proxy::FieldProxyImpl>(
-                field: $crate::fields::proxy::FieldProxy<I>,
-                value: $rhs
-            ) -> Self::EqCond<I> {
-                $crate::conditions::Binary {
-                    operator: $crate::conditions::BinaryOperator::Equals,
-                    fst_arg: $crate::conditions::Column(field),
-                    #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
-                    snd_arg: $into_value(value),
-                }
-            }
-
-            type NeCond<I: $crate::fields::proxy::FieldProxyImpl>
-                = $crate::conditions::Binary<
-                    $crate::conditions::Column<I>,
-                    $crate::conditions::Value<'rhs>,
-                >;
-            fn field_not_equals<I: $crate::fields::proxy::FieldProxyImpl>(
-                field: $crate::fields::proxy::FieldProxy<I>,
-                value: $rhs
-            ) -> Self::NeCond<I> {
-                $crate::conditions::Binary {
-                    operator: $crate::conditions::BinaryOperator::NotEquals,
-                    fst_arg: $crate::conditions::Column(field),
-                    #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
-                    snd_arg: $into_value(value),
-                }
-            }
-        }
-    };
-}
-
 // Impl FieldEq<FieldProxy> iff FieldEq<Self>
 impl<'rhs, I2, T> FieldEq<'rhs, FieldProxy<I2>> for T
 where
