@@ -73,7 +73,7 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum, config: &MacroConfig) -> TokenStr
                     value
                 }
             }
-            impl<'rhs> #rorm_path::fields::traits::simple::SimpleFieldEq<'rhs, #ident> for #ident {}
+            impl #rorm_path::fields::traits::simple::SimpleFieldEq<#ident> for #ident {}
 
             #rorm_path::const_fn! {
                 pub fn get_db_enum_annotations(

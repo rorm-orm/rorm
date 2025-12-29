@@ -12,8 +12,8 @@ impl<'a> IntoValue<'a> for NaiveTime {
         Value::ChronoNaiveTime(self)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, NaiveTime> for NaiveTime {}
-impl<'rhs> SimpleFieldIn<'rhs, NaiveTime> for NaiveTime {}
+impl SimpleFieldEq<NaiveTime> for NaiveTime {}
+impl SimpleFieldIn<NaiveTime> for NaiveTime {}
 impl_FieldOrd!(NaiveTime, NaiveTime, Value::ChronoNaiveTime);
 impl_FieldOrd!(Option<NaiveTime>, Option<NaiveTime>, |option: Self| option
     .map(Value::ChronoNaiveTime)
@@ -26,8 +26,8 @@ impl<'a> IntoValue<'a> for NaiveDate {
         Value::ChronoNaiveDate(self)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, NaiveDate> for NaiveDate {}
-impl<'rhs> SimpleFieldIn<'rhs, NaiveDate> for NaiveDate {}
+impl SimpleFieldEq<NaiveDate> for NaiveDate {}
+impl SimpleFieldIn<NaiveDate> for NaiveDate {}
 impl_FieldOrd!(NaiveDate, NaiveDate, Value::ChronoNaiveDate);
 impl_FieldOrd!(Option<NaiveDate>, Option<NaiveDate>, |option: Self| option
     .map(Value::ChronoNaiveDate)
@@ -40,8 +40,8 @@ impl<'a> IntoValue<'a> for NaiveDateTime {
         Value::ChronoNaiveDateTime(self)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, NaiveDateTime> for NaiveDateTime {}
-impl<'rhs> SimpleFieldIn<'rhs, NaiveDateTime> for NaiveDateTime {}
+impl SimpleFieldEq<NaiveDateTime> for NaiveDateTime {}
+impl SimpleFieldIn<NaiveDateTime> for NaiveDateTime {}
 impl_FieldOrd!(NaiveDateTime, NaiveDateTime, Value::ChronoNaiveDateTime);
 impl_FieldOrd!(
     Option<NaiveDateTime>,
@@ -58,8 +58,8 @@ impl<'a> IntoValue<'a> for DateTime<Utc> {
         Value::ChronoDateTime(self)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, DateTime<Utc>> for DateTime<Utc> {}
-impl<'rhs> SimpleFieldIn<'rhs, DateTime<Utc>> for DateTime<Utc> {}
+impl SimpleFieldEq<DateTime<Utc>> for DateTime<Utc> {}
+impl SimpleFieldIn<DateTime<Utc>> for DateTime<Utc> {}
 impl_FieldOrd!(DateTime<Utc>, DateTime<Utc>, Value::ChronoDateTime);
 impl_FieldOrd!(
     Option<DateTime<Utc>>,

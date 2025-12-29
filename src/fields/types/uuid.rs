@@ -11,5 +11,5 @@ impl<'a> IntoValue<'a> for Uuid {
         Value::Uuid(self)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, Uuid> for Uuid {}
-impl<'rhs> SimpleFieldIn<'rhs, Uuid> for Uuid {}
+impl SimpleFieldEq<Uuid> for Uuid {}
+impl SimpleFieldIn<Uuid> for Uuid {}

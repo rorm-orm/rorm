@@ -58,8 +58,8 @@ where
 impl<'rhs, Rhs, T> FieldIn<'rhs, Rhs, private::OptionFieldIn<()>> for Option<T>
 where
     Rhs: IntoIterator,
-    Rhs::Item: 'rhs + IntoValue<'rhs>,
-    T: SimpleFieldIn<'rhs, Rhs::Item> + FieldType,
+    Rhs::Item: IntoValue<'rhs>,
+    T: SimpleFieldIn<Rhs::Item> + FieldType,
 {
     type InCond<I: FieldProxyImpl> = In<Column<I>, Value<'rhs>>;
 

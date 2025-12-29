@@ -12,8 +12,8 @@ impl<'a> IntoValue<'a> for Time {
         Value::TimeTime(self)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, Time> for Time {}
-impl<'rhs> SimpleFieldIn<'rhs, Time> for Time {}
+impl SimpleFieldEq<Time> for Time {}
+impl SimpleFieldIn<Time> for Time {}
 
 impl_FieldOrd!(Time, Time, Value::TimeTime);
 impl_FieldOrd!(Option<Time>, Option<Time>, |option: Self| option
@@ -27,8 +27,8 @@ impl<'a> IntoValue<'a> for Date {
         Value::TimeDate(self)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, Date> for Date {}
-impl<'rhs> SimpleFieldIn<'rhs, Date> for Date {}
+impl SimpleFieldEq<Date> for Date {}
+impl SimpleFieldIn<Date> for Date {}
 
 impl_FieldOrd!(Date, Date, Value::TimeDate);
 impl_FieldOrd!(Option<Date>, Option<Date>, |option: Self| option
@@ -42,8 +42,8 @@ impl<'a> IntoValue<'a> for OffsetDateTime {
         Value::TimeOffsetDateTime(self)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, OffsetDateTime> for OffsetDateTime {}
-impl<'rhs> SimpleFieldIn<'rhs, OffsetDateTime> for OffsetDateTime {}
+impl SimpleFieldEq<OffsetDateTime> for OffsetDateTime {}
+impl SimpleFieldIn<OffsetDateTime> for OffsetDateTime {}
 
 impl_FieldOrd!(OffsetDateTime, OffsetDateTime, Value::TimeOffsetDateTime);
 impl_FieldOrd!(
@@ -61,8 +61,8 @@ impl<'a> IntoValue<'a> for PrimitiveDateTime {
         Value::TimePrimitiveDateTime(self)
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, PrimitiveDateTime> for PrimitiveDateTime {}
-impl<'rhs> SimpleFieldIn<'rhs, PrimitiveDateTime> for PrimitiveDateTime {}
+impl SimpleFieldEq<PrimitiveDateTime> for PrimitiveDateTime {}
+impl SimpleFieldIn<PrimitiveDateTime> for PrimitiveDateTime {}
 
 impl_FieldOrd!(
     PrimitiveDateTime,

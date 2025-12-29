@@ -9,13 +9,12 @@ use crate::fields::traits::{FieldEq, FieldIn, FieldLike, FieldType};
 
 /// A simpler alternative to [`FieldEq`]
 ///
-/// It will convert the `rhs` into a sql value and compare it using the normal
-/// equal and not equal operators.
-pub trait SimpleFieldEq<'rhs, Rhs: IntoValue<'rhs>> {}
+/// `Rhs` should implement [`IntoValue`] in order to be useful.
+pub trait SimpleFieldEq<Rhs> {}
 impl<'rhs, Rhs, T> FieldEq<'rhs, Rhs, private::Private> for T
 where
-    Rhs: 'rhs + IntoValue<'rhs>,
-    T: SimpleFieldEq<'rhs, Rhs> + FieldType,
+    Rhs: IntoValue<'rhs>,
+    T: SimpleFieldEq<Rhs> + FieldType,
 {
     type EqCond<I: proxy::FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
     fn field_equals<I: proxy::FieldProxyImpl>(
@@ -44,13 +43,12 @@ where
 
 /// A simpler alternative to [`FieldLike`]
 ///
-/// It will convert the `rhs` into a sql value and compare it using the normal
-/// like and not like operators.
-pub trait SimpleFieldLike<'rhs, Rhs: IntoValue<'rhs>> {}
+/// `Rhs` should implement [`IntoValue`] in order to be useful.
+pub trait SimpleFieldLike<Rhs> {}
 impl<'rhs, Rhs, T> FieldLike<'rhs, Rhs, private::Private> for T
 where
-    Rhs: 'rhs + IntoValue<'rhs>,
-    T: SimpleFieldLike<'rhs, Rhs> + FieldType,
+    Rhs: IntoValue<'rhs>,
+    T: SimpleFieldLike<Rhs> + FieldType,
 {
     type LiCond<I: proxy::FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
 
@@ -81,14 +79,13 @@ where
 
 /// A simpler alternative to [`FieldIn`]
 ///
-/// It will convert the `rhs`'s items into a sql value and compare it using the normal
-/// in and not in operators.
-pub trait SimpleFieldIn<'rhs, RhsItem: IntoValue<'rhs>> {}
+/// `Rhs` should implement [`IntoValue`] in order to be useful.
+pub trait SimpleFieldIn<RhsItem> {}
 impl<'rhs, Rhs, T> FieldIn<'rhs, Rhs, private::Private> for T
 where
     Rhs: IntoIterator,
-    Rhs::Item: 'rhs + IntoValue<'rhs>,
-    T: SimpleFieldIn<'rhs, Rhs::Item> + FieldType,
+    Rhs::Item: IntoValue<'rhs>,
+    T: SimpleFieldIn<Rhs::Item> + FieldType,
 {
     type InCond<I: proxy::FieldProxyImpl> = In<Column<I>, Value<'rhs>>;
 
@@ -119,15 +116,14 @@ where
 
 /// A simpler alternative to [`FieldILike`]
 ///
-/// It will convert the `rhs` into a sql value and compare it using the normal
-/// ilike and not ilike operators.
+/// `Rhs` should implement [`IntoValue`] in order to be useful.
 #[cfg(feature = "postgres-only")]
-pub trait SimpleFieldILike<'rhs, Rhs: IntoValue<'rhs>> {}
+pub trait SimpleFieldILike<Rhs> {}
 #[cfg(feature = "postgres-only")]
 impl<'rhs, Rhs, T> FieldILike<'rhs, Rhs, private::Private> for T
 where
-    Rhs: 'rhs + IntoValue<'rhs>,
-    T: SimpleFieldLike<'rhs, Rhs> + FieldType,
+    Rhs: IntoValue<'rhs>,
+    T: SimpleFieldLike<Rhs> + FieldType,
 {
     type IliCond<I: proxy::FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
 

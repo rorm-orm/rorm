@@ -11,7 +11,6 @@ use crate::const_fn;
 use crate::crud::decoder::Decoder;
 use crate::fields::proxy;
 use crate::fields::proxy::FieldProxyImpl;
-use crate::fields::traits::into_value::IntoValue;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn, SimpleFieldLike};
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::FieldILike;
@@ -148,28 +147,25 @@ where
     }
 }
 
-impl<'rhs, FF, Rhs> SimpleFieldEq<'rhs, Rhs> for ForeignModelByField<FF>
+impl<FF, Rhs> SimpleFieldEq<Rhs> for ForeignModelByField<FF>
 where
-    Rhs: IntoValue<'rhs>,
     FF: SingleColumnField,
     FF::Type: FieldType<Columns = Array<1>>,
-    FF::Type: SimpleFieldEq<'rhs, Rhs>,
+    FF::Type: SimpleFieldEq<Rhs>,
 {
 }
-impl<'rhs, FF, Rhs> SimpleFieldIn<'rhs, Rhs> for ForeignModelByField<FF>
+impl<FF, Rhs> SimpleFieldIn<Rhs> for ForeignModelByField<FF>
 where
-    Rhs: IntoValue<'rhs>,
     FF: SingleColumnField,
     FF::Type: FieldType<Columns = Array<1>>,
-    FF::Type: SimpleFieldIn<'rhs, Rhs>,
+    FF::Type: SimpleFieldIn<Rhs>,
 {
 }
-impl<'rhs, FF, Rhs> SimpleFieldLike<'rhs, Rhs> for ForeignModelByField<FF>
+impl<FF, Rhs> SimpleFieldLike<Rhs> for ForeignModelByField<FF>
 where
-    Rhs: IntoValue<'rhs>,
     FF: SingleColumnField,
     FF::Type: FieldType<Columns = Array<1>>,
-    FF::Type: SimpleFieldLike<'rhs, Rhs>,
+    FF::Type: SimpleFieldLike<Rhs>,
 {
 }
 

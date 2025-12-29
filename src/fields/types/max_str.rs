@@ -365,74 +365,38 @@ impl<const MAX_LEN: usize> Contains<Annotations> for ImplicitMaxLength<MAX_LEN> 
     };
 }
 
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, &'rhs str> for MaxStr<MAX_LEN, Impl> {}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, &'rhs str> for MaxStr<MAX_LEN, Impl> {}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, &'rhs String> for MaxStr<MAX_LEN, Impl> {}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, &'rhs String> for MaxStr<MAX_LEN, Impl> {}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, String> for MaxStr<MAX_LEN, Impl> {}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, String> for MaxStr<MAX_LEN, Impl> {}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Cow<'rhs, str>>
-    for MaxStr<MAX_LEN, Impl>
-{
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, Cow<'rhs, str>>
-    for MaxStr<MAX_LEN, Impl>
-{
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, &'rhs Self> for MaxStr<MAX_LEN, Impl> {}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, &'rhs MaxStr<MAX_LEN, Impl>>
-    for MaxStr<MAX_LEN, Impl>
-{
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<'rhs, Self> for MaxStr<MAX_LEN, Impl> {}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<'rhs, MaxStr<MAX_LEN, Impl>>
-    for MaxStr<MAX_LEN, Impl>
-{
-}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<&'rhs str> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<&'rhs str> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<&'rhs String> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<&'rhs String> for MaxStr<MAX_LEN, Impl> {}
+impl<const MAX_LEN: usize, Impl> SimpleFieldEq<String> for MaxStr<MAX_LEN, Impl> {}
+impl<const MAX_LEN: usize, Impl> SimpleFieldIn<String> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<Cow<'rhs, str>> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<Cow<'rhs, str>> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<&'rhs Self> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<&'rhs Self> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldEq<Self> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldIn<Self> for MaxStr<MAX_LEN, Impl> {}
 
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, &'rhs str> for MaxStr<MAX_LEN, Impl> {}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, &'rhs String>
-    for MaxStr<MAX_LEN, Impl>
-{
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, String> for MaxStr<MAX_LEN, Impl> {}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, Cow<'rhs, str>>
-    for MaxStr<MAX_LEN, Impl>
-{
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, &'rhs MaxStr<MAX_LEN, Impl>>
-    for MaxStr<MAX_LEN, Impl>
-{
-}
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<'rhs, MaxStr<MAX_LEN, Impl>>
-    for MaxStr<MAX_LEN, Impl>
-{
-}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<&'rhs str> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<&'rhs String> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<String> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<Cow<'rhs, str>> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<&'rhs Self> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldLike<Self> for MaxStr<MAX_LEN, Impl> {}
 
 #[cfg(feature = "postgres-only")]
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, &'rhs str> for MaxStr<MAX_LEN, Impl> {}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<&'rhs str> for MaxStr<MAX_LEN, Impl> {}
 #[cfg(feature = "postgres-only")]
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, &'rhs String>
-    for MaxStr<MAX_LEN, Impl>
-{
-}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<&'rhs String> for MaxStr<MAX_LEN, Impl> {}
 #[cfg(feature = "postgres-only")]
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, String> for MaxStr<MAX_LEN, Impl> {}
+impl<const MAX_LEN: usize, Impl> SimpleFieldILike<String> for MaxStr<MAX_LEN, Impl> {}
 #[cfg(feature = "postgres-only")]
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, Cow<'rhs, str>>
-    for MaxStr<MAX_LEN, Impl>
-{
-}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<Cow<'rhs, str>> for MaxStr<MAX_LEN, Impl> {}
 #[cfg(feature = "postgres-only")]
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, &'rhs MaxStr<MAX_LEN, Impl>>
-    for MaxStr<MAX_LEN, Impl>
-{
-}
+impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<&'rhs Self> for MaxStr<MAX_LEN, Impl> {}
 #[cfg(feature = "postgres-only")]
-impl<'rhs, const MAX_LEN: usize, Impl> SimpleFieldILike<'rhs, MaxStr<MAX_LEN, Impl>>
-    for MaxStr<MAX_LEN, Impl>
-{
-}
+impl<const MAX_LEN: usize, Impl> SimpleFieldILike<Self> for MaxStr<MAX_LEN, Impl> {}
 
 impl<'a, const MAX_LEN: usize, Impl, Str> IntoValue<'a> for MaxStr<MAX_LEN, Impl, Str>
 where
