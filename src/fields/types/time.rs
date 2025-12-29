@@ -11,9 +11,9 @@ impl<'a> IntoValue<'a> for Time {
         Value::TimeTime(self)
     }
 }
-impl SimpleFieldEq<Time> for Time {}
-impl SimpleFieldIn<Time> for Time {}
-impl SimpleFieldOrd<Time> for Time {}
+impl SimpleFieldEq for Time {}
+impl SimpleFieldIn for Time {}
+impl SimpleFieldOrd for Time {}
 impl_FieldMin_FieldMax!(Time);
 
 impl_FieldType!(Date, TimeDate);
@@ -22,9 +22,9 @@ impl<'a> IntoValue<'a> for Date {
         Value::TimeDate(self)
     }
 }
-impl SimpleFieldEq<Date> for Date {}
-impl SimpleFieldIn<Date> for Date {}
-impl SimpleFieldOrd<Date> for Date {}
+impl SimpleFieldEq for Date {}
+impl SimpleFieldIn for Date {}
+impl SimpleFieldOrd for Date {}
 impl_FieldMin_FieldMax!(Date);
 
 impl_FieldType!(OffsetDateTime, TimeOffsetDateTime);
@@ -33,9 +33,9 @@ impl<'a> IntoValue<'a> for OffsetDateTime {
         Value::TimeOffsetDateTime(self)
     }
 }
-impl SimpleFieldEq<OffsetDateTime> for OffsetDateTime {}
-impl SimpleFieldIn<OffsetDateTime> for OffsetDateTime {}
-impl SimpleFieldOrd<OffsetDateTime> for OffsetDateTime {}
+impl SimpleFieldEq for OffsetDateTime {}
+impl SimpleFieldIn for OffsetDateTime {}
+impl SimpleFieldOrd for OffsetDateTime {}
 impl_FieldMin_FieldMax!(OffsetDateTime);
 
 impl_FieldType!(PrimitiveDateTime, TimePrimitiveDateTime);
@@ -44,7 +44,7 @@ impl<'a> IntoValue<'a> for PrimitiveDateTime {
         Value::TimePrimitiveDateTime(self)
     }
 }
-impl SimpleFieldEq<PrimitiveDateTime> for PrimitiveDateTime {}
-impl SimpleFieldIn<PrimitiveDateTime> for PrimitiveDateTime {}
-impl SimpleFieldOrd<PrimitiveDateTime> for PrimitiveDateTime {}
+impl SimpleFieldEq for PrimitiveDateTime {}
+impl SimpleFieldIn for PrimitiveDateTime {}
+impl SimpleFieldOrd for PrimitiveDateTime {}
 impl_FieldMin_FieldMax!(PrimitiveDateTime);

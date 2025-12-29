@@ -11,9 +11,9 @@ impl<'a> IntoValue<'a> for NaiveTime {
         Value::ChronoNaiveTime(self)
     }
 }
-impl SimpleFieldEq<NaiveTime> for NaiveTime {}
-impl SimpleFieldIn<NaiveTime> for NaiveTime {}
-impl SimpleFieldOrd<NaiveTime> for NaiveTime {}
+impl SimpleFieldEq for NaiveTime {}
+impl SimpleFieldIn for NaiveTime {}
+impl SimpleFieldOrd for NaiveTime {}
 impl_FieldMin_FieldMax!(NaiveTime);
 
 impl_FieldType!(NaiveDate, ChronoNaiveDate);
@@ -22,9 +22,9 @@ impl<'a> IntoValue<'a> for NaiveDate {
         Value::ChronoNaiveDate(self)
     }
 }
-impl SimpleFieldEq<NaiveDate> for NaiveDate {}
-impl SimpleFieldIn<NaiveDate> for NaiveDate {}
-impl SimpleFieldOrd<NaiveDate> for NaiveDate {}
+impl SimpleFieldEq for NaiveDate {}
+impl SimpleFieldIn for NaiveDate {}
+impl SimpleFieldOrd for NaiveDate {}
 impl_FieldMin_FieldMax!(NaiveDate);
 
 impl_FieldType!(NaiveDateTime, ChronoNaiveDateTime);
@@ -33,9 +33,9 @@ impl<'a> IntoValue<'a> for NaiveDateTime {
         Value::ChronoNaiveDateTime(self)
     }
 }
-impl SimpleFieldEq<NaiveDateTime> for NaiveDateTime {}
-impl SimpleFieldIn<NaiveDateTime> for NaiveDateTime {}
-impl SimpleFieldOrd<NaiveDateTime> for NaiveDateTime {}
+impl SimpleFieldEq for NaiveDateTime {}
+impl SimpleFieldIn for NaiveDateTime {}
+impl SimpleFieldOrd for NaiveDateTime {}
 impl_FieldMin_FieldMax!(NaiveDateTime);
 
 impl_FieldType!(DateTime<Utc>, ChronoDateTime);
@@ -44,7 +44,7 @@ impl<'a> IntoValue<'a> for DateTime<Utc> {
         Value::ChronoDateTime(self)
     }
 }
-impl SimpleFieldEq<DateTime<Utc>> for DateTime<Utc> {}
-impl SimpleFieldIn<DateTime<Utc>> for DateTime<Utc> {}
-impl SimpleFieldOrd<DateTime<Utc>> for DateTime<Utc> {}
+impl SimpleFieldEq for DateTime<Utc> {}
+impl SimpleFieldIn for DateTime<Utc> {}
+impl SimpleFieldOrd for DateTime<Utc> {}
 impl_FieldMin_FieldMax!(DateTime<Utc>);

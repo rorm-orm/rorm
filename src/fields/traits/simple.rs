@@ -10,7 +10,7 @@ use crate::fields::traits::{FieldEq, FieldIn, FieldLike, FieldOrd, FieldType};
 /// A simpler alternative to [`FieldEq`]
 ///
 /// `Rhs` should implement [`IntoValue`] in order to be useful.
-pub trait SimpleFieldEq<Rhs> {}
+pub trait SimpleFieldEq<Rhs = Self> {}
 impl<'rhs, Rhs, T> FieldEq<'rhs, Rhs, private::Private> for T
 where
     Rhs: IntoValue<'rhs>,
@@ -44,7 +44,7 @@ where
 /// A simpler alternative to [`FieldOrd`]
 ///
 /// `Rhs` should implement [`IntoValue`] in order to be useful.
-pub trait SimpleFieldOrd<Rhs> {}
+pub trait SimpleFieldOrd<Rhs = Self> {}
 impl<'rhs, Rhs, T> FieldOrd<'rhs, Rhs, private::Private> for T
 where
     Rhs: IntoValue<'rhs>,
@@ -102,7 +102,7 @@ where
 /// A simpler alternative to [`FieldLike`]
 ///
 /// `Rhs` should implement [`IntoValue`] in order to be useful.
-pub trait SimpleFieldLike<Rhs> {}
+pub trait SimpleFieldLike<Rhs = Self> {}
 impl<'rhs, Rhs, T> FieldLike<'rhs, Rhs, private::Private> for T
 where
     Rhs: IntoValue<'rhs>,
@@ -138,7 +138,7 @@ where
 /// A simpler alternative to [`FieldIn`]
 ///
 /// `Rhs` should implement [`IntoValue`] in order to be useful.
-pub trait SimpleFieldIn<RhsItem> {}
+pub trait SimpleFieldIn<RhsItem = Self> {}
 impl<'rhs, Rhs, T> FieldIn<'rhs, Rhs, private::Private> for T
 where
     Rhs: IntoIterator,
@@ -176,7 +176,7 @@ where
 ///
 /// `Rhs` should implement [`IntoValue`] in order to be useful.
 #[cfg(feature = "postgres-only")]
-pub trait SimpleFieldILike<Rhs> {}
+pub trait SimpleFieldILike<Rhs = Self> {}
 #[cfg(feature = "postgres-only")]
 impl<'rhs, Rhs, T> FieldILike<'rhs, Rhs, private::Private> for T
 where

@@ -15,8 +15,8 @@ impl<'a> IntoValue<'a> for MacAddress {
         Value::MacAddress(self)
     }
 }
-impl SimpleFieldEq<MacAddress> for MacAddress {}
-impl SimpleFieldIn<MacAddress> for MacAddress {}
+impl SimpleFieldEq for MacAddress {}
+impl SimpleFieldIn for MacAddress {}
 
 impl_FieldType!(IpNetwork, IpNetwork);
 impl<'a> IntoValue<'a> for IpNetwork {
@@ -24,8 +24,8 @@ impl<'a> IntoValue<'a> for IpNetwork {
         Value::IpNetwork(self)
     }
 }
-impl SimpleFieldEq<IpNetwork> for IpNetwork {}
-impl SimpleFieldIn<IpNetwork> for IpNetwork {}
+impl SimpleFieldEq for IpNetwork {}
+impl SimpleFieldIn for IpNetwork {}
 
 impl_FieldType!(BitVec, BitVec);
 impl<'a> IntoValue<'a> for BitVec {
@@ -38,7 +38,7 @@ impl<'a> IntoValue<'a> for &'a BitVec {
         Value::BitVec(Cow::Borrowed(self))
     }
 }
+impl SimpleFieldEq for BitVec {}
+impl SimpleFieldIn for BitVec {}
 impl<'rhs> SimpleFieldEq<&'rhs BitVec> for BitVec {}
 impl<'rhs> SimpleFieldIn<&'rhs BitVec> for BitVec {}
-impl SimpleFieldEq<BitVec> for BitVec {}
-impl SimpleFieldIn<BitVec> for BitVec {}
