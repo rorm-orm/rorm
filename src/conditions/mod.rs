@@ -5,7 +5,6 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
-// use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use rorm_db::sql::value;
 
 pub mod collections;
@@ -153,7 +152,7 @@ pub enum Value<'a> {
     IpNetwork(ipnetwork::IpNetwork),
     /// Bit vec representation
     #[cfg(feature = "postgres-only")]
-    BitVec(crate::fields::types::postgres_only::BitCow<'a>),
+    BitVec(Cow<'a, bit_vec::BitVec>),
 }
 impl Value<'_> {
     /// Convert into an [`sql::Value`](value::Value) instead of an [`sql::Condition`](rorm_db::sql::conditional::Condition) directly.

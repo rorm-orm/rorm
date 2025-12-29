@@ -2,6 +2,7 @@
 
 use crate::conditions::{Binary, BinaryOperator, Column, In, InOperator, Value};
 use crate::fields::proxy;
+use crate::fields::traits::into_value::IntoValue;
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::FieldILike;
 use crate::fields::traits::{FieldEq, FieldIn, FieldLike, FieldType};
@@ -10,14 +11,11 @@ use crate::fields::traits::{FieldEq, FieldIn, FieldLike, FieldType};
 ///
 /// It will convert the `rhs` into a sql value and compare it using the normal
 /// equal and not equal operators.
-pub trait SimpleFieldEq<'rhs, Rhs, Any = ()> {
-    /// Converts the rhs into a sql value
-    fn into_value(rhs: Rhs) -> Value<'rhs>;
-}
-impl<'rhs, Rhs, Any, T> FieldEq<'rhs, Rhs, private::SimpleFieldEq<Any>> for T
+pub trait SimpleFieldEq<'rhs, Rhs: IntoValue<'rhs>> {}
+impl<'rhs, Rhs, T> FieldEq<'rhs, Rhs, private::Private> for T
 where
-    Rhs: 'rhs,
-    T: SimpleFieldEq<'rhs, Rhs, Any> + FieldType,
+    Rhs: 'rhs + IntoValue<'rhs>,
+    T: SimpleFieldEq<'rhs, Rhs> + FieldType,
 {
     type EqCond<I: proxy::FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
     fn field_equals<I: proxy::FieldProxyImpl>(
@@ -27,7 +25,7 @@ where
         Binary {
             operator: BinaryOperator::Equals,
             fst_arg: Column(field),
-            snd_arg: Self::into_value(value),
+            snd_arg: value.into_value(),
         }
     }
 
@@ -39,7 +37,7 @@ where
         Binary {
             operator: BinaryOperator::NotEquals,
             fst_arg: Column(field),
-            snd_arg: Self::into_value(value),
+            snd_arg: value.into_value(),
         }
     }
 }
@@ -48,14 +46,11 @@ where
 ///
 /// It will convert the `rhs` into a sql value and compare it using the normal
 /// like and not like operators.
-pub trait SimpleFieldLike<'rhs, Rhs, Any = ()> {
-    /// Converts the rhs into a sql value
-    fn into_value(rhs: Rhs) -> Value<'rhs>;
-}
-impl<'rhs, Rhs, Any, T> FieldLike<'rhs, Rhs, private::SimpleFieldLike<Any>> for T
+pub trait SimpleFieldLike<'rhs, Rhs: IntoValue<'rhs>> {}
+impl<'rhs, Rhs, T> FieldLike<'rhs, Rhs, private::Private> for T
 where
-    Rhs: 'rhs,
-    T: SimpleFieldLike<'rhs, Rhs, Any> + FieldType,
+    Rhs: 'rhs + IntoValue<'rhs>,
+    T: SimpleFieldLike<'rhs, Rhs> + FieldType,
 {
     type LiCond<I: proxy::FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
 
@@ -66,7 +61,7 @@ where
         Binary {
             operator: BinaryOperator::Like,
             fst_arg: Column(field),
-            snd_arg: Self::into_value(value),
+            snd_arg: value.into_value(),
         }
     }
 
@@ -79,7 +74,7 @@ where
         Binary {
             operator: BinaryOperator::NotLike,
             fst_arg: Column(field),
-            snd_arg: Self::into_value(value),
+            snd_arg: value.into_value(),
         }
     }
 }
@@ -88,15 +83,12 @@ where
 ///
 /// It will convert the `rhs`'s items into a sql value and compare it using the normal
 /// in and not in operators.
-pub trait SimpleFieldIn<'rhs, RhsItem, Any = ()> {
-    /// Converts the rhs into a sql value
-    fn into_value(rhs_item: RhsItem) -> Value<'rhs>;
-}
-impl<'rhs, Rhs, Any, T> FieldIn<'rhs, Rhs, private::SimpleFieldIn<Any>> for T
+pub trait SimpleFieldIn<'rhs, RhsItem: IntoValue<'rhs>> {}
+impl<'rhs, Rhs, T> FieldIn<'rhs, Rhs, private::Private> for T
 where
     Rhs: IntoIterator,
-    Rhs::Item: 'rhs,
-    T: SimpleFieldIn<'rhs, Rhs::Item, Any> + FieldType,
+    Rhs::Item: 'rhs + IntoValue<'rhs>,
+    T: SimpleFieldIn<'rhs, Rhs::Item> + FieldType,
 {
     type InCond<I: proxy::FieldProxyImpl> = In<Column<I>, Value<'rhs>>;
 
@@ -107,7 +99,7 @@ where
         In {
             operator: InOperator::In,
             fst_arg: Column(field),
-            snd_arg: value.into_iter().map(Self::into_value).collect(),
+            snd_arg: value.into_iter().map(IntoValue::into_value).collect(),
         }
     }
 
@@ -120,7 +112,7 @@ where
         In {
             operator: InOperator::NotIn,
             fst_arg: Column(field),
-            snd_arg: value.into_iter().map(Self::into_value).collect(),
+            snd_arg: value.into_iter().map(IntoValue::into_value).collect(),
         }
     }
 }
@@ -130,15 +122,12 @@ where
 /// It will convert the `rhs` into a sql value and compare it using the normal
 /// ilike and not ilike operators.
 #[cfg(feature = "postgres-only")]
-pub trait SimpleFieldILike<'rhs, Rhs, Any = ()> {
-    /// Converts the rhs into a sql value
-    fn into_value(rhs: Rhs) -> Value<'rhs>;
-}
+pub trait SimpleFieldILike<'rhs, Rhs: IntoValue<'rhs>> {}
 #[cfg(feature = "postgres-only")]
-impl<'rhs, Rhs, Any, T> FieldILike<'rhs, Rhs, private::SimpleFieldILike<Any>> for T
+impl<'rhs, Rhs, T> FieldILike<'rhs, Rhs, private::Private> for T
 where
-    Rhs: 'rhs,
-    T: SimpleFieldLike<'rhs, Rhs, Any> + FieldType,
+    Rhs: 'rhs + IntoValue<'rhs>,
+    T: SimpleFieldLike<'rhs, Rhs> + FieldType,
 {
     type IliCond<I: proxy::FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
 
@@ -149,7 +138,7 @@ where
         Binary {
             operator: BinaryOperator::ILike,
             fst_arg: Column(field),
-            snd_arg: Self::into_value(value),
+            snd_arg: value.into_value(),
         }
     }
 
@@ -162,17 +151,11 @@ where
         Binary {
             operator: BinaryOperator::NotILike,
             fst_arg: Column(field),
-            snd_arg: Self::into_value(value),
+            snd_arg: value.into_value(),
         }
     }
 }
 
 mod private {
-    use std::marker::PhantomData;
-
-    pub struct SimpleFieldEq<T>(PhantomData<T>);
-    pub struct SimpleFieldLike<T>(PhantomData<T>);
-    pub struct SimpleFieldIn<T>(PhantomData<T>);
-    #[cfg(feature = "postgres-only")]
-    pub struct SimpleFieldILike<T>(PhantomData<T>);
+    pub struct Private;
 }

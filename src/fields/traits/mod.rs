@@ -14,6 +14,7 @@ use crate::{const_fn, sealed};
 
 pub mod aggregate;
 pub mod cmp;
+pub mod into_value;
 pub mod simple;
 
 /// Base trait for types which are allowed as fields in models

@@ -4,33 +4,13 @@ use rorm_db::sql::value::NullType;
 use url::Url;
 
 use crate::conditions::Value;
+use crate::fields::traits::into_value::IntoValue;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
 use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::utils::check::string_check;
 use crate::fields::utils::get_annotations::forward_annotations;
 use crate::fields::utils::get_names::single_column_name;
 use crate::new_converting_decoder;
-
-impl<'rhs> SimpleFieldEq<'rhs, &'rhs Url> for Url {
-    fn into_value(rhs: &'rhs Url) -> Value<'rhs> {
-        Value::String(Cow::Borrowed(rhs.as_str()))
-    }
-}
-impl<'rhs> SimpleFieldIn<'rhs, &'rhs Url> for Url {
-    fn into_value(rhs: &'rhs Url) -> Value<'rhs> {
-        Value::String(Cow::Borrowed(rhs.as_str()))
-    }
-}
-impl<'rhs> SimpleFieldEq<'rhs, Url> for Url {
-    fn into_value(rhs: Url) -> Value<'rhs> {
-        Value::String(Cow::Owned(rhs.into()))
-    }
-}
-impl<'rhs> SimpleFieldIn<'rhs, Url> for Url {
-    fn into_value(rhs: Url) -> Value<'rhs> {
-        Value::String(Cow::Owned(rhs.into()))
-    }
-}
 
 impl FieldType for Url {
     type Columns = Array<1>;
@@ -60,3 +40,17 @@ new_converting_decoder!(
         Url::parse(&value).map_err(|err| format!("Couldn't parse url: {err}"))
     }
 );
+impl<'a> IntoValue<'a> for Url {
+    fn into_value(self) -> Value<'a> {
+        Value::String(Cow::Owned(self.into()))
+    }
+}
+impl<'a> IntoValue<'a> for &'a Url {
+    fn into_value(self) -> Value<'a> {
+        Value::String(Cow::Borrowed(self.as_str()))
+    }
+}
+impl<'rhs> SimpleFieldEq<'rhs, &'rhs Url> for Url {}
+impl<'rhs> SimpleFieldIn<'rhs, &'rhs Url> for Url {}
+impl<'rhs> SimpleFieldEq<'rhs, Url> for Url {}
+impl<'rhs> SimpleFieldIn<'rhs, Url> for Url {}

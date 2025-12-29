@@ -1,73 +1,49 @@
+use std::borrow::Cow;
+
 use bit_vec::BitVec;
 use ipnetwork::IpNetwork;
 use mac_address::MacAddress;
 
 use crate::conditions::Value;
+use crate::fields::traits::into_value::IntoValue;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
 use crate::impl_FieldType;
 
 impl_FieldType!(MacAddress, MacAddress, Value::MacAddress);
-impl<'rhs> SimpleFieldEq<'rhs, MacAddress> for MacAddress {
-    fn into_value(rhs: MacAddress) -> Value<'rhs> {
-        Value::MacAddress(rhs)
+impl<'a> IntoValue<'a> for MacAddress {
+    fn into_value(self) -> Value<'a> {
+        Value::MacAddress(self)
     }
 }
-impl<'rhs> SimpleFieldIn<'rhs, MacAddress> for MacAddress {
-    fn into_value(rhs: MacAddress) -> Value<'rhs> {
-        Value::MacAddress(rhs)
-    }
-}
+impl<'rhs> SimpleFieldEq<'rhs, MacAddress> for MacAddress {}
+impl<'rhs> SimpleFieldIn<'rhs, MacAddress> for MacAddress {}
 
 impl_FieldType!(IpNetwork, IpNetwork, Value::IpNetwork);
-impl<'rhs> SimpleFieldEq<'rhs, IpNetwork> for IpNetwork {
-    fn into_value(rhs: IpNetwork) -> Value<'rhs> {
-        Value::IpNetwork(rhs)
+impl<'a> IntoValue<'a> for IpNetwork {
+    fn into_value(self) -> Value<'a> {
+        Value::IpNetwork(self)
     }
 }
-impl<'rhs> SimpleFieldIn<'rhs, IpNetwork> for IpNetwork {
-    fn into_value(rhs: IpNetwork) -> Value<'rhs> {
-        Value::IpNetwork(rhs)
-    }
-}
+impl<'rhs> SimpleFieldEq<'rhs, IpNetwork> for IpNetwork {}
+impl<'rhs> SimpleFieldIn<'rhs, IpNetwork> for IpNetwork {}
 
 impl_FieldType!(
     BitVec,
     BitVec,
-    |vec| Value::BitVec(BitCow::Owned(vec)),
-    |vec| Value::BitVec(BitCow::Borrowed(vec))
+    |vec| Value::BitVec(Cow::Owned(vec)),
+    |vec| Value::BitVec(Cow::Borrowed(vec))
 );
-impl<'rhs> SimpleFieldEq<'rhs, &'rhs BitVec> for BitVec {
-    fn into_value(rhs: &'rhs BitVec) -> Value<'rhs> {
-        Value::BitVec(BitCow::Borrowed(rhs))
+impl<'a> IntoValue<'a> for BitVec {
+    fn into_value(self) -> Value<'a> {
+        Value::BitVec(Cow::Owned(self))
     }
 }
-impl<'rhs> SimpleFieldIn<'rhs, &'rhs BitVec> for BitVec {
-    fn into_value(rhs: &'rhs BitVec) -> Value<'rhs> {
-        Value::BitVec(BitCow::Borrowed(rhs))
+impl<'a> IntoValue<'a> for &'a BitVec {
+    fn into_value(self) -> Value<'a> {
+        Value::BitVec(Cow::Borrowed(self))
     }
 }
-impl<'rhs> SimpleFieldEq<'rhs, BitVec> for BitVec {
-    fn into_value(rhs: BitVec) -> Value<'rhs> {
-        Value::BitVec(BitCow::Owned(rhs))
-    }
-}
-impl<'rhs> SimpleFieldIn<'rhs, BitVec> for BitVec {
-    fn into_value(rhs: BitVec) -> Value<'rhs> {
-        Value::BitVec(BitCow::Owned(rhs))
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum BitCow<'a> {
-    Borrowed(&'a BitVec),
-    Owned(BitVec),
-}
-
-impl AsRef<BitVec> for BitCow<'_> {
-    fn as_ref(&self) -> &BitVec {
-        match self {
-            BitCow::Borrowed(bit_vec) => bit_vec,
-            BitCow::Owned(bit_vec) => bit_vec,
-        }
-    }
-}
+impl<'rhs> SimpleFieldEq<'rhs, &'rhs BitVec> for BitVec {}
+impl<'rhs> SimpleFieldIn<'rhs, &'rhs BitVec> for BitVec {}
+impl<'rhs> SimpleFieldEq<'rhs, BitVec> for BitVec {}
+impl<'rhs> SimpleFieldIn<'rhs, BitVec> for BitVec {}

@@ -6,6 +6,7 @@ use crate::conditions::{Column, Condition, In, InOperator, Unary, UnaryOperator,
 use crate::crud::decoder::Decoder;
 use crate::fields::proxy;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
+use crate::fields::traits::into_value::IntoValue;
 use crate::fields::traits::simple::SimpleFieldIn;
 use crate::fields::traits::{Array, Columns, FieldEq, FieldIn, FieldLike};
 use crate::fields::traits::{FieldColumns, FieldType};
@@ -54,11 +55,11 @@ where
     }
 }
 
-impl<'rhs, Rhs, Any, T> FieldIn<'rhs, Rhs, private::OptionFieldIn<Any>> for Option<T>
+impl<'rhs, Rhs, T> FieldIn<'rhs, Rhs, private::OptionFieldIn<()>> for Option<T>
 where
     Rhs: IntoIterator,
-    Rhs::Item: 'rhs,
-    T: SimpleFieldIn<'rhs, Rhs::Item, Any> + FieldType,
+    Rhs::Item: 'rhs + IntoValue<'rhs>,
+    T: SimpleFieldIn<'rhs, Rhs::Item> + FieldType,
 {
     type InCond<I: FieldProxyImpl> = In<Column<I>, Value<'rhs>>;
 
@@ -66,7 +67,7 @@ where
         In {
             operator: InOperator::In,
             fst_arg: Column(field),
-            snd_arg: value.into_iter().map(T::into_value).collect(),
+            snd_arg: value.into_iter().map(IntoValue::into_value).collect(),
         }
     }
 
@@ -76,7 +77,7 @@ where
         In {
             operator: InOperator::NotIn,
             fst_arg: Column(field),
-            snd_arg: value.into_iter().map(T::into_value).collect(),
+            snd_arg: value.into_iter().map(IntoValue::into_value).collect(),
         }
     }
 }

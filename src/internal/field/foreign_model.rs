@@ -11,10 +11,11 @@ use crate::const_fn;
 use crate::crud::decoder::Decoder;
 use crate::fields::proxy;
 use crate::fields::proxy::FieldProxyImpl;
-use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
+use crate::fields::traits::into_value::IntoValue;
+use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn, SimpleFieldLike};
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::FieldILike;
-use crate::fields::traits::{Array, FieldColumns, FieldLike};
+use crate::fields::traits::{Array, FieldColumns};
 use crate::fields::types::ForeignModelByField;
 use crate::fields::utils::get_names::single_column_name;
 use crate::internal::field::decoder::FieldDecoder;
@@ -147,64 +148,29 @@ where
     }
 }
 
-impl<'rhs, FF> SimpleFieldEq<'rhs, FF::Type, FieldEq_ForeignModelByField_Owned>
-    for ForeignModelByField<FF>
+impl<'rhs, FF, Rhs> SimpleFieldEq<'rhs, Rhs> for ForeignModelByField<FF>
 where
+    Rhs: IntoValue<'rhs>,
     FF: SingleColumnField,
     FF::Type: FieldType<Columns = Array<1>>,
+    FF::Type: SimpleFieldEq<'rhs, Rhs>,
 {
-    fn into_value(rhs: FF::Type) -> Value<'rhs> {
-        <FF as SingleColumnField>::type_into_value(rhs)
-    }
 }
-impl<'rhs, FF> SimpleFieldIn<'rhs, FF::Type, FieldIn_ForeignModelByField_Owned>
-    for ForeignModelByField<FF>
+impl<'rhs, FF, Rhs> SimpleFieldIn<'rhs, Rhs> for ForeignModelByField<FF>
 where
+    Rhs: IntoValue<'rhs>,
     FF: SingleColumnField,
     FF::Type: FieldType<Columns = Array<1>>,
+    FF::Type: SimpleFieldIn<'rhs, Rhs>,
 {
-    fn into_value(rhs: FF::Type) -> Value<'rhs> {
-        <FF as SingleColumnField>::type_into_value(rhs)
-    }
 }
-
-impl<'rhs, FF> SimpleFieldEq<'rhs, &'rhs FF::Type, FieldEq_ForeignModelByField_Borrowed>
-    for ForeignModelByField<FF>
+impl<'rhs, FF, Rhs> SimpleFieldLike<'rhs, Rhs> for ForeignModelByField<FF>
 where
+    Rhs: IntoValue<'rhs>,
     FF: SingleColumnField,
     FF::Type: FieldType<Columns = Array<1>>,
+    FF::Type: SimpleFieldLike<'rhs, Rhs>,
 {
-    fn into_value(rhs: &'rhs FF::Type) -> Value<'rhs> {
-        <FF as SingleColumnField>::type_as_value(rhs)
-    }
-}
-impl<'rhs, FF> SimpleFieldIn<'rhs, &'rhs FF::Type, FieldIn_ForeignModelByField_Borrowed>
-    for ForeignModelByField<FF>
-where
-    FF: SingleColumnField,
-    FF::Type: FieldType<Columns = Array<1>>,
-{
-    fn into_value(rhs: &'rhs FF::Type) -> Value<'rhs> {
-        <FF as SingleColumnField>::type_as_value(rhs)
-    }
-}
-impl<'rhs, Rhs, Any, FF> FieldLike<'rhs, Rhs, FieldLike_ForeignModelByField<Any>>
-    for ForeignModelByField<FF>
-where
-    FF: SingleColumnField,
-    FF::Type: FieldLike<'rhs, Rhs, Any> + FieldType<Columns = Array<1>>,
-{
-    type LiCond<I: FieldProxyImpl> = <FF::Type as FieldLike<'rhs, Rhs, Any>>::LiCond<I>;
-
-    fn field_like<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::LiCond<I> {
-        <FF::Type as FieldLike<'rhs, Rhs, Any>>::field_like(field, value)
-    }
-
-    type NlCond<I: FieldProxyImpl> = <FF::Type as FieldLike<'rhs, Rhs, Any>>::NlCond<I>;
-
-    fn field_not_like<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::NlCond<I> {
-        <FF::Type as FieldLike<'rhs, Rhs, Any>>::field_not_like(field, value)
-    }
 }
 
 #[cfg(feature = "postgres-only")]

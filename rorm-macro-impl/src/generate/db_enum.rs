@@ -67,12 +67,13 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum, config: &MacroConfig) -> TokenStr
                     }
                 }
             );
-            impl<'rhs> #rorm_path::fields::traits::simple::SimpleFieldEq<'rhs, #ident> for #ident {
-                fn into_value(rhs: #ident) -> #rorm_path::conditions::Value<'rhs> {
-                    let [value] = <#ident as #rorm_path::fields::traits::FieldType>::into_values(rhs);
+            impl<'a> #rorm_path::fields::traits::into_value::IntoValue<'a> for #ident {
+                fn into_value(self) -> #rorm_path::conditions::Value<'a> {
+                    let [value] = #rorm_path::fields::traits::FieldType::into_values(self);
                     value
                 }
             }
+            impl<'rhs> #rorm_path::fields::traits::simple::SimpleFieldEq<'rhs, #ident> for #ident {}
 
             #rorm_path::const_fn! {
                 pub fn get_db_enum_annotations(
