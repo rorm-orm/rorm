@@ -6,7 +6,7 @@ use crate::fields::traits::into_value::IntoValue;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
 use crate::{impl_FieldMin_FieldMax, impl_FieldOrd, impl_FieldType};
 
-impl_FieldType!(Time, TimeTime, Value::TimeTime);
+impl_FieldType!(Time, TimeTime);
 impl<'a> IntoValue<'a> for Time {
     fn into_value(self) -> Value<'a> {
         Value::TimeTime(self)
@@ -21,7 +21,7 @@ impl_FieldOrd!(Option<Time>, Option<Time>, |option: Self| option
     .unwrap_or(Value::Null(NullType::TimeTime)));
 impl_FieldMin_FieldMax!(Time);
 
-impl_FieldType!(Date, TimeDate, Value::TimeDate);
+impl_FieldType!(Date, TimeDate);
 impl<'a> IntoValue<'a> for Date {
     fn into_value(self) -> Value<'a> {
         Value::TimeDate(self)
@@ -36,11 +36,7 @@ impl_FieldOrd!(Option<Date>, Option<Date>, |option: Self| option
     .unwrap_or(Value::Null(NullType::TimeDate)));
 impl_FieldMin_FieldMax!(Date);
 
-impl_FieldType!(
-    OffsetDateTime,
-    TimeOffsetDateTime,
-    Value::TimeOffsetDateTime
-);
+impl_FieldType!(OffsetDateTime, TimeOffsetDateTime);
 impl<'a> IntoValue<'a> for OffsetDateTime {
     fn into_value(self) -> Value<'a> {
         Value::TimeOffsetDateTime(self)
@@ -59,11 +55,7 @@ impl_FieldOrd!(
 );
 impl_FieldMin_FieldMax!(OffsetDateTime);
 
-impl_FieldType!(
-    PrimitiveDateTime,
-    TimePrimitiveDateTime,
-    Value::TimePrimitiveDateTime
-);
+impl_FieldType!(PrimitiveDateTime, TimePrimitiveDateTime);
 impl<'a> IntoValue<'a> for PrimitiveDateTime {
     fn into_value(self) -> Value<'a> {
         Value::TimePrimitiveDateTime(self)

@@ -6,7 +6,7 @@ use crate::fields::traits::into_value::IntoValue;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
 use crate::{impl_FieldMin_FieldMax, impl_FieldOrd, impl_FieldType};
 
-impl_FieldType!(NaiveTime, ChronoNaiveTime, Value::ChronoNaiveTime);
+impl_FieldType!(NaiveTime, ChronoNaiveTime);
 impl<'a> IntoValue<'a> for NaiveTime {
     fn into_value(self) -> Value<'a> {
         Value::ChronoNaiveTime(self)
@@ -20,7 +20,7 @@ impl_FieldOrd!(Option<NaiveTime>, Option<NaiveTime>, |option: Self| option
     .unwrap_or(Value::Null(NullType::ChronoNaiveTime)));
 impl_FieldMin_FieldMax!(NaiveTime);
 
-impl_FieldType!(NaiveDate, ChronoNaiveDate, Value::ChronoNaiveDate);
+impl_FieldType!(NaiveDate, ChronoNaiveDate);
 impl<'a> IntoValue<'a> for NaiveDate {
     fn into_value(self) -> Value<'a> {
         Value::ChronoNaiveDate(self)
@@ -34,11 +34,7 @@ impl_FieldOrd!(Option<NaiveDate>, Option<NaiveDate>, |option: Self| option
     .unwrap_or(Value::Null(NullType::ChronoNaiveDate)));
 impl_FieldMin_FieldMax!(NaiveDate);
 
-impl_FieldType!(
-    NaiveDateTime,
-    ChronoNaiveDateTime,
-    Value::ChronoNaiveDateTime
-);
+impl_FieldType!(NaiveDateTime, ChronoNaiveDateTime);
 impl<'a> IntoValue<'a> for NaiveDateTime {
     fn into_value(self) -> Value<'a> {
         Value::ChronoNaiveDateTime(self)
@@ -56,7 +52,7 @@ impl_FieldOrd!(
 );
 impl_FieldMin_FieldMax!(NaiveDateTime);
 
-impl_FieldType!(DateTime<Utc>, ChronoDateTime, Value::ChronoDateTime);
+impl_FieldType!(DateTime<Utc>, ChronoDateTime);
 impl<'a> IntoValue<'a> for DateTime<Utc> {
     fn into_value(self) -> Value<'a> {
         Value::ChronoDateTime(self)

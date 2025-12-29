@@ -117,19 +117,14 @@ const_fn! {
 #[allow(non_snake_case)] // makes it clearer that a trait and which trait is meant
 #[macro_export]
 macro_rules! impl_FieldType {
-    ($type:ty, $null_type:ident, $into_value:expr) => {
-        impl_FieldType!($type, $null_type, $into_value, |&value| $into_value(value));
-    };
-    ($type:ty, $null_type:ident, $into_value:expr, $as_value:expr) => {
+    ($type:ty, $null_type:ident) => {
         impl_FieldType!(
             $type,
             $null_type,
-            $into_value,
-            $as_value,
             $crate::fields::utils::check::shared_linter_check<1>
         );
     };
-    ($type:ty, $null_type:ident, $into_value:expr, $as_value:expr, $Check:ty) => {
+    ($type:ty, $null_type:ident, $Check:ty) => {
         impl $crate::fields::traits::FieldType for $type {
             type Columns = $crate::fields::traits::Array<1>;
 
@@ -142,15 +137,15 @@ macro_rules! impl_FieldType {
             fn as_values(
                 &self,
             ) -> $crate::fields::traits::FieldColumns<Self, $crate::conditions::Value<'_>> {
-                #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
-                [$as_value(self)]
+                use $crate::fields::traits::into_value::IntoValue;
+                [self.into_value()]
             }
 
             fn into_values<'a>(
                 self,
             ) -> $crate::fields::traits::FieldColumns<Self, $crate::conditions::Value<'a>> {
-                #[allow(clippy::redundant_closure_call)] // clean way to pass code to a macro
-                [$into_value(self)]
+                use $crate::fields::traits::into_value::IntoValue;
+                [self.into_value()]
             }
 
             type Decoder = $crate::crud::decoder::DirectDecoder<Self>;

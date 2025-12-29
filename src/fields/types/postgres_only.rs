@@ -9,7 +9,7 @@ use crate::fields::traits::into_value::IntoValue;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
 use crate::impl_FieldType;
 
-impl_FieldType!(MacAddress, MacAddress, Value::MacAddress);
+impl_FieldType!(MacAddress, MacAddress);
 impl<'a> IntoValue<'a> for MacAddress {
     fn into_value(self) -> Value<'a> {
         Value::MacAddress(self)
@@ -18,7 +18,7 @@ impl<'a> IntoValue<'a> for MacAddress {
 impl<'rhs> SimpleFieldEq<'rhs, MacAddress> for MacAddress {}
 impl<'rhs> SimpleFieldIn<'rhs, MacAddress> for MacAddress {}
 
-impl_FieldType!(IpNetwork, IpNetwork, Value::IpNetwork);
+impl_FieldType!(IpNetwork, IpNetwork);
 impl<'a> IntoValue<'a> for IpNetwork {
     fn into_value(self) -> Value<'a> {
         Value::IpNetwork(self)
@@ -27,12 +27,7 @@ impl<'a> IntoValue<'a> for IpNetwork {
 impl<'rhs> SimpleFieldEq<'rhs, IpNetwork> for IpNetwork {}
 impl<'rhs> SimpleFieldIn<'rhs, IpNetwork> for IpNetwork {}
 
-impl_FieldType!(
-    BitVec,
-    BitVec,
-    |vec| Value::BitVec(Cow::Owned(vec)),
-    |vec| Value::BitVec(Cow::Borrowed(vec))
-);
+impl_FieldType!(BitVec, BitVec);
 impl<'a> IntoValue<'a> for BitVec {
     fn into_value(self) -> Value<'a> {
         Value::BitVec(Cow::Owned(self))
