@@ -30,21 +30,6 @@ pub enum DatabaseDriver {
         /// Password to connect to the database
         password: String,
     },
-    /// Representation of the MySQL / MariaDB driver
-    #[cfg(feature = "mysql")]
-    #[serde(rename_all = "PascalCase")]
-    MySQL {
-        /// Name of the database
-        name: String,
-        /// Host of the database
-        host: String,
-        /// Port of the database
-        port: u16,
-        /// User to connect to the database
-        user: String,
-        /// Password to connect to the database
-        password: String,
-    },
 }
 
 /**
