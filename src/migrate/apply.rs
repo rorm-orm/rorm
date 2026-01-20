@@ -214,8 +214,6 @@ pub async fn apply_operation(
             DBImpl::SQLite => tx.execute::<Nothing>(sqlite.clone(), Vec::new()).await?,
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => tx.execute::<Nothing>(postgres.clone(), Vec::new()).await?,
-            #[cfg(feature = "mysql")]
-            DBImpl::MySQL => tx.execute::<Nothing>(mysql.clone(), Vec::new()).await?,
         },
     }
 

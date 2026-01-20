@@ -16,38 +16,6 @@ pub enum InitDriver {
         filename: String,
     },
 
-    /// Initialize a mysql configuration
-    #[cfg(feature = "mysql")]
-    Mysql {
-        /// The address to use to connect to the database.
-        #[clap(long)]
-        #[clap(default_value = "127.0.0.1")]
-        host: String,
-
-        /// The port to use to connect to the database.
-        #[clap(long)]
-        #[clap(default_value = "306")]
-        port: u16,
-
-        /// The user to use to connect to the database.
-        #[clap(long)]
-        #[clap(default_value = "dbuser")]
-        user: String,
-
-        /// Set the password. To minimize the risk of exposing your password, use --ask-password instead.
-        #[clap(long)]
-        password: Option<String>,
-
-        /// Ask for the password for the database. If specified with the --password option, this value will be prevalent.
-        #[clap(long)]
-        ask_password: bool,
-
-        /// The name of the database to connect to.
-        #[clap(long)]
-        #[clap(default_value = "dbname")]
-        name: String,
-    },
-
     /// Initialize a postgres configuration
     #[cfg(feature = "postgres")]
     Postgres {

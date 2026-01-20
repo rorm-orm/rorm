@@ -29,38 +29,6 @@ pub fn init(database_configuration: String, driver: InitDriver, force: bool) -> 
 
             fs::write(p, serialized)?;
         }
-        #[cfg(feature = "mysql")]
-        InitDriver::Mysql {
-            host,
-            port,
-            user,
-            password,
-            ask_password,
-            name,
-        } => {
-            let pw = if ask_password {
-                rpassword::prompt_password("Enter the password for the database:")?
-            } else {
-                password.unwrap_or_default()
-            };
-
-            let config_file = DatabaseConfigFile {
-                database: DatabaseConfig {
-                    driver: DatabaseDriver::MySQL {
-                        host,
-                        port,
-                        user,
-                        password: pw,
-                        name,
-                    },
-                    last_migration_table_name: None,
-                },
-            };
-
-            let serialized = toml::to_string_pretty(&config_file)?;
-
-            fs::write(p, serialized)?;
-        }
         #[cfg(feature = "postgres")]
         InitDriver::Postgres {
             host,
