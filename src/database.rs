@@ -16,7 +16,7 @@ use tracing::warn;
 
 use crate::error::Error;
 use crate::executor::{AffectedRows, All, Executor, Nothing, One, QueryStrategy};
-use crate::internal;
+use crate::internal::any::AnyPool;
 use crate::query_type::GetLimitClause;
 use crate::row::Row;
 use crate::transaction::Transaction;
@@ -82,15 +82,12 @@ impl DatabaseConfiguration {
 ///
 /// Cloning is cheap i.e. two `Arc`s.
 #[derive(Clone)]
-pub struct Database(pub(crate) internal::database::Impl, Arc<()>);
+pub struct Database(pub(crate) AnyPool, Arc<()>);
 
 impl Database {
     /// Connects to the database using `configuration`
     pub async fn connect(configuration: DatabaseConfiguration) -> Result<Self, Error> {
-        Ok(Self(
-            internal::database::connect(configuration).await?,
-            Arc::new(()),
-        ))
+        Ok(Self(AnyPool::connect(configuration).await?, Arc::new(())))
     }
 
     /// Starts a new transaction
@@ -99,7 +96,7 @@ impl Database {
     /// but its database operations can be reverted using [`Transaction::rollback`]
     /// or simply dropping the transaction without calling [`Transaction::commit`].
     pub async fn start_transaction(&self) -> Result<Transaction, Error> {
-        internal::database::start_transaction(self).await
+        Ok(Transaction(self.0.begin().await?))
     }
 
     /// Closes the database connection
@@ -112,7 +109,7 @@ impl Database {
     /// but actually all handles created using `clone` will become invalid after this call.
     /// This means any further operation would result in an `Err`
     pub async fn close(self) {
-        internal::database::close(self).await
+        self.0.close().await;
     }
 }
 
@@ -122,7 +119,7 @@ impl Drop for Database {
         // The use of strong_count should be correct:
         // - the arc is private and we don't create WeakRefs
         // => when observing a strong_count of 1, there can't be any remaining refs
-        if Arc::strong_count(&self.1) == 1 && !internal::database::is_closed(self) {
+        if Arc::strong_count(&self.1) == 1 && !self.0.is_closed() {
             warn!("Database has been dropped without calling close. This might case the last queries to not being flushed properly");
         }
     }

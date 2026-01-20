@@ -124,6 +124,7 @@ mod query_wrapper {
     use rorm_sql::value::Value;
 
     use crate::internal::any::{AnyExecutor, AnyQuery};
+    use crate::internal::bind_params::bind_param;
 
     #[doc(hidden)]
     #[pin_project::pin_project]
@@ -158,7 +159,7 @@ mod query_wrapper {
             Self::new_basic(query_string, move |query_string| {
                 let mut query = executor.query(query_string);
                 for value in values {
-                    crate::internal::utils::bind_param(&mut query, value);
+                    bind_param(&mut query, value);
                 }
                 execute(query)
             })

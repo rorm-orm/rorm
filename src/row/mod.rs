@@ -2,13 +2,15 @@
 
 pub use self::error::*;
 pub use self::index::*;
-use crate::internal;
+use crate::internal::any::{AnyDecode, AnyRow, AnyType};
+use crate::row::get::try_get;
 
 mod error;
+mod get;
 mod index;
 
 /// Represents a single row from the database.
-pub struct Row(pub(crate) internal::row::Impl);
+pub struct Row(pub(crate) AnyRow);
 
 impl Row {
     /// Index into the database row and decode a single value.
@@ -19,13 +21,18 @@ impl Row {
     where
         T: Decode<'r>,
     {
-        internal::row::get(self, index.into())
+        match &self.0 {
+            #[cfg(feature = "postgres")]
+            AnyRow::Postgres(row) => try_get(row, index.into()),
+            #[cfg(feature = "sqlite")]
+            AnyRow::Sqlite(row) => try_get(row, index.into()),
+        }
     }
 }
 
 /// Something which can be decoded from a [`Row`]'s cell.
-pub trait Decode<'r>: internal::any::AnyType + internal::any::AnyDecode<'r> {}
-impl<'r, T: internal::any::AnyType + internal::any::AnyDecode<'r>> Decode<'r> for T {}
+pub trait Decode<'r>: AnyType + AnyDecode<'r> {}
+impl<'r, T: AnyType + AnyDecode<'r>> Decode<'r> for T {}
 
 /// Something which can be decoded from a [`Row`]'s cell without borrowing.
 pub trait DecodeOwned: for<'r> Decode<'r> {}

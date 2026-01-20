@@ -2,26 +2,9 @@ use std::any::type_name;
 
 use sqlx::{ColumnIndex, Type, TypeInfo, ValueRef};
 
-use crate::internal::any::AnyRow;
-use crate::row::{Decode, RowError, RowIndex};
-use crate::Row;
+use crate::row::{RowError, RowIndex};
 
-pub(crate) type Impl = AnyRow;
-
-/// Implementation of [Row::get]
-pub(crate) fn get<'r, 'i, T>(row: &'r Row, index: RowIndex<'i>) -> Result<T, RowError<'i>>
-where
-    T: Decode<'r>,
-{
-    match &row.0 {
-        #[cfg(feature = "postgres")]
-        AnyRow::Postgres(row) => try_get(row, index),
-        #[cfg(feature = "sqlite")]
-        AnyRow::Sqlite(row) => try_get(row, index),
-    }
-}
-
-fn try_get<'r, 'i, R, T>(row: &'r R, index: RowIndex<'i>) -> Result<T, RowError<'i>>
+pub(crate) fn try_get<'r, 'i, R, T>(row: &'r R, index: RowIndex<'i>) -> Result<T, RowError<'i>>
 where
     R: sqlx::Row,
     usize: ColumnIndex<R>,

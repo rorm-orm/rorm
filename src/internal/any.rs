@@ -7,16 +7,20 @@ use std::future::poll_fn;
 use std::ops::DerefMut;
 use std::pin::Pin;
 use std::task::{ready, Context, Poll};
+use std::time::Duration;
 
 use futures_core::Stream;
+use rorm_declaration::config::DatabaseDriver;
 use sqlx::query::Query;
 #[cfg(feature = "postgres")]
 use sqlx::{postgres, Postgres};
 #[cfg(feature = "sqlite")]
 use sqlx::{sqlite, Sqlite};
-use sqlx::{Executor, Pool, Transaction};
+use sqlx::{ConnectOptions, Executor, Pool, Transaction};
+use tracing::log::LevelFilter;
 
 use crate::futures_util::BoxStream;
+use crate::{DatabaseConfiguration, Error};
 
 /// Enum around [`Pool<DB>`]
 #[derive(Clone, Debug)]
@@ -28,6 +32,77 @@ pub enum AnyPool {
 }
 
 impl AnyPool {
+    /// Opens a pool of connections to a database
+    pub async fn connect(configuration: DatabaseConfiguration) -> Result<AnyPool, Error> {
+        /// All statements that take longer to execute than this value are considered
+        /// as slow statements.
+        const SLOW_STATEMENTS: Duration = Duration::from_millis(300);
+
+        if configuration.max_connections < configuration.min_connections {
+            return Err(Error::ConfigurationError(String::from(
+                "max_connections must not be less than min_connections",
+            )));
+        }
+
+        if configuration.min_connections == 0 {
+            return Err(Error::ConfigurationError(String::from(
+                "min_connections must not be 0",
+            )));
+        }
+
+        let pool: AnyPool = match &configuration.driver {
+            #[cfg(feature = "sqlite")]
+            DatabaseDriver::SQLite { filename } => {
+                if filename.is_empty() {
+                    return Err(Error::ConfigurationError(String::from(
+                        "filename must not be empty",
+                    )));
+                }
+                let connect_options = sqlite::SqliteConnectOptions::new()
+                    .create_if_missing(true)
+                    .filename(filename)
+                    .log_slow_statements(LevelFilter::Warn, SLOW_STATEMENTS);
+                AnyPool::Sqlite(
+                    sqlite::SqlitePoolOptions::new()
+                        .min_connections(configuration.min_connections)
+                        .max_connections(configuration.max_connections)
+                        .connect_with(connect_options)
+                        .await?,
+                )
+            }
+            #[cfg(feature = "postgres")]
+            DatabaseDriver::Postgres {
+                host,
+                port,
+                name,
+                user,
+                password,
+            } => {
+                if name.is_empty() {
+                    return Err(Error::ConfigurationError(String::from(
+                        "name must not be empty",
+                    )));
+                }
+                let connect_options = postgres::PgConnectOptions::new()
+                    .host(host.as_str())
+                    .port(*port)
+                    .username(user.as_str())
+                    .password(password.as_str())
+                    .database(name.as_str())
+                    .log_slow_statements(LevelFilter::Warn, SLOW_STATEMENTS);
+                AnyPool::Postgres(
+                    postgres::PgPoolOptions::new()
+                        .min_connections(configuration.min_connections)
+                        .max_connections(configuration.max_connections)
+                        .connect_with(connect_options)
+                        .await?,
+                )
+            }
+        };
+
+        Ok(pool)
+    }
+
     /// Retrieves a connection and immediately begins a new transaction.
     ///
     /// See [`Pool::begin`]

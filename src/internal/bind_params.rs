@@ -1,11 +1,9 @@
-//! Utility functions
-
 use rorm_sql::value::{NullType, Value};
 use sqlx::types::Json;
 
 use super::any::{AnyEncode, AnyQuery, AnyType};
 
-/// This helper method is used to bind ConditionValues to the query.
+/// This helper method is used to bind condition [`Value`]s to the query.
 pub fn bind_param<'post_query, 'query>(query: &mut AnyQuery<'query>, param: Value<'post_query>)
 where
     'post_query: 'query,
@@ -83,7 +81,7 @@ where
     }
 }
 
-/// Little helper hack to avoid using naming the types
+/// Hack to avoid naming the types which would require direct dependencies
 fn none<'a, T, F>(_value_variant: F) -> Option<T>
 where
     F: Fn(T) -> Value<'a>,
