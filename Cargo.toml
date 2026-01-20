@@ -107,8 +107,6 @@ default = [
 all-drivers = [
     "rorm-db/postgres",
     "rorm-cli?/postgres",
-    "rorm-db/mysql",
-    "rorm-cli?/mysql",
     "rorm-db/sqlite",
     "rorm-cli?/sqlite",
 ]

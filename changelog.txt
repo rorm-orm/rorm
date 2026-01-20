@@ -1,5 +1,6 @@
 Since 0.9.7
 -----------
+- Removed support for mysql
 - Introduced `IntoValue` trait
 - Simplified "simple" comparision traits even further
 - Removed `impl_FieldEq!` macro
