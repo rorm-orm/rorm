@@ -48,11 +48,6 @@ pub enum DeleteImpl<'until_build, 'post_query> {
     #[cfg(feature = "sqlite")]
     SQLite(DeleteData<'until_build, 'post_query>),
     /**
-    MySQL representation of the DELETE operation.
-     */
-    #[cfg(feature = "mysql")]
-    MySQL(DeleteData<'until_build, 'post_query>),
-    /**
     Postgres representation of the DELETE operation.
      */
     #[cfg(feature = "postgres")]
@@ -66,8 +61,6 @@ impl<'until_build, 'post_query> Delete<'until_build, 'post_query>
         match self {
             #[cfg(feature = "sqlite")]
             DeleteImpl::SQLite(ref mut data) => data.where_clause = Some(condition),
-            #[cfg(feature = "mysql")]
-            DeleteImpl::MySQL(ref mut data) => data.where_clause = Some(condition),
             #[cfg(feature = "postgres")]
             DeleteImpl::Postgres(ref mut data) => data.where_clause = Some(condition),
         };
@@ -85,22 +78,6 @@ impl<'until_build, 'post_query> Delete<'until_build, 'post_query>
                         s,
                         "WHERE {} ",
                         d.where_clause.unwrap().build(DBImpl::SQLite, &mut d.lookup)
-                    )
-                    .unwrap();
-                }
-
-                write!(s, ";").unwrap();
-                (s, d.lookup)
-            }
-            #[cfg(feature = "mysql")]
-            DeleteImpl::MySQL(mut d) => {
-                let mut s = format!("DELETE FROM {} ", d.model);
-
-                if d.where_clause.is_some() {
-                    write!(
-                        s,
-                        "WHERE {} ",
-                        d.where_clause.unwrap().build(DBImpl::MySQL, &mut d.lookup)
                     )
                     .unwrap();
                 }

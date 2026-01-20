@@ -1,7 +1,5 @@
 use std::fmt::Write;
 
-#[cfg(feature = "mysql")]
-use crate::db_specific::mysql;
 #[cfg(feature = "postgres")]
 use crate::db_specific::postgres;
 #[cfg(feature = "sqlite")]
@@ -58,11 +56,6 @@ pub enum InsertImpl<'until_build, 'post_build> {
     #[cfg(feature = "sqlite")]
     SQLite(InsertData<'until_build, 'post_build>),
     /**
-    MySQL representation of the INSERT operation.
-     */
-    #[cfg(feature = "mysql")]
-    MySQL(InsertData<'until_build, 'post_build>),
-    /**
     Postgres representation of the INSERT operation.
      */
     #[cfg(feature = "postgres")]
@@ -74,8 +67,6 @@ impl<'post_build> Insert<'post_build> for InsertImpl<'_, 'post_build> {
         match self {
             #[cfg(feature = "sqlite")]
             InsertImpl::SQLite(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
-            #[cfg(feature = "mysql")]
-            InsertImpl::MySQL(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
             #[cfg(feature = "postgres")]
             InsertImpl::Postgres(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
         };
@@ -156,81 +147,6 @@ impl<'post_build> Insert<'post_build> for InsertImpl<'_, 'post_build> {
 
                     for (idx, c) in ret_clause.iter().enumerate() {
                         write!(s, "\"{c}\"").unwrap();
-
-                        if idx != ret_clause.len() - 1 {
-                            write!(s, ", ").unwrap();
-                        }
-                    }
-                }
-
-                write!(s, ";").unwrap();
-
-                (s, d.lookup)
-            }
-            #[cfg(feature = "mysql")]
-            InsertImpl::MySQL(mut d) => {
-                if d.columns.is_empty() {
-                    let mut s = format!(
-                        "INSERT {}INTO `{}` DEFAULT VALUES",
-                        match d.on_conflict {
-                            OnConflict::ABORT => "OR ABORT ",
-                            OnConflict::ROLLBACK => "OR ROLLBACK ",
-                        },
-                        d.into_clause,
-                    );
-
-                    if let Some(ret_clause) = d.returning_clause {
-                        write!(s, " RETURNING ").unwrap();
-
-                        for (idx, c) in ret_clause.iter().enumerate() {
-                            write!(s, "`{c}`").unwrap();
-
-                            if idx != ret_clause.len() - 1 {
-                                write!(s, ", ").unwrap();
-                            }
-                        }
-                    }
-                    write!(s, ";").unwrap();
-
-                    return (s, d.lookup);
-                }
-
-                let mut s = format!("INSERT INTO `{}` (", d.into_clause);
-                for (idx, x) in d.columns.iter().enumerate() {
-                    write!(s, "`{x}`").unwrap();
-                    if idx != d.columns.len() - 1 {
-                        write!(s, ", ").unwrap();
-                    }
-                }
-                write!(s, ") VALUES ").unwrap();
-
-                for (idx, x) in d.row_values.iter().enumerate() {
-                    write!(s, "(").unwrap();
-                    for (idx_2, y) in x.iter().enumerate() {
-                        match y {
-                            Value::Ident(st) => write!(s, "{}", *st).unwrap(),
-                            Value::Choice(c) => write!(s, "{}", mysql::fmt(c)).unwrap(),
-                            Value::Null(NullType::Choice) => write!(s, "NULL").unwrap(),
-                            _ => {
-                                d.lookup.push(*y);
-                                write!(s, "?").unwrap();
-                            }
-                        }
-                        if idx_2 != x.len() - 1 {
-                            write!(s, ", ").unwrap();
-                        }
-                    }
-                    write!(s, ")").unwrap();
-                    if idx != d.row_values.len() - 1 {
-                        write!(s, ", ").unwrap();
-                    }
-                }
-
-                if let Some(ret_clause) = d.returning_clause {
-                    write!(s, " RETURNING ").unwrap();
-
-                    for (idx, c) in ret_clause.iter().enumerate() {
-                        write!(s, "`{c}`").unwrap();
 
                         if idx != ret_clause.len() - 1 {
                             write!(s, ", ").unwrap();

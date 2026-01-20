@@ -1,8 +1,6 @@
 use std::fmt::Write;
 
 use crate::conditional::{BuildCondition, Condition};
-#[cfg(feature = "mysql")]
-use crate::db_specific::mysql;
 #[cfg(feature = "postgres")]
 use crate::db_specific::postgres;
 #[cfg(feature = "sqlite")]
@@ -75,11 +73,6 @@ pub enum UpdateImpl<'until_build, 'post_build> {
     #[cfg(feature = "sqlite")]
     SQLite(UpdateData<'until_build, 'post_build>),
     /**
-    MySQL representation of the UPDATE operation.
-     */
-    #[cfg(feature = "mysql")]
-    MySQL(UpdateData<'until_build, 'post_build>),
-    /**
     Postgres representation of the UPDATE operation.
      */
     #[cfg(feature = "postgres")]
@@ -93,8 +86,6 @@ impl<'until_build, 'post_build> Update<'until_build, 'post_build>
         match self {
             #[cfg(feature = "sqlite")]
             UpdateImpl::SQLite(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
-            #[cfg(feature = "mysql")]
-            UpdateImpl::MySQL(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
             #[cfg(feature = "postgres")]
             UpdateImpl::Postgres(ref mut d) => d.on_conflict = OnConflict::ROLLBACK,
         };
@@ -105,8 +96,6 @@ impl<'until_build, 'post_build> Update<'until_build, 'post_build>
         match self {
             #[cfg(feature = "sqlite")]
             UpdateImpl::SQLite(ref mut d) => d.where_clause = Some(condition),
-            #[cfg(feature = "mysql")]
-            UpdateImpl::MySQL(ref mut d) => d.where_clause = Some(condition),
             #[cfg(feature = "postgres")]
             UpdateImpl::Postgres(ref mut d) => d.where_clause = Some(condition),
         };
@@ -121,8 +110,6 @@ impl<'until_build, 'post_build> Update<'until_build, 'post_build>
         match self {
             #[cfg(feature = "sqlite")]
             UpdateImpl::SQLite(ref mut d) => d.updates.push((column_name, column_value)),
-            #[cfg(feature = "mysql")]
-            UpdateImpl::MySQL(ref mut d) => d.updates.push((column_name, column_value)),
             #[cfg(feature = "postgres")]
             UpdateImpl::Postgres(ref mut d) => d.updates.push((column_name, column_value)),
         };
@@ -167,50 +154,6 @@ impl<'until_build, 'post_build> Update<'until_build, 'post_build>
                         s,
                         " WHERE {}",
                         condition.build(DBImpl::SQLite, &mut d.lookup)
-                    )
-                    .unwrap();
-                }
-
-                write!(s, ";").unwrap();
-
-                Ok((s, d.lookup))
-            }
-            #[cfg(feature = "mysql")]
-            UpdateImpl::MySQL(mut d) => {
-                if d.updates.is_empty() {
-                    return Err(Error::SQLBuildError(String::from(
-                        "There must be at least one update in an UPDATE statement",
-                    )));
-                }
-                let mut s = format!(
-                    "UPDATE {}{} SET ",
-                    match d.on_conflict {
-                        OnConflict::ABORT => "OR ABORT ",
-                        OnConflict::ROLLBACK => "OR ROLLBACK ",
-                    },
-                    d.model,
-                );
-
-                let update_index = d.updates.len() - 1;
-                for (idx, (name, value)) in d.updates.into_iter().enumerate() {
-                    if let Value::Choice(c) = value {
-                        write!(s, "`{name}` = {}", mysql::fmt(c)).unwrap();
-                    } else if let Value::Null(NullType::Choice) = value {
-                        write!(s, "`{name}` = NULL").unwrap();
-                    } else {
-                        write!(s, "`{name}` = ?").unwrap();
-                        d.lookup.push(value);
-                    }
-                    if idx != update_index {
-                        write!(s, ", ").unwrap();
-                    }
-                }
-
-                if let Some(condition) = d.where_clause {
-                    write!(
-                        s,
-                        " WHERE {}",
-                        condition.build(DBImpl::MySQL, &mut d.lookup)
                     )
                     .unwrap();
                 }

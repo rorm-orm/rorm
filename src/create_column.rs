@@ -6,8 +6,6 @@ use rorm_declaration::imr::DefaultValue;
 use crate::create_trigger::trigger_annotation_to_trigger_postgres;
 #[cfg(feature = "sqlite")]
 use crate::create_trigger::trigger_annotation_to_trigger_sqlite;
-#[cfg(feature = "mysql")]
-use crate::db_specific::mysql;
 #[cfg(feature = "postgres")]
 use crate::db_specific::postgres;
 #[cfg(feature = "sqlite")]
@@ -54,19 +52,6 @@ pub struct CreateColumnSQLiteData<'until_build, 'post_build> {
 Representation of the data of the creation of a column for the mysql dialect
  */
 #[derive(Debug)]
-#[cfg(feature = "mysql")]
-pub struct CreateColumnMySQLData<'until_build, 'post_build> {
-    pub(crate) name: &'until_build str,
-    pub(crate) data_type: DbType,
-    pub(crate) annotations: Vec<SQLAnnotation<'post_build>>,
-    pub(crate) statements: Option<&'until_build mut Vec<(String, Vec<Value<'post_build>>)>>,
-    pub(crate) lookup: Option<&'until_build mut Vec<Value<'post_build>>>,
-}
-
-/**
-Representation of the data of the creation of a column for the mysql dialect
- */
-#[derive(Debug)]
 #[cfg(feature = "postgres")]
 pub struct CreateColumnPostgresData<'until_build, 'post_build> {
     pub(crate) name: &'until_build str,
@@ -89,11 +74,6 @@ pub enum CreateColumnImpl<'until_build, 'post_build> {
      */
     #[cfg(feature = "sqlite")]
     SQLite(CreateColumnSQLiteData<'until_build, 'post_build>),
-    /**
-    MySQL representation of the create column operation.
-     */
-    #[cfg(feature = "mysql")]
-    MySQL(CreateColumnMySQLData<'until_build, 'post_build>),
     /**
     Postgres representation of the create column operation.
      */
@@ -178,147 +158,6 @@ impl<'post_build> CreateColumn<'post_build> for CreateColumnImpl<'_, 'post_build
                         Annotation::ForeignKey(fk) => write!(
                             s,
                             "REFERENCES \"{}\" (\"{}\") ON DELETE {} ON UPDATE {}",
-                            fk.table_name, fk.column_name, fk.on_delete, fk.on_update
-                        )
-                        .unwrap(),
-                        _ => {}
-                    }
-
-                    if idx != d.annotations.len() - 1 {
-                        write!(s, " ").unwrap();
-                    }
-                }
-
-                Ok(())
-            }
-            #[cfg(feature = "mysql")]
-            CreateColumnImpl::MySQL(mut d) => {
-                write!(s, "`{}` ", d.name).unwrap();
-
-                match d.data_type {
-                    DbType::VarChar => {
-                        let a_opt = d
-                            .annotations
-                            .iter()
-                            .find(|x| x.annotation.eq_shallow(&Annotation::MaxLength(0)));
-
-                        if let Some(a) = a_opt {
-                            if let Annotation::MaxLength(max_length) = a.annotation {
-                                // utf8mb4 is 4 bytes wide, so that's the maximum for varchar
-                                if *max_length < 2i32.pow(14) - 1 {
-                                    write!(s, "VARCHAR({max_length}) ").unwrap();
-                                } else {
-                                    write!(s, "LONGTEXT ").unwrap();
-                                }
-                            } else {
-                                return Err(Error::SQLBuildError(String::from(
-                                    "VARCHAR must have a max_length annotation",
-                                )));
-                            }
-                        } else {
-                            return Err(Error::SQLBuildError(String::from(
-                                "VARCHAR must have a max_length annotation",
-                            )));
-                        }
-                    }
-                    DbType::Binary | DbType::Uuid => write!(s, "LONGBLOB ").unwrap(),
-                    DbType::Int8 => write!(s, "TINYINT(255) ").unwrap(),
-                    DbType::Int16 => write!(s, "SMALLINT(255) ").unwrap(),
-                    DbType::Int32 => write!(s, "INT(255) ").unwrap(),
-                    DbType::Int64 => write!(s, "BIGINT(255) ").unwrap(),
-                    DbType::Float => write!(s, "FLOAT(24) ").unwrap(),
-                    DbType::Double => write!(s, "DOUBLE(53) ").unwrap(),
-                    DbType::Boolean => write!(s, "BOOL ").unwrap(),
-                    DbType::Date => write!(s, "DATE ").unwrap(),
-                    DbType::DateTime => write!(s, "DATETIME ").unwrap(),
-                    DbType::Timestamp => write!(s, "TIMESTAMP ").unwrap(),
-                    DbType::Time => write!(s, "TIME ").unwrap(),
-                    DbType::Choices => {
-                        let a_opt = d.annotations.iter().find(|x| {
-                            x.annotation
-                                .eq_shallow(&Annotation::Choices(Default::default()))
-                        });
-
-                        if let Some(a) = a_opt {
-                            if let Annotation::Choices(values) = a.annotation {
-                                write!(
-                                    s,
-                                    "ENUM({}) ",
-                                    values
-                                        .iter()
-                                        .map(|x| mysql::fmt(x))
-                                        .collect::<Vec<String>>()
-                                        .join(", ")
-                                )
-                                .unwrap();
-                            } else {
-                                return Err(Error::SQLBuildError(
-                                    "VARCHAR must have a MaxLength annotation".to_string(),
-                                ));
-                            }
-                        } else {
-                            return Err(Error::SQLBuildError(
-                                "VARCHAR must have a MaxLength annotation".to_string(),
-                            ));
-                        }
-                    }
-                    DbType::BitVec | DbType::IpNetwork | DbType::MacAddress => {
-                        unreachable!("BitVec, MacAddress and IpNetwork are not available for mysql")
-                    }
-                };
-
-                for (idx, x) in d.annotations.iter().enumerate() {
-                    match &x.annotation {
-                        Annotation::AutoIncrement => write!(s, "AUTO_INCREMENT").unwrap(),
-                        Annotation::AutoCreateTime => {
-                            write!(
-                                s,
-                                "DEFAULT {}",
-                                match d.data_type {
-                                    DbType::Date => "CURRENT_DATE",
-                                    DbType::DateTime => "CURRENT_TIMESTAMP",
-                                    DbType::Timestamp => "CURRENT_TIMESTAMP",
-                                    DbType::Time => "CURRENT_TIME",
-                                    _ => "",
-                                }
-                            )
-                            .unwrap();
-                        }
-                        Annotation::AutoUpdateTime => write!(
-                            s,
-                            "ON UPDATE {}",
-                            match d.data_type {
-                                DbType::Date => "CURRENT_DATE",
-                                DbType::DateTime => "CURRENT_TIMESTAMP",
-                                DbType::Timestamp => "CURRENT_TIMESTAMP",
-                                DbType::Time => "CURRENT_TIME",
-                                _ => "",
-                            }
-                        )
-                        .unwrap(),
-                        Annotation::DefaultValue(v) => match v {
-                            DefaultValue::String(dv) => {
-                                if let Some(l) = &mut d.lookup {
-                                    l.push(Value::String(dv))
-                                }
-                                write!(s, "DEFAULT ?").unwrap();
-                            }
-                            DefaultValue::Integer(i) => write!(s, "DEFAULT {i}").unwrap(),
-                            DefaultValue::Float(f) => write!(s, "DEFAULT {f}").unwrap(),
-                            DefaultValue::Boolean(b) => {
-                                if *b {
-                                    write!(s, "DEFAULT 1").unwrap();
-                                } else {
-                                    write!(s, "DEFAULT 0").unwrap();
-                                }
-                            }
-                        },
-                        Annotation::NotNull => write!(s, "NOT NULL").unwrap(),
-                        Annotation::PrimaryKey => write!(s, "PRIMARY KEY").unwrap(),
-                        Annotation::Unique => write!(s, "UNIQUE").unwrap(),
-                        Annotation::ForeignKey(fk) => write!(
-                            s,
-                            "REFERENCES `{}`(`{}`) ON DELETE {} ON UPDATE {}",
                             fk.table_name, fk.column_name, fk.on_delete, fk.on_update
                         )
                         .unwrap(),

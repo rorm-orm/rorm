@@ -35,11 +35,6 @@ pub enum DropTableImpl<'until_build> {
     #[cfg(feature = "sqlite")]
     SQLite(DropTableData<'until_build>),
     /**
-    MySQL representation of the DROP TABLE operation.
-     */
-    #[cfg(feature = "mysql")]
-    MySQL(DropTableData<'until_build>),
-    /**
     Postgres representation of the DROP TABLE operation.
      */
     #[cfg(feature = "postgres")]
@@ -51,8 +46,6 @@ impl DropTable for DropTableImpl<'_> {
         match self {
             #[cfg(feature = "sqlite")]
             DropTableImpl::SQLite(ref mut d) => d.if_exists = true,
-            #[cfg(feature = "mysql")]
-            DropTableImpl::MySQL(ref mut d) => d.if_exists = true,
             #[cfg(feature = "postgres")]
             DropTableImpl::Postgres(ref mut d) => d.if_exists = true,
         };
@@ -67,14 +60,6 @@ impl DropTable for DropTableImpl<'_> {
                 d.name,
                 if d.if_exists { " IF EXISTS" } else { "" }
             ),
-
-            #[cfg(feature = "mysql")]
-            DropTableImpl::MySQL(d) => format!(
-                "DROP TABLE {}{};",
-                d.name,
-                if d.if_exists { " IF EXISTS" } else { "" }
-            ),
-
             #[cfg(feature = "postgres")]
             DropTableImpl::Postgres(d) => format!(
                 "DROP TABLE \"{}\"{};",

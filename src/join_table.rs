@@ -95,11 +95,6 @@ pub enum JoinTableImpl<'until_build, 'post_query> {
     #[cfg(feature = "sqlite")]
     SQLite(JoinTableData<'until_build, 'post_query>),
     /**
-    MySQL representation of a JOIN expression.
-     */
-    #[cfg(feature = "mysql")]
-    MySQL(JoinTableData<'until_build, 'post_query>),
-    /**
     Postgres representation of a JOIN expression.
      */
     #[cfg(feature = "postgres")]
@@ -117,16 +112,6 @@ impl<'post_query> JoinTable<'post_query> for JoinTableImpl<'_, 'post_query> {
                 d.table_name,
                 d.join_alias,
                 d.join_condition.build(DBImpl::SQLite, lookup)
-            )
-            .unwrap(),
-            #[cfg(feature = "mysql")]
-            JoinTableImpl::MySQL(d) => write!(
-                s,
-                "{} {} AS {} ON {}",
-                d.join_type,
-                d.table_name,
-                d.join_alias,
-                d.join_condition.build(DBImpl::MySQL, lookup)
             )
             .unwrap(),
             #[cfg(feature = "postgres")]

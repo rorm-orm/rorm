@@ -51,11 +51,6 @@ pub enum CreateTableImpl<'until_build, 'post_build> {
     #[cfg(feature = "sqlite")]
     SQLite(CreateTableData<'until_build, 'post_build>),
     /**
-    MySQL representation of the CREATE TABLE operation.
-     */
-    #[cfg(feature = "mysql")]
-    MySQL(CreateTableData<'until_build, 'post_build>),
-    /**
     Postgres representation of the CREATE TABLE operation.
      */
     #[cfg(feature = "postgres")]
@@ -69,8 +64,6 @@ impl<'until_build, 'post_build> CreateTable<'until_build, 'post_build>
         match self {
             #[cfg(feature = "sqlite")]
             CreateTableImpl::SQLite(ref mut d) => d.columns.push(column),
-            #[cfg(feature = "mysql")]
-            CreateTableImpl::MySQL(ref mut d) => d.columns.push(column),
             #[cfg(feature = "postgres")]
             CreateTableImpl::Postgres(ref mut d) => d.columns.push(column),
         }
@@ -81,8 +74,6 @@ impl<'until_build, 'post_build> CreateTable<'until_build, 'post_build>
         match self {
             #[cfg(feature = "sqlite")]
             CreateTableImpl::SQLite(ref mut d) => d.if_not_exists = true,
-            #[cfg(feature = "mysql")]
-            CreateTableImpl::MySQL(ref mut d) => d.if_not_exists = true,
             #[cfg(feature = "postgres")]
             CreateTableImpl::Postgres(ref mut d) => d.if_not_exists = true,
         }
@@ -105,14 +96,8 @@ impl<'until_build, 'post_build> CreateTable<'until_build, 'post_build>
 
                 let columns_len = d.columns.len() - 1;
                 for (idx, mut x) in d.columns.into_iter().enumerate() {
-                    #[cfg(any(feature = "mysql", feature = "postgres"))]
-                    if let CreateColumnImpl::SQLite(ref mut cci) = x {
+                    if let CreateColumnImpl::SQLite(cci) = &mut x {
                         cci.statements = Some(&mut d.statements)
-                    }
-                    #[cfg(not(any(feature = "mysql", feature = "postgres")))]
-                    {
-                        let CreateColumnImpl::SQLite(ref mut cci) = x;
-                        cci.statements = Some(&mut d.statements);
                     }
 
                     x.build(&mut s)?;
@@ -123,44 +108,6 @@ impl<'until_build, 'post_build> CreateTable<'until_build, 'post_build>
                 }
 
                 write!(s, ") STRICT; ").unwrap();
-
-                let mut statements = vec![(s, d.lookup)];
-                statements.extend(d.statements);
-
-                Ok(statements)
-            }
-            #[cfg(feature = "mysql")]
-            CreateTableImpl::MySQL(mut d) => {
-                let mut s = format!(
-                    "CREATE TABLE{} `{}` (",
-                    if d.if_not_exists {
-                        " IF NOT EXISTS"
-                    } else {
-                        ""
-                    },
-                    d.name
-                );
-
-                let columns_len = d.columns.len() - 1;
-                for (idx, mut x) in d.columns.into_iter().enumerate() {
-                    #[cfg(any(feature = "postgres", feature = "sqlite"))]
-                    if let CreateColumnImpl::MySQL(ref mut cci) = x {
-                        cci.statements = Some(&mut d.statements);
-                    }
-                    #[cfg(not(any(feature = "postgres", feature = "sqlite")))]
-                    {
-                        let CreateColumnImpl::MySQL(ref mut cci) = x;
-                        cci.statements = Some(&mut d.statements);
-                    }
-
-                    x.build(&mut s)?;
-
-                    if idx != columns_len {
-                        write!(s, ", ").unwrap();
-                    }
-                }
-
-                write!(s, "); ").unwrap();
 
                 let mut statements = vec![(s, d.lookup)];
                 statements.extend(d.statements);
@@ -181,14 +128,8 @@ impl<'until_build, 'post_build> CreateTable<'until_build, 'post_build>
 
                 let columns_len = d.columns.len() - 1;
                 for (idx, mut x) in d.columns.into_iter().enumerate() {
-                    #[cfg(any(feature = "sqlite", feature = "mysql"))]
-                    if let CreateColumnImpl::Postgres(ref mut cci) = x {
-                        cci.pre_statements = Some(&mut d.pre_statements);
-                        cci.statements = Some(&mut d.statements);
-                    }
-                    #[cfg(not(any(feature = "sqlite", feature = "mysql")))]
-                    {
-                        let CreateColumnImpl::Postgres(ref mut cci) = x;
+                    #[allow(irrefutable_let_patterns)]
+                    if let CreateColumnImpl::Postgres(cci) = &mut x {
                         cci.pre_statements = Some(&mut d.pre_statements);
                         cci.statements = Some(&mut d.statements);
                     }

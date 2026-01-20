@@ -1,7 +1,5 @@
 use std::fmt::{Debug, Error, Write};
 
-#[cfg(feature = "mysql")]
-use crate::db_specific::mysql;
 #[cfg(feature = "postgres")]
 use crate::db_specific::postgres;
 #[cfg(feature = "sqlite")]
@@ -274,13 +272,6 @@ impl<'a> BuildCondition<'a> for Condition<'a> {
                         }
                         write!(writer, "{column_name}")
                     }
-                    #[cfg(feature = "mysql")]
-                    DBImpl::MySQL => {
-                        if let Some(table_name) = table_name {
-                            write!(writer, "{table_name}.")?;
-                        }
-                        write!(writer, "{column_name}")
-                    }
                     #[cfg(feature = "postgres")]
                     DBImpl::Postgres => {
                         if let Some(table_name) = table_name {
@@ -292,8 +283,6 @@ impl<'a> BuildCondition<'a> for Condition<'a> {
                 Value::Choice(c) => match dialect {
                     #[cfg(feature = "sqlite")]
                     DBImpl::SQLite => write!(writer, "{}", sqlite::fmt(c)),
-                    #[cfg(feature = "mysql")]
-                    DBImpl::MySQL => write!(writer, "{}", mysql::fmt(c)),
                     #[cfg(feature = "postgres")]
                     DBImpl::Postgres => write!(writer, "{}", postgres::fmt(c)),
                 },
@@ -304,10 +293,6 @@ impl<'a> BuildCondition<'a> for Condition<'a> {
                     match dialect {
                         #[cfg(feature = "sqlite")]
                         DBImpl::SQLite => {
-                            write!(writer, "?")
-                        }
-                        #[cfg(feature = "mysql")]
-                        DBImpl::MySQL => {
                             write!(writer, "?")
                         }
                         #[cfg(feature = "postgres")]

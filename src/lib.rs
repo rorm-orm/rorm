@@ -2,7 +2,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(missing_docs)]
 
-#[cfg(not(any(feature = "sqlite", feature = "postgres", feature = "mysql")))]
+#[cfg(not(any(feature = "sqlite", feature = "postgres")))]
 compile_error!("One of the features sqlite, postgres, mysql must be activated");
 
 /// Implementation of a aggregator functions
@@ -53,8 +53,6 @@ use rorm_declaration::imr::{Annotation, DbType};
 use crate::aggregation::SelectAggregator;
 use crate::alter_table::{AlterTable, AlterTableData, AlterTableImpl, AlterTableOperation};
 use crate::conditional::Condition;
-#[cfg(feature = "mysql")]
-use crate::create_column::CreateColumnMySQLData;
 #[cfg(feature = "postgres")]
 use crate::create_column::CreateColumnPostgresData;
 #[cfg(feature = "sqlite")]
@@ -87,9 +85,6 @@ pub enum DBImpl {
     /// Implementation of Postgres
     #[cfg(feature = "postgres")]
     Postgres,
-    /// Implementation of MySQL / MariaDB
-    #[cfg(feature = "mysql")]
-    MySQL,
 }
 
 impl DBImpl {
@@ -118,8 +113,6 @@ impl DBImpl {
         match self {
             #[cfg(feature = "sqlite")]
             DBImpl::SQLite => CreateTableImpl::SQLite(d),
-            #[cfg(feature = "mysql")]
-            DBImpl::MySQL => CreateTableImpl::MySQL(d),
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => CreateTableImpl::Postgres(d),
         }
@@ -176,8 +169,6 @@ impl DBImpl {
         match self {
             #[cfg(feature = "sqlite")]
             DBImpl::SQLite => CreateIndexImpl::Sqlite(d),
-            #[cfg(feature = "mysql")]
-            DBImpl::MySQL => CreateIndexImpl::MySQL(d),
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => CreateIndexImpl::Postgres(d),
         }
@@ -200,8 +191,6 @@ impl DBImpl {
         match self {
             #[cfg(feature = "sqlite")]
             DBImpl::SQLite => DropTableImpl::SQLite(d),
-            #[cfg(feature = "mysql")]
-            DBImpl::MySQL => DropTableImpl::MySQL(d),
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => DropTableImpl::Postgres(d),
         }
@@ -232,8 +221,6 @@ impl DBImpl {
         match self {
             #[cfg(feature = "sqlite")]
             DBImpl::SQLite => AlterTableImpl::SQLite(d),
-            #[cfg(feature = "mysql")]
-            DBImpl::MySQL => AlterTableImpl::MySQL(d),
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => AlterTableImpl::Postgres(d),
         }
@@ -283,14 +270,6 @@ impl DBImpl {
                 statements: None,
                 lookup: None,
             }),
-            #[cfg(feature = "mysql")]
-            DBImpl::MySQL => CreateColumnImpl::MySQL(CreateColumnMySQLData {
-                name,
-                data_type,
-                annotations: a,
-                statements: None,
-                lookup: None,
-            }),
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => CreateColumnImpl::Postgres(CreateColumnPostgresData {
                 name,
@@ -332,8 +311,6 @@ impl DBImpl {
         match self {
             #[cfg(feature = "sqlite")]
             DBImpl::SQLite => SelectImpl::SQLite(d),
-            #[cfg(feature = "mysql")]
-            DBImpl::MySQL => SelectImpl::MySQL(d),
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => SelectImpl::Postgres(d),
         }
@@ -369,8 +346,6 @@ impl DBImpl {
         match self {
             #[cfg(feature = "sqlite")]
             DBImpl::SQLite => InsertImpl::SQLite(d),
-            #[cfg(feature = "mysql")]
-            DBImpl::MySQL => InsertImpl::MySQL(d),
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => InsertImpl::Postgres(d),
         }
@@ -397,8 +372,6 @@ impl DBImpl {
         match self {
             #[cfg(feature = "sqlite")]
             DBImpl::SQLite => DeleteImpl::SQLite(d),
-            #[cfg(feature = "mysql")]
-            DBImpl::MySQL => DeleteImpl::MySQL(d),
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => DeleteImpl::Postgres(d),
         }
@@ -428,8 +401,6 @@ impl DBImpl {
         match self {
             #[cfg(feature = "sqlite")]
             DBImpl::SQLite => UpdateImpl::SQLite(d),
-            #[cfg(feature = "mysql")]
-            DBImpl::MySQL => UpdateImpl::MySQL(d),
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => UpdateImpl::Postgres(d),
         }
@@ -461,8 +432,6 @@ impl DBImpl {
         match self {
             #[cfg(feature = "sqlite")]
             DBImpl::SQLite => JoinTableImpl::SQLite(d),
-            #[cfg(feature = "mysql")]
-            DBImpl::MySQL => JoinTableImpl::MySQL(d),
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => JoinTableImpl::Postgres(d),
         }
@@ -494,8 +463,6 @@ impl DBImpl {
         match self {
             #[cfg(feature = "sqlite")]
             DBImpl::SQLite => SelectColumnImpl::SQLite(d),
-            #[cfg(feature = "mysql")]
-            DBImpl::MySQL => SelectColumnImpl::MySQL(d),
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => SelectColumnImpl::Postgres(d),
         }

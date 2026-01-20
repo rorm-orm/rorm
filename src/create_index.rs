@@ -62,11 +62,6 @@ pub enum CreateIndexImpl<'until_build> {
     #[cfg(feature = "sqlite")]
     Sqlite(CreateIndexData<'until_build>),
     /**
-    MySQL representation of the CREATE INDEX operation.
-     */
-    #[cfg(feature = "mysql")]
-    MySQL(CreateIndexData<'until_build>),
-    /**
     Postgres representation of the CREATE INDEX operation.
      */
     #[cfg(feature = "postgres")]
@@ -78,8 +73,6 @@ impl<'until_build> CreateIndex<'until_build> for CreateIndexImpl<'until_build> {
         match self {
             #[cfg(feature = "sqlite")]
             CreateIndexImpl::Sqlite(ref mut d) => d.unique = true,
-            #[cfg(feature = "mysql")]
-            CreateIndexImpl::MySQL(ref mut d) => d.unique = true,
             #[cfg(feature = "postgres")]
             CreateIndexImpl::Postgres(ref mut d) => d.unique = true,
         };
@@ -90,8 +83,6 @@ impl<'until_build> CreateIndex<'until_build> for CreateIndexImpl<'until_build> {
         match self {
             #[cfg(feature = "sqlite")]
             CreateIndexImpl::Sqlite(ref mut d) => d.if_not_exists = true,
-            #[cfg(feature = "mysql")]
-            CreateIndexImpl::MySQL(ref mut d) => d.if_not_exists = true,
             #[cfg(feature = "postgres")]
             CreateIndexImpl::Postgres(ref mut d) => d.if_not_exists = true,
         };
@@ -102,8 +93,6 @@ impl<'until_build> CreateIndex<'until_build> for CreateIndexImpl<'until_build> {
         match self {
             #[cfg(feature = "sqlite")]
             CreateIndexImpl::Sqlite(ref mut d) => d.columns.push(column),
-            #[cfg(feature = "mysql")]
-            CreateIndexImpl::MySQL(ref mut d) => d.columns.push(column),
             #[cfg(feature = "postgres")]
             CreateIndexImpl::Postgres(ref mut d) => d.columns.push(column),
         }
@@ -114,8 +103,6 @@ impl<'until_build> CreateIndex<'until_build> for CreateIndexImpl<'until_build> {
         match self {
             #[cfg(feature = "sqlite")]
             CreateIndexImpl::Sqlite(ref mut d) => d.condition = Some(condition),
-            #[cfg(feature = "mysql")]
-            CreateIndexImpl::MySQL(ref mut d) => d.condition = Some(condition),
             #[cfg(feature = "postgres")]
             CreateIndexImpl::Postgres(ref mut d) => d.condition = Some(condition),
         }
@@ -145,28 +132,6 @@ impl<'until_build> CreateIndex<'until_build> for CreateIndexImpl<'until_build> {
                     d.table_name,
                     d.columns.join(", "),
                     d.condition.as_ref().map_or("", |x| x.as_str()),
-                ))
-            }
-            #[cfg(feature = "mysql")]
-            CreateIndexImpl::MySQL(d) => {
-                if d.columns.is_empty() {
-                    return Err(Error::SQLBuildError(format!(
-                        "Couldn't create index on {}: Missing column(s) to create the index on",
-                        d.table_name
-                    )));
-                }
-
-                Ok(format!(
-                    "CREATE {} INDEX{} {} ON {} ({});",
-                    if d.unique { "UNIQUE" } else { "" },
-                    if d.if_not_exists {
-                        " IF NOT EXISTS"
-                    } else {
-                        ""
-                    },
-                    d.name,
-                    d.table_name,
-                    d.columns.join(", "),
                 ))
             }
             #[cfg(feature = "postgres")]

@@ -69,11 +69,6 @@ pub enum AlterTableImpl<'until_build, 'post_build> {
     #[cfg(feature = "sqlite")]
     SQLite(AlterTableData<'until_build, 'post_build>),
     /**
-    MySQL representation of the ALTER TABLE operation.
-     */
-    #[cfg(feature = "mysql")]
-    MySQL(AlterTableData<'until_build, 'post_build>),
-    /**
     Postgres representation of the ALTER TABLE operation.
      */
     #[cfg(feature = "postgres")]
@@ -102,14 +97,7 @@ impl<'post_build> AlterTable<'post_build> for AlterTableImpl<'_, 'post_build> {
                     AlterTableOperation::AddColumn { mut operation } => {
                         write!(s, "ADD COLUMN ").unwrap();
 
-                        #[cfg(any(feature = "mysql", feature = "postgres"))]
-                        if let CreateColumnImpl::SQLite(ref mut ccd) = operation {
-                            ccd.statements = Some(&mut d.statements);
-                            ccd.lookup = Some(&mut d.lookup);
-                        }
-                        #[cfg(not(any(feature = "mysql", feature = "postgres")))]
-                        {
-                            let CreateColumnImpl::SQLite(ref mut ccd) = operation;
+                        if let CreateColumnImpl::SQLite(ccd) = &mut operation {
                             ccd.statements = Some(&mut d.statements);
                             ccd.lookup = Some(&mut d.lookup);
                         }
@@ -118,47 +106,6 @@ impl<'post_build> AlterTable<'post_build> for AlterTableImpl<'_, 'post_build> {
                     }
                     AlterTableOperation::DropColumn { name } => {
                         write!(s, "DROP COLUMN \"{name}\"").unwrap()
-                    }
-                };
-
-                write!(s, ";").unwrap();
-
-                let mut statements = vec![(s, d.lookup)];
-                statements.extend(d.statements);
-
-                Ok(statements)
-            }
-            #[cfg(feature = "mysql")]
-            AlterTableImpl::MySQL(mut d) => {
-                let mut s = format!("ALTER TABLE `{}` ", d.name);
-
-                match d.operation {
-                    AlterTableOperation::RenameTo { name } => {
-                        write!(s, "RENAME TO `{name}`").unwrap();
-                    }
-                    AlterTableOperation::RenameColumnTo {
-                        column_name,
-                        new_column_name,
-                    } => write!(s, "RENAME COLUMN `{column_name}` TO `{new_column_name}`").unwrap(),
-                    AlterTableOperation::AddColumn { mut operation } => {
-                        write!(s, "ADD COLUMN ").unwrap();
-
-                        #[cfg(any(feature = "sqlite", feature = "postgres"))]
-                        if let CreateColumnImpl::MySQL(ref mut ccd) = operation {
-                            ccd.statements = Some(&mut d.statements);
-                            ccd.lookup = Some(&mut d.lookup);
-                        }
-                        #[cfg(not(any(feature = "sqlite", feature = "postgres")))]
-                        {
-                            let CreateColumnImpl::MySQL(ref mut ccd) = operation;
-                            ccd.statements = Some(&mut d.statements);
-                            ccd.lookup = Some(&mut d.lookup);
-                        }
-
-                        operation.build(&mut s)?;
-                    }
-                    AlterTableOperation::DropColumn { name } => {
-                        write!(s, "DROP COLUMN `{name}`").unwrap()
                     }
                 };
 
@@ -191,13 +138,8 @@ impl<'post_build> AlterTable<'post_build> for AlterTableImpl<'_, 'post_build> {
                     AlterTableOperation::AddColumn { mut operation } => {
                         write!(s, "ADD COLUMN ").unwrap();
 
-                        #[cfg(any(feature = "sqlite", feature = "mysql"))]
-                        if let CreateColumnImpl::Postgres(ref mut ccd) = operation {
-                            ccd.statements = Some(&mut d.statements);
-                        }
-                        #[cfg(not(any(feature = "sqlite", feature = "mysql")))]
-                        {
-                            let CreateColumnImpl::Postgres(ref mut ccd) = operation;
+                        #[allow(irrefutable_let_patterns)]
+                        if let CreateColumnImpl::Postgres(ccd) = &mut operation {
                             ccd.statements = Some(&mut d.statements);
                         }
 

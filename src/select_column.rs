@@ -39,9 +39,6 @@ pub enum SelectColumnImpl<'until_build> {
     /// SQLite representation of a column selector expression.
     #[cfg(feature = "sqlite")]
     SQLite(SelectColumnData<'until_build>),
-    /// MySQL representation of a column selector expression.
-    #[cfg(feature = "mysql")]
-    MySQL(SelectColumnData<'until_build>),
     /// Postgres representation of a column selector expression.
     #[cfg(feature = "postgres")]
     Postgres(SelectColumnData<'until_build>),
@@ -68,32 +65,6 @@ impl SelectColumn for SelectColumnImpl<'_> {
                 }
 
                 write!(s, "\"{}\"", d.column_name).unwrap();
-
-                if d.aggregation.is_some() {
-                    write!(s, ")").unwrap();
-                }
-
-                if let Some(alias) = d.select_alias {
-                    write!(s, " AS {alias}").unwrap();
-                }
-            }
-            #[cfg(feature = "mysql")]
-            SelectColumnImpl::MySQL(d) => {
-                if let Some(aggregation) = d.aggregation {
-                    match aggregation {
-                        SelectAggregator::Avg => write!(s, "AVG("),
-                        SelectAggregator::Count => write!(s, "COUNT("),
-                        SelectAggregator::Sum => write!(s, "SUM("),
-                        SelectAggregator::Max => write!(s, "MAX("),
-                        SelectAggregator::Min => write!(s, "MIN("),
-                    }
-                    .unwrap();
-                }
-                if let Some(table_name) = d.table_name {
-                    write!(s, "`{table_name}`.").unwrap();
-                }
-
-                write!(s, "`{}`", d.column_name).unwrap();
 
                 if d.aggregation.is_some() {
                     write!(s, ")").unwrap();

@@ -61,11 +61,6 @@ pub enum SelectImpl<'until_build, 'post_query> {
     #[cfg(feature = "sqlite")]
     SQLite(SelectData<'until_build, 'post_query>),
     /**
-    MySQL representation of the SELECT operation.
-     */
-    #[cfg(feature = "mysql")]
-    MySQL(SelectData<'until_build, 'post_query>),
-    /**
     Postgres representation of the SELECT operation.
      */
     #[cfg(feature = "postgres")]
@@ -82,11 +77,6 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
                 d.limit = Some(limit.limit);
                 d.offset = limit.offset;
             }
-            #[cfg(feature = "mysql")]
-            SelectImpl::MySQL(ref mut d) => {
-                d.limit = Some(limit.limit);
-                d.offset = limit.offset;
-            }
             #[cfg(feature = "postgres")]
             SelectImpl::Postgres(ref mut d) => {
                 d.limit = Some(limit.limit);
@@ -100,8 +90,6 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
         match self {
             #[cfg(feature = "sqlite")]
             SelectImpl::SQLite(ref mut d) => d.distinct = true,
-            #[cfg(feature = "mysql")]
-            SelectImpl::MySQL(ref mut d) => d.distinct = true,
             #[cfg(feature = "postgres")]
             SelectImpl::Postgres(ref mut d) => d.distinct = true,
         };
@@ -112,8 +100,6 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
         match self {
             #[cfg(feature = "sqlite")]
             SelectImpl::SQLite(ref mut d) => d.where_clause = Some(where_clause),
-            #[cfg(feature = "mysql")]
-            SelectImpl::MySQL(ref mut d) => d.where_clause = Some(where_clause),
             #[cfg(feature = "postgres")]
             SelectImpl::Postgres(ref mut d) => d.where_clause = Some(where_clause),
         };
@@ -144,66 +130,6 @@ impl<'until_build, 'post_build> Select<'until_build, 'post_build>
 
                 if let Some(c) = d.where_clause {
                     write!(s, " WHERE {}", c.build(DBImpl::SQLite, &mut d.lookup)).unwrap()
-                };
-
-                if !d.order_by_clause.is_empty() {
-                    write!(s, " ORDER BY ").unwrap();
-
-                    let order_by_len = d.order_by_clause.len();
-                    for (idx, entry) in d.order_by_clause.iter().enumerate() {
-                        if let Some(table_name) = entry.table_name {
-                            write!(s, "{table_name}.").unwrap();
-                        };
-                        write!(
-                            s,
-                            "{}{}",
-                            entry.column_name,
-                            match entry.ordering {
-                                Ordering::Asc => "",
-                                Ordering::Desc => " DESC",
-                            }
-                        )
-                        .unwrap();
-
-                        if idx != order_by_len - 1 {
-                            write!(s, ", ").unwrap();
-                        }
-                    }
-                };
-
-                if let Some(limit) = d.limit {
-                    write!(s, " LIMIT {limit}").unwrap();
-                    if let Some(offset) = d.offset {
-                        write!(s, " OFFSET {offset}").unwrap();
-                    }
-                };
-
-                write!(s, ";").unwrap();
-
-                (s, d.lookup)
-            }
-            #[cfg(feature = "mysql")]
-            SelectImpl::MySQL(mut d) => {
-                let mut s = format!("SELECT{} ", if d.distinct { " DISTINCT" } else { "" });
-
-                let column_len = d.resulting_columns.len();
-                for (idx, column) in d.resulting_columns.iter().enumerate() {
-                    column.build(&mut s);
-
-                    if idx != column_len - 1 {
-                        write!(s, ", ").unwrap();
-                    }
-                }
-
-                write!(s, " FROM {}", d.from_clause).unwrap();
-
-                for x in d.join_tables {
-                    write!(s, " ").unwrap();
-                    x.build(&mut s, &mut d.lookup);
-                }
-
-                if let Some(c) = d.where_clause {
-                    write!(s, " WHERE {}", c.build(DBImpl::MySQL, &mut d.lookup)).unwrap()
                 };
 
                 if !d.order_by_clause.is_empty() {
