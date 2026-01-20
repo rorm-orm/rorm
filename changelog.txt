@@ -1,4 +1,4 @@
-Since 0.9.6
+Since 0.9.7
 -----------
 - Introduced `IntoValue` trait
 - Simplified "simple" comparision traits even further

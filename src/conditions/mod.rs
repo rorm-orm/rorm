@@ -195,8 +195,8 @@ impl Value<'_> {
         }
     }
 }
-impl<'a> Condition<'a> for Value<'a> {
-    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
+impl<'c, 'v: 'c> Condition<'c> for Value<'v> {
+    fn build(&self, mut builder: ConditionBuilder<'_, 'c>) {
         let value_index = builder.push_value(self.clone());
         builder.push_condition(FlatCondition::Value(value_index));
     }
