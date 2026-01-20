@@ -38,7 +38,6 @@ features = ["all-driver", "serde", "native-tls", "rustls"]
 
 [features]
 all-driver = [
-    "mysql",
     "postgres",
     "sqlite"
 ]
@@ -48,11 +47,6 @@ serde = [
 ]
 
 # database backends
-mysql = [
-    "sqlx/mysql",
-    "rorm-sql/mysql",
-    "rorm-declaration/mysql"
-]
 postgres = [
     "sqlx/postgres",
     "rorm-sql/postgres",

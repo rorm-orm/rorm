@@ -85,32 +85,6 @@ pub(crate) async fn connect(configuration: DatabaseConfiguration) -> Result<Impl
                     .await?,
             )
         }
-        #[cfg(feature = "mysql")]
-        DatabaseDriver::MySQL {
-            name,
-            host,
-            port,
-            user,
-            password,
-        } => {
-            if name.is_empty() {
-                return Err(Error::ConfigurationError(String::from(
-                    "name must not be empty",
-                )));
-            }
-            let connect_options = sqlx::mysql::MySqlConnectOptions::new()
-                .host(host.as_str())
-                .port(*port)
-                .username(user.as_str())
-                .password(password.as_str())
-                .database(name.as_str())
-                .log_slow_statements(LevelFilter::Warn, SLOW_STATEMENTS);
-            Impl::MySql(
-                pool_options!(sqlx::mysql::MySqlPoolOptions)
-                    .connect_with(connect_options)
-                    .await?,
-            )
-        }
     };
 
     Ok(pool)

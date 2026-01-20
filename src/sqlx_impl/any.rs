@@ -18,8 +18,6 @@ use crate::futures_util::BoxStream;
 #[path = "./cond_macros.rs"]
 mod cond_macros;
 
-#[cfg(feature = "mysql")]
-use sqlx::{mysql, MySql};
 #[cfg(feature = "postgres")]
 use sqlx::{postgres, Postgres};
 #[cfg(feature = "sqlite")]
@@ -30,8 +28,6 @@ use sqlx::{sqlite, Sqlite};
 pub enum AnyPool {
     #[cfg(feature = "postgres")]
     Postgres(Pool<Postgres>),
-    #[cfg(feature = "mysql")]
-    MySql(Pool<MySql>),
     #[cfg(feature = "sqlite")]
     Sqlite(Pool<Sqlite>),
 }
@@ -44,8 +40,6 @@ impl AnyPool {
         match self {
             #[cfg(feature = "postgres")]
             Self::Postgres(pool) => pool.begin().await.map(AnyTransaction::Postgres),
-            #[cfg(feature = "mysql")]
-            Self::MySql(pool) => pool.begin().await.map(AnyTransaction::MySql),
             #[cfg(feature = "sqlite")]
             Self::Sqlite(pool) => pool.begin().await.map(AnyTransaction::Sqlite),
         }
@@ -58,8 +52,6 @@ impl AnyPool {
         match self {
             #[cfg(feature = "postgres")]
             Self::Postgres(pool) => pool.close().await,
-            #[cfg(feature = "mysql")]
-            Self::MySql(pool) => pool.close().await,
             #[cfg(feature = "sqlite")]
             Self::Sqlite(pool) => pool.close().await,
         }
@@ -71,8 +63,6 @@ impl AnyPool {
         match self {
             #[cfg(feature = "postgres")]
             Self::Postgres(pool) => pool.is_closed(),
-            #[cfg(feature = "mysql")]
-            Self::MySql(pool) => pool.is_closed(),
             #[cfg(feature = "sqlite")]
             Self::Sqlite(pool) => pool.is_closed(),
         }
@@ -83,8 +73,6 @@ impl AnyPool {
 pub enum AnyTransaction {
     #[cfg(feature = "postgres")]
     Postgres(Transaction<'static, Postgres>),
-    #[cfg(feature = "mysql")]
-    MySql(Transaction<'static, MySql>),
     #[cfg(feature = "sqlite")]
     Sqlite(Transaction<'static, Sqlite>),
 }
@@ -97,8 +85,6 @@ impl AnyTransaction {
         match self {
             #[cfg(feature = "postgres")]
             Self::Postgres(tx) => tx.commit().await,
-            #[cfg(feature = "mysql")]
-            Self::MySql(tx) => tx.commit().await,
             #[cfg(feature = "sqlite")]
             Self::Sqlite(tx) => tx.commit().await,
         }
@@ -111,8 +97,6 @@ impl AnyTransaction {
         match self {
             #[cfg(feature = "postgres")]
             Self::Postgres(tx) => tx.rollback().await,
-            #[cfg(feature = "mysql")]
-            Self::MySql(tx) => tx.rollback().await,
             #[cfg(feature = "sqlite")]
             Self::Sqlite(tx) => tx.rollback().await,
         }
@@ -123,14 +107,10 @@ impl AnyTransaction {
 pub enum AnyQuery<'q> {
     #[cfg(feature = "postgres")]
     PostgresPool(AnyQueryInner<'q, &'q Pool<Postgres>, postgres::PgArguments>),
-    #[cfg(feature = "mysql")]
-    MySqlPool(AnyQueryInner<'q, &'q Pool<MySql>, mysql::MySqlArguments>),
     #[cfg(feature = "sqlite")]
     SqlitePool(AnyQueryInner<'q, &'q Pool<Sqlite>, sqlite::SqliteArguments<'q>>),
     #[cfg(feature = "postgres")]
     PostgresConn(AnyQueryInner<'q, &'q mut postgres::PgConnection, postgres::PgArguments>),
-    #[cfg(feature = "mysql")]
-    MySqlConn(AnyQueryInner<'q, &'q mut mysql::MySqlConnection, mysql::MySqlArguments>),
     #[cfg(feature = "sqlite")]
     SqliteConn(AnyQueryInner<'q, &'q mut sqlite::SqliteConnection, sqlite::SqliteArguments<'q>>),
 }
@@ -152,11 +132,6 @@ impl<'q> AnyQuery<'q> {
             #[cfg(feature = "postgres")]
             Self::PostgresPool(AnyQueryInner { query, .. })
             | Self::PostgresConn(AnyQueryInner { query, .. }) => {
-                *query = query.take().map(|query| query.bind(value))
-            }
-            #[cfg(feature = "mysql")]
-            Self::MySqlPool(AnyQueryInner { query, .. })
-            | Self::MySqlConn(AnyQueryInner { query, .. }) => {
                 *query = query.take().map(|query| query.bind(value))
             }
             #[cfg(feature = "sqlite")]
@@ -271,8 +246,6 @@ impl<'q> AnyQuery<'q> {
 pub enum AnyRow {
     #[cfg(feature = "postgres")]
     Postgres(postgres::PgRow),
-    #[cfg(feature = "mysql")]
-    MySql(mysql::MySqlRow),
     #[cfg(feature = "sqlite")]
     Sqlite(sqlite::SqliteRow),
 }
@@ -281,8 +254,6 @@ pub enum AnyRow {
 pub enum AnyQueryResult {
     #[cfg(feature = "postgres")]
     Postgres(postgres::PgQueryResult),
-    #[cfg(feature = "mysql")]
-    MySql(mysql::MySqlQueryResult),
     #[cfg(feature = "sqlite")]
     Sqlite(sqlite::SqliteQueryResult),
 }
@@ -293,8 +264,6 @@ impl AnyQueryResult {
         match self {
             #[cfg(feature = "postgres")]
             Self::Postgres(result) => result.rows_affected(),
-            #[cfg(feature = "mysql")]
-            Self::MySql(result) => result.rows_affected(),
             #[cfg(feature = "sqlite")]
             Self::Sqlite(result) => result.rows_affected(),
         }
@@ -322,11 +291,6 @@ impl<'e> AnyExecutor<'e> for &'e AnyPool {
                 executor: pool,
                 query: Some(sqlx::query(query)),
             }),
-            #[cfg(feature = "mysql")]
-            AnyPool::MySql(pool) => AnyQuery::MySqlPool(AnyQueryInner {
-                executor: pool,
-                query: Some(sqlx::query(query)),
-            }),
             #[cfg(feature = "sqlite")]
             AnyPool::Sqlite(pool) => AnyQuery::SqlitePool(AnyQueryInner {
                 executor: pool,
@@ -343,11 +307,6 @@ impl<'e> AnyExecutor<'e> for &'e mut AnyTransaction {
         match self {
             #[cfg(feature = "postgres")]
             AnyTransaction::Postgres(tx) => AnyQuery::PostgresConn(AnyQueryInner {
-                executor: tx.deref_mut(),
-                query: Some(sqlx::query(query)),
-            }),
-            #[cfg(feature = "mysql")]
-            AnyTransaction::MySql(tx) => AnyQuery::MySqlConn(AnyQueryInner {
                 executor: tx.deref_mut(),
                 query: Some(sqlx::query(query)),
             }),
@@ -377,15 +336,15 @@ macro_rules! uncond_trait_alias {
 
 trait_alias!(
     /// Trait alias combining all [`Encode<'q, DB>`](sqlx::Encode)
-    trait AnyEncode<'q>: sqlx::Encode<'q, Postgres>, sqlx::Encode<'q, MySql>, sqlx::Encode<'q, Sqlite>,
+    trait AnyEncode<'q>: sqlx::Encode<'q, Postgres>, sqlx::Encode<'q, Sqlite>,
 );
 
 trait_alias!(
     /// Trait alias combining all [`Decode<'r, DB>`](sqlx::Decode)
-    trait AnyDecode<'r>: sqlx::Decode<'r, Postgres>, sqlx::Decode<'r, MySql>, sqlx::Decode<'r, Sqlite>,
+    trait AnyDecode<'r>: sqlx::Decode<'r, Postgres>, sqlx::Decode<'r, Sqlite>,
 );
 
 trait_alias!(
     /// Trait alias combining all [`Type<DB>`](sqlx::Type)
-    trait AnyType: sqlx::Type<Postgres>, sqlx::Type<MySql>, sqlx::Type<Sqlite>,
+    trait AnyType: sqlx::Type<Postgres>, sqlx::Type<Sqlite>,
 );

@@ -27,24 +27,6 @@ const _: () = {
         }
     };
 
-    #[cfg(feature = "mysql")]
-    const _: () = {
-        use sqlx::MySql;
-        impl Type<MySql> for Choice {
-            fn type_info() -> <MySql as Database>::TypeInfo {
-                <str as Type<MySql>>::type_info()
-            }
-            fn compatible(ty: &<MySql as Database>::TypeInfo) -> bool {
-                <str as Type<MySql>>::compatible(ty)
-            }
-        }
-        impl<'r> Decode<'r, MySql> for Choice {
-            fn decode(value: <MySql as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-                <String as Decode<'r, MySql>>::decode(value).map(Self)
-            }
-        }
-    };
-
     #[cfg(feature = "sqlite")]
     const _: () = {
         use sqlx::Sqlite;

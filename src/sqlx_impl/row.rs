@@ -16,8 +16,6 @@ where
     match &row.0 {
         #[cfg(feature = "postgres")]
         AnyRow::Postgres(row) => try_get(row, index),
-        #[cfg(feature = "mysql")]
-        AnyRow::MySql(row) => try_get(row, index),
         #[cfg(feature = "sqlite")]
         AnyRow::Sqlite(row) => try_get(row, index),
     }

@@ -1,8 +1,4 @@
-#[cfg(all(
-    not(feature = "postgres"),
-    not(feature = "mysql"),
-    not(feature = "sqlite")
-))]
+#[cfg(all(not(feature = "postgres"), not(feature = "sqlite")))]
 compile_error!("Can't compile with sqlx without any database");
 
 pub(crate) mod any;
