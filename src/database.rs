@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use rorm_declaration::config::DatabaseDriver;
+use rorm_sql::conditional;
 use rorm_sql::delete::Delete;
 use rorm_sql::insert::Insert;
 use rorm_sql::join_table::JoinTableData;
@@ -11,7 +12,6 @@ use rorm_sql::select::Select;
 use rorm_sql::select_column::SelectColumnData;
 use rorm_sql::update::Update;
 use rorm_sql::value::Value;
-use rorm_sql::{conditional, value};
 use tracing::warn;
 
 use crate::error::Error;
@@ -91,32 +91,6 @@ impl Database {
             internal::database::connect(configuration).await?,
             Arc::new(()),
         ))
-    }
-
-    /**
-    Execute raw SQL statements on the database.
-
-    If possible, the statement is executed as prepared statement.
-
-    To bind parameter, use ? as placeholder in SQLite and MySQL
-    and $1, $2, $n in Postgres.
-
-    **Parameter**:
-    - `query_string`: Reference to a valid SQL query.
-    - `bind_params`: Optional list of values to bind in the query.
-    - `transaction`: Optional transaction to execute the query on.
-
-    **Returns** a list of rows. If there are no values to retrieve, an empty
-    list is returned.
-     */
-    #[deprecated = "Use `Executor::execute` instead"]
-    pub async fn raw_sql<'a>(
-        &self,
-        query_string: &'a str,
-        bind_params: Option<&[value::Value<'a>]>,
-        transaction: Option<&mut Transaction>,
-    ) -> Result<Vec<Row>, Error> {
-        internal::database::raw_sql(self, query_string, bind_params, transaction).await
     }
 
     /// Starts a new transaction

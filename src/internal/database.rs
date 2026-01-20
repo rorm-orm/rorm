@@ -1,16 +1,12 @@
-use std::future::poll_fn;
 use std::time::Duration;
 
 use rorm_declaration::config::DatabaseDriver;
-use rorm_sql::value::Value;
 use sqlx::ConnectOptions;
 use tracing::log::LevelFilter;
 
 use crate::database::{Database, DatabaseConfiguration};
 use crate::error::Error;
-use crate::internal::any::{AnyExecutor, AnyPool};
-use crate::internal::utils;
-use crate::row::Row;
+use crate::internal::any::AnyPool;
 use crate::transaction::Transaction;
 
 pub(crate) type Impl = AnyPool;
@@ -88,41 +84,6 @@ pub(crate) async fn connect(configuration: DatabaseConfiguration) -> Result<Impl
     };
 
     Ok(pool)
-}
-
-/// Implementation of [Database::raw_sql]
-pub async fn raw_sql<'a>(
-    db: &Database,
-    query_string: &'a str,
-    bind_params: Option<&[Value<'a>]>,
-    transaction: Option<&mut Transaction>,
-) -> Result<Vec<Row>, Error> {
-    let mut query = if let Some(transaction) = transaction {
-        transaction.0.query(query_string)
-    } else {
-        db.0.query(query_string)
-    };
-
-    if let Some(params) = bind_params {
-        for param in params {
-            utils::bind_param(&mut query, *param);
-        }
-    }
-
-    let mut stream = query.fetch_many();
-    let mut rows = Vec::new();
-    while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
-        .await
-        .transpose()?
-    {
-        match either {
-            sqlx::Either::Left(_result) => {}
-            sqlx::Either::Right(row) => {
-                rows.push(Row(row));
-            }
-        }
-    }
-    Ok(rows)
 }
 
 /// Implementation of [Database::start_transaction]
