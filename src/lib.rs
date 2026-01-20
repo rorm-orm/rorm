@@ -5,6 +5,9 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(missing_docs)]
 
+#[cfg(all(not(feature = "postgres"), not(feature = "sqlite")))]
+compile_error!("Can't compile with sqlx without any database");
+
 pub mod database;
 pub mod error;
 

@@ -10,18 +10,13 @@ use std::task::{ready, Context, Poll};
 
 use futures_core::Stream;
 use sqlx::query::Query;
-use sqlx::{Executor, Pool, Transaction};
-
-use crate::futures_util::BoxStream;
-
-#[macro_use]
-#[path = "./cond_macros.rs"]
-mod cond_macros;
-
 #[cfg(feature = "postgres")]
 use sqlx::{postgres, Postgres};
 #[cfg(feature = "sqlite")]
 use sqlx::{sqlite, Sqlite};
+use sqlx::{Executor, Pool, Transaction};
+
+use crate::futures_util::BoxStream;
 
 /// Enum around [`Pool<DB>`]
 #[derive(Clone, Debug)]
@@ -167,78 +162,174 @@ impl<'q> AnyQuery<'q> {
                 }))
             }
         }
-        macro_rules! match_impl {
-            ($($variant:ident, $db:ident),+) => {
-                match self {$(
-                    Self::$variant(AnyQueryInner { executor, query }) => {
-                        Box::pin(MappedStream {
-                            stream: executor.fetch_many(query.unwrap()),
-                            map_left: AnyQueryResult::$db,
-                            map_right: AnyRow::$db,
-                        })
-                    }
-                )+}
-            }
+        match self {
+            #[cfg(feature = "postgres")]
+            Self::PostgresPool(AnyQueryInner { executor, query }) => Box::pin(MappedStream {
+                stream: executor.fetch_many(query.unwrap()),
+                map_left: AnyQueryResult::Postgres,
+                map_right: AnyRow::Postgres,
+            }),
+            #[cfg(feature = "postgres")]
+            Self::PostgresConn(AnyQueryInner { executor, query }) => Box::pin(MappedStream {
+                stream: executor.fetch_many(query.unwrap()),
+                map_left: AnyQueryResult::Postgres,
+                map_right: AnyRow::Postgres,
+            }),
+            #[cfg(feature = "sqlite")]
+            Self::SqlitePool(AnyQueryInner { executor, query }) => Box::pin(MappedStream {
+                stream: executor.fetch_many(query.unwrap()),
+                map_left: AnyQueryResult::Sqlite,
+                map_right: AnyRow::Sqlite,
+            }),
+            #[cfg(feature = "sqlite")]
+            Self::SqliteConn(AnyQueryInner { executor, query }) => Box::pin(MappedStream {
+                stream: executor.fetch_many(query.unwrap()),
+                map_left: AnyQueryResult::Sqlite,
+                map_right: AnyRow::Sqlite,
+            }),
         }
-        expand_fetch_impl!(match_impl)
     }
 
     /// Execute the query and return all the generated results, collected into a `Vec`.
     pub async fn fetch_all(self) -> sqlx::Result<Vec<AnyRow>> {
-        macro_rules! match_impl {
-            ($($variant:ident, $db:ident),+) => {
-                match self {$(
-                    Self::$variant(AnyQueryInner { executor, query }) => {
-                        let mut stream = executor.fetch_many(query.unwrap());
-                        let mut vec = Vec::new();
-                        while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx)).await.transpose()? {
-                            if let Some(row) = either.right() {
-                                vec.push(AnyRow::$db(row));
-                            }
-                        }
-                        Ok(vec)
+        let mut vec = Vec::new();
+        match self {
+            #[cfg(feature = "postgres")]
+            Self::PostgresPool(AnyQueryInner { executor, query }) => {
+                let mut stream = executor.fetch_many(query.unwrap());
+                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
+                    .await
+                    .transpose()?
+                {
+                    if let Some(row) = either.right() {
+                        vec.push(AnyRow::Postgres(row));
                     }
-                )+}
+                }
+            }
+            #[cfg(feature = "postgres")]
+            Self::PostgresConn(AnyQueryInner { executor, query }) => {
+                let mut stream = executor.fetch_many(query.unwrap());
+                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
+                    .await
+                    .transpose()?
+                {
+                    if let Some(row) = either.right() {
+                        vec.push(AnyRow::Postgres(row));
+                    }
+                }
+            }
+            #[cfg(feature = "sqlite")]
+            Self::SqlitePool(AnyQueryInner { executor, query }) => {
+                let mut stream = executor.fetch_many(query.unwrap());
+                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
+                    .await
+                    .transpose()?
+                {
+                    if let Some(row) = either.right() {
+                        vec.push(AnyRow::Sqlite(row));
+                    }
+                }
+            }
+            #[cfg(feature = "sqlite")]
+            Self::SqliteConn(AnyQueryInner { executor, query }) => {
+                let mut stream = executor.fetch_many(query.unwrap());
+                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
+                    .await
+                    .transpose()?
+                {
+                    if let Some(row) = either.right() {
+                        vec.push(AnyRow::Sqlite(row));
+                    }
+                }
             }
         }
-        expand_fetch_impl!(match_impl)
+        Ok(vec)
     }
 
     /// Execute the query and returns at most one row.
     pub async fn fetch_optional(self) -> sqlx::Result<Option<AnyRow>> {
-        macro_rules! match_impl {
-            ($($variant:ident, $db:ident),+) => {
-                match self {$(
-                    Self::$variant(AnyQueryInner { executor, query }) => executor
-                        .fetch_optional(query.unwrap())
-                        .await
-                        .map(|option| option.map(AnyRow::$db)),
-                )+}
-            }
+        match self {
+            #[cfg(feature = "postgres")]
+            Self::PostgresPool(AnyQueryInner { executor, query }) => executor
+                .fetch_optional(query.unwrap())
+                .await
+                .map(|option| option.map(AnyRow::Postgres)),
+            #[cfg(feature = "postgres")]
+            Self::PostgresConn(AnyQueryInner { executor, query }) => executor
+                .fetch_optional(query.unwrap())
+                .await
+                .map(|option| option.map(AnyRow::Postgres)),
+            #[cfg(feature = "sqlite")]
+            Self::SqlitePool(AnyQueryInner { executor, query }) => executor
+                .fetch_optional(query.unwrap())
+                .await
+                .map(|option| option.map(AnyRow::Sqlite)),
+            #[cfg(feature = "sqlite")]
+            Self::SqliteConn(AnyQueryInner { executor, query }) => executor
+                .fetch_optional(query.unwrap())
+                .await
+                .map(|option| option.map(AnyRow::Sqlite)),
         }
-        expand_fetch_impl!(match_impl)
     }
 
     /// Execute the query and return the number of affected rows.
     pub async fn fetch_affected_rows(self) -> sqlx::Result<u64> {
-        macro_rules! match_impl {
-            ($($variant:ident, $db:ident),+) => {
-                match self {$(
-                    Self::$variant(AnyQueryInner { executor, query }) => {
-                        let mut stream = executor.fetch_many(query.unwrap());
-                        let mut count = 0;
-                        while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx)).await.transpose()? {
-                            match either {
-                                sqlx::Either::Left(result) => count += result.rows_affected(),
-                                sqlx::Either::Right(_row) => {},
-                            }
-                        }
-                        Ok(count)
+        let mut count = 0;
+        match self {
+            #[cfg(feature = "postgres")]
+            Self::PostgresPool(AnyQueryInner { executor, query }) => {
+                let mut stream = executor.fetch_many(query.unwrap());
+                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
+                    .await
+                    .transpose()?
+                {
+                    match either {
+                        sqlx::Either::Left(result) => count += result.rows_affected(),
+                        sqlx::Either::Right(_row) => {}
                     }
-                )+}
+                }
+            }
+            #[cfg(feature = "postgres")]
+            Self::PostgresConn(AnyQueryInner { executor, query }) => {
+                let mut stream = executor.fetch_many(query.unwrap());
+                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
+                    .await
+                    .transpose()?
+                {
+                    match either {
+                        sqlx::Either::Left(result) => count += result.rows_affected(),
+                        sqlx::Either::Right(_row) => {}
+                    }
+                }
+            }
+            #[cfg(feature = "sqlite")]
+            Self::SqlitePool(AnyQueryInner { executor, query }) => {
+                let mut stream = executor.fetch_many(query.unwrap());
+                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
+                    .await
+                    .transpose()?
+                {
+                    match either {
+                        sqlx::Either::Left(result) => count += result.rows_affected(),
+                        sqlx::Either::Right(_row) => {}
+                    }
+                }
+            }
+            #[cfg(feature = "sqlite")]
+            Self::SqliteConn(AnyQueryInner { executor, query }) => {
+                let mut stream = executor.fetch_many(query.unwrap());
+                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
+                    .await
+                    .transpose()?
+                {
+                    match either {
+                        sqlx::Either::Left(result) => count += result.rows_affected(),
+                        sqlx::Either::Right(_row) => {}
+                    }
+                }
             }
         }
-        expand_fetch_impl!(match_impl)
+        Ok(count)
     }
 }
 
@@ -331,6 +422,30 @@ macro_rules! uncond_trait_alias {
         where
             $(Self: $bound),+
         {}
+    };
+}
+
+#[rustfmt::skip]
+#[cfg(all(feature = "postgres", feature = "sqlite"))]
+macro_rules! trait_alias {
+    ($(#[doc = $doc:literal])* trait $trait:ident $(<$lifetime:lifetime>)?: $postgres:path, $sqlite:path,) => {
+        uncond_trait_alias!($(#[doc = $doc])* trait $trait $(<$lifetime>)?: $postgres, $sqlite,);
+    };
+}
+
+#[rustfmt::skip]
+#[cfg(all(not(feature = "postgres"), feature = "sqlite"))]
+macro_rules! trait_alias {
+    ($(#[doc = $doc:literal])* trait $trait:ident $(<$lifetime:lifetime>)?: $postgres:path, $sqlite:path,) => {
+        uncond_trait_alias!($(#[doc = $doc])* trait $trait $(<$lifetime>)?: $sqlite,);
+    };
+}
+
+#[rustfmt::skip]
+#[cfg(all(feature = "postgres", not(feature = "sqlite")))]
+macro_rules! trait_alias {
+    ($(#[doc = $doc:literal])* trait $trait:ident $(<$lifetime:lifetime>)?: $postgres:path, $sqlite:path,) => {
+        uncond_trait_alias!($(#[doc = $doc])* trait $trait $(<$lifetime>)?: $postgres,);
     };
 }
 
