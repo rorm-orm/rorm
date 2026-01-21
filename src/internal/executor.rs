@@ -33,7 +33,7 @@ impl<'executor> Executor<'executor> for &'executor mut Transaction {
             values.len = values.len(),
             "Executing statement"
         );
-        Q::execute(&mut self.0, query, values)
+        Q::execute(&mut self.sqlx, query, values)
     }
 
     fn into_dyn(self) -> DynamicExecutor<'executor> {
@@ -41,7 +41,7 @@ impl<'executor> Executor<'executor> for &'executor mut Transaction {
     }
 
     fn dialect(&self) -> DBImpl {
-        match self.0 {
+        match self.sqlx {
             #[cfg(feature = "postgres")]
             AnyTransaction::Postgres(_) => DBImpl::Postgres,
             #[cfg(feature = "sqlite")]

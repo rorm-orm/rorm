@@ -96,7 +96,7 @@ impl Database {
     /// but its database operations can be reverted using [`Transaction::rollback`]
     /// or simply dropping the transaction without calling [`Transaction::commit`].
     pub async fn start_transaction(&self) -> Result<Transaction, Error> {
-        Ok(Transaction(self.0.begin().await?))
+        Ok(Transaction::new(self.0.begin().await?))
     }
 
     /// Closes the database connection
