@@ -19,7 +19,7 @@ use crate::executor::{AffectedRows, All, Executor, Nothing, One, QueryStrategy};
 use crate::internal::any::AnyPool;
 use crate::query_type::GetLimitClause;
 use crate::row::Row;
-use crate::transaction::Transaction;
+use crate::transaction::{Transaction, TransactionError};
 
 /**
 Type alias for [`SelectColumnData`]..
@@ -264,7 +264,13 @@ pub async fn insert_bulk(
         tr.execute::<Nothing>(insert_query, insert_params).await?;
     }
 
-    guard.commit().await?;
+    guard.commit().await.map_err(|x| match x {
+        TransactionError::Database(x) => x,
+        TransactionError::Hook(_) => {
+            unreachable!("Potentially create transaction does not use hooks")
+        }
+    })?;
+
     Ok(())
 }
 
@@ -296,7 +302,12 @@ pub async fn insert_bulk_returning(
         inserted.extend(tr.execute::<All>(insert_query, insert_params).await?);
     }
 
-    guard.commit().await?;
+    guard.commit().await.map_err(|x| match x {
+        TransactionError::Database(x) => x,
+        TransactionError::Hook(_) => {
+            unreachable!("Potentially create transaction does not use hooks")
+        }
+    })?;
 
     Ok(inserted)
 }

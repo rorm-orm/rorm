@@ -1,8 +1,14 @@
 //! This module holds the definition of transactions
 
+use std::error::Error as StdError;
+use std::fmt;
+use std::future::Future;
+
 use crate::internal::any::AnyTransaction;
 pub use crate::transaction::hook::TransactionHook;
-use crate::transaction::hook::{ClosureOnCommit, ClosureOnFinish, ClosureOnRollback};
+use crate::transaction::hook::{
+    ClosureHook, PostCommit, PostFinish, PostRollback, PreCommit, PreFinish, PreRollback,
+};
 use crate::transaction::hook_vec::HookVec;
 use crate::Error;
 
@@ -26,29 +32,45 @@ impl Transaction {
     }
 
     /// This function commits the transaction.
-    pub async fn commit(self) -> Result<(), Error> {
+    pub async fn commit(mut self) -> Result<(), TransactionError> {
+        let mut hooks = self.hooks.take();
+
+        if let Some(hooks) = hooks.as_mut() {
+            hooks.pre_commit(&mut self).await?;
+        }
+
         let result = self.sqlx.commit().await;
 
-        if let Some(mut hooks) = self.hooks {
+        if let Some(hooks) = hooks.as_mut() {
             if result.is_ok() {
-                hooks.on_commit();
+                hooks.post_commit();
             } else {
-                hooks.on_rollback();
+                hooks.post_rollback();
             }
         }
 
-        result.map_err(Error::SqlxError)
+        result
+            .map_err(Error::SqlxError)
+            .map_err(TransactionError::Database)
     }
 
     /// Use this function to abort the transaction.
-    pub async fn rollback(self) -> Result<(), Error> {
-        let result = self.sqlx.rollback().await;
+    pub async fn rollback(mut self) -> Result<(), TransactionError> {
+        let mut hooks = self.hooks.take();
 
-        if let Some(mut hooks) = self.hooks {
-            hooks.on_rollback();
+        if let Some(hooks) = hooks.as_mut() {
+            hooks.pre_rollback().await?;
         }
 
-        result.map_err(Error::SqlxError)
+        let result = self.sqlx.rollback().await;
+
+        if let Some(hooks) = hooks.as_mut() {
+            hooks.post_rollback();
+        }
+
+        result
+            .map_err(Error::SqlxError)
+            .map_err(TransactionError::Database)
     }
 
     /// Accesses the simple API for adding hooks to the transaction
@@ -68,33 +90,75 @@ impl Transaction {
 
 /// Simple API for adding hooks to [`Transaction`]s
 ///
-/// A hook is a closure which is called after a transaction has been finished.
+/// A hook is a closure which is called before or after a transaction has been finished.
 pub struct SimpleHooksApi<'a>(&'a mut HookVec);
 impl SimpleHooksApi<'_> {
-    /// Adds a closure which is run if the transaction has been finished.
+    /// Adds an async closure which is run before the transaction is commited or rolled back.
+    ///
+    /// The closure will be called with `true` if the transaction is to be commited and `false` otherwise.
+    pub fn pre_finish<F>(&mut self, hook: impl FnOnce(bool) -> F + Send + 'static) -> &mut Self
+    where
+        F: Future<Output = Result<(), HookError>> + Send,
+    {
+        self.0
+            .get_or_insert()
+            .push(ClosureHook::new(hook, PreFinish));
+        self
+    }
+
+    /// Adds an async closure which is run before the transaction is commited.
+    ///
+    /// Note, the transaction could still fail due to a database error or a hook error.
+    pub fn pre_commit<F>(&mut self, hook: impl FnOnce() -> F + Send + 'static) -> &mut Self
+    where
+        F: Future<Output = Result<(), TransactionError>> + Send,
+    {
+        self.0
+            .get_or_insert()
+            .push(ClosureHook::new(hook, PreCommit));
+        self
+    }
+
+    /// Adds an async closure which is run before the transaction is rolled back.
+    pub fn pre_rollback<F>(&mut self, hook: impl FnOnce() -> F + Send + 'static) -> &mut Self
+    where
+        F: Future<Output = Result<(), HookError>> + Send,
+    {
+        self.0
+            .get_or_insert()
+            .push(ClosureHook::new(hook, PreRollback));
+        self
+    }
+
+    /// Adds a closure which is run after the transaction has been committed or rolled back.
     ///
     /// The closure will be called with `true` if the transaction was successful and `false` otherwise.
-    pub fn on_finish(&mut self, hook: impl FnOnce(bool) + Send + 'static) -> &mut Self {
-        self.0.get_or_insert().push(ClosureOnFinish::new(hook));
+    pub fn post_finish(&mut self, hook: impl FnOnce(bool) + Send + 'static) -> &mut Self {
+        self.0
+            .get_or_insert()
+            .push(ClosureHook::new(hook, PostFinish));
         self
     }
 
-    /// Adds a closure which is run if the transaction has been committed successfully.
-    pub fn on_commit(&mut self, hook: impl FnOnce() + Send + 'static) -> &mut Self {
-        self.0.get_or_insert().push(ClosureOnCommit::new(hook));
+    /// Adds a closure which is run before the transaction has been commited.
+    pub fn post_commit(&mut self, hook: impl FnOnce() + Send + 'static) -> &mut Self {
+        self.0
+            .get_or_insert()
+            .push(ClosureHook::new(hook, PostCommit));
         self
     }
-
-    /// Adds a closure which is run if the transaction has been rolled back.
-    pub fn on_rollback(&mut self, hook: impl FnOnce() + Send + 'static) -> &mut Self {
-        self.0.get_or_insert().push(ClosureOnRollback::new(hook));
+    /// Adds a closure which is run after the transaction has been rolled back.
+    pub fn post_rollback(&mut self, hook: impl FnOnce() + Send + 'static) -> &mut Self {
+        self.0
+            .get_or_insert()
+            .push(ClosureHook::new(hook, PostRollback));
         self
     }
 }
 
 /// Advanced API for adding hooks to [`Transaction`]s
 ///
-/// A [`TransactionHook`] is a type which is called after a transaction has been finished.
+/// A [`TransactionHook`] is a type which is called before and after a transaction has been finished.
 ///
 /// A `Transaction` can store many instances of many `TransactionHook` types.
 ///
@@ -136,6 +200,37 @@ impl AdvancedHooksApi<'_> {
     }
 }
 
+/// Error for committing a [`Transaction`]
+#[derive(Debug)]
+pub enum TransactionError {
+    /// Error returned by the database
+    Database(Error),
+
+    /// Arbitrary error returned by a hook
+    Hook(HookError),
+}
+/// Arbitrary error returned by a hook
+pub type HookError = Box<dyn StdError + Send + Sync>;
+
+impl From<Error> for TransactionError {
+    fn from(value: Error) -> Self {
+        Self::Database(value)
+    }
+}
+impl From<HookError> for TransactionError {
+    fn from(value: HookError) -> Self {
+        Self::Hook(value)
+    }
+}
+impl fmt::Display for TransactionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TransactionError::Database(x) => fmt::Display::fmt(x, f),
+            TransactionError::Hook(x) => fmt::Display::fmt(x, f),
+        }
+    }
+}
+
 /// Either an owned or borrowed [`Transaction`].
 ///
 /// "Guarding" a piece of code which has to be run in an transaction
@@ -159,7 +254,7 @@ impl TransactionGuard<'_> {
     }
 
     /// Consume the guard, committing the potentially owned transaction.
-    pub async fn commit(self) -> Result<(), Error> {
+    pub async fn commit(self) -> Result<(), TransactionError> {
         if let TransactionGuard::Owned(tr) = self {
             tr.commit().await
         } else {

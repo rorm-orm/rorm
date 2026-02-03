@@ -1,7 +1,9 @@
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 
-use crate::transaction::TransactionHook;
+use crate::transaction::{HookError, Transaction, TransactionError, TransactionHook};
 
 #[derive(Default)]
 pub struct HookVec {
@@ -17,22 +19,41 @@ impl HookVec {
             .unwrap()
     }
 
-    pub fn on_commit(&mut self) {
+    pub async fn pre_commit(&mut self, tx: &mut Transaction) -> Result<(), TransactionError> {
         for vec in self.by_type.values_mut() {
-            vec.on_commit();
+            vec.pre_commit(tx).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn pre_rollback(&mut self) -> Result<(), HookError> {
+        for vec in self.by_type.values_mut() {
+            vec.pre_rollback().await?;
+        }
+        Ok(())
+    }
+
+    pub fn post_commit(&mut self) {
+        for vec in self.by_type.values_mut() {
+            vec.post_commit();
         }
     }
 
-    pub fn on_rollback(&mut self) {
+    pub fn post_rollback(&mut self) {
         for vec in self.by_type.values_mut() {
-            vec.on_rollback();
+            vec.post_rollback();
         }
     }
 }
 
 trait VecOfHooks: Any + Send + 'static {
-    fn on_commit(&mut self);
-    fn on_rollback(&mut self);
+    fn pre_commit<'a>(
+        &'a mut self,
+        tx: &'a mut Transaction,
+    ) -> Pin<Box<dyn Future<Output = Result<(), TransactionError>> + Send + 'a>>;
+    fn pre_rollback(&mut self) -> Pin<Box<dyn Future<Output = Result<(), HookError>> + Send + '_>>;
+    fn post_commit(&mut self);
+    fn post_rollback(&mut self);
 }
 impl dyn VecOfHooks {
     fn downcast<T: TransactionHook>(&mut self) -> Option<&mut Vec<T>> {
@@ -44,15 +65,36 @@ impl<T> VecOfHooks for Vec<T>
 where
     T: TransactionHook,
 {
-    fn on_commit(&mut self) {
+    fn pre_commit<'a>(
+        &'a mut self,
+        tx: &'a mut Transaction,
+    ) -> Pin<Box<dyn Future<Output = Result<(), TransactionError>> + Send + 'a>> {
+        Box::pin(async {
+            for hook in self {
+                hook.pre_commit(tx).await?;
+            }
+            Ok(())
+        })
+    }
+
+    fn pre_rollback(&mut self) -> Pin<Box<dyn Future<Output = Result<(), HookError>> + Send + '_>> {
+        Box::pin(async {
+            for hook in self {
+                hook.pre_rollback().await?;
+            }
+            Ok(())
+        })
+    }
+
+    fn post_commit(&mut self) {
         for hook in self {
-            hook.on_commit();
+            hook.post_commit();
         }
     }
 
-    fn on_rollback(&mut self) {
+    fn post_rollback(&mut self) {
         for hook in self {
-            hook.on_rollback();
+            hook.post_rollback();
         }
     }
 }
