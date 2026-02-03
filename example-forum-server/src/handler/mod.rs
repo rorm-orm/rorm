@@ -7,6 +7,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post, put};
 use axum::Router;
+use rorm::db::transaction::TransactionError;
 use rorm::Database;
 use tower_sessions::{session, Session};
 
@@ -82,6 +83,11 @@ impl IntoResponse for ApiError {
 
 impl From<rorm::Error> for ApiError {
     fn from(value: rorm::Error) -> Self {
+        ApiError::ServerError(format!("Database error: {value}"))
+    }
+}
+impl From<TransactionError> for ApiError {
+    fn from(value: TransactionError) -> Self {
         ApiError::ServerError(format!("Database error: {value}"))
     }
 }

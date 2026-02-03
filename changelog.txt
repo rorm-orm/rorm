@@ -1,5 +1,6 @@
 Since 0.9.7
 -----------
+- Transaction hooks
 - Removed support for mysql
 - Introduced `IntoValue` trait
 - Simplified "simple" comparision traits even further
