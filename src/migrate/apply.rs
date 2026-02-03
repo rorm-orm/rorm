@@ -7,7 +7,7 @@ use rorm_db::sql::drop_table::DropTable;
 use rorm_db::sql::insert::Insert;
 use rorm_db::sql::value::Value;
 use rorm_db::sql::DBImpl;
-use rorm_db::transaction::Transaction;
+use rorm_db::transaction::{Transaction, TransactionError};
 use rorm_db::Database;
 use rorm_declaration::migration::{Migration, Operation};
 use thiserror::Error;
@@ -59,8 +59,11 @@ pub async fn apply_migration(
             location: ApplyMigrationErrorLocation::UpdateLastMigration,
         })?;
 
-    tx.commit().await.map_err(|error| ApplyMigrationError {
-        error,
+    tx.commit().await.map_err(|x| ApplyMigrationError {
+        error: match x {
+            TransactionError::Database(x) => x,
+            TransactionError::Hook(_) => unreachable!("rorm-cli does not use hooks"),
+        },
         location: ApplyMigrationErrorLocation::CommitTransaction,
     })?;
 

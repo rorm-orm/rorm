@@ -4,6 +4,7 @@ use std::path::Path;
 use anyhow::{anyhow, Context};
 use rorm_db::executor::{Executor, Nothing, Optional};
 use rorm_db::sql::create_table::CreateTable;
+use rorm_db::transaction::TransactionError;
 use rorm_db::Database;
 use rorm_declaration::config::DatabaseConfig;
 use rorm_declaration::imr::{Annotation, DbType};
@@ -101,6 +102,10 @@ pub async fn run_migrate_custom(
 
     tx.commit()
         .await
+        .map_err(|x| match x {
+            TransactionError::Database(x) => x,
+            TransactionError::Hook(_) => unreachable!("rorm-cli does not use hooks"),
+        })
         .with_context(|| "Couldn't create internal last migration table")?;
 
     let last_migration: Option<i32> = pool
