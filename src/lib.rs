@@ -249,13 +249,13 @@ impl DBImpl {
         let mut a = vec![];
 
         for x in annotations {
-            if x.eq_shallow(&Annotation::PrimaryKey) {
+            if matches!(x, Annotation::PrimaryKey) {
                 a.push(SQLAnnotation { annotation: x });
             }
         }
 
         for x in annotations {
-            if !x.eq_shallow(&Annotation::PrimaryKey) {
+            if !matches!(x, Annotation::PrimaryKey) {
                 a.push(SQLAnnotation { annotation: x });
             }
         }

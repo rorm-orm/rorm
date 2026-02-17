@@ -177,31 +177,27 @@ impl<'post_build> CreateColumn<'post_build> for CreateColumnImpl<'_, 'post_build
 
                 match d.data_type {
                     DbType::VarChar => {
+                        let max_length = d
+                            .annotations
+                            .iter()
+                            .find_map(|x| match x.annotation {
+                                Annotation::MaxLength(x) => Some(*x),
+                                _ => None,
+                            })
+                            .ok_or_else(|| {
+                                Error::SQLBuildError(
+                                    "character varying must have a max_length annotation"
+                                        .to_string(),
+                                )
+                            })?;
+
+                        write!(s, "character varying ({max_length}) ").unwrap();
+                    }
+                    DbType::Choices => {
                         let a_opt = d
                             .annotations
                             .iter()
-                            .find(|x| x.annotation.eq_shallow(&Annotation::MaxLength(0)));
-
-                        if let Some(a) = a_opt {
-                            if let Annotation::MaxLength(max_length) = a.annotation {
-                                write!(s, "character varying ({max_length}) ").unwrap();
-                            } else {
-                                return Err(Error::SQLBuildError(
-                                    "character varying must have a max_length annotation"
-                                        .to_string(),
-                                ));
-                            }
-                        } else {
-                            return Err(Error::SQLBuildError(
-                                "character varying must have a max_length annotation".to_string(),
-                            ));
-                        }
-                    }
-                    DbType::Choices => {
-                        let a_opt = d.annotations.iter().find(|x| {
-                            x.annotation
-                                .eq_shallow(&Annotation::Choices(Default::default()))
-                        });
+                            .find(|x| matches!(x.annotation, Annotation::Choices(_)));
 
                         if let Some(a) = a_opt {
                             if let Annotation::Choices(values) = a.annotation {
@@ -241,7 +237,7 @@ impl<'post_build> CreateColumn<'post_build> for CreateColumnImpl<'_, 'post_build
                     DbType::Int16 => {
                         if d.annotations
                             .iter()
-                            .any(|x| x.annotation.eq_shallow(&Annotation::AutoIncrement))
+                            .any(|x| matches!(x.annotation, Annotation::AutoIncrement))
                         {
                             write!(s, "smallserial ").unwrap();
                         } else {
@@ -251,7 +247,7 @@ impl<'post_build> CreateColumn<'post_build> for CreateColumnImpl<'_, 'post_build
                     DbType::Int32 => {
                         if d.annotations
                             .iter()
-                            .any(|x| x.annotation.eq_shallow(&Annotation::AutoIncrement))
+                            .any(|x| matches!(x.annotation, Annotation::AutoIncrement))
                         {
                             write!(s, "serial ").unwrap();
                         } else {
@@ -261,7 +257,7 @@ impl<'post_build> CreateColumn<'post_build> for CreateColumnImpl<'_, 'post_build
                     DbType::Int64 => {
                         if d.annotations
                             .iter()
-                            .any(|x| x.annotation.eq_shallow(&Annotation::AutoIncrement))
+                            .any(|x| matches!(x.annotation, Annotation::AutoIncrement))
                         {
                             write!(s, "bigserial ").unwrap();
                         } else {
