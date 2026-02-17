@@ -1,5 +1,4 @@
 //! The Internal Model Representation used by our migration cli tool
-use std::collections::hash_map::DefaultHasher;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 
@@ -164,107 +163,6 @@ pub enum Annotation {
     Unique,
     /// Foreign Key constraint
     ForeignKey(ForeignKey),
-}
-
-impl Annotation {
-    /**
-    Alternative shallow equals function.
-
-    Returns true on:
-    ```rust
-    use rorm_declaration::imr::Annotation;
-
-    assert!(Annotation::MaxLength(0).eq_shallow(&Annotation::MaxLength(255)));
-    ```
-    */
-    pub fn eq_shallow(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Annotation::AutoCreateTime, Annotation::AutoCreateTime) => true,
-            (Annotation::AutoCreateTime, _) => false,
-            (Annotation::AutoUpdateTime, Annotation::AutoUpdateTime) => true,
-            (Annotation::AutoUpdateTime, _) => false,
-            (Annotation::AutoIncrement, Annotation::AutoIncrement) => true,
-            (Annotation::AutoIncrement, _) => false,
-            (Annotation::Choices(_), Annotation::Choices(_)) => true,
-            (Annotation::Choices(_), _) => false,
-            (Annotation::DefaultValue(_), Annotation::DefaultValue(_)) => true,
-            (Annotation::DefaultValue(_), _) => false,
-            (Annotation::Index(_), Annotation::Index(_)) => true,
-            (Annotation::Index(_), _) => false,
-            (Annotation::MaxLength(_), Annotation::MaxLength(_)) => true,
-            (Annotation::MaxLength(_), _) => false,
-            (Annotation::NotNull, Annotation::NotNull) => true,
-            (Annotation::NotNull, _) => false,
-            (Annotation::PrimaryKey, Annotation::PrimaryKey) => true,
-            (Annotation::PrimaryKey, _) => false,
-            (Annotation::Unique, Annotation::Unique) => true,
-            (Annotation::Unique, _) => false,
-            (Annotation::ForeignKey(_), Annotation::ForeignKey(_)) => true,
-            (Annotation::ForeignKey(_), _) => false,
-        }
-    }
-
-    /**
-    Alternative shallow hash function.
-
-    Returns true on:
-    ```rust
-    use rorm_declaration::imr::Annotation;
-
-    assert_eq!(Annotation::MaxLength(0).hash_shallow(), Annotation::MaxLength(255).hash_shallow());
-    ```
-    */
-    pub fn hash_shallow(&self) -> u64 {
-        let mut state = DefaultHasher::new();
-        match self {
-            Annotation::AutoCreateTime => state.write_i8(0),
-            Annotation::AutoUpdateTime => state.write_i8(1),
-            Annotation::AutoIncrement => state.write_i8(2),
-            Annotation::Choices(_) => state.write_i8(3),
-            Annotation::DefaultValue(_) => state.write_i8(4),
-            Annotation::Index(_) => state.write_i8(5),
-            Annotation::MaxLength(_) => state.write_i8(6),
-            Annotation::NotNull => state.write_i8(7),
-            Annotation::PrimaryKey => state.write_i8(8),
-            Annotation::Unique => state.write_i8(9),
-            Annotation::ForeignKey(_) => state.write_i8(10),
-        }
-        state.finish()
-    }
-}
-
-#[cfg(test)]
-mod test {
-
-    use crate::imr::{Annotation, IndexValue};
-
-    #[test]
-    fn test_annotation_hash() {
-        assert_eq!(
-            Annotation::MaxLength(1).hash_shallow(),
-            Annotation::MaxLength(12313).hash_shallow()
-        );
-
-        assert_eq!(
-            Annotation::Index(None).hash_shallow(),
-            Annotation::Index(Some(IndexValue {
-                priority: None,
-                name: "foo".to_string(),
-            }))
-            .hash_shallow()
-        );
-    }
-
-    #[test]
-    fn test_annotation_partial_eq() {
-        assert!(Annotation::MaxLength(1).eq_shallow(&Annotation::MaxLength(2)));
-        assert!(
-            Annotation::Index(None).eq_shallow(&Annotation::Index(Some(IndexValue {
-                priority: None,
-                name: "foo".to_string()
-            })))
-        );
-    }
 }
 
 /// Represents a foreign key
