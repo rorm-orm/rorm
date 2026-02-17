@@ -4,16 +4,17 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::future::Future;
 
+use tracing::debug;
+
 use crate::internal::any::AnyTransaction;
 pub use crate::transaction::hook::TransactionHook;
-use crate::transaction::hook::{
-    ClosureHook, PostCommit, PostFinish, PostRollback, PreCommit, PreFinish, PreRollback,
-};
-use crate::transaction::hook_vec::HookVec;
+use crate::transaction::hook_closure::{ClosureHook, OnRollback, PostCommit, PreCommit};
+use crate::transaction::hook_storage::HookStorage;
 use crate::Error;
 
 mod hook;
-mod hook_vec;
+mod hook_closure;
+mod hook_storage;
 
 /// Transactions can be used to provide a safe way to execute multiple SQL operations
 /// after another with a way to go back to the start without something changed in the
@@ -23,7 +24,7 @@ mod hook_vec;
 #[must_use = "A transaction needs to be committed."]
 pub struct Transaction {
     pub(crate) sqlx: AnyTransaction,
-    hooks: Option<HookVec>,
+    hooks: Option<HookStorage>,
 }
 
 impl Transaction {
@@ -37,6 +38,13 @@ impl Transaction {
 
         if let Some(hooks) = hooks.as_mut() {
             hooks.pre_commit(&mut self).await?;
+
+            if let Some(invalid_hooks) = self.hooks.as_mut() {
+                debug!("Some transaction hook added additional hooks during pre-commit. This is not supported and will be ignored.");
+
+                // Prevent `Drop` impl from calling `on_rollback`.
+                invalid_hooks.clear();
+            }
         }
 
         let result = self.sqlx.commit().await;
@@ -44,8 +52,9 @@ impl Transaction {
         if let Some(hooks) = hooks.as_mut() {
             if result.is_ok() {
                 hooks.post_commit();
-            } else {
-                hooks.post_rollback();
+
+                // Prevent `Drop` impl from calling `on_rollback`.
+                hooks.clear();
             }
         }
 
@@ -55,24 +64,22 @@ impl Transaction {
     }
 
     /// Use this function to abort the transaction.
-    pub async fn rollback(mut self) -> Result<(), TransactionError> {
-        let mut hooks = self.hooks.take();
-
-        if let Some(hooks) = hooks.as_mut() {
-            hooks.pre_rollback().await?;
-        }
-
-        let result = self.sqlx.rollback().await;
-
-        if let Some(hooks) = hooks.as_mut() {
-            hooks.post_rollback();
-        }
-
-        result
-            .map_err(Error::SqlxError)
-            .map_err(TransactionError::Database)
+    pub async fn rollback(self) -> Result<(), Error> {
+        self.sqlx.rollback().await.map_err(Error::SqlxError)
     }
+}
 
+// This impl should be on `Transaction` itself.
+// However, the `sqlx` field has to be consumed by ownership
+// which prevents `Transaction` from implementing `Drop`.
+impl Drop for HookStorage {
+    fn drop(&mut self) {
+        // `Transaction::commit` will clear all hooks, so this call would become a no-op.
+        self.on_rollback();
+    }
+}
+
+impl Transaction {
     /// Accesses the simple API for adding hooks to the transaction
     ///
     /// If you reach the API's limits, consider [`Transaction::adv_hooks`].
@@ -90,22 +97,9 @@ impl Transaction {
 
 /// Simple API for adding hooks to [`Transaction`]s
 ///
-/// A hook is a closure which is called before or after a transaction has been finished.
-pub struct SimpleHooksApi<'a>(&'a mut HookVec);
+/// A hook is a closure which is called before or after a transaction has been commited.
+pub struct SimpleHooksApi<'a>(&'a mut HookStorage);
 impl SimpleHooksApi<'_> {
-    /// Adds an async closure which is run before the transaction is commited or rolled back.
-    ///
-    /// The closure will be called with `true` if the transaction is to be commited and `false` otherwise.
-    pub fn pre_finish<F>(&mut self, hook: impl FnOnce(bool) -> F + Send + 'static) -> &mut Self
-    where
-        F: Future<Output = Result<(), HookError>> + Send,
-    {
-        self.0
-            .get_or_insert()
-            .push(ClosureHook::new(hook, PreFinish));
-        self
-    }
-
     /// Adds an async closure which is run before the transaction is commited.
     ///
     /// Note, the transaction could still fail due to a database error or a hook error.
@@ -119,27 +113,6 @@ impl SimpleHooksApi<'_> {
         self
     }
 
-    /// Adds an async closure which is run before the transaction is rolled back.
-    pub fn pre_rollback<F>(&mut self, hook: impl FnOnce() -> F + Send + 'static) -> &mut Self
-    where
-        F: Future<Output = Result<(), HookError>> + Send,
-    {
-        self.0
-            .get_or_insert()
-            .push(ClosureHook::new(hook, PreRollback));
-        self
-    }
-
-    /// Adds a closure which is run after the transaction has been committed or rolled back.
-    ///
-    /// The closure will be called with `true` if the transaction was successful and `false` otherwise.
-    pub fn post_finish(&mut self, hook: impl FnOnce(bool) + Send + 'static) -> &mut Self {
-        self.0
-            .get_or_insert()
-            .push(ClosureHook::new(hook, PostFinish));
-        self
-    }
-
     /// Adds a closure which is run before the transaction has been commited.
     pub fn post_commit(&mut self, hook: impl FnOnce() + Send + 'static) -> &mut Self {
         self.0
@@ -147,11 +120,14 @@ impl SimpleHooksApi<'_> {
             .push(ClosureHook::new(hook, PostCommit));
         self
     }
-    /// Adds a closure which is run after the transaction has been rolled back.
-    pub fn post_rollback(&mut self, hook: impl FnOnce() + Send + 'static) -> &mut Self {
+
+    /// Adds a closure which is run when the transaction is rolled back.
+    ///
+    /// It MAY be called before, during or after the actual database operation.
+    pub fn on_rollback(&mut self, hook: impl FnOnce() + Send + 'static) -> &mut Self {
         self.0
             .get_or_insert()
-            .push(ClosureHook::new(hook, PostRollback));
+            .push(ClosureHook::new(hook, OnRollback));
         self
     }
 }
@@ -169,7 +145,7 @@ impl SimpleHooksApi<'_> {
 ///
 /// If these APIs are not flexible enough, you can use [`get_all`](Self::get_all) to access the raw
 /// storage of `TransactionHook`s of a single type.
-pub struct AdvancedHooksApi<'a>(&'a mut HookVec);
+pub struct AdvancedHooksApi<'a>(&'a mut HookStorage);
 impl AdvancedHooksApi<'_> {
     /// Adds a hook which is called if the transaction has been finished.
     pub fn push<T: TransactionHook>(&mut self, hook: T) {
