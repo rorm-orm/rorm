@@ -113,7 +113,7 @@ pub async fn apply_operation(
 ) -> Result<(), rorm_db::Error> {
     let db_impl = tx.dialect();
 
-    match &operation {
+    match operation {
         Operation::CreateModel { name, fields } => {
             let mut create_table = db_impl.create_table(name.as_str());
 

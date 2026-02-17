@@ -3,9 +3,10 @@ use std::io::Write;
 use std::path::Path;
 
 use anyhow::{anyhow, Context};
-use rorm_declaration::imr::{InternalModelFormat, Model};
-use rorm_declaration::migration::{Migration, MigrationFile, Operation};
+use rorm_declaration::imr::InternalModelFormat;
+use rorm_declaration::migration::{Migration, MigrationFile};
 
+use crate::utils::imr_as_state::InternalModelFormatExt;
 use crate::utils::re::RE;
 
 /**
@@ -167,91 +168,15 @@ Helper function to converts a list of migrations to an internal model.
 pub fn convert_migrations_to_internal_models(
     migrations: &[Migration],
 ) -> anyhow::Result<InternalModelFormat> {
-    let mut m = vec![];
+    let mut state = InternalModelFormat { models: Vec::new() };
 
-    for x in migrations {
-        for y in &x.operations {
-            match y {
-                Operation::CreateModel { name, fields } => {
-                    m.push(Model {
-                        name: name.clone(),
-                        fields: fields.clone(),
-                        source_defined_at: None,
-                    });
-                }
-                Operation::RenameModel { old, new } => {
-                    m = m
-                        .iter()
-                        .map(|z| {
-                            let mut a = z.clone();
-                            if &a.name == old {
-                                a.name = new.to_string();
-                            }
-                            a
-                        })
-                        .collect();
-                }
-                Operation::DeleteModel { name } => {
-                    m.retain(|z| z.name != *name);
-                }
-                Operation::CreateField { model, field } => {
-                    for i in &mut m {
-                        if i.name == *model {
-                            i.fields.push(field.clone());
-                        }
-                    }
-                }
-                Operation::RenameField {
-                    table_name,
-                    old,
-                    new,
-                } => {
-                    m = m
-                        .iter()
-                        .map(|z| {
-                            let mut a = z.clone();
-                            if &a.name == table_name {
-                                a.fields = a
-                                    .fields
-                                    .iter()
-                                    .map(|b| {
-                                        let mut c = b.clone();
-                                        if &c.name == old {
-                                            c.name = new.to_string();
-                                        }
-                                        c
-                                    })
-                                    .collect();
-                            }
-                            a
-                        })
-                        .collect();
-                }
-                Operation::DeleteField { model, name } => {
-                    for i in &mut m {
-                        if i.name == *model {
-                            i.fields.retain(|z| z.name != *name);
-                        }
-                    }
-                }
-                Operation::RawSQL { structure_safe, .. } => {
-                    if !*structure_safe {
-                        return Err(anyhow!(
-                            r#"RawSQL migration without StructureSafe flag found!
-
-Can not proceed to generate migrations as the current database state can not be determined anymore!
-You can still write migrations with all available operations yourself.
-
-To use the make-migrations feature again, check that all RawSQL operations don't change any 
-structure and mark them as StructureSafe or delete all RawSQL operations."#
-                        ));
-                    }
-                }
-            }
+    for migration in migrations {
+        for operation in &migration.operations {
+            state.apply_operation(operation)?;
         }
     }
 
-    Ok(InternalModelFormat { models: m })
+    Ok(state)
 }
 
 #[cfg(test)]
