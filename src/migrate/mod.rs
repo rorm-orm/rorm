@@ -53,7 +53,7 @@ pub async fn run_migrate_custom(
         return Ok(());
     }
 
-    let pool = Database::connect(rorm_db::DatabaseConfiguration {
+    let db = Database::connect(rorm_db::DatabaseConfiguration {
         driver: db_conf.driver,
         min_connections: 1,
         max_connections: 1,
@@ -65,7 +65,7 @@ pub async fn run_migrate_custom(
         .as_ref()
         .map_or("_rorm__last_migration", |x| x.as_str());
 
-    let db_impl = (&pool).dialect();
+    let db_impl = (&db).dialect();
     let statements = db_impl
         .create_table(last_migration_table_name)
         .add_column(db_impl.create_column(
@@ -89,7 +89,7 @@ pub async fn run_migrate_custom(
         .if_not_exists()
         .build()?;
 
-    let mut tx = pool
+    let mut tx = db
         .start_transaction()
         .await
         .with_context(|| "Could not create transaction")?;
@@ -108,7 +108,7 @@ pub async fn run_migrate_custom(
         })
         .with_context(|| "Couldn't create internal last migration table")?;
 
-    let last_migration: Option<i32> = pool
+    let last_migration: Option<i32> = db
         .execute::<Optional>(
             format!(
                 "SELECT migration_id FROM {} ORDER BY id DESC LIMIT 1;",
@@ -126,7 +126,7 @@ pub async fn run_migrate_custom(
         None => {
             // Apply all migrations
             for migration in &existing_migrations {
-                apply_migration(&pool, migration, last_migration_table_name).await?;
+                apply_migration(&db, migration, last_migration_table_name).await?;
                 info!("Applied migration {:04}_{}", migration.id, migration.name);
 
                 if let Some(apply_until) = apply_until {
@@ -146,7 +146,7 @@ pub async fn run_migrate_custom(
                 let mut apply = false;
                 for (idx, migration) in existing_migrations.iter().enumerate() {
                     if apply {
-                        apply_migration(&pool, migration, last_migration_table_name).await?;
+                        apply_migration(&db, migration, last_migration_table_name).await?;
                         info!("Applied migration {:04}_{}", migration.id, migration.name);
                         continue;
                     }
@@ -191,6 +191,7 @@ To correct, empty the {last_migration_table_name} table or reset the whole datab
         }
     }
 
+    db.close().await;
     Ok(())
 }
 
