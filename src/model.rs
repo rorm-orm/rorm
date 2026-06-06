@@ -151,3 +151,20 @@ impl<M: Model, P: Patch<Model = M> + GetField<M::Primary>> Identifiable for P {
         <Self as GetField<M::Primary>>::borrow_field(self)
     }
 }
+
+/// This macro is part of the experimental "unregistered models" feature.
+///
+/// It registers a model which has not already been registered by the derive macro.
+#[macro_export]
+macro_rules! register_model {
+    ($Model:ty) => {
+        const _: () = {
+            <$Model>::__rorm_internal__check();
+
+            #[$crate::linkme::distributed_slice($crate::MODELS)]
+            #[linkme(crate = $crate::linkme)]
+            static __get_imr: fn() -> $crate::imr::Model =
+                <$Model as $crate::model::Model>::get_imr;
+        };
+    };
+}

@@ -38,6 +38,15 @@ impl ::rorm::internal::field::Field for __Unregistered_id {
         Self(::std::marker::PhantomData)
     }
 }
+impl __Unregistered_id {
+    #[allow(non_snake_case)]
+    #[doc(hidden)]
+    pub const fn __rorm_internal__check() {
+        if let Err(err) = ::rorm::internal::field::check::<Self>() {
+            panic!("{}", err.as_str());
+        }
+    }
+}
 ///[`Unregistered`]'s [`Fields`](:: rorm::model::Model::Fields) struct.
 #[allow(non_camel_case_types)]
 pub struct __Unregistered_Fields_Struct<Path: ::rorm::internal::relation_path::Path> {
@@ -152,6 +161,13 @@ impl<'a> ::rorm::internal::patch::IntoPatchCow<'a> for &'a Unregistered {
     type Patch = Unregistered;
     fn into_patch_cow(self) -> ::rorm::internal::patch::PatchCow<'a, Unregistered> {
         ::rorm::internal::patch::PatchCow::Borrowed(self)
+    }
+}
+impl Unregistered {
+    #[allow(non_snake_case)]
+    #[doc(hidden)]
+    pub const fn __rorm_internal__check() {
+        <__Unregistered_id>::__rorm_internal__check();
     }
 }
 impl ::rorm::model::FieldByIndex<{ 0usize }> for Unregistered {

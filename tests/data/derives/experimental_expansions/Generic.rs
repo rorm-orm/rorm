@@ -41,6 +41,15 @@ for __Generic_id<X> {
         Self(::std::marker::PhantomData)
     }
 }
+impl<X: rorm::fields::traits::FieldType> __Generic_id<X> {
+    #[allow(non_snake_case)]
+    #[doc(hidden)]
+    pub const fn __rorm_internal__check() {
+        if let Err(err) = ::rorm::internal::field::check::<Self>() {
+            panic!("{}", err.as_str());
+        }
+    }
+}
 ///rorm's representation of [`Generic`]'s `x` field
 #[allow(non_camel_case_types)]
 pub struct __Generic_x<X: rorm::fields::traits::FieldType>(
@@ -82,6 +91,15 @@ for __Generic_x<X> {
     };
     fn new() -> Self {
         Self(::std::marker::PhantomData)
+    }
+}
+impl<X: rorm::fields::traits::FieldType> __Generic_x<X> {
+    #[allow(non_snake_case)]
+    #[doc(hidden)]
+    pub const fn __rorm_internal__check() {
+        if let Err(err) = ::rorm::internal::field::check::<Self>() {
+            panic!("{}", err.as_str());
+        }
     }
 }
 ///[`Generic`]'s [`Fields`](:: rorm::model::Model::Fields) struct.
@@ -226,6 +244,14 @@ for &'a Generic<X> {
     type Patch = Generic<X>;
     fn into_patch_cow(self) -> ::rorm::internal::patch::PatchCow<'a, Generic<X>> {
         ::rorm::internal::patch::PatchCow::Borrowed(self)
+    }
+}
+impl<X: rorm::fields::traits::FieldType> Generic<X> {
+    #[allow(non_snake_case)]
+    #[doc(hidden)]
+    pub const fn __rorm_internal__check() {
+        <__Generic_id<X>>::__rorm_internal__check();
+        <__Generic_x<X>>::__rorm_internal__check();
     }
 }
 impl<X: rorm::fields::traits::FieldType> ::rorm::model::FieldByIndex<{ 0usize }>

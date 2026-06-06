@@ -40,6 +40,7 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
         config,
     );
     let field_structs_1 = fields.iter().map(|field| &field.unit);
+    let field_structs_2 = field_structs_1.clone();
 
     let source = get_source(ident.span(), config);
 
@@ -76,7 +77,20 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
 
         #impl_patch
     };
-    if !*experimental_unregistered {
+
+    if *experimental_unregistered {
+        tokens.extend(quote! {
+            impl #impl_generics #ident #type_generics #where_clause {
+                #[allow(non_snake_case)]
+                #[doc(hidden)]
+                pub const fn __rorm_internal__check() {
+                    #(
+                        <#field_structs_2 #type_generics>::__rorm_internal__check();
+                    )*
+                }
+            }
+        });
+    } else {
         tokens.extend(quote! {
             const _: () = {
                 #[#rorm_path::linkme::distributed_slice(#rorm_path::MODELS)]
@@ -85,6 +99,7 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
             };
         });
     }
+
     for (index, field) in fields.iter().enumerate() {
         let field_struct = &field.unit;
         let field_ident = &field.ident;
@@ -173,7 +188,19 @@ fn generate_fields(model: &AnalyzedModel, config: &MacroConfig) -> TokenStream {
                 }
             }
         });
-        if !model.experimental_unregistered {
+        if model.experimental_unregistered {
+            tokens.extend(quote_spanned! {ident.span()=>
+                impl #impl_generics #unit #type_generics #where_clause {
+                    #[allow(non_snake_case)]
+                    #[doc(hidden)]
+                    pub const fn __rorm_internal__check() {
+                        if let Err(err) = #rorm_path::internal::field::check::<Self>() {
+                            panic!("{}", err.as_str());
+                        }
+                    }
+                }
+            });
+        } else {
             tokens.extend(quote_spanned! {ident.span()=>
                 const _: () = {
                     if let Err(err) = #rorm_path::internal::field::check::<#unit>() {
