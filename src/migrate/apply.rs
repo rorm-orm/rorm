@@ -1,7 +1,7 @@
 //! Contains two functions to apply a single migration or a single operation
 
 use rorm_db::executor::{Executor, Nothing};
-use rorm_db::sql::alter_table::{AlterTable, AlterTableOperation};
+use rorm_db::sql::alter_table::{AlterColumnOperation, AlterTable, AlterTableOperation};
 use rorm_db::sql::create_index::CreateIndex;
 use rorm_db::sql::create_table::CreateTable;
 use rorm_db::sql::drop_index::DropIndex;
@@ -196,6 +196,39 @@ pub async fn apply_operation(
                     .await?;
             }
         }
+        Operation::SetFieldType {
+            model,
+            name,
+            db_type,
+        } => {
+            alter_column(
+                tx,
+                model,
+                name,
+                AlterColumnOperation::SetType {
+                    data_type: *db_type,
+                },
+            )
+            .await?;
+        }
+        Operation::SetFieldMaxLength {
+            model,
+            name,
+            max_length,
+        } => {
+            alter_column(
+                tx,
+                model,
+                name,
+                AlterColumnOperation::SetMaxLength {
+                    max_length: *max_length,
+                },
+            )
+            .await?;
+        }
+        Operation::DropFieldMaxLength { model, name } => {
+            alter_column(tx, model, name, AlterColumnOperation::DropMaxLength).await?;
+        }
         Operation::DeleteField { model, name } => {
             let statements = db_impl
                 .alter_table(
@@ -237,6 +270,30 @@ pub async fn apply_operation(
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => tx.execute::<Nothing>(postgres.clone(), Vec::new()).await?,
         },
+    }
+
+    Ok(())
+}
+
+/// Applies a single change to an existing column
+///
+/// In sqlite this executes nothing: it has no `ALTER COLUMN` and needs none for
+/// the changes `make-migrations` emits, so the builder produces no statement and
+/// the loop below simply doesn't run.
+async fn alter_column(
+    tx: &mut Transaction,
+    model: &str,
+    name: &str,
+    operation: AlterColumnOperation,
+) -> Result<(), rorm_db::Error> {
+    let statements = tx
+        .dialect()
+        .alter_table(model, AlterTableOperation::AlterColumn { name, operation })
+        .build()?;
+
+    for (query_string, query_bind_params) in statements {
+        tx.execute::<Nothing>(query_string, query_bind_params)
+            .await?;
     }
 
     Ok(())

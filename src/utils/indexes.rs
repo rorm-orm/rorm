@@ -8,6 +8,8 @@
 //!
 //! [`Operation::CreateIndex`]: rorm_declaration::migration::Operation::CreateIndex
 
+use std::collections::HashMap;
+
 use rorm_declaration::imr::{Annotation, Field, Index, IndexValue, InternalModelFormat};
 
 /// Copy of `field` without any [`Annotation::Index`]
@@ -15,24 +17,32 @@ pub fn without_indexes(field: &Field) -> Field {
     Field {
         name: field.name.clone(),
         db_type: field.db_type,
-        annotations: field
-            .annotations
-            .iter()
-            .filter(|annotation| !matches!(annotation, Annotation::Index(_)))
-            .cloned()
-            .collect(),
+        annotations: columnar(&field.annotations).cloned().collect(),
         source_defined_at: field.source_defined_at.clone(),
     }
 }
 
+/// The annotations which are part of a column's definition,
+/// i.e. everything but [`Annotation::Index`]
+pub fn columnar(annotations: &[Annotation]) -> impl Iterator<Item = &Annotation> {
+    annotations
+        .iter()
+        .filter(|annotation| !matches!(annotation, Annotation::Index(_)))
+}
+
 /// Compares two lists of annotations ignoring any [`Annotation::Index`]
+///
+/// A column's annotations are a set, not a sequence - a field can't have two
+/// maximum lengths - so the order they happen to be listed in is not compared.
 pub fn annotations_eq(lhs: &[Annotation], rhs: &[Annotation]) -> bool {
-    fn columnar(annotations: &[Annotation]) -> impl Iterator<Item = &Annotation> {
-        annotations
-            .iter()
-            .filter(|annotation| !matches!(annotation, Annotation::Index(_)))
+    fn count(annotations: &[Annotation]) -> HashMap<&Annotation, usize> {
+        let mut counts = HashMap::new();
+        for annotation in columnar(annotations) {
+            *counts.entry(annotation).or_default() += 1;
+        }
+        counts
     }
-    columnar(lhs).eq(columnar(rhs))
+    count(lhs) == count(rhs)
 }
 
 /// Compares two fields ignoring any [`Annotation::Index`]

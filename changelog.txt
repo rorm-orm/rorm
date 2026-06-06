@@ -1,3 +1,32 @@
+Since 0.10.4
+------------
+- Implemented altering a field in place
+  - `make-migrations` changes a column instead of dropping and recreating it,
+    whenever every dialect can perform the change
+  - The new operations are `SetFieldType`, `SetFieldMaxLength` and
+    `DropFieldMaxLength`. They are a delta, not a target state, so each one
+    is a handful of scalars you can read and write by hand - and the list of
+    operations says exactly which changes are supported
+  - Alterable are `varchar` -> `text`, widening an integer, `float` ->
+    `double` and changing `max_length`; anything else is still recreated
+  - `max_length` on a `text` column became a check constraint named
+    `<table>_<column>_max_length` in postgres. It uses `length()`, which counts
+    characters exactly like `character varying(n)` did, so no existing row can
+    violate it. In sqlite it stays unenforced, as it always was - sqlite has no
+    `varchar` and never checks a string's length
+  - Existing projects get a migration turning every `String` column from
+    `character varying(n)` into `text` plus that constraint, keeping its data.
+    In sqlite the migration is a no-op: both types are `TEXT` there
+  - An index over an altered column is no longer dropped and recreated
+  - Narrowing a `max_length` now fails the migration instead of silently
+    dropping the column's data
+  - A column's annotations are compared as a set now: listing them in another
+    order is no longer a change which recreates the column
+  - Migration files containing the new operations, and models files containing
+    `text`, can not be read by an older rorm-cli - it aborts with
+    "unknown variant `text`". Update every deployment before generating
+    new migrations
+
 Since 0.10.1
 ------------
 - Implemented the `index` annotation

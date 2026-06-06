@@ -3,6 +3,7 @@ use std::io::Write;
 
 use tracing::error;
 
+pub mod alter;
 pub mod imr_as_state;
 pub mod indexes;
 pub mod migrations;

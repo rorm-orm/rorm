@@ -1,6 +1,6 @@
 //! Extension trait to treat [`imr`] types as queryable and updatable state
 
-use rorm_declaration::imr::{Field, InternalModelFormat, Model};
+use rorm_declaration::imr::{Annotation, Field, InternalModelFormat, Model};
 use rorm_declaration::migration::Operation;
 use thiserror::Error;
 
@@ -48,6 +48,37 @@ pub trait InternalModelFormatExt {
                 check_field_not_exists(model, new)?;
                 let field = get_field(model, old)?;
                 field.name = new.clone();
+            }
+            Operation::SetFieldType {
+                model,
+                name,
+                db_type,
+            } => {
+                let model = get_model(self.as_mut(), model)?;
+                let field = get_field(model, name)?;
+                field.db_type = *db_type;
+            }
+            Operation::SetFieldMaxLength {
+                model,
+                name,
+                max_length,
+            } => {
+                let model = get_model(self.as_mut(), model)?;
+                let field = get_field(model, name)?;
+
+                // A column has at most one maximum length, so setting it
+                // replaces the annotation instead of adding a second one.
+                field
+                    .annotations
+                    .retain(|annotation| !matches!(annotation, Annotation::MaxLength(_)));
+                field.annotations.push(Annotation::MaxLength(*max_length));
+            }
+            Operation::DropFieldMaxLength { model, name } => {
+                let model = get_model(self.as_mut(), model)?;
+                let field = get_field(model, name)?;
+                field
+                    .annotations
+                    .retain(|annotation| !matches!(annotation, Annotation::MaxLength(_)));
             }
             Operation::DeleteField { model, name } => {
                 let model = get_model(self.as_mut(), model)?;
@@ -343,6 +374,181 @@ mod test_indexes {
                     name: None,
                     columns: vec!["login".to_string()],
                 },
+            })
+            .is_err());
+    }
+}
+
+#[cfg(test)]
+mod test_alter {
+    use rorm_declaration::imr::{Annotation, DbType, Field, Index, InternalModelFormat};
+    use rorm_declaration::migration::Operation;
+
+    use crate::utils::imr_as_state::InternalModelFormatExt;
+
+    /// The operation creating a `user` model with a single `login` column
+    fn create_model(db_type: DbType, annotations: Vec<Annotation>) -> Operation {
+        Operation::CreateModel {
+            name: "user".to_string(),
+            fields: vec![Field {
+                name: "login".to_string(),
+                db_type,
+                annotations,
+                source_defined_at: None,
+            }],
+        }
+    }
+
+    fn set_type(db_type: DbType) -> Operation {
+        Operation::SetFieldType {
+            model: "user".to_string(),
+            name: "login".to_string(),
+            db_type,
+        }
+    }
+
+    fn set_max_length(max_length: i32) -> Operation {
+        Operation::SetFieldMaxLength {
+            model: "user".to_string(),
+            name: "login".to_string(),
+            max_length,
+        }
+    }
+
+    fn drop_max_length() -> Operation {
+        Operation::DropFieldMaxLength {
+            model: "user".to_string(),
+            name: "login".to_string(),
+        }
+    }
+
+    fn state(operations: Vec<Operation>) -> InternalModelFormat {
+        let mut state = InternalModelFormat { models: vec![] };
+        for operation in &operations {
+            state.apply_operation(operation).expect("Operation applies");
+        }
+        state
+    }
+
+    fn login(state: &InternalModelFormat) -> &Field {
+        &state.models[0].fields[0]
+    }
+
+    /// The `varchar(n)` -> `text` conversion, folded back onto the state.
+    /// A `character varying` has no constraint to drop, so the delta only sets
+    /// the type and adds the maximum length.
+    #[allow(deprecated)]
+    #[test]
+    fn varchar_to_text_keeps_the_max_length() {
+        let state = state(vec![
+            create_model(
+                DbType::VarChar,
+                vec![Annotation::MaxLength(255), Annotation::NotNull],
+            ),
+            set_type(DbType::Text),
+            set_max_length(255),
+        ]);
+
+        assert_eq!(login(&state).db_type, DbType::Text);
+        assert!(login(&state)
+            .annotations
+            .contains(&Annotation::MaxLength(255)));
+        assert!(login(&state).annotations.contains(&Annotation::NotNull));
+    }
+
+    /// A column has at most one maximum length, so setting it may not add a
+    /// second annotation.
+    #[test]
+    fn setting_a_max_length_replaces_the_old_one() {
+        let state = state(vec![
+            create_model(DbType::Text, vec![Annotation::MaxLength(255)]),
+            drop_max_length(),
+            set_max_length(300),
+        ]);
+
+        assert_eq!(login(&state).annotations, [Annotation::MaxLength(300)]);
+    }
+
+    /// Even without the drop in front of it, to keep the state well formed
+    /// however a hand written migration got there.
+    #[test]
+    fn setting_a_max_length_twice_leaves_one() {
+        let state = state(vec![
+            create_model(DbType::Text, vec![Annotation::MaxLength(255)]),
+            set_max_length(300),
+        ]);
+
+        assert_eq!(login(&state).annotations, [Annotation::MaxLength(300)]);
+    }
+
+    #[test]
+    fn dropping_a_max_length_removes_it() {
+        let state = state(vec![
+            create_model(
+                DbType::Text,
+                vec![Annotation::MaxLength(255), Annotation::NotNull],
+            ),
+            drop_max_length(),
+        ]);
+
+        assert_eq!(login(&state).annotations, [Annotation::NotNull]);
+    }
+
+    /// An `Annotation::Index` is this state's record of the indexes created by
+    /// `Operation::CreateIndex`. None of these operations touches it, so an
+    /// index over an altered column can't get lost.
+    #[test]
+    fn altering_a_column_preserves_its_indexes() {
+        let index = Index {
+            name: None,
+            columns: vec!["login".to_string()],
+        };
+        #[allow(deprecated)]
+        let state = state(vec![
+            create_model(DbType::VarChar, vec![Annotation::MaxLength(255)]),
+            Operation::CreateIndex {
+                model: "user".to_string(),
+                index: index.clone(),
+            },
+            set_type(DbType::Text),
+            drop_max_length(),
+            set_max_length(300),
+        ]);
+
+        assert_eq!(state.models[0].indexes(), vec![index]);
+    }
+
+    #[test]
+    fn altering_an_unknown_field_fails() {
+        let mut state = state(vec![create_model(DbType::Text, vec![])]);
+        for operation in [
+            Operation::SetFieldType {
+                model: "user".to_string(),
+                name: "username".to_string(),
+                db_type: DbType::Text,
+            },
+            Operation::SetFieldMaxLength {
+                model: "user".to_string(),
+                name: "username".to_string(),
+                max_length: 255,
+            },
+            Operation::DropFieldMaxLength {
+                model: "user".to_string(),
+                name: "username".to_string(),
+            },
+        ] {
+            assert!(state.apply_operation(&operation).is_err(), "{operation:?}");
+        }
+    }
+
+    #[test]
+    fn altering_a_field_of_an_unknown_model_fails() {
+        let mut state = state(vec![create_model(DbType::Text, vec![])]);
+        assert!(state
+            .apply_operation(&Operation::SetFieldType {
+                model: "person".to_string(),
+                name: "login".to_string(),
+                db_type: DbType::Text,
             })
             .is_err());
     }

@@ -11,7 +11,7 @@ use rorm_declaration::migration::{Migration, Operation};
 use tracing::info;
 
 use crate::linter;
-use crate::utils::indexes;
+use crate::utils::{alter, indexes};
 use crate::utils::migrations::{
     convert_migration_to_file, convert_migrations_to_internal_models, get_existing_migrations,
 };
@@ -343,31 +343,16 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
         }
 
         // Create migration operations for altered fields in existing models
+        //
+        // Recreating a field drops its data as well as the indexes spanning it,
+        // so it is only done for the changes no dialect can apply in place.
+        let mut recreated_columns: HashSet<(&str, &str)> = HashSet::new();
         for (model, af) in &altered_fields {
             for (old, new) in af {
-                // Check datatype
-                if old.db_type != new.db_type {
-                    #[expect(clippy::match_single_binding, reason = "It will be extended™")]
-                    match (old.db_type, new.db_type) {
-                        // TODO:
-                        // There are cases where columns can be altered
-                        // e.g. i8 -> i16 or float -> double
-
-                        // Default case
-                        (_, _) => {
-                            op.push(Operation::DeleteField {
-                                model: model.clone(),
-                                name: old.name.clone(),
-                            });
-                            op.push(Operation::CreateField {
-                                model: model.clone(),
-                                field: indexes::without_indexes(new),
-                            });
-                            info!("Recreated field {} on model {}", &new.name, &model);
-                        }
-                    }
+                if let Some(operations) = alter::operations(model, old, new) {
+                    op.extend(operations);
+                    info!("Altered field {} on model {}", &new.name, &model);
                 } else {
-                    // As the datatypes match, there must be a change in the annotations
                     op.push(Operation::DeleteField {
                         model: model.clone(),
                         name: old.name.clone(),
@@ -377,19 +362,13 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                         field: indexes::without_indexes(new),
                     });
                     info!("Recreated field {} on model {}", &new.name, &model);
+                    recreated_columns.insert((model.as_str(), old.name.as_str()));
                 }
             }
         }
 
-        // Recreating a field drops the indexes spanning it, so they have to be
-        // recreated as well - even though their definition didn't change.
-        let recreated_columns: HashSet<(&str, &str)> = altered_fields
-            .iter()
-            .flat_map(|(model, af)| {
-                af.iter()
-                    .map(|(old, _)| (model.as_str(), old.name.as_str()))
-            })
-            .collect();
+        // An altered column keeps its indexes: postgres rebuilds the ones
+        // depending on it itself and sqlite doesn't touch the column at all.
         let is_recreated = |model: &str, index: &Index| {
             index
                 .columns
