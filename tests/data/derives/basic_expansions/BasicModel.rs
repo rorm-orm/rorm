@@ -163,18 +163,6 @@ const _: () = {
     #[::rorm::linkme::distributed_slice(::rorm::MODELS)]
     #[linkme(crate = ::rorm::linkme)]
     static __get_imr: fn() -> ::rorm::imr::Model = <BasicModel as ::rorm::model::Model>::get_imr;
-    let mut count_auto_increment = 0;
-    let mut annos_slice = <__BasicModel_id as ::rorm::internal::field::Field>::EFFECTIVE_ANNOTATIONS
-        .as_slice();
-    while let [annos, tail @ ..] = annos_slice {
-        annos_slice = tail;
-        if annos.auto_increment.is_some() {
-            count_auto_increment += 1;
-        }
-    }
-    assert!(
-        count_auto_increment <= 1, "\"auto_increment\" can only be set once per model"
-    );
 };
 impl ::rorm::model::FieldByIndex<{ 0usize }> for BasicModel {
     type Field = __BasicModel_id;

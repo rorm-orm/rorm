@@ -40,7 +40,6 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
         config,
     );
     let field_structs_1 = fields.iter().map(|field| &field.unit);
-    let field_structs_2 = field_structs_1.clone();
 
     let source = get_source(ident.span(), config);
 
@@ -83,19 +82,6 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
                 #[#rorm_path::linkme::distributed_slice(#rorm_path::MODELS)]
                 #[linkme(crate = #rorm_path::linkme)]
                 static __get_imr: fn() -> #rorm_path::imr::Model = <#ident as #rorm_path::model::Model>::get_imr;
-
-                // Cross field checks
-                let mut count_auto_increment = 0;
-                #(
-                    let mut annos_slice = <#field_structs_2 as #rorm_path::internal::field::Field>::EFFECTIVE_ANNOTATIONS.as_slice();
-                    while let [annos, tail @ ..] = annos_slice {
-                        annos_slice = tail;
-                        if annos.auto_increment.is_some() {
-                            count_auto_increment += 1;
-                        }
-                    }
-                )*
-                assert!(count_auto_increment <= 1, "\"auto_increment\" can only be set once per model");
             };
         });
     }
