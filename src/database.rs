@@ -120,7 +120,7 @@ impl Drop for Database {
         // - the arc is private and we don't create WeakRefs
         // => when observing a strong_count of 1, there can't be any remaining refs
         if Arc::strong_count(&self.1) == 1 && !self.0.is_closed() {
-            warn!("Database has been dropped without calling close. This might case the last queries to not being flushed properly");
+            warn!("Database has been dropped without calling close. This might cause the last queries to not be flushed properly");
         }
     }
 }
