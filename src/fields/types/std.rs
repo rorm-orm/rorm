@@ -1,11 +1,20 @@
 use std::borrow::Cow;
+use std::marker::PhantomData;
 
+use rorm_db::sql::value::NullType;
+
+use crate::conditions::Value;
+use crate::crud::decoder::NoopDecoder;
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::simple::SimpleFieldILike;
 use crate::fields::traits::simple::{
     SimpleFieldEq, SimpleFieldIn, SimpleFieldLike, SimpleFieldOrd,
 };
+use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::utils::check;
+use crate::fields::utils::check::disallow_annotations_check;
+use crate::fields::utils::get_annotations::forward_annotations;
+use crate::fields::utils::get_names::no_columns_names;
 use crate::{impl_FieldMin_FieldMax, impl_FieldSum_FieldAvg, impl_FieldType};
 
 impl_FieldType!(bool, Bool);
@@ -96,3 +105,24 @@ impl SimpleFieldOrd for Vec<u8> {}
 impl SimpleFieldOrd<&'_ [u8]> for Vec<u8> {}
 impl SimpleFieldOrd<&'_ Vec<u8>> for Vec<u8> {}
 impl SimpleFieldOrd<Cow<'_, [u8]>> for Vec<u8> {}
+
+impl<T: 'static> FieldType for PhantomData<T> {
+    type Columns = Array<0>;
+    const NULL: FieldColumns<Self, NullType> = [];
+
+    fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
+        []
+    }
+
+    fn as_values(&self) -> FieldColumns<Self, Value<'_>> {
+        []
+    }
+
+    type Decoder = NoopDecoder<Self>;
+
+    type GetNames = no_columns_names;
+
+    type GetAnnotations = forward_annotations<0>;
+
+    type Check = disallow_annotations_check<0>;
+}
