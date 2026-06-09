@@ -124,10 +124,10 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
         if !field.annos.primary_key {
             tokens.extend(quote! {
                 impl #impl_generics #rorm_path::model::UpdateField<#field_struct #type_generics> for #ident #type_generics #where_clause {
-                    fn update_field<'m, T>(
+                    fn update_field<'m, __Return>(
                         &'m mut self,
-                        update: impl FnOnce(&'m #primary_type, &'m mut #field_type) -> T,
-                    ) -> T {
+                        update: impl FnOnce(&'m #primary_type, &'m mut #field_type) -> __Return,
+                    ) -> __Return {
                         update(&self.#primary_ident, &mut self.#field_ident)
                     }
                 }
