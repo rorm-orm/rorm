@@ -23,9 +23,9 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
     } = parsed;
     let mut errors = darling::Error::accumulator();
 
-    if experimental_generics && !experimental_unregistered {
+    if experimental_generics && experimental_unregistered {
         errors.push(darling::Error::custom(
-            "`experimental_generics` requires `experimental_unregistered`",
+            "`experimental_generics` implies `experimental_unregistered`",
         ));
     }
     if generics.lt_token.is_some() && !experimental_generics {
@@ -163,7 +163,7 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
         table,
         fields: analyzed_fields,
         primary_key,
-        experimental_unregistered,
+        experimental_unregistered: experimental_unregistered || experimental_generics,
         experimental_generics: generics,
     })
 }

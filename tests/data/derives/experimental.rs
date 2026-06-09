@@ -6,7 +6,7 @@ pub struct Unregistered {
 }
 
 #[derive(rorm::Model)]
-#[rorm(experimental_generics, experimental_unregistered)]
+#[rorm(experimental_generics)]
 pub struct Generic<X: rorm::fields::traits::FieldType> {
     #[rorm(id)]
     pub id: i64,
