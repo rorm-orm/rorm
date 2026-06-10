@@ -2,6 +2,8 @@ Since 0.9.7
 -----------
 - Transaction hooks
 - Removed support for mysql
+- Experimental support for generic models
+
 - Introduced `IntoValue` trait
 - Simplified "simple" comparision traits even further
 - Removed `impl_FieldEq!` macro
