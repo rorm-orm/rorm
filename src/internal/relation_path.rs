@@ -270,7 +270,6 @@ where
 impl<FMF, F> PathField<BackRef<FMF>> for F
 where
     FMF: ForeignModelField,
-    FMF::Type: ForeignModelTrait,
     F: Field<Type = BackRef<FMF>> + 'static,
 {
     sealed!(impl);

@@ -72,8 +72,7 @@ impl<BRF, FMF> FieldProxy<(BRF, BRF::Model)>
 where
     BRF: Field<Type = BackRef<FMF>>,
 
-    FMF: ForeignModelField + SingleColumnField,
-    FMF::Type: ForeignModelTrait,
+    FMF: ForeignModelField,
     FMF::Model: GetField<FMF>, // always true
     foreign_model::RF<FMF>: SingleColumnField,
 {

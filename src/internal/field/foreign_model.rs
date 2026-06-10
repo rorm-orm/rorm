@@ -102,20 +102,11 @@ const_fn! {
     }
 }
 
-/// Marker trait without actual bounds for fields of type foreign model
-pub trait ForeignModelField: SingleColumnField {
-    sealed!(trait);
-}
+/// Trait alias for a `Field` which points to a foreign model
+pub trait ForeignModelField: SingleColumnField<Type: ForeignModelTrait> {}
 
 pub(crate) type RF<F> = <<F as Field>::Type as ForeignModelTrait>::RelatedField;
-impl<F> ForeignModelField for F
-where
-    F: SingleColumnField,
-    F::Type: ForeignModelTrait,
-    <<F::Type as ForeignModelTrait>::RelatedField as Field>::Model:,
-{
-    sealed!(impl);
-}
+impl<F> ForeignModelField for F where F: SingleColumnField<Type: ForeignModelTrait> {}
 
 /// [`FieldDecoder`] for [`ForeignModelByField<FF>`]
 pub struct ForeignModelByFieldDecoder<FF: SingleColumnField>(<FF::Type as FieldType>::Decoder);
