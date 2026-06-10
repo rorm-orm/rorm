@@ -164,36 +164,28 @@ pub const fn check<F: Field>() -> Result<(), ConstString<1024>> {
 }
 
 /// A field which is stored in db via a single column
-pub trait SingleColumnField: Field {
+///
+/// This trait is a trait alias with a few additional utility methods.
+pub trait SingleColumnField: Field<Type: FieldType<Columns = Array<1>>> {
     /// The annotations which are passed to db
-    const EFFECTIVE_ANNOTATION: Annotations;
-
-    /// Borrow an instance of the field's type as a [`Value`]
-    fn type_as_value(field: &Self::Type) -> Value<'_>;
-
-    /// Convert an instance of the field's type into a static [`Value`]
-    fn type_into_value(field: Self::Type) -> Value<'static>;
-}
-impl<F> SingleColumnField for F
-where
-    F: Field,
-    F::Type: FieldType<Columns = Array<1>>,
-{
     const EFFECTIVE_ANNOTATION: Annotations = {
         let [annos] = Self::EFFECTIVE_ANNOTATIONS;
         annos
     };
 
+    /// Borrow an instance of the field's type as a [`Value`]
     fn type_as_value(field: &Self::Type) -> Value<'_> {
         let [value] = field.as_values();
         value
     }
 
+    /// Convert an instance of the field's type into a static [`Value`]
     fn type_into_value(field: Self::Type) -> Value<'static> {
         let [value] = field.into_values();
         value
     }
 }
+impl<F> SingleColumnField for F where F: Field<Type: FieldType<Columns = Array<1>>> {}
 
 /// A field whose proxy should implement [`Deref`](std::ops::Deref) to some collection of fields.
 ///

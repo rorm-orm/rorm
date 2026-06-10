@@ -21,6 +21,9 @@ description = "A asynchronous declarative ORM written in pure rust."
 homepage = "https://rorm.rs"
 documentation = "https://docs.rorm.rs"
 license = "MIT"
+# This has not really been checked yet,
+# but we definitely use language features from this version
+rust-version = "1.79.0"
 
 [lib]
 name = "rorm"

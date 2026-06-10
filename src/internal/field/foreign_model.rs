@@ -29,7 +29,6 @@ use crate::sealed;
 impl<FF> FieldType for ForeignModelByField<FF>
 where
     FF: SingleColumnField,
-    FF::Type: FieldType<Columns = Array<1>>,
 {
     type Columns = Array<1>;
 
@@ -134,7 +133,6 @@ impl<FF: SingleColumnField> Decoder for ForeignModelByFieldDecoder<FF> {
 impl<FF> FieldDecoder for ForeignModelByFieldDecoder<FF>
 where
     FF: SingleColumnField,
-    FF::Type: FieldType<Columns = Array<1>>,
 {
     fn new<I>(ctx: &mut QueryContext, _: FieldProxy<I>) -> Self
     where
@@ -150,21 +148,18 @@ where
 impl<FF, Rhs> SimpleFieldEq<Rhs> for ForeignModelByField<FF>
 where
     FF: SingleColumnField,
-    FF::Type: FieldType<Columns = Array<1>>,
     FF::Type: SimpleFieldEq<Rhs>,
 {
 }
 impl<FF, Rhs> SimpleFieldIn<Rhs> for ForeignModelByField<FF>
 where
     FF: SingleColumnField,
-    FF::Type: FieldType<Columns = Array<1>>,
     FF::Type: SimpleFieldIn<Rhs>,
 {
 }
 impl<FF, Rhs> SimpleFieldLike<Rhs> for ForeignModelByField<FF>
 where
     FF: SingleColumnField,
-    FF::Type: FieldType<Columns = Array<1>>,
     FF::Type: SimpleFieldLike<Rhs>,
 {
 }
