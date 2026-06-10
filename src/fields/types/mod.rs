@@ -3,6 +3,7 @@
 //! See [`rorm::fields`](crate::fields) for full list of supported field types
 
 mod back_ref;
+mod cascading_foreign_model;
 #[cfg(feature = "chrono")]
 mod chrono;
 mod foreign_model;
@@ -23,6 +24,7 @@ mod url;
 mod uuid;
 
 pub use back_ref::BackRef;
+pub use cascading_foreign_model::{CascadingForeignModel, CascadingForeignModelByField};
 pub use foreign_model::{ForeignModel, ForeignModelByField};
 pub use json::Json;
 pub use max_str::MaxStr;

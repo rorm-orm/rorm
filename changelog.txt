@@ -3,6 +3,7 @@ Since 0.9.7
 - Transaction hooks
 - Removed support for mysql
 - Experimental support for generic models
+- Added `CascadingForeignModel` which implies the `on_update` and `on_delete` annotation
 
 - Introduced `IntoValue` trait
 - Simplified "simple" comparision traits even further

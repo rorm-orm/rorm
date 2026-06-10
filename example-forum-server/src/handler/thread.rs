@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use axum::extract::{Path, State};
 use axum::Json;
 use futures_util::TryStreamExt;
-use rorm::fields::types::MaxStr;
+use rorm::fields::types::{CascadingForeignModelByField, MaxStr};
 use rorm::prelude::ForeignModelByField;
 use rorm::{and, Database, Patch};
 use serde::{Deserialize, Serialize};
@@ -163,7 +163,7 @@ pub async fn make_post(
             message: MaxStr::new(request.message)
                 .map_err(|_| ApiError::BadRequest("Post's message is too long".to_string()))?,
             user: Some(ForeignModelByField(user.id)),
-            thread: ForeignModelByField(thread),
+            thread: CascadingForeignModelByField(thread),
             reply_to: request.reply_to.map(ForeignModelByField),
         })
         .await?;

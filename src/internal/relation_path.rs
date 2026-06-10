@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use crate::fields::types::CascadingForeignModelByField;
 use crate::internal::djb2;
 use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
 use crate::internal::field::{Field, SingleColumnField};
@@ -261,6 +262,26 @@ impl<FF, F> PathField<Option<ForeignModelByField<FF>>> for F
 where
     FF: SingleColumnField,
     F: ForeignModelField<Type = Option<ForeignModelByField<FF>>>,
+{
+    sealed!(impl);
+
+    type ChildField = FF;
+    type ParentField = F;
+}
+impl<FF, F> PathField<CascadingForeignModelByField<FF>> for F
+where
+    FF: SingleColumnField,
+    F: ForeignModelField<Type = CascadingForeignModelByField<FF>>,
+{
+    sealed!(impl);
+
+    type ChildField = FF;
+    type ParentField = F;
+}
+impl<FF, F> PathField<Option<CascadingForeignModelByField<FF>>> for F
+where
+    FF: SingleColumnField,
+    F: ForeignModelField<Type = Option<CascadingForeignModelByField<FF>>>,
 {
     sealed!(impl);
 

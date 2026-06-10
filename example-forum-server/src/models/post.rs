@@ -1,4 +1,4 @@
-use rorm::fields::types::MaxStr;
+use rorm::fields::types::{CascadingForeignModel, MaxStr};
 use rorm::prelude::*;
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -20,8 +20,7 @@ pub struct Post {
     pub user: Option<ForeignModel<User>>,
 
     /// The thread this post was posted in
-    #[rorm(on_delete = "Cascade")]
-    pub thread: ForeignModel<Thread>,
+    pub thread: CascadingForeignModel<Thread>,
 
     /// The post this one is a reply to if it is a reply at all
     #[rorm(on_delete = "Cascade")]
@@ -38,6 +37,6 @@ pub struct NewPost {
     pub uuid: Uuid,
     pub message: MaxStr<1024>,
     pub user: Option<ForeignModel<User>>,
-    pub thread: ForeignModel<Thread>,
+    pub thread: CascadingForeignModel<Thread>,
     pub reply_to: Option<ForeignModel<Post>>,
 }

@@ -1,4 +1,4 @@
-//! Implementation detail of [`ForeignModelByField`]
+//! Implementation detail of [`CascadingForeignModelByField`]
 
 use std::marker::PhantomData;
 
@@ -15,18 +15,19 @@ use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn, SimpleFieldLik
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::FieldILike;
 use crate::fields::traits::{Array, FieldColumns};
-use crate::fields::types::ForeignModelByField;
+use crate::fields::types::CascadingForeignModelByField;
 use crate::fields::utils::get_names::single_column_name;
 use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::fake_field::FakeField;
+use crate::internal::field::foreign_model::ForeignModelTrait;
 use crate::internal::field::{Field, FieldProxy, FieldType, SingleColumnField};
 use crate::internal::hmr;
-use crate::internal::hmr::annotations::Annotations;
+use crate::internal::hmr::annotations::{Annotations, OnDelete, OnUpdate};
 use crate::internal::query_context::QueryContext;
 use crate::model::Model;
 use crate::sealed;
 
-impl<FF> FieldType for ForeignModelByField<FF>
+impl<FF> FieldType for CascadingForeignModelByField<FF>
 where
     FF: SingleColumnField,
 {
@@ -42,24 +43,16 @@ where
         [FF::type_as_value(&self.0)]
     }
 
-    type Decoder = ForeignModelByFieldDecoder<FF>;
+    type Decoder = CascadingForeignModelByFieldDecoder<FF>;
 
-    type GetAnnotations = foreign_annotations<FF>;
+    type GetAnnotations = cascading_foreign_annotations<FF>;
 
     type Check = <FF::Type as FieldType>::Check;
 
     type GetNames = single_column_name;
 }
 
-#[doc(hidden)]
-pub trait ForeignModelTrait {
-    sealed!(trait);
-
-    type RelatedField: SingleColumnField;
-    fn as_key(&self) -> Option<&<Self::RelatedField as Field>::Type>;
-}
-
-impl<FF> ForeignModelTrait for ForeignModelByField<FF>
+impl<FF> ForeignModelTrait for CascadingForeignModelByField<FF>
 where
     FF: SingleColumnField,
 {
@@ -71,7 +64,7 @@ where
     }
 }
 
-impl<FF: SingleColumnField> ForeignModelTrait for Option<ForeignModelByField<FF>>
+impl<FF: SingleColumnField> ForeignModelTrait for Option<CascadingForeignModelByField<FF>>
 where
     FF: SingleColumnField,
 {
@@ -87,7 +80,8 @@ where
 const_fn! {
     /// - copies `max_length` from the foreign key
     /// - sets `foreign`
-    pub fn foreign_annotations<FF: SingleColumnField>(field: Annotations) -> [Annotations; 1] {
+    /// - sets `on_update` and `on_delete` to `Cascade`
+    pub fn cascading_foreign_annotations<FF: SingleColumnField>(field: Annotations) -> [Annotations; 1] {
         let mut annos = field;
         if annos.max_length.is_none() {
             let target_annos = FF::EFFECTIVE_ANNOTATION;
@@ -97,30 +91,31 @@ const_fn! {
             table_name: FF::Model::TABLE,
             column_name: &FF::NAME,
         });
+        if field.on_update.is_some() || field.on_delete.is_some() {
+            panic!("The annotations `on_update` and `on_delete` are implied by their field's type and can't be set explicitly");
+        }
+        annos.on_update = Some(OnUpdate::Cascade);
+        annos.on_delete = Some(OnDelete::Cascade);
         [annos]
     }
 }
 
-/// Trait alias for a `Field` which points to a foreign model
-pub trait ForeignModelField: SingleColumnField<Type: ForeignModelTrait> {}
-
-pub(crate) type RF<F> = <<F as Field>::Type as ForeignModelTrait>::RelatedField;
-impl<F> ForeignModelField for F where F: SingleColumnField<Type: ForeignModelTrait> {}
-
-/// [`FieldDecoder`] for [`ForeignModelByField<FF>`]
-pub struct ForeignModelByFieldDecoder<FF: SingleColumnField>(<FF::Type as FieldType>::Decoder);
-impl<FF: SingleColumnField> Decoder for ForeignModelByFieldDecoder<FF> {
-    type Result = ForeignModelByField<FF>;
+/// [`FieldDecoder`] for [`CascadingForeignModelByField<FF>`]
+pub struct CascadingForeignModelByFieldDecoder<FF: SingleColumnField>(
+    <FF::Type as FieldType>::Decoder,
+);
+impl<FF: SingleColumnField> Decoder for CascadingForeignModelByFieldDecoder<FF> {
+    type Result = CascadingForeignModelByField<FF>;
 
     fn by_name<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        self.0.by_name(row).map(ForeignModelByField)
+        self.0.by_name(row).map(CascadingForeignModelByField)
     }
 
     fn by_index<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        self.0.by_index(row).map(ForeignModelByField)
+        self.0.by_index(row).map(CascadingForeignModelByField)
     }
 }
-impl<FF> FieldDecoder for ForeignModelByFieldDecoder<FF>
+impl<FF> FieldDecoder for CascadingForeignModelByFieldDecoder<FF>
 where
     FF: SingleColumnField,
 {
@@ -135,19 +130,19 @@ where
     }
 }
 
-impl<FF, Rhs> SimpleFieldEq<Rhs> for ForeignModelByField<FF>
+impl<FF, Rhs> SimpleFieldEq<Rhs> for CascadingForeignModelByField<FF>
 where
     FF: SingleColumnField,
     FF::Type: SimpleFieldEq<Rhs>,
 {
 }
-impl<FF, Rhs> SimpleFieldIn<Rhs> for ForeignModelByField<FF>
+impl<FF, Rhs> SimpleFieldIn<Rhs> for CascadingForeignModelByField<FF>
 where
     FF: SingleColumnField,
     FF::Type: SimpleFieldIn<Rhs>,
 {
 }
-impl<FF, Rhs> SimpleFieldLike<Rhs> for ForeignModelByField<FF>
+impl<FF, Rhs> SimpleFieldLike<Rhs> for CascadingForeignModelByField<FF>
 where
     FF: SingleColumnField,
     FF::Type: SimpleFieldLike<Rhs>,
@@ -155,8 +150,8 @@ where
 }
 
 #[cfg(feature = "postgres-only")]
-impl<'rhs, Rhs, Any, FF> FieldILike<'rhs, Rhs, FieldLike_ForeignModelByField<Any>>
-    for ForeignModelByField<FF>
+impl<'rhs, Rhs, Any, FF> FieldILike<'rhs, Rhs, FieldLike_CascadingForeignModelByField<Any>>
+    for CascadingForeignModelByField<FF>
 where
     FF: SingleColumnField,
     FF::Type: FieldILike<'rhs, Rhs, Any> + FieldType<Columns = Array<1>>,
@@ -176,22 +171,22 @@ where
 
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct FieldEq_ForeignModelByField_Owned;
+pub struct FieldEq_CascadingForeignModelByField_Owned;
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct FieldEq_ForeignModelByField_Borrowed;
+pub struct FieldEq_CascadingForeignModelByField_Borrowed;
 
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct FieldIn_ForeignModelByField_Owned;
+pub struct FieldIn_CascadingForeignModelByField_Owned;
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct FieldIn_ForeignModelByField_Borrowed;
+pub struct FieldIn_CascadingForeignModelByField_Borrowed;
 
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct FieldLike_ForeignModelByField<Any>(PhantomData<Any>);
+pub struct FieldLike_CascadingForeignModelByField<Any>(PhantomData<Any>);
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
 #[cfg(feature = "postgres-only")]
-pub struct FieldILike_ForeignModelByField<Any>(PhantomData<Any>);
+pub struct FieldILike_CascadingForeignModelByField<Any>(PhantomData<Any>);
