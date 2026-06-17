@@ -1,4 +1,6 @@
 Since 0.11.0
 -----------
 - Removed support for mysql
+- Added argument for distinct
+- Added argument for locking clause
 - Removed [`Database::raw_sql`]

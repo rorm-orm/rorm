@@ -8,18 +8,25 @@ use rorm_sql::delete::Delete;
 use rorm_sql::insert::Insert;
 use rorm_sql::join_table::JoinTableData;
 use rorm_sql::ordering::OrderByEntry;
-use rorm_sql::select::Select;
+#[cfg(feature = "postgres-only")]
+use rorm_sql::select::LockingClause;
 use rorm_sql::select_column::SelectColumnData;
 use rorm_sql::update::Update;
 use rorm_sql::value::Value;
 use tracing::warn;
 
 use crate::error::Error;
-use crate::executor::{AffectedRows, All, Executor, Nothing, One, QueryStrategy};
+use crate::executor::AffectedRows;
+use crate::executor::All;
+use crate::executor::Executor;
+use crate::executor::Nothing;
+use crate::executor::One;
+use crate::executor::QueryStrategy;
 use crate::internal::any::AnyPool;
 use crate::query_type::GetLimitClause;
 use crate::row::Row;
-use crate::transaction::{Transaction, TransactionError};
+use crate::transaction::Transaction;
+use crate::transaction::TransactionError;
 
 /**
 Type alias for [`SelectColumnData`]..
@@ -139,7 +146,7 @@ impl Drop for Database {
 ///   Depending on the query strategy, this is either [`LimitClause`](rorm_sql::limit_clause::LimitClause)
 ///   (for [`All`] and [`Stream`](crate::executor::Stream))
 ///   or a simple [`u64`] (for [`One`] and [`Optional`](crate::executor::Optional)).
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)] // TODO: refactor this API, clippy is right
 pub fn query<'result, 'db: 'result, 'post_query: 'result, Q: QueryStrategy + GetLimitClause>(
     executor: impl Executor<'db>,
     model: &str,
@@ -148,6 +155,8 @@ pub fn query<'result, 'db: 'result, 'post_query: 'result, Q: QueryStrategy + Get
     conditions: Option<&conditional::Condition<'post_query>>,
     order_by_clause: &[OrderByEntry<'_>],
     limit: Option<Q::LimitOrOffset>,
+    distinct: bool,
+    #[cfg(feature = "postgres-only")] locking_clause: Option<LockingClause>,
 ) -> Q::Result<'result> {
     let columns: Vec<_> = columns
         .iter()
@@ -181,6 +190,15 @@ pub fn query<'result, 'db: 'result, 'post_query: 'result, Q: QueryStrategy + Get
 
     if let Some(limit) = Q::get_limit_clause(limit) {
         q = q.limit_clause(limit);
+    }
+
+    if distinct {
+        q = q.distinct();
+    }
+
+    #[cfg(feature = "postgres-only")]
+    if let Some(x) = locking_clause {
+        q = q.locking_clause(x);
     }
 
     let (query_string, bind_params) = q.build();
