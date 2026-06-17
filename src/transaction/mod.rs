@@ -206,6 +206,14 @@ impl fmt::Display for TransactionError {
         }
     }
 }
+impl StdError for TransactionError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            TransactionError::Database(x) => Some(x),
+            TransactionError::Hook(x) => Some(x.as_ref()),
+        }
+    }
+}
 
 /// Either an owned or borrowed [`Transaction`].
 ///
