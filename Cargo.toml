@@ -21,5 +21,6 @@ ordered-float = { version = "~3", features = ["serde"] }
 # serde defines (de-)serialization behaviour for structs and enums
 serde = { version = "~1", features = ["derive"] }
 
+[features]
 sqlite = []
 postgres = []
