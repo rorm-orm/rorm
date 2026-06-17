@@ -299,14 +299,17 @@ impl DBImpl {
     ) -> Select<'until_build, 'post_build> {
         Select {
             db_impl: *self,
-            join_tables: joins,
             resulting_columns: columns,
+            from_clause,
+            join_tables: joins,
+            order_by_clause,
+
             limit: None,
             offset: None,
-            from_clause,
             where_clause: None,
             distinct: false,
-            order_by_clause,
+            #[cfg(feature = "postgres-only")]
+            locking_clause: None,
         }
     }
 
