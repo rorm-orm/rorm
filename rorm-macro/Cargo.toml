@@ -1,6 +1,6 @@
 [package]
 name = "rorm-macro"
-version = "0.10.0"
+version = "0.11.0"
 edition = "2021"
 repository = "https://github.com/rorm-orm/rorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
@@ -15,7 +15,7 @@ description = "Macro definitions for rorm."
 proc-macro = true
 
 [dependencies]
-rorm-macro-impl = { version = "~0.10", path = "../rorm-macro-impl" }
+rorm-macro-impl = { version = "~0.11", path = "../rorm-macro-impl" }
 
 # syn builds rust syntax trees from strings or tokenstream
 syn = { version = "~2", features = ["full", "visit-mut"] }
