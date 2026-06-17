@@ -1,10 +1,12 @@
 //! The Internal Model Representation used by our migration cli tool
-use std::fmt::{Display, Formatter};
-use std::hash::{Hash, Hasher};
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 use ordered_float::OrderedFloat;
-use serde::{Deserialize, Serialize};
-use strum::EnumIter;
+use serde::Deserialize;
+use serde::Serialize;
 
 /// A collection of all models used in the resulting application
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
@@ -135,7 +137,7 @@ pub enum DbType {
 
 /// The subset of annotations which need to be communicated with the migration tool
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 #[serde(tag = "Type", content = "Value")]
 #[serde(rename_all = "snake_case")]
 pub enum Annotation {
@@ -239,13 +241,4 @@ pub enum DefaultValue {
     Float(OrderedFloat<f64>),
     /// Just a bool. Nothing interesting here.
     Boolean(bool),
-}
-
-/**
-This implementation exists for strum::EnumIter
-*/
-impl Default for DefaultValue {
-    fn default() -> Self {
-        DefaultValue::Boolean(true)
-    }
 }

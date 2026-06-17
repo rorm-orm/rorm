@@ -16,20 +16,10 @@ path = "src/lib.rs"
 
 [dependencies]
 # Implements Eq and Order types for f64
-ordered-float = { version = "~3" }
+ordered-float = { version = "~3", features = ["serde"] }
 
 # serde defines (de-)serialization behaviour for structs and enums
-serde = { version = "~1" }
-
-# Macros and Traits for working with enums
-strum = { version = "~0.25" }
-
-[features]
-default = [
-    "ordered-float/serde",
-    "serde/derive",
-    "strum/derive"
-]
+serde = { version = "~1", features = ["derive"] }
 
 sqlite = []
 postgres = []
