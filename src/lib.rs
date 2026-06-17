@@ -69,7 +69,7 @@ use crate::insert::{Insert, InsertData, InsertImpl};
 use crate::join_table::{JoinTableData, JoinTableImpl, JoinType};
 use crate::on_conflict::OnConflict;
 use crate::ordering::OrderByEntry;
-use crate::select::{Select, SelectData, SelectImpl};
+use crate::select::Select;
 use crate::select_column::{SelectColumnData, SelectColumnImpl};
 use crate::update::{Update, UpdateData, UpdateImpl};
 use crate::value::Value;
@@ -77,7 +77,7 @@ use crate::value::Value;
 /**
 The main interface for creating sql strings
 */
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum DBImpl {
     /// Implementation of SQLite
     #[cfg(feature = "sqlite")]
@@ -296,8 +296,9 @@ impl DBImpl {
         from_clause: &'until_build str,
         joins: &'until_build [JoinTableImpl<'until_build, 'post_build>],
         order_by_clause: &'until_build [OrderByEntry<'until_build>],
-    ) -> impl Select<'until_build, 'post_build> {
-        let d = SelectData {
+    ) -> Select<'until_build, 'post_build> {
+        Select {
+            db_impl: *self,
             join_tables: joins,
             resulting_columns: columns,
             limit: None,
@@ -305,14 +306,7 @@ impl DBImpl {
             from_clause,
             where_clause: None,
             distinct: false,
-            lookup: vec![],
             order_by_clause,
-        };
-        match self {
-            #[cfg(feature = "sqlite")]
-            DBImpl::SQLite => SelectImpl::SQLite(d),
-            #[cfg(feature = "postgres")]
-            DBImpl::Postgres => SelectImpl::Postgres(d),
         }
     }
 
