@@ -1,17 +1,31 @@
 //! Query builder and macro
 
-use std::ops::{Range, RangeInclusive, Sub};
+use std::ops::Range;
+use std::ops::RangeInclusive;
+use std::ops::Sub;
 
 use rorm_db::database;
 use rorm_db::error::Error;
-use rorm_db::executor::{All, Executor, One, Optional, Stream};
+use rorm_db::executor::All;
+use rorm_db::executor::Executor;
+use rorm_db::executor::One;
+use rorm_db::executor::Optional;
+use rorm_db::executor::Stream;
 use rorm_db::sql::limit_clause::LimitClause;
 use rorm_db::sql::ordering::Ordering;
+#[cfg(feature = "postgres-only")]
+use rorm_db::sql::select::LockAcquire;
+#[cfg(feature = "postgres-only")]
+use rorm_db::sql::select::LockStrength;
+#[cfg(feature = "postgres-only")]
+use rorm_db::sql::select::LockingClause;
 
 use crate::conditions::Condition;
 use crate::crud::builder::ConditionMarker;
 use crate::crud::decoder::Decoder;
 use crate::crud::selector::Selector;
+use crate::fields::proxy::FieldProxy;
+use crate::fields::proxy::FieldProxyImpl;
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
 use crate::model::Model;
@@ -102,6 +116,12 @@ where
         condition: (),
         lim_off: (),
         modify_ctx: Vec::new(),
+
+        distinct: false,
+        #[cfg(feature = "postgres-only")]
+        locking_clause: None,
+        #[cfg(not(feature = "postgres-only"))]
+        locking_clause: (),
     }
 }
 
@@ -131,15 +151,21 @@ pub struct QueryBuilder<E, S, C, LO> {
     condition: C,
     lim_off: LO,
     modify_ctx: Vec<fn(&mut QueryContext)>,
+
+    distinct: bool,
+    #[cfg(feature = "postgres-only")]
+    locking_clause: Option<LockingClause>,
+    #[cfg(not(feature = "postgres-only"))]
+    locking_clause: (),
 }
 
 impl<E, S, LO> QueryBuilder<E, S, (), LO> {
     /// Add a condition to the query
     pub fn condition<'c, C: Condition<'c>>(self, condition: C) -> QueryBuilder<E, S, C, LO> {
         #[rustfmt::skip]
-        let QueryBuilder { executor, selector, lim_off, modify_ctx, .. } = self;
+        let QueryBuilder { executor, selector, lim_off, modify_ctx, distinct, locking_clause, .. } = self;
         #[rustfmt::skip]
-        return QueryBuilder { executor, selector, condition, lim_off, modify_ctx, };
+        return QueryBuilder { executor, selector, condition, lim_off, modify_ctx, distinct, locking_clause };
     }
 }
 
@@ -150,9 +176,9 @@ where
     /// Add a limit to the query
     pub fn limit(self, limit: u64) -> QueryBuilder<E, S, C, Limit<O>> {
         #[rustfmt::skip]
-        let QueryBuilder { executor, selector, condition,  lim_off, modify_ctx, } = self;
+        let QueryBuilder { executor, selector, condition,  lim_off, modify_ctx, distinct, locking_clause } = self;
         #[rustfmt::skip]
-        return QueryBuilder { executor, selector, condition, lim_off: Limit { limit, offset: lim_off }, modify_ctx, };
+        return QueryBuilder { executor, selector, condition, lim_off: Limit { limit, offset: lim_off }, modify_ctx, distinct, locking_clause };
     }
 }
 
@@ -163,10 +189,10 @@ where
     /// Add a offset to the query
     pub fn offset(self, offset: u64) -> QueryBuilder<E, S, C, LO::Result> {
         #[rustfmt::skip]
-        let QueryBuilder { executor, selector, condition, lim_off, modify_ctx, .. } = self;
+        let QueryBuilder { executor, selector, condition, lim_off, modify_ctx, distinct, locking_clause, .. } = self;
         let lim_off = lim_off.add_offset(offset);
         #[rustfmt::skip]
-        return QueryBuilder { executor, selector, condition, lim_off, modify_ctx, };
+        return QueryBuilder { executor, selector, condition, lim_off, modify_ctx, distinct, locking_clause, };
     }
 }
 
@@ -174,13 +200,13 @@ impl<E, S, C> QueryBuilder<E, S, C, ()> {
     /// Add a offset to the query
     pub fn range(self, range: impl FiniteRange<u64>) -> QueryBuilder<E, S, C, Limit<u64>> {
         #[rustfmt::skip]
-        let QueryBuilder { executor, selector, condition, modify_ctx,  .. } = self;
+        let QueryBuilder { executor, selector, condition, modify_ctx, distinct, locking_clause,  .. } = self;
         let limit = Limit {
             limit: range.len(),
             offset: range.start(),
         };
         #[rustfmt::skip]
-        return QueryBuilder { executor, selector, condition, lim_off: limit, modify_ctx, };
+        return QueryBuilder { executor, selector, condition, lim_off: limit, distinct, locking_clause, modify_ctx, };
     }
 }
 
@@ -227,6 +253,25 @@ where
     }
 }
 
+impl<E, S, C, LO> QueryBuilder<E, S, C, LO> {
+    /// Eliminate duplicate rows
+    pub fn distinct(mut self) -> Self {
+        self.distinct = true;
+        self
+    }
+}
+impl<E, S, C, LO> QueryBuilder<E, S, C, LO> {
+    /// Specify how returned rows are locked.
+    ///
+    /// This is mostly useful while using a transaction.
+    /// But it can have use cases without them.
+    #[cfg(feature = "postgres-only")]
+    pub fn lock(mut self, strength: LockStrength, acquire: LockAcquire) -> Self {
+        self.locking_clause = Some(LockingClause { strength, acquire });
+        self
+    }
+}
+
 impl<'e, 'c, E, S, C, LO> QueryBuilder<E, S, C, LO>
 where
     E: Executor<'e>,
@@ -256,6 +301,9 @@ where
             condition.as_ref(),
             ctx.get_order_bys().as_slice(),
             self.lim_off.into_option(),
+            self.distinct,
+            #[cfg(feature = "postgres-only")]
+            self.locking_clause,
         )
         .await?
         .into_iter()
@@ -288,6 +336,9 @@ where
                 ctx.get_condition_opt(condition_index).as_ref(),
                 ctx.get_order_bys().as_slice(),
                 self.lim_off.into_option(),
+                self.distinct,
+                #[cfg(feature = "postgres-only")]
+                self.locking_clause,
             )
         })
     }
@@ -315,6 +366,9 @@ where
             ctx.get_condition_opt(condition_index).as_ref(),
             ctx.get_order_bys().as_slice(),
             self.lim_off.into_option(),
+            self.distinct,
+            #[cfg(feature = "postgres-only")]
+            self.locking_clause,
         )
         .await?;
         decoder.by_name(&row).map_err(Into::into)
@@ -341,6 +395,9 @@ where
             ctx.get_condition_opt(condition_index).as_ref(),
             ctx.get_order_bys().as_slice(),
             self.lim_off.into_option(),
+            self.distinct,
+            #[cfg(feature = "postgres-only")]
+            self.locking_clause,
         )
         .await?;
         match row {
@@ -354,9 +411,11 @@ where
 /// This module's code is copied from ouroboros' expanded macro and the tailored to fit the lifetime bounds.
 mod query_stream {
     use std::pin::Pin;
-    use std::task::{Context, Poll};
+    use std::task::Context;
+    use std::task::Poll;
 
-    use rorm_db::executor::{QueryStrategyResult, Stream};
+    use rorm_db::executor::QueryStrategyResult;
+    use rorm_db::executor::Stream;
     use rorm_db::Error;
 
     use crate::crud::decoder::Decoder;
@@ -420,8 +479,6 @@ mod query_stream {
     }
 }
 use query_stream::QueryStream;
-
-use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
 
 /// Finite alternative to [`RangeBounds`](std::ops::RangeBounds)
 ///

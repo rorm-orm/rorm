@@ -2,6 +2,8 @@ Since 0.9.7
 -----------
 - Transaction hooks
 - Removed support for mysql
+- Added distinct to query builder
+- Added lock to query builder in postres-only
 - Experimental support for generic models
 - Added `CascadingForeignModel` which implies the `on_update` and `on_delete` annotation
 
