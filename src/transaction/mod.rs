@@ -113,7 +113,7 @@ impl SimpleHooksApi<'_> {
         self
     }
 
-    /// Adds a closure which is run before the transaction has been commited.
+    /// Adds a closure which is run after the transaction has been commited successfully.
     pub fn post_commit(&mut self, hook: impl FnOnce() + Send + 'static) -> &mut Self {
         self.0
             .get_or_insert()
