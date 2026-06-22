@@ -172,6 +172,10 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             // Check if a existing field got altered
             for old_field in &old_model.fields {
                 for new_field in &new_model.fields {
+                    if old_field.name != new_field.name {
+                        continue;
+                    }
+
                     // Check for differences
                     if old_field.db_type != new_field.db_type
                         || old_field.annotations != new_field.annotations
