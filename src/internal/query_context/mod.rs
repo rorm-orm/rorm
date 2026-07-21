@@ -395,7 +395,7 @@ impl QueryContext<'_> {
     /// The generic parameters are the parameters defining the outer most [PathStep].
     pub(crate) fn add_relation_path<F, P>(&mut self) -> PathId
     where
-        F: Field + PathField<<F as Field>::Type>,
+        F: PathField,
         P: Path<Current = <F::ParentField as Field>::Model>,
     {
         let path_id = <P::Step<F>>::id(self.base_path);
@@ -405,15 +405,15 @@ impl QueryContext<'_> {
             self.join_aliases.insert(path_id, alias);
             self.joins.push({
                 Join {
-                    table_name: <<F as PathField<_>>::ChildField as Field>::Model::TABLE,
+                    table_name: <<F as PathField>::ChildField as Field>::Model::TABLE,
                     join_alias: path_id,
                     join_condition: self.conditions.len(),
                 }
             });
             self.conditions.extend([
                 FlatCondition::BinaryCondition(BinaryOperator::Equals),
-                FlatCondition::Column(path_id, &<F as PathField<_>>::ChildField::NAME),
-                FlatCondition::Column(parent_id, &<F as PathField<_>>::ParentField::NAME),
+                FlatCondition::Column(path_id, &<F as PathField>::ChildField::NAME),
+                FlatCondition::Column(parent_id, &<F as PathField>::ParentField::NAME),
             ]);
         }
         path_id

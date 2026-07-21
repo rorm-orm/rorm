@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use crate::fields::traits::FieldType;
 use crate::fields::types::CascadingForeignModelByField;
 use crate::internal::djb2;
 use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
@@ -76,8 +77,7 @@ pub trait Path: 'static {
     /// "Function" which constructs a new path by taking a step through `F`
     type Step<F>: Path
     where
-        F: Field + PathField<<F as Field>::Type>,
-        F::ParentField: Field<Model = Self::Current>;
+        F: PathField<ParentField: Field<Model = Self::Current>>;
 
     //type Join<SubPath>: Path
     //where
@@ -184,7 +184,7 @@ impl fmt::Debug for PathId {
 /// to be able to have 3 different `impl<F> PathField for F`
 /// without rust complaining about overlapping implementations.
 /// Its value will always be `<Self as Field>::Type`.
-pub trait PathField<FieldType>: Field {
+pub trait PathField: Field<Type: PathFieldType> {
     sealed!(trait);
 
     /// Field existing on the path's new current model relating to `ParentField`
@@ -192,6 +192,26 @@ pub trait PathField<FieldType>: Field {
 
     /// Field existing on the path's old current model relating to `ChildField`
     type ParentField: SingleColumnField;
+}
+impl<F: Field<Type: PathFieldType>> PathField for F {
+    sealed!(impl);
+
+    type ChildField = <F::Type as PathFieldType>::ChildField<F>;
+    type ParentField = <F::Type as PathFieldType>::ParentField<F>;
+}
+
+/// [`FieldType`] whose [`Field`]s should implement [`PathField`]
+///
+/// This trait is a helper for implementing `PathField` (`impl<F> PathField for F`).
+/// It should not be "consumed" by any other code.
+pub trait PathFieldType: FieldType {
+    sealed!(trait);
+
+    /// Given a [`Field`] of the type `Self`, what is the [`PathField::ChildField`]?
+    type ChildField<F: Field<Type = Self>>: SingleColumnField;
+
+    /// Given a [`Field`] of the type `Self`, what is the [`PathField::ChildField`]?
+    type ParentField<F: Field<Type = Self>>: SingleColumnField;
 }
 
 impl<M: Model> Path for M {
@@ -206,8 +226,7 @@ impl<M: Model> Path for M {
     type Step<F>
         = (F, Self)
     where
-        F: Field + PathField<<F as Field>::Type>,
-        F::ParentField: Field<Model = Self::Current>;
+        F: PathField<ParentField: Field<Model = Self::Current>>;
 
     #[inline(always)]
     fn add_to_context(context: &mut QueryContext) -> PathId {
@@ -222,20 +241,19 @@ impl<M: Model> Path for M {
 
 impl<F, P> Path for (F, P)
 where
-    F: Field + PathField<<F as Field>::Type>,
+    F: PathField,
     P: Path<Current = <F::ParentField as Field>::Model>,
 {
     sealed!(impl);
 
     type Origin = P::Origin;
 
-    type Current = <<F as PathField<F::Type>>::ChildField as Field>::Model;
+    type Current = <<F as PathField>::ChildField as Field>::Model;
 
     type Step<F2>
         = (F2, Self)
     where
-        F2: Field + PathField<<F2 as Field>::Type>,
-        F2::ParentField: Field<Model = Self::Current>;
+        F2: PathField<ParentField: Field<Model = Self::Current>>;
 
     #[inline(always)]
     fn add_to_context(context: &mut QueryContext) -> PathId {
@@ -248,53 +266,49 @@ where
     }
 }
 
-impl<FF, F> PathField<ForeignModelByField<FF>> for F
+impl<FF> PathFieldType for ForeignModelByField<FF>
 where
     FF: SingleColumnField,
-    F: ForeignModelField<Type = ForeignModelByField<FF>>,
 {
     sealed!(impl);
 
-    type ChildField = FF;
-    type ParentField = F;
+    type ChildField<F: Field<Type = Self>> = FF;
+    type ParentField<F: Field<Type = Self>> = F;
 }
-impl<FF, F> PathField<Option<ForeignModelByField<FF>>> for F
+impl<FF> PathFieldType for Option<ForeignModelByField<FF>>
 where
     FF: SingleColumnField,
-    F: ForeignModelField<Type = Option<ForeignModelByField<FF>>>,
 {
     sealed!(impl);
 
-    type ChildField = FF;
-    type ParentField = F;
+    type ChildField<F: Field<Type = Self>> = FF;
+    type ParentField<F: Field<Type = Self>> = F;
 }
-impl<FF, F> PathField<CascadingForeignModelByField<FF>> for F
+impl<FF> PathFieldType for CascadingForeignModelByField<FF>
 where
     FF: SingleColumnField,
-    F: ForeignModelField<Type = CascadingForeignModelByField<FF>>,
 {
     sealed!(impl);
 
-    type ChildField = FF;
-    type ParentField = F;
+    type ChildField<F: Field<Type = Self>> = FF;
+    type ParentField<F: Field<Type = Self>> = F;
 }
-impl<FF, F> PathField<Option<CascadingForeignModelByField<FF>>> for F
+impl<FF> PathFieldType for Option<CascadingForeignModelByField<FF>>
 where
     FF: SingleColumnField,
-    F: ForeignModelField<Type = Option<CascadingForeignModelByField<FF>>>,
 {
     sealed!(impl);
 
-    type ChildField = FF;
-    type ParentField = F;
+    type ChildField<F: Field<Type = Self>> = FF;
+    type ParentField<F: Field<Type = Self>> = F;
 }
-impl<FMF, F> PathField<BackRef<FMF>> for F
+impl<FMF> PathFieldType for BackRef<FMF>
 where
     FMF: ForeignModelField,
-    F: Field<Type = BackRef<FMF>> + 'static,
 {
     sealed!(impl);
 
-    type ChildField = FMF;
-    type ParentField = <<FMF as Field>::Type as ForeignModelTrait>::RelatedField;
+    type ChildField<F: Field<Type = Self>> = FMF;
+    type ParentField<F: Field<Type = Self>> =
+        <<FMF as Field>::Type as ForeignModelTrait>::RelatedField;
 }
