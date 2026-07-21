@@ -9,6 +9,7 @@
 //! use rorm::crud::decoder::Decoder;
 //! use rorm::db::row::RowError;
 //! use rorm::db::sql::value::NullType;
+//! use rorm::fields::proxy;
 //! use rorm::fields::proxy::{FieldProxy, FieldProxyImpl};
 //! use rorm::fields::traits::{Array, FieldColumns, FieldType};
 //! use rorm::fields::utils::column_name::ColumnName;
@@ -16,12 +17,13 @@
 //! use rorm::internal::const_concat::ConstString;
 //! use rorm::internal::field::decoder::FieldDecoder;
 //! use rorm::internal::field::multi_column::{slice_for_check, ArrayBuilder};
-//! use rorm::internal::field::Field;
+//! use rorm::internal::field::{ContainerFieldType, Field};
 //! use rorm::internal::hmr::annotations::Annotations;
-//! use rorm::internal::query_context::QueryContext;
-//! use rorm::{const_fn, Row};
-//! use rorm::fields::proxy;
 //! use rorm::internal::hmr::Source;
+//! use rorm::internal::query_context::QueryContext;
+//! use rorm::internal::relation_path::Path;
+//! use rorm::internal::ConstRef;
+//! use rorm::{const_fn, Row};
 //!
 //! pub struct MyMcf {
 //!     pub foo: i32,
@@ -59,6 +61,28 @@
 //!     type GetNames = get_MyMcf_names;
 //!     type GetAnnotations = get_MyMcf_annotations;
 //!     type Check = check_MyMcf;
+//! }
+//!
+//! impl<F, P> ContainerFieldType<F, P> for MyMcf
+//! where
+//!     Self: FieldType,
+//!     F: Field<Type = Self>,
+//!     P: Path<Current = F::Model>,
+//! {
+//!     type Target = MyMcfFields<F, P>;
+//! }
+//!
+//! pub struct MyMcfFields<F: Field<Type = MyMcf>, P: Path> {
+//!     pub foo: FieldProxy<(MyMcf_foo_Field<F>, P)>,
+//!     pub bar: FieldProxy<(MyMcf_bar_Field<F>, P)>,
+//!     pub baz: FieldProxy<(MyMcf_baz_Field<F>, P)>,
+//! }
+//! impl<F: Field<Type = MyMcf>, P: Path> ConstRef for MyMcfFields<F, P> {
+//!     const REF: &'static Self = &Self {
+//!         foo: proxy::new(),
+//!         bar: proxy::new(),
+//!         baz: proxy::new(),
+//!     };
 //! }
 //!
 //! pub struct MyMcfDecoder {
@@ -187,7 +211,7 @@
 //!     }
 //! }
 //!
-//! struct MyMcf_foo_Field<F>(PhantomData<F>);
+//! pub struct MyMcf_foo_Field<F>(PhantomData<F>);
 //! impl<F> Copy for MyMcf_foo_Field<F> {}
 //! impl<F> Clone for MyMcf_foo_Field<F> {
 //!     fn clone(&self) -> Self {
@@ -209,7 +233,7 @@
 //!     }
 //! }
 //!
-//! struct MyMcf_bar_Field<F>(PhantomData<F>);
+//! pub struct MyMcf_bar_Field<F>(PhantomData<F>);
 //! impl<F> Copy for MyMcf_bar_Field<F> {}
 //! impl<F> Clone for MyMcf_bar_Field<F> {
 //!     fn clone(&self) -> Self {
@@ -231,7 +255,7 @@
 //!     }
 //! }
 //!
-//! struct MyMcf_baz_Field<F>(PhantomData<F>);
+//! pub struct MyMcf_baz_Field<F>(PhantomData<F>);
 //! impl<F> Copy for MyMcf_baz_Field<F> {}
 //! impl<F> Clone for MyMcf_baz_Field<F> {
 //!     fn clone(&self) -> Self {

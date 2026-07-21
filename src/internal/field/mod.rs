@@ -46,7 +46,7 @@ use crate::fields::proxy::FieldProxy;
 use crate::fields::proxy::FieldProxyImpl;
 use crate::internal::hmr::annotations::Annotations;
 use crate::internal::hmr::{AsImr, Source};
-use crate::internal::relation_path::{Path, PathField};
+use crate::internal::relation_path::{Path, PathField, PathFieldType};
 use crate::model::Model;
 
 pub mod cascading_foreign_model;
@@ -188,34 +188,44 @@ pub trait SingleColumnField: Field<Type: FieldType<Columns = Array<1>>> {
 }
 impl<F> SingleColumnField for F where F: Field<Type: FieldType<Columns = Array<1>>> {}
 
-/// A field whose proxy should implement [`Deref`](std::ops::Deref) to some collection of fields.
+/// A [`FieldType`] whose fields' proxies should implement [`Deref`](std::ops::Deref) to some collection of fields.
 ///
-/// Depending on the field, this collection might differ in meaning
+/// This collection's meaning depends on the field type
 /// - For [`BackRef`](crate::fields::types::BackRef) and [`ForeignModel`](crate::fields::types::ForeignModelByField),
-///   its their related model's fields
-/// - For multi-column fields, its their "contained" fields
-pub trait ContainerField<P: Path>: Field {
+///   it is their related model's fields
+/// - For multi-column fields, it is their "contained" fields
+pub trait ContainerFieldType<F, P>
+where
+    Self: FieldType,
+    F: Field<Type = Self>,
+    P: Path<Current = F::Model>,
+{
     /// Struct of contained fields
     type Target: ConstRef;
 }
 
 impl<I, F, P> std::ops::Deref for FieldProxy<I>
 where
-    F: ContainerField<P>,
-    P: Path,
     I: FieldProxyImpl<Field = F, Path = P>,
+    F: Field<Type: ContainerFieldType<F, P>>,
+    P: Path<Current = F::Model>,
 {
-    type Target = F::Target;
+    type Target = <F::Type as ContainerFieldType<F, P>>::Target;
 
     fn deref(&self) -> &'static Self::Target {
         ConstRef::REF
     }
 }
 
-impl<F, P> ContainerField<P> for F
+impl<T, F, P> ContainerFieldType<F, P> for T
 where
-    F: PathField,
-    P: Path<Current = <F::ParentField as Field>::Model>,
+    // trait requirements
+    Self: FieldType,
+    F: Field<Type = Self>,
+    P: Path<Current = F::Model>,
+    // further restrictions
+    F: PathField<ParentField: Field<Model = F::Model>>, // the parent of the join is on the same model as the current field
+    Self: PathFieldType, // this redundant restriction is required to distinguish this "for T" impl from a user defined type (which cannot impl PathFieldType)
 {
     type Target = <<F::ChildField as Field>::Model as Model>::Fields<P::Step<F>>;
 }
