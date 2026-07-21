@@ -38,7 +38,7 @@ macro_rules! FieldType {
 
 impl<F, P, I> FieldProxy<I>
 where
-    F: Field + PathField<<F as Field>::Type>,
+    F: PathField,
     P: Path<Current = <F::ParentField as Field>::Model>,
     I: FieldProxyImpl<Field = F, Path = P>,
 {

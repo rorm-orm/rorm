@@ -194,15 +194,14 @@ impl<F> SingleColumnField for F where F: Field<Type: FieldType<Columns = Array<1
 /// - For [`BackRef`](crate::fields::types::BackRef) and [`ForeignModel`](crate::fields::types::ForeignModelByField),
 ///   its their related model's fields
 /// - For multi-column fields, its their "contained" fields
-pub trait ContainerField<T: FieldType, P: Path>: Field<Type = T> {
+pub trait ContainerField<P: Path>: Field {
     /// Struct of contained fields
     type Target: ConstRef;
 }
 
-impl<I, T, F, P> std::ops::Deref for FieldProxy<I>
+impl<I, F, P> std::ops::Deref for FieldProxy<I>
 where
-    T: FieldType,
-    F: Field<Type = T> + ContainerField<T, P>,
+    F: ContainerField<P>,
     P: Path,
     I: FieldProxyImpl<Field = F, Path = P>,
 {
@@ -213,10 +212,9 @@ where
     }
 }
 
-impl<T, F, P> ContainerField<T, P> for F
+impl<F, P> ContainerField<P> for F
 where
-    T: FieldType,
-    F: Field<Type = T> + PathField<T>,
+    F: PathField,
     P: Path<Current = <F::ParentField as Field>::Model>,
 {
     type Target = <<F::ChildField as Field>::Model as Model>::Fields<P::Step<F>>;
