@@ -19,6 +19,11 @@ pub fn derive_patch(input: TokenStream) -> TokenStream {
     rorm_macro_impl::derive_patch(input.into(), rorm_macro_impl::MacroConfig::default()).into()
 }
 
+#[proc_macro_derive(FieldType, attributes(rorm))]
+pub fn derive_field_type(input: TokenStream) -> TokenStream {
+    rorm_macro_impl::derive_field_type(input.into(), rorm_macro_impl::MacroConfig::default()).into()
+}
+
 #[proc_macro_attribute]
 pub fn rorm_main(args: TokenStream, item: TokenStream) -> TokenStream {
     let main = syn::parse_macro_input!(item as syn::ItemFn);

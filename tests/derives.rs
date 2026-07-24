@@ -95,6 +95,8 @@ fn get_derive_fn(item: &syn::Item) -> Result<Option<(Ident, fn(TokenStream) -> T
                 |input: TokenStream| rorm_macro_impl::derive_patch(input, Default::default())
             } else if ident == "DbEnum" {
                 |input: TokenStream| rorm_macro_impl::derive_db_enum(input, Default::default())
+            } else if ident == "FieldType" {
+                |input: TokenStream| rorm_macro_impl::derive_field_type(input, Default::default())
             } else {
                 continue;
             },

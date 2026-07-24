@@ -35,6 +35,7 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
     // Get table name
     let table = rename.unwrap_or_else(|| LitStr::new(&to_db_name(ident.to_string()), ident.span()));
     if table.value().contains("__") {
+        // TODO: is this restriction still valid?
         errors.push(darling::Error::custom("Table names can't contain a double underscore. If you need to name your model like this, consider using `#[rorm(rename = \"...\")]`.").with_span(&table));
     }
 
