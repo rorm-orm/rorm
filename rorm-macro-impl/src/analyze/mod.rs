@@ -1,6 +1,7 @@
 use quote::ToTokens;
 use syn::{VisRestricted, Visibility};
 
+pub mod field_type;
 pub mod model;
 
 pub fn vis_to_display(vis: &Visibility) -> impl std::fmt::Display + '_ {

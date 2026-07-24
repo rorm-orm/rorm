@@ -88,6 +88,21 @@ macro_rules! sealed {
     };
 }
 
+/// Small utility wrapping [`concat`] and [`stringify`]
+///
+/// Used by proc macros to generate docs.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! doc_concat {
+    ($string:literal $($tt:tt)*) => {
+        concat!($string, $crate::doc_concat!($($tt)*))
+    };
+    ($other:tt $($tt:tt)*) => {
+        concat!(stringify!($other), $crate::doc_concat!($($tt)*))
+    };
+    () => {""};
+}
+
 #[doc(hidden)]
 #[macro_export]
 macro_rules! get_field {
@@ -152,6 +167,8 @@ pub use rorm_macro::rorm_main;
 /// }
 /// ```
 pub use rorm_macro::DbEnum;
+/// TODO
+pub use rorm_macro::FieldType;
 /// ```no_run
 /// use rorm::Model;
 ///

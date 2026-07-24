@@ -1,4 +1,5 @@
 use rorm::DbEnum;
+use rorm::FieldType;
 use rorm::Model;
 use rorm::Patch;
 
@@ -17,6 +18,12 @@ enum BasicEnum {
     Foo,
     Bar,
     Baz,
+}
+
+#[derive(FieldType)]
+pub struct BasicFieldType {
+    #[rorm(max_length = 255)]
+    pub description: String,
 }
 
 fn main() {}
