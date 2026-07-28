@@ -24,33 +24,40 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum, config: &MacroConfig) -> TokenStr
             ];
 
             impl #rorm_path::fields::traits::FieldType for #ident {
-                type Columns = #rorm_path::fields::traits::Array<1>;
+                type Columns = #rorm_path::fields::traits::generic_array::typenum::U1;
 
-                const NULL: #rorm_path::fields::traits::FieldColumns<Self, #rorm_path::db::sql::value::NullType> = [
-                    #rorm_path::db::sql::value::NullType::Choice
-                ];
+                const NULL: #rorm_path::fields::traits::FieldColumns<Self, #rorm_path::db::sql::value::NullType>
+                    = #rorm_path::fields::traits::generic_array::arr![
+                        #rorm_path::db::sql::value::NullType::Choice
+                    ];
 
                 fn into_values<'a>(self) -> #rorm_path::fields::traits::FieldColumns<Self, #rorm_path::conditions::Value<'a>> {
-                    [#rorm_path::conditions::Value::Choice(::std::borrow::Cow::Borrowed(match self {
-                        #(
-                            Self::#variants => stringify!(#variants),
-                        )*
-                    }))]
+                    #rorm_path::fields::traits::generic_array::arr![
+                        #rorm_path::conditions::Value::Choice(::std::borrow::Cow::Borrowed(match self {
+                            #(
+                                Self::#variants => stringify!(#variants),
+                            )*
+                        }))
+                    ]
                 }
 
                 fn as_values(&self) -> #rorm_path::fields::traits::FieldColumns<Self, #rorm_path::conditions::Value<'_>> {
-                    [#rorm_path::conditions::Value::Choice(::std::borrow::Cow::Borrowed(match self {
-                        #(
-                            Self::#variants => stringify!(#variants),
-                        )*
-                    }))]
+                    #rorm_path::fields::traits::generic_array::arr![
+                        #rorm_path::conditions::Value::Choice(::std::borrow::Cow::Borrowed(match self {
+                            #(
+                                Self::#variants => stringify!(#variants),
+                            )*
+                        }))
+                    ]
                 }
 
                 type Decoder = #decoder;
 
                 type GetAnnotations = get_db_enum_annotations;
 
-                type Check = #rorm_path::fields::utils::check::shared_linter_check<1>;
+                type Check = #rorm_path::fields::utils::check::shared_linter_check<
+                    #rorm_path::fields::traits::generic_array::typenum::U1
+                >;
 
                 type GetNames = #rorm_path::fields::utils::get_names::single_column_name;
             }
@@ -69,7 +76,7 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum, config: &MacroConfig) -> TokenStr
             );
             impl<'a> #rorm_path::fields::traits::into_value::IntoValue<'a> for #ident {
                 fn into_value(self) -> #rorm_path::conditions::Value<'a> {
-                    let [value] = #rorm_path::fields::traits::FieldType::into_values(self);
+                    let [value] = #rorm_path::fields::traits::FieldType::into_values(self).into_array();
                     value
                 }
             }
@@ -78,10 +85,10 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum, config: &MacroConfig) -> TokenStr
             #rorm_path::const_fn! {
                 pub fn get_db_enum_annotations(
                     field: #rorm_path::internal::hmr::annotations::Annotations
-                ) -> [#rorm_path::internal::hmr::annotations::Annotations; 1] {
+                ) -> #rorm_path::fields::traits::FieldColumns<#ident, #rorm_path::internal::hmr::annotations::Annotations> {
                     let mut field = field;
                     field.choices = Some(#rorm_path::internal::hmr::annotations::Choices(CHOICES));
-                    [field]
+                    #rorm_path::fields::traits::generic_array::arr![field]
                 }
             }
         };

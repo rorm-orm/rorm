@@ -85,6 +85,8 @@ schemars = { version = "~0.8", optional = true }
 # `Zeroize` support for `MaxStr`
 zeroize = { version = "~1", optional = true }
 
+generic-array = { version = "~1", features = ["const-default"] }
+
 [package.metadata.docs.rs]
 features = [
     "all-drivers",

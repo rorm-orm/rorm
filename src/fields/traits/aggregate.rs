@@ -3,20 +3,21 @@
 //! ## Using
 //! The traits don't prodived any methods. Instead use the corresponding method on [`FieldProxy`].
 
+use generic_array::typenum::U1;
 use rorm_db::row::DecodeOwned;
 
 #[cfg(doc)]
 use crate::fields::proxy::FieldProxy;
-use crate::fields::traits::{Array, FieldType};
+use crate::fields::traits::FieldType;
 
 /// Marker for [`FieldProxy::count`]
 ///
 /// This is implemented for every [`SingleColumnFieldType`](crate::internal::field::SingleColumnField)
 pub trait FieldCount: FieldType {}
-impl<T> FieldCount for T where T: FieldType<Columns = Array<1>> {}
+impl<T> FieldCount for T where T: FieldType<Columns = U1> {}
 
 /// Marker for [`FieldProxy::sum`]
-pub trait FieldSum: FieldType<Columns = Array<1>> {
+pub trait FieldSum: FieldType<Columns = U1> {
     /// The aggregation result's type
     ///
     /// If `Self` is not `Option`, then this should be `Option<Self>`.
@@ -25,10 +26,10 @@ pub trait FieldSum: FieldType<Columns = Array<1>> {
 }
 
 /// Marker for [`FieldProxy::avg`]
-pub trait FieldAvg: FieldType<Columns = Array<1>> {}
+pub trait FieldAvg: FieldType<Columns = U1> {}
 
 /// Marker for [`FieldProxy::max`]
-pub trait FieldMax: FieldType<Columns = Array<1>> {
+pub trait FieldMax: FieldType<Columns = U1> {
     /// The aggregation result's type
     ///
     /// If `Self` is not `Option`, then this should be `Option<Self>`.
@@ -37,7 +38,7 @@ pub trait FieldMax: FieldType<Columns = Array<1>> {
 }
 
 /// Marker for [`FieldProxy::min`]
-pub trait FieldMin: FieldType<Columns = Array<1>> {
+pub trait FieldMin: FieldType<Columns = U1> {
     /// The aggregation result's type
     ///
     /// If `Self` is not `Option`, then this should be `Option<Self>`.

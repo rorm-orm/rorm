@@ -2,6 +2,8 @@
 
 use std::marker::PhantomData;
 
+use generic_array::typenum::U1;
+use generic_array::{arr, GenericArray};
 use rorm_db::row::RowError;
 use rorm_db::sql::value::NullType;
 use rorm_db::Row;
@@ -12,9 +14,9 @@ use crate::crud::decoder::Decoder;
 use crate::fields::proxy;
 use crate::fields::proxy::FieldProxyImpl;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn, SimpleFieldLike};
+use crate::fields::traits::FieldColumns;
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::FieldILike;
-use crate::fields::traits::{Array, FieldColumns};
 use crate::fields::types::ForeignModelByField;
 use crate::fields::utils::get_names::single_column_name;
 use crate::internal::field::decoder::FieldDecoder;
@@ -30,16 +32,16 @@ impl<FF> FieldType for ForeignModelByField<FF>
 where
     FF: SingleColumnField,
 {
-    type Columns = Array<1>;
+    type Columns = U1;
 
     const NULL: FieldColumns<Self, NullType> = FF::Type::NULL;
 
     fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
-        [FF::type_into_value(self.0)]
+        arr![FF::type_into_value(self.0)]
     }
 
     fn as_values(&self) -> FieldColumns<Self, Value<'_>> {
-        [FF::type_as_value(&self.0)]
+        arr![FF::type_as_value(&self.0)]
     }
 
     type Decoder = ForeignModelByFieldDecoder<FF>;
@@ -86,13 +88,13 @@ where
 
 const_fn! {
     /// - sets `foreign`
-    pub fn foreign_annotations<FF: SingleColumnField>(field: Annotations) -> [Annotations; 1] {
+    pub fn foreign_annotations<FF: SingleColumnField>(field: Annotations) -> GenericArray<Annotations, U1> {
         let mut annos = field;
         annos.foreign = Some(hmr::annotations::ForeignKey {
             table_name: FF::Model::TABLE,
             column_name: &FF::NAME,
         });
-        [annos]
+        arr![annos]
     }
 }
 

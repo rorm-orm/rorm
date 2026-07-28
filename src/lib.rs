@@ -7,6 +7,8 @@
 #[cfg(all(feature = "all-drivers", feature = "postgres-only"))]
 compile_error!("You cannot enable postgres-only with other drivers active");
 
+#[doc(hidden)]
+pub use generic_array;
 pub use rorm_db::{Database, DatabaseConfiguration, DatabaseDriver, Error, Row};
 
 pub use crate::model::{Model, Patch};

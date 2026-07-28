@@ -38,6 +38,7 @@
 //! From there the various methods and associated type from [`FieldType`] take over.
 //! TODO more docs
 
+use generic_array::typenum::U1;
 use rorm_db::sql::value::NullType;
 use rorm_declaration::imr;
 
@@ -55,7 +56,7 @@ pub mod fake_field;
 pub mod foreign_model;
 pub mod multi_column;
 
-use crate::fields::traits::{Array, FieldColumns, FieldType};
+use crate::fields::traits::{FieldColumns, FieldType};
 use crate::fields::utils::column_name::ColumnName;
 use crate::fields::utils::const_fn::{ConstFn, Contains};
 use crate::internal::const_concat::ConstString;
@@ -167,26 +168,26 @@ pub const fn check<F: Field>() -> Result<(), ConstString<1024>> {
 /// A field which is stored in db via a single column
 ///
 /// This trait is a trait alias with a few additional utility methods.
-pub trait SingleColumnField: Field<Type: FieldType<Columns = Array<1>>> {
+pub trait SingleColumnField: Field<Type: FieldType<Columns = U1>> {
     /// The annotations which are passed to db
     const EFFECTIVE_ANNOTATION: Annotations = {
-        let [annos] = Self::EFFECTIVE_ANNOTATIONS;
+        let [annos] = Self::EFFECTIVE_ANNOTATIONS.into_array();
         annos
     };
 
     /// Borrow an instance of the field's type as a [`Value`]
     fn type_as_value(field: &Self::Type) -> Value<'_> {
-        let [value] = field.as_values();
+        let [value] = field.as_values().into_array();
         value
     }
 
     /// Convert an instance of the field's type into a static [`Value`]
     fn type_into_value(field: Self::Type) -> Value<'static> {
-        let [value] = field.into_values();
+        let [value] = field.into_values().into_array();
         value
     }
 }
-impl<F> SingleColumnField for F where F: Field<Type: FieldType<Columns = Array<1>>> {}
+impl<F> SingleColumnField for F where F: Field<Type: FieldType<Columns = U1>> {}
 
 /// A [`FieldType`] whose fields' proxies should implement [`Deref`](std::ops::Deref) to some collection of fields.
 ///
