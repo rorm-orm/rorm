@@ -1,6 +1,8 @@
 Since 0.10.0
 -----------
 
+- Made `const_fn!` support `where` clauses
+
 Notes for publishing
 --------------------
 - don't forget to bump and publish rorm-macro & rorm-macro-impl!
