@@ -179,16 +179,16 @@ macro_rules! const_fn {
      */
 
     // Parse start non-generic function
-    ($(#[$attr:meta])* $vis:vis fn $fn_name:ident($($rest:tt)+) -> $ret_type:ty $body:block) => {
+    ($(#[$attr:meta])* $vis:vis fn $fn_name:ident($($args:tt)+) -> $ret_type:ty $body:block) => {
         $crate::const_fn!(
             @parse_args
-            ret_type: $ret_type,
-            body: $body,
-            rest: [$($rest)+],
+            args: [$($args)+],
             {
                 attrs: [$(#[$attr])*],
                 vis: $vis,
                 name: $fn_name,
+                ret_type: $ret_type,
+                body: $body,
             }
         );
     };
@@ -231,19 +231,21 @@ macro_rules! const_fn {
     // Parse last const generic
     (
         @parse_generic
-        [const $N:ident: $Type:ty >($($rest:tt)+) -> $ret_type:ty $body:block ]
+        [const $N:ident: $Type:ty >($($args:tt)+) -> $ret_type:ty $body:block ]
         { [$($type_generics:tt)*] [$($impl_generics:tt)*] [$($phantom_generics:tt)*] }
         { $($passthrough:tt)* }
     ) => {
         $crate::const_fn!(
             @parse_args
-            [$($type_generics)* $N, ],
-            [$($impl_generics)* const $N: $Type, ],
-            [$($phantom_generics)*],
-            ret_type: $ret_type,
-            body: $body,
-            rest: [$($rest)+],
-            {$($passthrough)*}
+            args: [$($args)+],
+            {
+                $($passthrough)*
+                type_generics: [$($type_generics)* $N, ],
+                impl_generics: [$($impl_generics)* const $N: $Type, ],
+                phantom_generics: [$($phantom_generics)*],
+                ret_type: $ret_type,
+                body: $body,
+            }
         );
     };
     // Parse some type generic
@@ -267,19 +269,21 @@ macro_rules! const_fn {
     // Parse last type generic
     (
         @parse_generic
-        [$T:ident $(: $bound:path)? >($($rest:tt)+) -> $ret_type:ty $body:block ]
+        [$T:ident $(: $bound:path)? >($($args:tt)+) -> $ret_type:ty $body:block ]
         { [$($type_generics:tt)*] [$($impl_generics:tt)*] [$($phantom_generics:tt)*] }
         { $($passthrough:tt)* }
     ) => {
         $crate::const_fn!(
             @parse_args
-            [$($type_generics)* $T, ],
-            [$($impl_generics)* $T $(: $bound)?, ],
-            [$($phantom_generics)* $T,],
-            ret_type: $ret_type,
-            body: $body,
-            rest: [$($rest)+],
-            {$($passthrough)*}
+            args: [$($args)+],
+            {
+                $($passthrough)*
+                type_generics: [$($type_generics)* $T, ],
+                impl_generics: [$($impl_generics)* $T $(: $bound)?, ],
+                phantom_generics: [$($phantom_generics)* $T,],
+                ret_type: $ret_type,
+                body: $body,
+            }
         );
     };
     // Parse end of generic function
@@ -287,41 +291,46 @@ macro_rules! const_fn {
     // This arm will trigger if the function used a trailing comma.
     (
         @parse_generic
-        [> ($($rest:tt)+) -> $ret_type:ty $body:block]
+        [> ($($args:tt)+) -> $ret_type:ty $body:block]
         { [$($type_generics:tt)*] [$($impl_generics:tt)*] [$($phantom_generics:tt)*] }
         { $($passthrough:tt)* }
     ) => {
         $crate::const_fn!(
             @parse_args
-            [$($type_generics)+],
-            [$($impl_generics)+],
-            [$($phantom_generics)*],
-            ret_type: $ret_type,
-            body: $body,
-            rest: [$($rest)+],
-            {$($passthrough)*}
+            args: [$($args)+],
+            {
+                $($passthrough)*
+                type_generics: [$($type_generics)+],
+                impl_generics: [$($impl_generics)+],
+                phantom_generics: [$($phantom_generics)*],
+                ret_type: $ret_type,
+                body: $body,
+            }
         );
     };
 
     /*
      * Finish by parsing the arguments
+     *
+     * This step is last to avoid having to pass around normal vs raw args.
+     * The distinction is needed because we want to emit the actual function if normal args.
      */
 
     // Parse normal arguments
     (
         @parse_args
-        $(
-            [$($type_generics:tt)+],
-            [$($impl_generics:tt)+],
-            [$($phantom_generics:tt)*],
-        )?
-        ret_type: $RetType:ty,
-        body: $body:block,
-        rest: [$( $arg_name:tt : $ArgType:ty ),+ $(,)?],
+        args: [$( $arg_name:tt : $ArgType:ty ),+ $(,)?],
         {
             attrs: [$($attr:tt)*],
             vis: $vis:vis,
             name: $name:ident,
+            $(
+                type_generics: [$($type_generics:tt)+],
+                impl_generics: [$($impl_generics:tt)+],
+                phantom_generics: [$($phantom_generics:tt)*],
+            )?
+            ret_type: $RetType:ty,
+            body: $body:block,
         }
     ) => {
         $($attr)* $vis const fn $name $(< $($impl_generics)+ >)?($( $arg_name : $ArgType ),+) -> $RetType $body
@@ -350,18 +359,18 @@ macro_rules! const_fn {
     // Parse raw arguments
     (
         @parse_args
-        $(
-            [$($type_generics:tt)+],
-            [$($impl_generics:tt)+],
-            [$($phantom_generics:tt)*],
-        )?
-        ret_type: $RetType:ty,
-        body: $body:block,
-        rest: [#[raw] $arg_name:ident: $ArgType:ty],
+        args: [#[raw] $arg_name:ident: $ArgType:ty],
         {
             attrs: [$($attr:tt)*],
             vis: $vis:vis,
             name: $name:ident,
+            $(
+                type_generics: [$($type_generics:tt)+],
+                impl_generics: [$($impl_generics:tt)+],
+                phantom_generics: [$($phantom_generics:tt)*],
+            )?
+            ret_type: $RetType:ty,
+            body: $body:block,
         }
     ) => {
         $crate::raw_const_fn!(
