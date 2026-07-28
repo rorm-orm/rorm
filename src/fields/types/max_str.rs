@@ -5,6 +5,8 @@ use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::ops::Deref;
 
+use generic_array::arr;
+use generic_array::typenum::U1;
 use rorm_db::row::RowError;
 use rorm_db::sql::value::NullType;
 use rorm_db::Row;
@@ -18,7 +20,7 @@ use crate::fields::traits::into_value::IntoValue;
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::simple::SimpleFieldILike;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn, SimpleFieldLike};
-use crate::fields::traits::{Array, FieldColumns, FieldType};
+use crate::fields::traits::{FieldColumns, FieldType};
 use crate::fields::types::max_str_impl::{LenImpl, NumBytes};
 use crate::fields::utils::check::shared_linter_check;
 use crate::fields::utils::const_fn::Contains;
@@ -289,21 +291,21 @@ impl<const MAX_LEN: usize, Impl> FieldType for MaxStr<MAX_LEN, Impl, String>
 where
     Impl: LenImpl + Default + 'static,
 {
-    type Columns = Array<1>;
+    type Columns = U1;
 
-    const NULL: FieldColumns<Self, NullType> = [NullType::String];
+    const NULL: FieldColumns<Self, NullType> = arr![NullType::String];
 
     fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
-        [Value::String(Cow::Owned(self.string))]
+        arr![Value::String(Cow::Owned(self.string))]
     }
 
     fn as_values(&self) -> FieldColumns<Self, Value<'_>> {
-        [Value::String(Cow::Borrowed(&self.string))]
+        arr![Value::String(Cow::Borrowed(&self.string))]
     }
 
     type Decoder = MaxStrDecoder<MAX_LEN, Impl>;
     type GetAnnotations = merge_annotations<ImplicitMaxLength<MAX_LEN>>;
-    type Check = shared_linter_check<1>;
+    type Check = shared_linter_check<U1>;
     type GetNames = single_column_name;
 }
 

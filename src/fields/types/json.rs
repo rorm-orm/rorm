@@ -3,12 +3,14 @@
 use std::borrow::Cow;
 use std::ops::{Deref, DerefMut};
 
+use generic_array::arr;
+use generic_array::typenum::U1;
 use rorm_db::sql::value::NullType;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::conditions::Value;
-use crate::fields::traits::{Array, FieldColumns, FieldType};
+use crate::fields::traits::{FieldColumns, FieldType};
 use crate::fields::utils::check::shared_linter_check;
 use crate::fields::utils::get_annotations::forward_annotations;
 use crate::fields::utils::get_names::single_column_name;
@@ -50,27 +52,27 @@ new_converting_decoder!(
     }
 );
 impl<T: Serialize + DeserializeOwned + 'static> FieldType for Json<T> {
-    type Columns = Array<1>;
+    type Columns = U1;
 
-    const NULL: FieldColumns<Self, NullType> = [NullType::Binary];
+    const NULL: FieldColumns<Self, NullType> = arr![NullType::Binary];
 
     fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
-        [Value::Binary(Cow::Owned(
+        arr![Value::Binary(Cow::Owned(
             serde_json::to_vec(&self.0).unwrap(),
         ))] // TODO propagate error?
     }
 
     fn as_values(&self) -> FieldColumns<Self, Value<'_>> {
-        [Value::Binary(Cow::Owned(
+        arr![Value::Binary(Cow::Owned(
             serde_json::to_vec(&self.0).unwrap(),
         ))] // TODO propagate error?
     }
 
     type Decoder = JsonDecoder<T>;
 
-    type GetAnnotations = forward_annotations<1>;
+    type GetAnnotations = forward_annotations<U1>;
 
-    type Check = shared_linter_check<1>;
+    type Check = shared_linter_check<U1>;
 
     type GetNames = single_column_name;
 }

@@ -82,6 +82,8 @@ utoipa = { version = "~4", optional = true }
 # `JsonSchema` support for `MaxStr`
 schemars = { version = "~0.8", optional = true }
 
+generic-array = { version = "~1", features = ["const-default"] }
+
 [package.metadata.docs.rs]
 features = [
     "all-drivers",

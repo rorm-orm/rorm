@@ -1,16 +1,18 @@
 //! Traits defining types which can be used as fields.
 
+pub use generic_array;
+use generic_array::{ArrayLength, GenericArray};
 use rorm_db::sql::value::NullType;
 
 pub use self::aggregate::*;
 pub use self::cmp::*;
 use crate::conditions::Value;
+use crate::const_fn;
 use crate::fields::utils::column_name::ColumnName;
 use crate::fields::utils::const_fn::ConstFn;
 use crate::internal::const_concat::ConstString;
 use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::hmr::annotations::Annotations;
-use crate::{const_fn, sealed};
 
 pub mod aggregate;
 pub mod cmp;
@@ -20,7 +22,7 @@ pub mod simple;
 /// Base trait for types which are allowed as fields in models
 pub trait FieldType: 'static {
     /// Array with length specific to the field type
-    type Columns: Columns;
+    type Columns: ArrayLength;
 
     /// The null types representing `Option<Self>` in the database
     ///
@@ -53,43 +55,7 @@ pub trait FieldType: 'static {
     >;
 }
 /// Shorthand for constructing an array with the length for the [`FieldType`]'s columns
-pub type FieldColumns<F, T> = <<F as FieldType>::Columns as Columns>::Array<T>;
-
-/// The trait for the [`FieldType`]'s `Columns` associated type.
-///
-/// It is implemented by [`Array`] and is equivalent to a fixed length.
-pub trait Columns {
-    sealed!(trait);
-
-    /// Array of length `NUM` to store columns' information in
-    type Array<T>: IntoIterator<Item = T>;
-
-    /// Calls [`array::map`] on the generic array types produced by [`Self::Array<T>`](Self::Array)
-    fn map<T, U>(array: Self::Array<T>, f: impl FnMut(T) -> U) -> Self::Array<U>;
-
-    /// The number of columns
-    const NUM: usize;
-
-    /// Iterates over all annotations and sets the `nullable` flag.
-    type SetNull: ConstFn<(Self::Array<Annotations>,), Self::Array<Annotations>>;
-}
-
-/// Implementor of [`Columns`] used to specify the number of a [`FieldType`]'s columns
-pub struct Array<const N: usize>;
-
-impl<const N: usize> Columns for Array<N> {
-    sealed!(impl);
-
-    type Array<T> = [T; N];
-
-    fn map<T, U>(array: Self::Array<T>, f: impl FnMut(T) -> U) -> Self::Array<U> {
-        array.map(f)
-    }
-
-    const NUM: usize = N;
-
-    type SetNull = set_null<N>;
-}
+pub type FieldColumns<F, T> = GenericArray<T, <F as FieldType>::Columns>;
 
 const_fn! {
     /// Iterates over all annotations and sets the `nullable` flag.
@@ -121,36 +87,42 @@ macro_rules! impl_FieldType {
         impl_FieldType!(
             $type,
             $null_type,
-            $crate::fields::utils::check::shared_linter_check<1>
+            $crate::fields::utils::check::shared_linter_check<
+                $crate::fields::traits::generic_array::typenum::U1,
+            >
         );
     };
     ($type:ty, $null_type:ident, $Check:ty) => {
         impl $crate::fields::traits::FieldType for $type {
-            type Columns = $crate::fields::traits::Array<1>;
+            type Columns = $crate::fields::traits::generic_array::typenum::U1;
 
             const NULL: $crate::fields::traits::FieldColumns<
                 Self,
                 $crate::db::sql::value::NullType,
-            > = [$crate::db::sql::value::NullType::$null_type];
+            > = $crate::fields::traits::generic_array::arr![
+                $crate::db::sql::value::NullType::$null_type
+            ];
 
             #[inline(always)]
             fn as_values(
                 &self,
             ) -> $crate::fields::traits::FieldColumns<Self, $crate::conditions::Value<'_>> {
                 use $crate::fields::traits::into_value::IntoValue;
-                [self.into_value()]
+                $crate::fields::traits::generic_array::arr![self.into_value()]
             }
 
             fn into_values<'a>(
                 self,
             ) -> $crate::fields::traits::FieldColumns<Self, $crate::conditions::Value<'a>> {
                 use $crate::fields::traits::into_value::IntoValue;
-                [self.into_value()]
+                $crate::fields::traits::generic_array::arr![self.into_value()]
             }
 
             type Decoder = $crate::crud::decoder::DirectDecoder<Self>;
 
-            type GetAnnotations = $crate::fields::utils::get_annotations::forward_annotations<1>;
+            type GetAnnotations = $crate::fields::utils::get_annotations::forward_annotations<
+                <Self as $crate::fields::traits::FieldType>::Columns,
+            >;
 
             type Check = $Check;
 

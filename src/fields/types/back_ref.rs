@@ -6,6 +6,8 @@ use std::future::poll_fn;
 use std::pin::pin;
 
 use futures_core::Stream;
+use generic_array::arr;
+use generic_array::typenum::U0;
 use rorm_db::executor::Executor;
 use rorm_db::sql::value::NullType;
 use rorm_db::Error;
@@ -16,7 +18,7 @@ use crate::crud::decoder::NoopDecoder;
 use crate::crud::query::query;
 use crate::fields::proxy;
 use crate::fields::proxy::FieldProxy;
-use crate::fields::traits::{Array, FieldColumns, FieldType};
+use crate::fields::traits::{FieldColumns, FieldType};
 use crate::fields::utils::check::disallow_annotations_check;
 use crate::fields::utils::get_annotations::forward_annotations;
 use crate::fields::utils::get_names::no_columns_names;
@@ -47,23 +49,23 @@ impl<FMF: ForeignModelField> BackRef<FMF> {
 }
 
 impl<FMF: ForeignModelField> FieldType for BackRef<FMF> {
-    type Columns = Array<0>;
+    type Columns = U0;
 
-    const NULL: FieldColumns<Self, NullType> = [];
+    const NULL: FieldColumns<Self, NullType> = arr![];
 
     fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
-        []
+        arr![]
     }
 
     fn as_values(&self) -> FieldColumns<Self, Value<'_>> {
-        []
+        arr![]
     }
 
     type Decoder = NoopDecoder<Self>;
 
-    type GetAnnotations = forward_annotations<0>;
+    type GetAnnotations = forward_annotations<U0>;
 
-    type Check = disallow_annotations_check<0>;
+    type Check = disallow_annotations_check<U0>;
 
     type GetNames = no_columns_names;
 }

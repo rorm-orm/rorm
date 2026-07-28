@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 use std::marker::PhantomData;
 
+use generic_array::arr;
+use generic_array::typenum::U0;
 use rorm_db::sql::value::NullType;
 
 use crate::conditions::Value;
@@ -10,7 +12,7 @@ use crate::fields::traits::simple::SimpleFieldILike;
 use crate::fields::traits::simple::{
     SimpleFieldEq, SimpleFieldIn, SimpleFieldLike, SimpleFieldOrd,
 };
-use crate::fields::traits::{Array, FieldColumns, FieldType};
+use crate::fields::traits::{FieldColumns, FieldType};
 use crate::fields::utils::check;
 use crate::fields::utils::check::disallow_annotations_check;
 use crate::fields::utils::get_annotations::forward_annotations;
@@ -107,22 +109,22 @@ impl SimpleFieldOrd<&'_ Vec<u8>> for Vec<u8> {}
 impl SimpleFieldOrd<Cow<'_, [u8]>> for Vec<u8> {}
 
 impl<T: 'static> FieldType for PhantomData<T> {
-    type Columns = Array<0>;
-    const NULL: FieldColumns<Self, NullType> = [];
+    type Columns = U0;
+    const NULL: FieldColumns<Self, NullType> = arr![];
 
     fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
-        []
+        arr![]
     }
 
     fn as_values(&self) -> FieldColumns<Self, Value<'_>> {
-        []
+        arr![]
     }
 
     type Decoder = NoopDecoder<Self>;
 
     type GetNames = no_columns_names;
 
-    type GetAnnotations = forward_annotations<0>;
+    type GetAnnotations = forward_annotations<U0>;
 
-    type Check = disallow_annotations_check<0>;
+    type Check = disallow_annotations_check<U0>;
 }

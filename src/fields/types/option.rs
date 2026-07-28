@@ -1,3 +1,5 @@
+use generic_array::functional::FunctionalSequence;
+use generic_array::typenum::U1;
 use rorm_db::row::RowError;
 use rorm_db::sql::value::NullType;
 use rorm_db::Row;
@@ -10,8 +12,8 @@ use crate::fields::proxy;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
 use crate::fields::traits::into_value::IntoValue;
 use crate::fields::traits::simple::{SimpleFieldIn, SimpleFieldOrd};
-use crate::fields::traits::{Array, Columns, FieldEq, FieldIn, FieldLike, FieldOrd};
 use crate::fields::traits::{FieldColumns, FieldType};
+use crate::fields::traits::{FieldEq, FieldIn, FieldLike, FieldOrd};
 use crate::fields::utils::const_fn::{ConstFn, Contains};
 use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::fake_field::FakeField;
@@ -22,7 +24,7 @@ use crate::{and, const_fn, or};
 
 impl<'rhs, T, Rhs: 'rhs, Any> FieldEq<'rhs, Option<Rhs>, private::OptionFieldEq<Any>> for Option<T>
 where
-    T: FieldType<Columns = Array<1>>,
+    T: FieldType<Columns = U1>,
     T: FieldEq<'rhs, Rhs, Any>,
 {
     type EqCond<I: FieldProxyImpl> =
@@ -87,7 +89,7 @@ where
 impl<'rhs, T, Rhs> FieldOrd<'rhs, Option<Rhs>, private::OptionFieldOrd<()>> for Option<T>
 where
     Rhs: IntoValue<'rhs>,
-    T: SimpleFieldOrd<Rhs> + FieldType<Columns = Array<1>>,
+    T: SimpleFieldOrd<Rhs> + FieldType<Columns = U1>,
 {
     type LtCond<I: FieldProxyImpl> = Binary<Column<I>, Value<'rhs>>;
     fn field_less_than<I: FieldProxyImpl>(
@@ -149,7 +151,7 @@ where
 impl<'rhs, T, Rhs: 'rhs, Any> FieldLike<'rhs, Option<Rhs>, private::OptionFieldLike<Any>>
     for Option<T>
 where
-    T: FieldType<Columns = Array<1>>,
+    T: FieldType<Columns = U1>,
     T: FieldLike<'rhs, Rhs, Any>,
 {
     type LiCond<I: FieldProxyImpl> =
@@ -251,14 +253,13 @@ impl<T: FieldType> FieldType for Option<T> {
     const NULL: FieldColumns<Self, NullType> = T::NULL;
 
     fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
-        self.map(T::into_values)
-            .unwrap_or(T::Columns::map(T::NULL, Value::Null))
+        self.map(T::into_values).unwrap_or(T::NULL.map(Value::Null))
     }
 
     fn as_values(&self) -> FieldColumns<Self, Value<'_>> {
         self.as_ref()
             .map(T::as_values)
-            .unwrap_or(T::Columns::map(T::NULL, Value::Null))
+            .unwrap_or(T::NULL.map(Value::Null))
     }
 
     type Decoder = OptionDecoder<T>;
@@ -305,11 +306,14 @@ const_fn! {
             (Annotations,),
             FieldColumns<T, Annotations>,
         >>::Body<Arg>;
-        type CallOuter<T, Arg> = <<<T as FieldType>::Columns as Columns>::SetNull as ConstFn<
-            (FieldColumns<T, Annotations>,),
-            FieldColumns<T, Annotations>,
-        >>::Body<Arg>;
-        <CallOuter<T, (CallInner<T, Arg>,)> as Contains<_>>::ITEM
+
+        let mut array = <CallInner<T, Arg> as Contains<_>>::ITEM;
+        let mut i = 0;
+        while i < array.as_mut_slice().len() {
+            array.as_mut_slice()[i].nullable = true;
+            i += 1;
+        }
+        array
     }
 }
 

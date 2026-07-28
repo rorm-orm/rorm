@@ -1,5 +1,8 @@
 //! Re-usable implementations of [`FieldType::Check`]
 
+use generic_array::typenum::U1;
+use generic_array::{ArrayLength, GenericArray};
+
 use crate::const_fn;
 #[cfg(doc)]
 use crate::fields::traits::FieldType;
@@ -9,7 +12,10 @@ use crate::internal::hmr::annotations::Annotations;
 const_fn! {
     /// [`FieldType::Check`] which checks the explicit annotations to be empty.
     #[allow(clippy::result_large_err, reason = "There is no heap in const")]
-    pub fn disallow_annotations_check<const N: usize>(field: Annotations, _columns: [Annotations; N]) -> Result<(), ConstString<1024>> {
+    pub fn disallow_annotations_check<N: ArrayLength>(field: Annotations, _columns: GenericArray<Annotations, N>) -> Result<(), ConstString<1024>>
+    where
+        GenericArray<Annotations, N>: Copy
+    {
         match field {
             Annotations {
                 auto_create_time: None,
@@ -34,7 +40,10 @@ const_fn! {
 const_fn! {
     /// [`FieldType::Check`] which runs the linter shared with `rorm-cli` on every column.
     #[allow(clippy::result_large_err, reason = "There is no heap in const")]
-    pub fn shared_linter_check<const N: usize>(_field: Annotations, columns: [Annotations; N]) -> Result<(), ConstString<1024>> {
+    pub fn shared_linter_check<N: ArrayLength>(_field: Annotations, columns: GenericArray<Annotations, N>) -> Result<(), ConstString<1024>>
+    where
+        GenericArray<Annotations, N>: Copy
+    {
         let mut columns = columns.as_slice();
         while let [column, tail @ ..] = columns {
             columns = tail;
@@ -54,11 +63,12 @@ const_fn! {
     /// [`FieldType::Check`] which runs the linter shared with `rorm-cli` on every column
     /// and checks `max_length` to be set.
     #[allow(clippy::result_large_err, reason = "There is no heap in const")]
-    pub fn string_check(_field: Annotations, [column]: [Annotations; 1]) -> Result<(), ConstString<1024>> {
-        if let Err(error) = shared_linter_check(_field, [column]) {
+    pub fn string_check(_field: Annotations, columns: GenericArray<Annotations, U1>) -> Result<(), ConstString<1024>> {
+        if let Err(error) = shared_linter_check(_field, columns) {
             return Err(error);
         }
 
+        let [column] = columns.into_array();
         if column.max_length.is_none() {
             return Err(ConstString::error(&[
                 "missing annotation: max_length",

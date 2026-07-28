@@ -1,9 +1,11 @@
 use rorm::conditions::Value;
 use rorm::db::sql::value::NullType;
-use rorm::fields::traits::{Array, FieldColumns, FieldType};
+use rorm::fields::traits::{FieldColumns, FieldType};
 use rorm::fields::utils::check::shared_linter_check;
 use rorm::fields::utils::get_annotations::forward_annotations;
 use rorm::fields::utils::get_names::single_column_name;
+use rorm::generic_array::arr;
+use rorm::generic_array::typenum::U1;
 use rorm::prelude::ForeignModel;
 use rorm::{Model, Patch};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -70,9 +72,9 @@ impl<'de> Deserialize<'de> for StarsAmount {
     }
 }
 impl FieldType for StarsAmount {
-    type Columns = Array<1>;
+    type Columns = U1;
 
-    const NULL: FieldColumns<Self, NullType> = [NullType::I16];
+    const NULL: FieldColumns<Self, NullType> = arr![NullType::I16];
 
     fn into_values<'a>(self) -> FieldColumns<Self, Value<'a>> {
         self.0.into_values()
@@ -84,8 +86,8 @@ impl FieldType for StarsAmount {
 
     type Decoder = StarsAmountDecoder;
     type GetNames = single_column_name;
-    type GetAnnotations = forward_annotations<1>;
-    type Check = shared_linter_check<1>;
+    type GetAnnotations = forward_annotations<U1>;
+    type Check = shared_linter_check<U1>;
 }
 rorm::new_converting_decoder! {
     pub StarsAmountDecoder,
