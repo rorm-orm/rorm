@@ -179,16 +179,15 @@ macro_rules! const_fn {
      */
 
     // Parse start non-generic function
-    ($(#[$attr:meta])* $vis:vis fn $fn_name:ident($($args:tt)+) -> $ret_type:ty $body:block) => {
+    ($(#[$attr:meta])* $vis:vis fn $fn_name:ident($($args:tt)+) $($ret:tt)+) => {
         $crate::const_fn!(
-            @parse_args
+            @parse_return
+            ret: [$($ret)+],
             args: [$($args)+],
             {
                 attrs: [$(#[$attr])*],
                 vis: $vis,
                 name: $fn_name,
-                ret_type: $ret_type,
-                body: $body,
             }
         );
     };
@@ -231,20 +230,19 @@ macro_rules! const_fn {
     // Parse last const generic
     (
         @parse_generic
-        [const $N:ident: $Type:ty >($($args:tt)+) -> $ret_type:ty $body:block ]
+        [const $N:ident: $Type:ty >($($args:tt)+) $($rest:tt)+ ]
         { [$($type_generics:tt)*] [$($impl_generics:tt)*] [$($phantom_generics:tt)*] }
         { $($passthrough:tt)* }
     ) => {
         $crate::const_fn!(
-            @parse_args
+            @parse_return
+            ret: [$($rest)+],
             args: [$($args)+],
             {
                 $($passthrough)*
                 type_generics: [$($type_generics)* $N, ],
                 impl_generics: [$($impl_generics)* const $N: $Type, ],
                 phantom_generics: [$($phantom_generics)*],
-                ret_type: $ret_type,
-                body: $body,
             }
         );
     };
@@ -269,20 +267,19 @@ macro_rules! const_fn {
     // Parse last type generic
     (
         @parse_generic
-        [$T:ident $(: $bound:path)? >($($args:tt)+) -> $ret_type:ty $body:block ]
+        [$T:ident $(: $bound:path)? >($($args:tt)+) $($ret:tt)+ ]
         { [$($type_generics:tt)*] [$($impl_generics:tt)*] [$($phantom_generics:tt)*] }
         { $($passthrough:tt)* }
     ) => {
         $crate::const_fn!(
-            @parse_args
+            @parse_return
+            ret: [$($ret)+],
             args: [$($args)+],
             {
                 $($passthrough)*
                 type_generics: [$($type_generics)* $T, ],
                 impl_generics: [$($impl_generics)* $T $(: $bound)?, ],
                 phantom_generics: [$($phantom_generics)* $T,],
-                ret_type: $ret_type,
-                body: $body,
             }
         );
     };
@@ -291,8 +288,32 @@ macro_rules! const_fn {
     // This arm will trigger if the function used a trailing comma.
     (
         @parse_generic
-        [> ($($args:tt)+) -> $ret_type:ty $body:block]
+        [> ($($args:tt)+) $($ret:tt)+]
         { [$($type_generics:tt)*] [$($impl_generics:tt)*] [$($phantom_generics:tt)*] }
+        { $($passthrough:tt)* }
+    ) => {
+        $crate::const_fn!(
+            @parse_return
+            ret: [$($ret)+],
+            args: [$($args)+],
+            {
+                $($passthrough)*
+                type_generics: [$($type_generics)+],
+                impl_generics: [$($impl_generics)+],
+                phantom_generics: [$($phantom_generics)*],
+            }
+        );
+    };
+
+    /*
+     * Parse the (optional) return type followed by the body or start of a where clause
+     */
+
+    // Explicit return without where
+    (
+        @parse_return
+        ret: [-> $RetType:ty $body:block],
+        args: [$($args:tt)*],
         { $($passthrough:tt)* }
     ) => {
         $crate::const_fn!(
@@ -300,12 +321,101 @@ macro_rules! const_fn {
             args: [$($args)+],
             {
                 $($passthrough)*
-                type_generics: [$($type_generics)+],
-                impl_generics: [$($impl_generics)+],
-                phantom_generics: [$($phantom_generics)*],
-                ret_type: $ret_type,
+                ret_type: $RetType,
                 body: $body,
             }
+        );
+    };
+    // Implicit return without where
+    (
+        @parse_return
+        ret: [$body:block],
+        args: [$($args:tt)*],
+        { $($passthrough:tt)* }
+    ) => {
+        $crate::const_fn!(
+            @parse_args
+            args: [$($args)+],
+            {
+                $($passthrough)*
+                ret_type: (),
+                body: $body,
+            }
+        );
+    };
+    // Explicit return with where
+    (
+        @parse_return
+        ret: [-> $RetType:ty where $($tokens:tt)+],
+        args: [$($args:tt)*],
+        { $($passthrough:tt)* }
+    ) => {
+        $crate::const_fn!(
+            @parse_where
+            tokens: [$($tokens)+],
+            collected: [],
+            args: [$($args)+],
+            {
+                $($passthrough)*
+                ret_type: $RetType,
+            }
+        );
+    };
+    // Implicit return with where
+    (
+        @parse_return
+        ret: [where $($tokens:tt)+],
+        args: [$($args:tt)*],
+        { $($passthrough:tt)* }
+    ) => {
+        $crate::const_fn!(
+            @parse_where
+            tokens: [$($tokens)+],
+            collected: [],
+            args: [$($args)+],
+            {
+                $($passthrough)*
+                ret_type: (),
+            }
+        );
+    };
+
+    /*
+     * Collect all tokens after where until we hit the body
+     */
+
+    // We reached the body at the end
+    (
+        @parse_where
+        tokens: [$body:block],
+        collected: [$($collected:tt)+],
+        args: [$($args:tt)*],
+        { $($passthrough:tt)* }
+    ) => {
+        $crate::const_fn!(
+            @parse_args
+            args: [$($args)+],
+            {
+                $($passthrough)*
+                where_clause: [$($collected)+],
+                body: $body,
+            }
+        );
+    };
+    // Collect the next token of where clause
+    (
+        @parse_where
+        tokens: [$token:tt $($rest:tt)+],
+        collected: [$($collected:tt)*],
+        args: [$($args:tt)*],
+        { $($passthrough:tt)* }
+    ) => {
+        $crate::const_fn!(
+            @parse_where
+            tokens: [$($rest)+],
+            collected: [$($collected)* $token],
+            args: [$($args)+],
+            {$($passthrough)*}
         );
     };
 
@@ -330,10 +440,13 @@ macro_rules! const_fn {
                 phantom_generics: [$($phantom_generics:tt)*],
             )?
             ret_type: $RetType:ty,
+            $(
+                where_clause: [$($where_clause:tt)+],
+            )?
             body: $body:block,
         }
     ) => {
-        $($attr)* $vis const fn $name $(< $($impl_generics)+ >)?($( $arg_name : $ArgType ),+) -> $RetType $body
+        $($attr)* $vis const fn $name $(< $($impl_generics)+ >)?($( $arg_name : $ArgType ),+) -> $RetType $(where $($where_clause)+)? $body
 
         $crate::raw_const_fn!(
             attrs: [
@@ -350,6 +463,9 @@ macro_rules! const_fn {
             arg_type: ($($ArgType,)+),
             arg_param: Arg,
             ret_type: $RetType,
+            $(
+                where_clause: [$($where_clause)+],
+            )?
             body: {
                 let ($($arg_name,)+) = Arg::ITEM;
                 $name $( ::<$($type_generics)+> )? ($($arg_name,)*)
@@ -370,6 +486,9 @@ macro_rules! const_fn {
                 phantom_generics: [$($phantom_generics:tt)*],
             )?
             ret_type: $RetType:ty,
+            $(
+                where_clause: [$($where_clause:tt)+],
+            )?
             body: $body:block,
         }
     ) => {
@@ -388,6 +507,9 @@ macro_rules! const_fn {
             arg_type: $ArgType,
             arg_param: $arg_name,
             ret_type: $RetType,
+            $(
+                where_clause: [$($where_clause)+],
+            )?
             body: $body,
         );
     };
@@ -415,6 +537,9 @@ macro_rules! raw_const_fn {
         arg_type: $ArgType:ty,
         arg_param: $Arg:ident,
         ret_type: $RetType:ty,
+        $(
+            where_clause: [$($where_clause:tt)+],
+        )?
         body: $body:block,
     ) => {
         $(#[$attr])*
@@ -423,12 +548,13 @@ macro_rules! raw_const_fn {
         }
 
         const _: () = {
-            impl $( < $($IG)+ > )? $crate::fields::utils::const_fn::ConstFn<$ArgType, $RetType> for $Name $( < $($TG)+ > )? {
+            impl $( < $($IG)+ > )? $crate::fields::utils::const_fn::ConstFn<$ArgType, $RetType> for $Name $( < $($TG)+ > )? $(where $($where_clause)+)? {
                 type Body<Arg: $crate::fields::utils::const_fn::Contains<$ArgType>> = Body<(Self, Arg)>;
             }
             $vis struct Body<T>(::std::marker::PhantomData<T>);
             impl<$Arg: $crate::fields::utils::const_fn::Contains<$ArgType> $( , $($IG)+)?>
                 $crate::fields::utils::const_fn::Contains<$RetType> for Body<($Name $( < $($TG)+ > )?, $Arg)>
+            $(where $($where_clause)+)?
             {
                 const ITEM: $RetType = $body;
             }
@@ -458,6 +584,9 @@ impl_tuples! [
 #[allow(dead_code)]
 mod compile_tests {
     const_fn! {
+        fn no_return(_arg: ()) {}
+    }
+    const_fn! {
         fn non_generic(_arg: ()) -> () {}
     }
     const_fn! {
@@ -476,6 +605,12 @@ mod compile_tests {
     const_fn! {
         fn raw_arg(#[raw] _Arg: ()) -> () {
             _Arg::ITEM
+        }
+    }
+
+    const_fn! {
+        fn where_clause<T>(x: T) -> T where T: Copy {
+            x
         }
     }
 }
