@@ -17,6 +17,7 @@ where
         Value::F32(x) => query.bind(x),
         Value::F64(x) => query.bind(x),
         Value::Binary(x) => query.bind(x),
+        #[allow(deprecated)]
         Value::Ident(_) => {}
         Value::Column { .. } => {}
         Value::Choice(_) => {}
@@ -32,7 +33,9 @@ where
         Value::TimePrimitiveDateTime(x) => query.bind(x),
 
         Value::Uuid(x) => query.bind(x),
+        #[allow(deprecated)]
         Value::UuidHyphenated(x) => query.bind(x.hyphenated().to_string()),
+        #[allow(deprecated)]
         Value::UuidSimple(x) => query.bind(x.simple().to_string()),
 
         Value::JsonValue(x) => query.bind(Json(x)),
