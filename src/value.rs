@@ -132,4 +132,72 @@ pub enum Value<'a> {
     /// Bit vec representation
     #[cfg(feature = "postgres-only")]
     BitVec(&'a bit_vec::BitVec),
+
+    /// null representation
+    #[cfg(feature = "postgres-only")]
+    ArrayNull(NullType),
+    /// String representation
+    #[cfg(feature = "postgres-only")]
+    ArrayString(&'a [&'a str]),
+    /// i64 representation
+    #[cfg(feature = "postgres-only")]
+    ArrayI64(&'a [i64]),
+    /// i32 representation
+    #[cfg(feature = "postgres-only")]
+    ArrayI32(&'a [i32]),
+    /// i16 representation
+    #[cfg(feature = "postgres-only")]
+    ArrayI16(&'a [i16]),
+    /// Bool representation
+    #[cfg(feature = "postgres-only")]
+    ArrayBool(&'a [bool]),
+    /// f64 representation
+    #[cfg(feature = "postgres-only")]
+    ArrayF64(&'a [f64]),
+    /// f32 representation
+    #[cfg(feature = "postgres-only")]
+    ArrayF32(&'a [f32]),
+    /// binary representation
+    #[cfg(feature = "postgres-only")]
+    ArrayBinary(&'a [&'a [u8]]),
+    /// chrono's Naive Time representation
+    #[cfg(feature = "postgres-only")]
+    ArrayChronoNaiveTime(&'a [NaiveTime]),
+    /// chrono's Naive Date representation
+    #[cfg(feature = "postgres-only")]
+    ArrayChronoNaiveDate(&'a [NaiveDate]),
+    /// chrono's Naive DateTime representation
+    #[cfg(feature = "postgres-only")]
+    ArrayChronoNaiveDateTime(&'a [NaiveDateTime]),
+    /// chrono's Timezone aware datetime
+    #[cfg(feature = "postgres-only")]
+    ArrayChronoDateTime(&'a [DateTime<Utc>]),
+    /// time's date representation
+    #[cfg(feature = "postgres-only")]
+    ArrayTimeDate(&'a [Date]),
+    /// time's time representation
+    #[cfg(feature = "postgres-only")]
+    ArrayTimeTime(&'a [Time]),
+    /// time's offset datetime representation
+    #[cfg(feature = "postgres-only")]
+    ArrayTimeOffsetDateTime(&'a [OffsetDateTime]),
+    /// time's primitive datetime representation
+    #[cfg(feature = "postgres-only")]
+    ArrayTimePrimitiveDateTime(&'a [PrimitiveDateTime]),
+    /// Uuid representation
+    #[cfg(feature = "postgres-only")]
+    ArrayUuid(&'a [Uuid]),
+    /// serde_json's Value representation
+    #[cfg(feature = "postgres-only")]
+    ArrayJsonValue(&'a [&'a serde_json::Value]),
+
+    /// Mac address representation
+    #[cfg(feature = "postgres-only")]
+    ArrayMacAddress(&'a [mac_address::MacAddress]),
+    /// IP network presentation
+    #[cfg(feature = "postgres-only")]
+    ArrayIpNetwork(&'a [ipnetwork::IpNetwork]),
+    /// Bit vec representation
+    #[cfg(feature = "postgres-only")]
+    ArrayBitVec(&'a [&'a bit_vec::BitVec]),
 }

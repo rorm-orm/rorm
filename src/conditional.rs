@@ -97,6 +97,12 @@ pub enum BinaryOperator {
     /// `{} >>= {}` for `inet` (postgres feature)
     #[cfg(feature = "postgres-only")]
     ContainsOrEquals,
+    /// `{} = ANY({})`
+    #[cfg(feature = "postgres-only")]
+    EqualsAny,
+    /// `{} <> ANY({})`
+    #[cfg(feature = "postgres-only")]
+    NotEqualsAny,
 }
 
 /// Operator of an [`TernaryExpression`]
@@ -191,6 +197,10 @@ impl<'a> BuildCondition<'a> for BinaryExpression<'a> {
             BinaryOperator::Contains => ">>",
             #[cfg(feature = "postgres-only")]
             BinaryOperator::ContainsOrEquals => ">>=",
+            #[cfg(feature = "postgres-only")]
+            BinaryOperator::EqualsAny => "= ANY(",
+            #[cfg(feature = "postgres-only")]
+            BinaryOperator::NotEqualsAny => "<> ANY(",
         };
         write!(writer, "(")?;
         lhs.build_to_writer(writer, dialect, lookup)?;
@@ -200,6 +210,13 @@ impl<'a> BuildCondition<'a> for BinaryExpression<'a> {
         if matches!(dialect, DBImpl::SQLite) && matches!(keyword, "LIKE" | "NOT LIKE") {
             // Sqlite does not default it
             write!(writer, " ESCAPE '\'")?;
+        }
+        #[cfg(feature = "postgres-only")]
+        if matches!(
+            self.operator,
+            BinaryOperator::EqualsAny | BinaryOperator::NotEqualsAny
+        ) {
+            write!(writer, ")")?;
         }
         write!(writer, ")")?;
         Ok(())
