@@ -177,6 +177,7 @@ where
 /// Hack to avoid naming the types which would require direct dependencies
 ///
 /// Used to convert an `Option<T>` which is **always** `None` with `.map()`
+#[cfg(feature = "postgres-only")]
 fn vec<T>(_never: T) -> Vec<T> {
     unreachable!()
 }
