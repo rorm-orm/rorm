@@ -7,6 +7,107 @@ use crate::db_specific::sqlite;
 use crate::value::{NullType, Value};
 use crate::DBImpl;
 
+/// An expression using a single value
+#[derive(Debug, PartialEq, Clone)]
+pub struct UnaryExpression<'a> {
+    /// Operator applied to the value
+    pub operator: UnaryOperator,
+
+    /// Value the operator operates on
+    pub value: Box<Condition<'a>>,
+}
+
+/// An expression using two values
+#[derive(Debug, PartialEq, Clone)]
+pub struct BinaryExpression<'a> {
+    /// Operator applied to the values
+    pub operator: BinaryOperator,
+
+    /// Values the operator operates on
+    pub values: Box<[Condition<'a>; 2]>,
+}
+
+/// An expression using three values
+#[derive(Debug, PartialEq, Clone)]
+pub struct TernaryExpression<'a> {
+    /// Operator applied to the values
+    pub operator: TernaryOperator,
+
+    /// Values the operator operates on
+    pub values: Box<[Condition<'a>; 3]>,
+}
+
+/// Operator of an [`UnaryExpression`]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub enum UnaryOperator {
+    /// `{} IS NULL"
+    IsNull,
+    /// `{} IS NOT NULL"
+    IsNotNull,
+    /// "EXISTS {}`
+    Exists,
+    /// "NOT EXISTS {}`
+    NotExists,
+    /// "NOT {}`
+    Not,
+}
+
+/// Operator of an [`BinaryExpression`]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub enum BinaryOperator {
+    /// `{} = {}`
+    Equals,
+    /// `{} <> {}`
+    NotEquals,
+    /// `{} > {}`
+    Greater,
+    /// `{} >= {}`
+    GreaterOrEquals,
+    /// `{} < {}`
+    Less,
+    /// `{} <= {}`
+    LessOrEquals,
+    /// `{} LIKE {}`
+    Like,
+    /// `{} NOT LIKE {}`
+    NotLike,
+    /// `{} REGEXP {}`
+    Regexp,
+    /// `{} NOT REGEXP {}`
+    NotRegexp,
+    /// `{} IN {}`
+    In,
+    /// `{} NOT IN {}`
+    NotIn,
+    /// `{} ILIKE {}` (postgres feature)
+    #[cfg(feature = "postgres-only")]
+    ILike,
+    /// `{} NOT ILIKE {}` (postgres feature)
+    #[cfg(feature = "postgres-only")]
+    NotILike,
+    /// `{} << {}` for `inet` (postgres feature)
+    #[cfg(feature = "postgres-only")]
+    Contained,
+    /// `{} <<= {}` for `inet` (postgres feature)
+    #[cfg(feature = "postgres-only")]
+    ContainedOrEquals,
+    /// `{} >> {}` for `inet` (postgres feature)
+    #[cfg(feature = "postgres-only")]
+    Contains,
+    /// `{} >>= {}` for `inet` (postgres feature)
+    #[cfg(feature = "postgres-only")]
+    ContainsOrEquals,
+}
+
+/// Operator of an [`TernaryExpression`]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub enum TernaryOperator {
+    /// `{} BETWEEN {} AND {}`
+    Between,
+    /// `{} NOT BETWEEN {} AND {}`
+    NotBetween,
+}
+
 /**
 Trait implementing constructing sql queries from a condition tree.
 
@@ -34,27 +135,17 @@ pub trait BuildCondition<'a>: 'a {
     ) -> Result<(), Error>;
 }
 
-/**
-This enum represents all available ternary expression.
-*/
-#[derive(Debug, PartialEq, Clone)]
-pub enum TernaryCondition<'a> {
-    /// Between represents "{} BETWEEN {} AND {}" from SQL
-    Between(Box<[Condition<'a>; 3]>),
-    /// Between represents "{} NOT BETWEEN {} AND {}" from SQL
-    NotBetween(Box<[Condition<'a>; 3]>),
-}
-
-impl<'a> BuildCondition<'a> for TernaryCondition<'a> {
+impl<'a> BuildCondition<'a> for TernaryExpression<'a> {
     fn build_to_writer(
         &self,
         writer: &mut impl Write,
         dialect: DBImpl,
         lookup: &mut Vec<Value<'a>>,
     ) -> Result<(), Error> {
-        let (keyword, [lhs, mhs, rhs]) = match self {
-            TernaryCondition::Between(params) => ("BETWEEN", params.as_ref()),
-            TernaryCondition::NotBetween(params) => ("NOT BETWEEN", params.as_ref()),
+        let [lhs, mhs, rhs] = &*self.values;
+        let keyword = match self.operator {
+            TernaryOperator::Between => "BETWEEN",
+            TernaryOperator::NotBetween => "NOT BETWEEN",
         };
         write!(writer, "(")?;
         lhs.build_to_writer(writer, dialect, lookup)?;
@@ -67,87 +158,39 @@ impl<'a> BuildCondition<'a> for TernaryCondition<'a> {
     }
 }
 
-/**
-This enum represents a binary expression.
-*/
-#[derive(Debug, PartialEq, Clone)]
-pub enum BinaryCondition<'a> {
-    /// Representation of "{} = {}" in SQL
-    Equals(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} <> {}" in SQL
-    NotEquals(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} > {}" in SQL
-    Greater(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} >= {}" in SQL
-    GreaterOrEquals(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} < {}" in SQL
-    Less(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} <= {}" in SQL
-    LessOrEquals(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} LIKE {}" in SQL
-    Like(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} NOT LIKE {}" in SQL
-    NotLike(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} REGEXP {}" in SQL
-    Regexp(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} NOT REGEXP {}" in SQL
-    NotRegexp(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} IN {}" in SQL
-    In(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} NOT IN {}" in SQL
-    NotIn(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} ILIKE {}" in PostgreSQL
-    #[cfg(feature = "postgres-only")]
-    ILike(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} NOT ILIKE {}" in PostgreSQL
-    #[cfg(feature = "postgres-only")]
-    NotILike(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} << {}" for `inet` in PostgreSQL
-    #[cfg(feature = "postgres-only")]
-    Contained(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} <<= {}" for `inet` in PostgreSQL
-    #[cfg(feature = "postgres-only")]
-    ContainedOrEquals(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} >> {}" for `inet` in PostgreSQL
-    #[cfg(feature = "postgres-only")]
-    Contains(Box<[Condition<'a>; 2]>),
-    /// Representation of "{} >>= {}" for `inet` in PostgreSQL
-    #[cfg(feature = "postgres-only")]
-    ContainsOrEquals(Box<[Condition<'a>; 2]>),
-}
-
-impl<'a> BuildCondition<'a> for BinaryCondition<'a> {
+impl<'a> BuildCondition<'a> for BinaryExpression<'a> {
     fn build_to_writer(
         &self,
         writer: &mut impl Write,
         dialect: DBImpl,
         lookup: &mut Vec<Value<'a>>,
     ) -> Result<(), Error> {
-        let (keyword, [lhs, rhs]) = match self {
-            BinaryCondition::Equals(params) => ("=", params.as_ref()),
-            BinaryCondition::NotEquals(params) => ("<>", params.as_ref()),
-            BinaryCondition::Greater(params) => (">", params.as_ref()),
-            BinaryCondition::GreaterOrEquals(params) => (">=", params.as_ref()),
-            BinaryCondition::Less(params) => ("<", params.as_ref()),
-            BinaryCondition::LessOrEquals(params) => ("<=", params.as_ref()),
-            BinaryCondition::Like(params) => ("LIKE", params.as_ref()),
-            BinaryCondition::NotLike(params) => ("NOT LIKE", params.as_ref()),
-            BinaryCondition::Regexp(params) => ("REGEXP", params.as_ref()),
-            BinaryCondition::NotRegexp(params) => ("NOT REGEXP", params.as_ref()),
-            BinaryCondition::In(params) => ("IN", params.as_ref()),
-            BinaryCondition::NotIn(params) => ("NOT IN", params.as_ref()),
+        let [lhs, rhs] = &*self.values;
+        let keyword = match self.operator {
+            BinaryOperator::Equals => "=",
+            BinaryOperator::NotEquals => "<>",
+            BinaryOperator::Greater => ">",
+            BinaryOperator::GreaterOrEquals => ">=",
+            BinaryOperator::Less => "<",
+            BinaryOperator::LessOrEquals => "<=",
+            BinaryOperator::Like => "LIKE",
+            BinaryOperator::NotLike => "NOT LIKE",
+            BinaryOperator::Regexp => "REGEXP",
+            BinaryOperator::NotRegexp => "NOT REGEXP",
+            BinaryOperator::In => "IN",
+            BinaryOperator::NotIn => "NOT IN",
             #[cfg(feature = "postgres-only")]
-            BinaryCondition::ILike(params) => ("ILIKE", params.as_ref()),
+            BinaryOperator::ILike => "ILIKE",
             #[cfg(feature = "postgres-only")]
-            BinaryCondition::NotILike(params) => ("NOT ILIKE", params.as_ref()),
+            BinaryOperator::NotILike => "NOT ILIKE",
             #[cfg(feature = "postgres-only")]
-            BinaryCondition::Contained(params) => ("<<", params.as_ref()),
+            BinaryOperator::Contained => "<<",
             #[cfg(feature = "postgres-only")]
-            BinaryCondition::ContainedOrEquals(params) => ("<<=", params.as_ref()),
+            BinaryOperator::ContainedOrEquals => "<<=",
             #[cfg(feature = "postgres-only")]
-            BinaryCondition::Contains(params) => (">>", params.as_ref()),
+            BinaryOperator::Contains => ">>",
             #[cfg(feature = "postgres-only")]
-            BinaryCondition::ContainsOrEquals(params) => (">>=", params.as_ref()),
+            BinaryOperator::ContainsOrEquals => ">>=",
         };
         write!(writer, "(")?;
         lhs.build_to_writer(writer, dialect, lookup)?;
@@ -163,44 +206,27 @@ impl<'a> BuildCondition<'a> for BinaryCondition<'a> {
     }
 }
 
-/**
-This enum represents all available unary conditions.
-*/
-#[derive(Debug, PartialEq, Clone)]
-pub enum UnaryCondition<'a> {
-    /// Representation of SQL's "{} IS NULL"
-    IsNull(Box<Condition<'a>>),
-    /// Representation of SQL's "{} IS NOT NULL"
-    IsNotNull(Box<Condition<'a>>),
-    /// Representation of SQL's "EXISTS {}"
-    Exists(Box<Condition<'a>>),
-    /// Representation of SQL's "NOT EXISTS {}"
-    NotExists(Box<Condition<'a>>),
-    /// Representation of SQL's "NOT {}"
-    Not(Box<Condition<'a>>),
-}
-
-impl<'a> BuildCondition<'a> for UnaryCondition<'a> {
+impl<'a> BuildCondition<'a> for UnaryExpression<'a> {
     fn build_to_writer(
         &self,
         writer: &mut impl Write,
         dialect: DBImpl,
         lookup: &mut Vec<Value<'a>>,
     ) -> Result<(), Error> {
-        let (postfix, keyword, value) = match self {
-            UnaryCondition::IsNull(value) => (true, "IS NULL", value.as_ref()),
-            UnaryCondition::IsNotNull(value) => (true, "IS NOT NULL", value.as_ref()),
-            UnaryCondition::Exists(value) => (false, "EXISTS", value.as_ref()),
-            UnaryCondition::NotExists(value) => (false, "NOT EXISTS", value.as_ref()),
-            UnaryCondition::Not(value) => (false, "NOT", value.as_ref()),
+        let (postfix, keyword) = match self.operator {
+            UnaryOperator::IsNull => (true, "IS NULL"),
+            UnaryOperator::IsNotNull => (true, "IS NOT NULL"),
+            UnaryOperator::Exists => (false, "EXISTS"),
+            UnaryOperator::NotExists => (false, "NOT EXISTS"),
+            UnaryOperator::Not => (false, "NOT"),
         };
         write!(writer, "(")?;
         if postfix {
-            value.build_to_writer(writer, dialect, lookup)?;
+            self.value.build_to_writer(writer, dialect, lookup)?;
             write!(writer, " {keyword}")?;
         } else {
             write!(writer, "{keyword} ")?;
-            value.build_to_writer(writer, dialect, lookup)?;
+            self.value.build_to_writer(writer, dialect, lookup)?;
         }
         write!(writer, ")")?;
         Ok(())
@@ -217,11 +243,11 @@ pub enum Condition<'a> {
     /// A list of [Condition]s, that get expanded to "{} OR {} ..."
     Disjunction(Vec<Condition<'a>>),
     /// Representation of an unary condition.
-    UnaryCondition(UnaryCondition<'a>),
+    UnaryCondition(UnaryExpression<'a>),
     /// Representation of a binary condition.
-    BinaryCondition(BinaryCondition<'a>),
+    BinaryCondition(BinaryExpression<'a>),
     /// Representation of a ternary condition.
-    TernaryCondition(TernaryCondition<'a>),
+    TernaryCondition(TernaryExpression<'a>),
     /// Representation of a value.
     Value(Value<'a>),
 }
