@@ -98,6 +98,7 @@ impl<'a, C: Condition<'a> + ?Sized> Condition<'a> for &'_ C {
 /// A value
 ///
 /// However unlike rorm-sql's Value, this does not include an ident.
+// TODO: fix weird lifetime issue with arrays of non-Copy types
 #[derive(Clone, Debug)]
 pub enum Value<'a> {
     /// null representation
@@ -156,6 +157,79 @@ pub enum Value<'a> {
     /// Bit vec representation
     #[cfg(feature = "postgres-only")]
     BitVec(Cow<'a, bit_vec::BitVec>),
+
+    /// null representation
+    #[cfg(feature = "postgres-only")]
+    ArrayNull(value::NullType),
+    /// String representation
+    #[cfg(feature = "postgres-only")]
+    ArrayString(Vec<&'a str>), // TODO: why no Cow?
+    /// i64 representation
+    #[cfg(feature = "postgres-only")]
+    ArrayI64(Cow<'a, [i64]>),
+    /// i32 representation
+    #[cfg(feature = "postgres-only")]
+    ArrayI32(Cow<'a, [i32]>),
+    /// i16 representation
+    #[cfg(feature = "postgres-only")]
+    ArrayI16(Cow<'a, [i16]>),
+    /// Bool representation
+    #[cfg(feature = "postgres-only")]
+    ArrayBool(Cow<'a, [bool]>),
+    /// f64 representation
+    #[cfg(feature = "postgres-only")]
+    ArrayF64(Cow<'a, [f64]>),
+    /// f32 representation
+    #[cfg(feature = "postgres-only")]
+    ArrayF32(Cow<'a, [f32]>),
+    /// binary representation
+    #[cfg(feature = "postgres-only")]
+    ArrayBinary(Vec<&'a [u8]>), // TODO: why no Cow?
+    /// Naive Time representation
+    #[cfg(feature = "chrono")]
+    #[cfg(feature = "postgres-only")]
+    ArrayChronoNaiveTime(Cow<'a, [chrono::NaiveTime]>),
+    /// Naive Date representation
+    #[cfg(feature = "chrono")]
+    #[cfg(feature = "postgres-only")]
+    ArrayChronoNaiveDate(Cow<'a, [chrono::NaiveDate]>),
+    /// Naive DateTime representation
+    #[cfg(feature = "chrono")]
+    #[cfg(feature = "postgres-only")]
+    ArrayChronoNaiveDateTime(Cow<'a, [chrono::NaiveDateTime]>),
+    /// DateTime representation
+    #[cfg(feature = "chrono")]
+    #[cfg(feature = "postgres-only")]
+    ArrayChronoDateTime(Cow<'a, [chrono::DateTime<chrono::Utc>]>),
+    /// time's date representation
+    #[cfg(feature = "time")]
+    #[cfg(feature = "postgres-only")]
+    ArrayTimeDate(Cow<'a, [time::Date]>),
+    /// time's time representation
+    #[cfg(feature = "time")]
+    #[cfg(feature = "postgres-only")]
+    ArrayTimeTime(Cow<'a, [time::Time]>),
+    /// time's offset datetime representation
+    #[cfg(feature = "time")]
+    #[cfg(feature = "postgres-only")]
+    ArrayTimeOffsetDateTime(Cow<'a, [time::OffsetDateTime]>),
+    /// time's primitive datetime representation
+    #[cfg(feature = "time")]
+    #[cfg(feature = "postgres-only")]
+    ArrayTimePrimitiveDateTime(Cow<'a, [time::PrimitiveDateTime]>),
+    /// Uuid representation
+    #[cfg(feature = "uuid")]
+    #[cfg(feature = "postgres-only")]
+    ArrayUuid(Cow<'a, [uuid::Uuid]>),
+    /// Mac address representation
+    #[cfg(feature = "postgres-only")]
+    ArrayMacAddress(Cow<'a, [mac_address::MacAddress]>),
+    /// IP network presentation
+    #[cfg(feature = "postgres-only")]
+    ArrayIpNetwork(Cow<'a, [ipnetwork::IpNetwork]>),
+    /// Bit vec representation
+    #[cfg(feature = "postgres-only")]
+    ArrayBitVec(Vec<&'a bit_vec::BitVec>), // TODO: why no Cow?
 }
 impl Value<'_> {
     /// Convert into an [`sql::Value`](value::Value) instead of an [`sql::Condition`](rorm_db::sql::conditional::Condition) directly.
@@ -195,6 +269,62 @@ impl Value<'_> {
             Value::IpNetwork(v) => value::Value::IpNetwork(*v),
             #[cfg(feature = "postgres-only")]
             Value::BitVec(v) => value::Value::BitVec(v.as_ref()),
+
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayNull(v) => value::Value::ArrayNull(*v),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayString(v) => value::Value::ArrayString(v.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayI64(v) => value::Value::ArrayI64(v.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayI32(v) => value::Value::ArrayI32(v.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayI16(v) => value::Value::ArrayI16(v.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayBool(v) => value::Value::ArrayBool(v.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayF64(v) => value::Value::ArrayF64(v.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayF32(v) => value::Value::ArrayF32(v.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayBinary(v) => value::Value::ArrayBinary(v.as_ref()),
+            #[cfg(feature = "chrono")]
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayChronoNaiveTime(v) => value::Value::ArrayChronoNaiveTime(v.as_ref()),
+            #[cfg(feature = "chrono")]
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayChronoNaiveDate(v) => value::Value::ArrayChronoNaiveDate(v.as_ref()),
+            #[cfg(feature = "chrono")]
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayChronoNaiveDateTime(v) => {
+                value::Value::ArrayChronoNaiveDateTime(v.as_ref())
+            }
+            #[cfg(feature = "chrono")]
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayChronoDateTime(v) => value::Value::ArrayChronoDateTime(v.as_ref()),
+            #[cfg(feature = "time")]
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayTimeDate(v) => value::Value::ArrayTimeDate(v.as_ref()),
+            #[cfg(feature = "time")]
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayTimeTime(v) => value::Value::ArrayTimeTime(v.as_ref()),
+            #[cfg(feature = "time")]
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayTimeOffsetDateTime(v) => value::Value::ArrayTimeOffsetDateTime(v.as_ref()),
+            #[cfg(feature = "time")]
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayTimePrimitiveDateTime(v) => {
+                value::Value::ArrayTimePrimitiveDateTime(v.as_ref())
+            }
+            #[cfg(feature = "uuid")]
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayUuid(v) => value::Value::ArrayUuid(v.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayMacAddress(v) => value::Value::ArrayMacAddress(v.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayIpNetwork(v) => value::Value::ArrayIpNetwork(v.as_ref()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayBitVec(v) => value::Value::ArrayBitVec(v.as_ref()),
         }
     }
 }

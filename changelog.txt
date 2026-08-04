@@ -1,6 +1,8 @@
 Since 0.10.0
 -----------
 
+- Added postgres arrays
+
 - Refactored rorm-sql's conditions
 - Re-export new operator enums instead of defining them
 
