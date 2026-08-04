@@ -286,6 +286,7 @@ impl<'a> BuildCondition<'a> for Condition<'a> {
                 ternary.build_to_writer(writer, dialect, lookup)
             }
             Condition::Value(value) => match value {
+                #[allow(deprecated)]
                 Value::Ident(string) => write!(writer, "{string}"),
                 Value::Column {
                     table_name,

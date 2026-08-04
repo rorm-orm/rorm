@@ -68,6 +68,7 @@ pub enum Value<'a> {
     /// Representation of an identifier, e.g. a column.
     /// This variant will not be escaped, so do not
     /// pass unchecked data to it.
+    #[deprecated(note = "Is this still used?")]
     Ident(&'a str),
     /// Representation of a column name with
     /// an optional table name
@@ -114,11 +115,14 @@ pub enum Value<'a> {
     /// Uuid representation
     Uuid(Uuid),
     /// Uuid in hyphenated representation
+    #[deprecated(note = "Was this ever used?")]
     UuidHyphenated(Uuid),
     /// Uuid in simple text representation
+    #[deprecated(note = "Was this ever used?")]
     UuidSimple(Uuid),
     /// serde_json's Value representation
     JsonValue(&'a serde_json::Value),
+
     /// Mac address representation
     #[cfg(feature = "postgres-only")]
     MacAddress(mac_address::MacAddress),
