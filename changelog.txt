@@ -1,6 +1,9 @@
 Since 0.10.0
 -----------
 
+- Refactored rorm-sql's conditions
+- Re-export new operator enums instead of defining them
+
 Notes for publishing
 --------------------
 - don't forget to bump and publish rorm-macro & rorm-macro-impl!

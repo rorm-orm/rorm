@@ -77,58 +77,32 @@ impl QueryContext<'_> {
                 op(args)
             }
             FlatCondition::EndCollection => return Err(CollectionEnd),
-            FlatCondition::UnaryCondition(op) => {
-                let op = match op {
-                    UnaryOperator::IsNull => sql::UnaryCondition::IsNull,
-                    UnaryOperator::IsNotNull => sql::UnaryCondition::IsNotNull,
-                    UnaryOperator::Exists => sql::UnaryCondition::Exists,
-                    UnaryOperator::NotExists => sql::UnaryCondition::NotExists,
-                    UnaryOperator::Not => sql::UnaryCondition::Not,
-                };
-                sql::Condition::UnaryCondition(op(Box::new(
-                    self.get_condition_inner(tail.next().ok_or(MissingNodes)?, tail)?,
-                )))
+            FlatCondition::UnaryCondition(operator) => {
+                sql::Condition::UnaryCondition(sql::UnaryExpression {
+                    operator,
+                    value: Box::new(
+                        self.get_condition_inner(tail.next().ok_or(MissingNodes)?, tail)?,
+                    ),
+                })
             }
-            FlatCondition::BinaryCondition(op) => {
-                let op = match op {
-                    BinaryOperator::Equals => sql::BinaryCondition::Equals,
-                    BinaryOperator::NotEquals => sql::BinaryCondition::NotEquals,
-                    BinaryOperator::Greater => sql::BinaryCondition::Greater,
-                    BinaryOperator::GreaterOrEquals => sql::BinaryCondition::GreaterOrEquals,
-                    BinaryOperator::Less => sql::BinaryCondition::Less,
-                    BinaryOperator::LessOrEquals => sql::BinaryCondition::LessOrEquals,
-                    BinaryOperator::Like => sql::BinaryCondition::Like,
-                    BinaryOperator::NotLike => sql::BinaryCondition::NotLike,
-                    BinaryOperator::Regexp => sql::BinaryCondition::Regexp,
-                    BinaryOperator::NotRegexp => sql::BinaryCondition::NotRegexp,
-                    #[cfg(feature = "postgres-only")]
-                    BinaryOperator::ILike => sql::BinaryCondition::ILike,
-                    #[cfg(feature = "postgres-only")]
-                    BinaryOperator::NotILike => sql::BinaryCondition::NotILike,
-                    #[cfg(feature = "postgres-only")]
-                    BinaryOperator::Contained => sql::BinaryCondition::Contained,
-                    #[cfg(feature = "postgres-only")]
-                    BinaryOperator::ContainedOrEquals => sql::BinaryCondition::ContainedOrEquals,
-                    #[cfg(feature = "postgres-only")]
-                    BinaryOperator::Contains => sql::BinaryCondition::Contains,
-                    #[cfg(feature = "postgres-only")]
-                    BinaryOperator::ContainsOrEquals => sql::BinaryCondition::ContainsOrEquals,
-                };
-                sql::Condition::BinaryCondition(op(Box::new([
-                    self.get_condition_inner(tail.next().ok_or(MissingNodes)?, tail)?,
-                    self.get_condition_inner(tail.next().ok_or(MissingNodes)?, tail)?,
-                ])))
+            FlatCondition::BinaryCondition(operator) => {
+                sql::Condition::BinaryCondition(sql::BinaryExpression {
+                    operator,
+                    values: Box::new([
+                        self.get_condition_inner(tail.next().ok_or(MissingNodes)?, tail)?,
+                        self.get_condition_inner(tail.next().ok_or(MissingNodes)?, tail)?,
+                    ]),
+                })
             }
-            FlatCondition::TernaryCondition(op) => {
-                let op = match op {
-                    TernaryOperator::Between => sql::TernaryCondition::Between,
-                    TernaryOperator::NotBetween => sql::TernaryCondition::NotBetween,
-                };
-                sql::Condition::TernaryCondition(op(Box::new([
-                    self.get_condition_inner(tail.next().ok_or(MissingNodes)?, tail)?,
-                    self.get_condition_inner(tail.next().ok_or(MissingNodes)?, tail)?,
-                    self.get_condition_inner(tail.next().ok_or(MissingNodes)?, tail)?,
-                ])))
+            FlatCondition::TernaryCondition(operator) => {
+                sql::Condition::TernaryCondition(sql::TernaryExpression {
+                    operator,
+                    values: Box::new([
+                        self.get_condition_inner(tail.next().ok_or(MissingNodes)?, tail)?,
+                        self.get_condition_inner(tail.next().ok_or(MissingNodes)?, tail)?,
+                        self.get_condition_inner(tail.next().ok_or(MissingNodes)?, tail)?,
+                    ]),
+                })
             }
             FlatCondition::Value(index) => {
                 sql::Condition::Value(self.values.get(index).ok_or(UnknownValue)?.as_sql())

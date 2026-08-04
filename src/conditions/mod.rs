@@ -5,6 +5,9 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
+pub use rorm_db::sql::conditional::BinaryOperator;
+pub use rorm_db::sql::conditional::TernaryOperator;
+pub use rorm_db::sql::conditional::UnaryOperator;
 use rorm_db::sql::value;
 
 pub mod collections;
@@ -225,48 +228,6 @@ pub struct Binary<A, B> {
     /// The expression's second argument
     pub snd_arg: B,
 }
-/// A binary operator
-#[derive(Copy, Clone, Debug)]
-pub enum BinaryOperator {
-    /// Representation of "{} = {}" in SQL
-    Equals,
-    /// Representation of "{} <> {}" in SQL
-    NotEquals,
-    /// Representation of "{} > {}" in SQL
-    Greater,
-    /// Representation of "{} >= {}" in SQL
-    GreaterOrEquals,
-    /// Representation of "{} < {}" in SQL
-    Less,
-    /// Representation of "{} <= {}" in SQL
-    LessOrEquals,
-    /// Representation of "{} LIKE {}" in SQL
-    Like,
-    /// Representation of "{} NOT LIKE {}" in SQL
-    NotLike,
-    /// Representation of "{} REGEXP {}" in SQL
-    Regexp,
-    /// Representation of "{} NOT REGEXP {}" in SQL
-    NotRegexp,
-    /// Representation of "{} ILIKE {}" in PostgreSQL
-    #[cfg(feature = "postgres-only")]
-    ILike,
-    /// Representation of "{} NOT ILIKE {}" in PostgreSQL
-    #[cfg(feature = "postgres-only")]
-    NotILike,
-    /// Representation of "{} << {}" for `inet` in PostgreSQL
-    #[cfg(feature = "postgres-only")]
-    Contained,
-    /// Representation of "{} <<= {}" for `inet` in PostgreSQL
-    #[cfg(feature = "postgres-only")]
-    ContainedOrEquals,
-    /// Representation of "{} >> {}" for `inet` in PostgreSQL
-    #[cfg(feature = "postgres-only")]
-    Contains,
-    /// Representation of "{} >>= {}" for `inet` in PostgreSQL
-    #[cfg(feature = "postgres-only")]
-    ContainsOrEquals,
-}
 impl<'a, A: Condition<'a>, B: Condition<'a>> Condition<'a> for Binary<A, B> {
     fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
         builder.push_condition(FlatCondition::BinaryCondition(self.operator));
@@ -290,14 +251,6 @@ pub struct Ternary<A, B, C> {
     /// The expression's third argument
     pub trd_arg: C,
 }
-/// A ternary operator
-#[derive(Copy, Clone, Debug)]
-pub enum TernaryOperator {
-    /// Between represents "{} BETWEEN {} AND {}" from SQL
-    Between,
-    /// NotBetween represents "{} NOT BETWEEN {} AND {}" from SQL
-    NotBetween,
-}
 impl<'a, A: Condition<'a>, B: Condition<'a>, C: Condition<'a>> Condition<'a> for Ternary<A, B, C> {
     fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
         builder.push_condition(FlatCondition::TernaryCondition(self.operator));
@@ -315,20 +268,6 @@ pub struct Unary<A> {
 
     /// The expression's first argument
     pub fst_arg: A,
-}
-/// A unary operator
-#[derive(Copy, Clone, Debug)]
-pub enum UnaryOperator {
-    /// Representation of SQL's "{} IS NULL"
-    IsNull,
-    /// Representation of SQL's "{} IS NOT NULL"
-    IsNotNull,
-    /// Representation of SQL's "EXISTS {}"
-    Exists,
-    /// Representation of SQL's "NOT EXISTS {}"
-    NotExists,
-    /// Representation of SQL's "NOT {}"
-    Not,
 }
 impl<'a, A: Condition<'a>> Condition<'a> for Unary<A> {
     fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
