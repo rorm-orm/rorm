@@ -124,6 +124,7 @@ impl<'post_build> Insert<'post_build> for InsertImpl<'_, 'post_build> {
                     write!(s, "(").unwrap();
                     for (idx_2, y) in x.iter().enumerate() {
                         match y {
+                            #[allow(deprecated)]
                             Value::Ident(st) => write!(s, "\"{}\"", *st).unwrap(),
                             Value::Choice(c) => write!(s, "{}", sqlite::fmt(c)).unwrap(),
                             Value::Null(NullType::Choice) => write!(s, "NULL").unwrap(),
