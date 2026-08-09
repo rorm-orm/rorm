@@ -1,5 +1,5 @@
 use std::future;
-use std::future::{ready, Ready};
+use std::future::ready;
 use std::pin::Pin;
 use std::task::{ready, Context, Poll};
 
@@ -46,8 +46,6 @@ impl<'exe> Executor<'exe> for &'exe mut Transaction {
         }
     }
 
-    type EnsureTransactionFuture = Ready<Result<TransactionGuard<'exe>, Error>>;
-
     fn ensure_transaction(self) -> BoxFuture<'exe, Result<TransactionGuard<'exe>, Error>> {
         Box::pin(ready(Ok(TransactionGuard::Borrowed(self))))
     }
@@ -79,8 +77,6 @@ impl<'exe> Executor<'exe> for &'exe Database {
             AnyPool::Sqlite(_) => DBImpl::SQLite,
         }
     }
-
-    type EnsureTransactionFuture = BoxFuture<'exe, Result<TransactionGuard<'exe>, Error>>;
 
     fn ensure_transaction(self) -> BoxFuture<'exe, Result<TransactionGuard<'exe>, Error>> {
         Box::pin(async move { self.start_transaction().await.map(TransactionGuard::Owned) })

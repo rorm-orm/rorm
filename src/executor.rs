@@ -3,8 +3,6 @@
 //! Unlike sqlx's Executor which provides several separate methods for different querying strategies,
 //! our [`Executor`] has a single method which is generic using the [`QueryStrategy`] trait.
 
-use std::future::Future;
-
 use rorm_sql::value::Value;
 use rorm_sql::DBImpl;
 use tracing::debug;
@@ -109,9 +107,6 @@ pub trait Executor<'exe> {
     /// Convenience method to convert into a "`dyn Executor`"
     fn into_dyn(self) -> DynamicExecutor<'exe>;
 
-    /// A future producing a [`TransactionGuard`] returned by [`ensure_transaction`](Executor::ensure_transaction)
-    type EnsureTransactionFuture: Future<Output = Result<TransactionGuard<'exe>, Error>> + Send;
-
     /// Ensure a piece of code is run inside a transaction using a [`TransactionGuard`].
     ///
     /// In generic code an [`Executor`] might and might not be a `&mut Transaction`.
@@ -161,9 +156,7 @@ impl<'exe> Executor<'exe> for DynamicExecutor<'exe> {
         self
     }
 
-    type EnsureTransactionFuture = BoxFuture<'exe, Result<TransactionGuard<'exe>, Error>>;
-
-    fn ensure_transaction(self) -> Self::EnsureTransactionFuture {
+    fn ensure_transaction(self) -> BoxFuture<'exe, Result<TransactionGuard<'exe>, Error>> {
         match self {
             DynamicExecutor::Database(db) => db.ensure_transaction(),
             DynamicExecutor::Transaction(tr) => Box::pin(tr.ensure_transaction()),
