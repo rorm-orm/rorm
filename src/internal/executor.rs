@@ -19,15 +19,9 @@ use crate::internal::bind_params::bind_param;
 use crate::transaction::{Transaction, TransactionGuard};
 use crate::{Database, Error, Row};
 
-impl<'executor> Executor<'executor> for &'executor mut Transaction {
-    fn execute<'data, 'result, Q>(
-        self,
-        query: String,
-        values: Vec<Value<'data>>,
-    ) -> Q::Result<'result>
+impl<'exe> Executor<'exe> for &'exe mut Transaction {
+    fn execute<Q>(self, query: String, values: Vec<Value<'_>>) -> Q::Result<'exe>
     where
-        'executor: 'result,
-        'data: 'result,
         Q: QueryStrategy,
     {
         debug!(
@@ -39,7 +33,7 @@ impl<'executor> Executor<'executor> for &'executor mut Transaction {
         Q::execute(&mut self.sqlx, AssertSqlSafe(query).into_sql_str(), values)
     }
 
-    fn into_dyn(self) -> DynamicExecutor<'executor> {
+    fn into_dyn(self) -> DynamicExecutor<'exe> {
         DynamicExecutor::Transaction(self)
     }
 
@@ -52,24 +46,16 @@ impl<'executor> Executor<'executor> for &'executor mut Transaction {
         }
     }
 
-    type EnsureTransactionFuture = Ready<Result<TransactionGuard<'executor>, Error>>;
+    type EnsureTransactionFuture = Ready<Result<TransactionGuard<'exe>, Error>>;
 
-    fn ensure_transaction(
-        self,
-    ) -> BoxFuture<'executor, Result<TransactionGuard<'executor>, Error>> {
+    fn ensure_transaction(self) -> BoxFuture<'exe, Result<TransactionGuard<'exe>, Error>> {
         Box::pin(ready(Ok(TransactionGuard::Borrowed(self))))
     }
 }
 
-impl<'executor> Executor<'executor> for &'executor Database {
-    fn execute<'data, 'result, Q>(
-        self,
-        query: String,
-        values: Vec<Value<'data>>,
-    ) -> Q::Result<'result>
+impl<'exe> Executor<'exe> for &'exe Database {
+    fn execute<Q>(self, query: String, values: Vec<Value<'_>>) -> Q::Result<'exe>
     where
-        'executor: 'result,
-        'data: 'result,
         Q: QueryStrategy,
     {
         debug!(
@@ -81,7 +67,7 @@ impl<'executor> Executor<'executor> for &'executor Database {
         Q::execute(&self.0, AssertSqlSafe(query).into_sql_str(), values)
     }
 
-    fn into_dyn(self) -> DynamicExecutor<'executor> {
+    fn into_dyn(self) -> DynamicExecutor<'exe> {
         DynamicExecutor::Database(self)
     }
 
@@ -94,23 +80,17 @@ impl<'executor> Executor<'executor> for &'executor Database {
         }
     }
 
-    type EnsureTransactionFuture = BoxFuture<'executor, Result<TransactionGuard<'executor>, Error>>;
+    type EnsureTransactionFuture = BoxFuture<'exe, Result<TransactionGuard<'exe>, Error>>;
 
-    fn ensure_transaction(
-        self,
-    ) -> BoxFuture<'executor, Result<TransactionGuard<'executor>, Error>> {
+    fn ensure_transaction(self) -> BoxFuture<'exe, Result<TransactionGuard<'exe>, Error>> {
         Box::pin(async move { self.start_transaction().await.map(TransactionGuard::Owned) })
     }
 }
 
 pub trait QueryStrategyImpl: QueryStrategyResult {
-    fn execute<'query, E>(
-        executor: E,
-        query: SqlStr,
-        values: Vec<Value<'query>>,
-    ) -> Self::Result<'query>
+    fn execute<'exe, E>(executor: E, query: SqlStr, values: Vec<Value<'_>>) -> Self::Result<'exe>
     where
-        E: AnyExecutor<'query>;
+        E: AnyExecutor<'exe>;
 }
 
 impl QueryStrategyResult for Nothing {
@@ -118,13 +98,9 @@ impl QueryStrategyResult for Nothing {
 }
 
 impl QueryStrategyImpl for Nothing {
-    fn execute<'query, E>(
-        executor: E,
-        query: SqlStr,
-        values: Vec<Value<'query>>,
-    ) -> Self::Result<'query>
+    fn execute<'exe, E>(executor: E, query: SqlStr, values: Vec<Value<'_>>) -> Self::Result<'exe>
     where
-        E: AnyExecutor<'query>,
+        E: AnyExecutor<'exe>,
     {
         let mut query = executor.query(query);
         for x in values {
@@ -160,13 +136,9 @@ impl QueryStrategyResult for AffectedRows {
 }
 
 impl QueryStrategyImpl for AffectedRows {
-    fn execute<'query, E>(
-        executor: E,
-        query: SqlStr,
-        values: Vec<Value<'query>>,
-    ) -> Self::Result<'query>
+    fn execute<'exe, E>(executor: E, query: SqlStr, values: Vec<Value<'_>>) -> Self::Result<'exe>
     where
-        E: AnyExecutor<'query>,
+        E: AnyExecutor<'exe>,
     {
         let mut query = executor.query(query);
         for x in values {
@@ -181,13 +153,9 @@ impl QueryStrategyResult for One {
 }
 
 impl QueryStrategyImpl for One {
-    fn execute<'query, E>(
-        executor: E,
-        query: SqlStr,
-        values: Vec<Value<'query>>,
-    ) -> Self::Result<'query>
+    fn execute<'exe, E>(executor: E, query: SqlStr, values: Vec<Value<'_>>) -> Self::Result<'exe>
     where
-        E: AnyExecutor<'query>,
+        E: AnyExecutor<'exe>,
     {
         let mut query = executor.query(query);
         for x in values {
@@ -207,13 +175,9 @@ impl QueryStrategyResult for Optional {
 }
 
 impl QueryStrategyImpl for Optional {
-    fn execute<'query, E>(
-        executor: E,
-        query: SqlStr,
-        values: Vec<Value<'query>>,
-    ) -> Self::Result<'query>
+    fn execute<'exe, E>(executor: E, query: SqlStr, values: Vec<Value<'_>>) -> Self::Result<'exe>
     where
-        E: AnyExecutor<'query>,
+        E: AnyExecutor<'exe>,
     {
         let mut query = executor.query(query);
         for x in values {
@@ -228,13 +192,9 @@ impl QueryStrategyResult for All {
 }
 
 impl QueryStrategyImpl for All {
-    fn execute<'query, E>(
-        executor: E,
-        query: SqlStr,
-        values: Vec<Value<'query>>,
-    ) -> Self::Result<'query>
+    fn execute<'exe, E>(executor: E, query: SqlStr, values: Vec<Value<'_>>) -> Self::Result<'exe>
     where
-        E: AnyExecutor<'query>,
+        E: AnyExecutor<'exe>,
     {
         let mut query = executor.query(query);
         for x in values {
@@ -250,13 +210,9 @@ impl QueryStrategyResult for Stream {
 }
 
 impl QueryStrategyImpl for Stream {
-    fn execute<'query, E>(
-        executor: E,
-        query: SqlStr,
-        values: Vec<Value<'query>>,
-    ) -> Self::Result<'query>
+    fn execute<'exe, E>(executor: E, query: SqlStr, values: Vec<Value<'_>>) -> Self::Result<'exe>
     where
-        E: AnyExecutor<'query>,
+        E: AnyExecutor<'exe>,
     {
         let mut query = executor.query(query);
         for x in values {

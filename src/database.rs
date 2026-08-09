@@ -147,17 +147,17 @@ impl Drop for Database {
 ///   (for [`All`] and [`Stream`](crate::executor::Stream))
 ///   or a simple [`u64`] (for [`One`] and [`Optional`](crate::executor::Optional)).
 #[allow(clippy::too_many_arguments)] // TODO: refactor this API, clippy is right
-pub fn query<'result, 'db: 'result, 'post_query: 'result, Q: QueryStrategy + GetLimitClause>(
-    executor: impl Executor<'db>,
+pub fn query<'exe, 'data, Q: QueryStrategy + GetLimitClause>(
+    executor: impl Executor<'exe>,
     model: &str,
-    columns: &[ColumnSelector<'_>],
-    joins: &[JoinTable<'_, 'post_query>],
-    conditions: Option<&conditional::Condition<'post_query>>,
+    columns: &[ColumnSelector<'data>],
+    joins: &[JoinTable<'data, 'data>],
+    conditions: Option<&conditional::Condition<'data>>,
     order_by_clause: &[OrderByEntry<'_>],
     limit: Option<Q::LimitOrOffset>,
     distinct: bool,
     #[cfg(feature = "postgres-only")] locking_clause: Option<LockingClause>,
-) -> Q::Result<'result> {
+) -> Q::Result<'exe> {
     let columns: Vec<_> = columns
         .iter()
         .map(|c| {
@@ -241,17 +241,17 @@ pub async fn insert(
 /// Generic implementation of:
 /// - [`Database::insert`]
 /// - [`Database::insert_returning`]
-pub(crate) fn generic_insert<'result, 'db: 'result, 'post_query: 'result, Q: QueryStrategy>(
-    executor: impl Executor<'db>,
+pub(crate) fn generic_insert<'exe, Q: QueryStrategy>(
+    executor: impl Executor<'exe>,
     model: &str,
     columns: &[&str],
-    values: &[Value<'post_query>],
+    values: &[Value<'_>],
     returning: Option<&[&str]>,
-) -> Q::Result<'result> {
+) -> Q::Result<'exe> {
     let values = &[values];
     let q = executor.dialect().insert(model, columns, values, returning);
 
-    let (query_string, bind_params): (_, Vec<Value<'post_query>>) = q.build();
+    let (query_string, bind_params) = q.build();
 
     executor.execute::<Q>(query_string, bind_params)
 }

@@ -4,10 +4,7 @@ use sqlx::types::Json;
 use super::any::{AnyEncode, AnyQuery, AnyType};
 
 /// This helper method is used to bind condition [`Value`]s to the query.
-pub fn bind_param<'post_query, 'query>(query: &mut AnyQuery<'query>, param: Value<'post_query>)
-where
-    'post_query: 'query,
-{
+pub fn bind_param<'exe, 'val>(query: &mut AnyQuery<'exe>, param: Value<'val>) {
     match param {
         Value::String(x) => query.bind(x),
         Value::I64(x) => query.bind(x),

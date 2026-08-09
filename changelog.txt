@@ -2,3 +2,5 @@ Since 0.12.0
 -----------
 
 - Updated to sqlx v0.9
+- Relaxed lifetimes:
+  Only the executor has to outlive the query, string and values can be dropped after constructing the query.

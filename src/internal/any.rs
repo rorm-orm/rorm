@@ -1,7 +1,7 @@
 //! Simple alternative to [`sqlx::any`] which is tailored for rorm at the loss of generality.
 //!
 //! **Beware:**
-//! `AnyQuery<'q>` and `AnyExecutor<'e>` work quite different than `Query<'q, Any, _>` and `Executor<'e, Database = Any>`
+//! `AnyQuery<'q>` and `AnyExecutor<'exe>` work quite different than `Query<'q, Any, _>` and `Executor<'e, Database = Any>`
 
 use std::future::poll_fn;
 use std::ops::DerefMut;
@@ -197,13 +197,13 @@ pub enum AnyQuery<'exe> {
     },
 }
 
-impl<'q> AnyQuery<'q> {
+impl<'exe> AnyQuery<'exe> {
     /// Bind a value for use with this SQL query.
     ///
     /// See [`Query::bind`]
-    pub fn bind<T>(&mut self, value: T)
+    pub fn bind<'t, T>(&mut self, value: T)
     where
-        T: 'q + Send + AnyEncode<'q> + AnyType,
+        T: Send + AnyEncode<'t> + AnyType,
     {
         match self {
             #[cfg(feature = "postgres")]
@@ -218,7 +218,7 @@ impl<'q> AnyQuery<'q> {
     }
 
     /// Execute the query and return the generated results in a stream.
-    pub fn fetch_many(self) -> BoxStream<'q, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>> {
+    pub fn fetch_many(self) -> BoxStream<'exe, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>> {
         struct MappedStream<'stream, LI, LM, RI, RM> {
             stream: BoxStream<'stream, sqlx::Result<sqlx::Either<LI, RI>>>,
             map_left: LM,
@@ -442,20 +442,15 @@ impl AnyQueryResult {
 }
 
 /// Trait to start queries from either an [`AnyPool`] or an [`AnyTransaction`]
-pub trait AnyExecutor<'e> {
+pub trait AnyExecutor<'exe> {
     /// Start a query
     ///
     /// This will consume the executor and store it alongside the query until it is executed.
     // This way there is no additional check required whether the executor's db matches the query's
-    fn query<'q>(self, query: SqlStr) -> AnyQuery<'q>
-    where
-        'e: 'q;
+    fn query(self, query: SqlStr) -> AnyQuery<'exe>;
 }
-impl<'e> AnyExecutor<'e> for &'e AnyPool {
-    fn query<'q>(self, query: SqlStr) -> AnyQuery<'q>
-    where
-        'e: 'q,
-    {
+impl<'exe> AnyExecutor<'exe> for &'exe AnyPool {
+    fn query(self, query: SqlStr) -> AnyQuery<'exe> {
         match self {
             #[cfg(feature = "postgres")]
             AnyPool::Postgres(pool) => AnyQuery::PostgresPool {
@@ -470,11 +465,8 @@ impl<'e> AnyExecutor<'e> for &'e AnyPool {
         }
     }
 }
-impl<'e> AnyExecutor<'e> for &'e mut AnyTransaction {
-    fn query<'q>(self, query: SqlStr) -> AnyQuery<'q>
-    where
-        'e: 'q,
-    {
+impl<'exe> AnyExecutor<'exe> for &'exe mut AnyTransaction {
+    fn query(self, query: SqlStr) -> AnyQuery<'exe> {
         match self {
             #[cfg(feature = "postgres")]
             AnyTransaction::Postgres(tx) => AnyQuery::PostgresConn {

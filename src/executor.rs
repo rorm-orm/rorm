@@ -71,11 +71,11 @@ impl QueryStrategy for Stream {}
 /// Each of those unit structs' docs (follow links above) contains an easy to read `impl Trait` version of the actual types.
 pub trait QueryStrategy: QueryStrategyResult + internal::executor::QueryStrategyImpl {}
 
-/// Helper trait to make the `Result<'result>` public,
+/// Helper trait to make the `Result<'exe>` public,
 /// while keeping [`QueryStrategyImpl`](internal::executor::QueryStrategyImpl) itself private
 #[doc(hidden)]
 pub trait QueryStrategyResult {
-    type Result<'result>;
+    type Result<'exe>;
 }
 
 /// Some kind of database connection which can execute queries
@@ -86,7 +86,7 @@ pub trait QueryStrategyResult {
 /// This trait is **not** object safe.
 /// However, there only exist two implementors,
 /// which were combined into the [`DynamicExecutor`] enum.
-pub trait Executor<'executor> {
+pub trait Executor<'exe> {
     /// Executes a raw SQL query
     ///
     /// The query is executed as prepared statement.
@@ -99,24 +99,18 @@ pub trait Executor<'executor> {
     /// ```skipped
     /// db.execute::<All>("SELECT * FROM foo;".to_string(), vec![]);
     /// ```
-    fn execute<'data, 'result, Q>(
-        self,
-        query: String,
-        values: Vec<Value<'data>>,
-    ) -> Q::Result<'result>
+    fn execute<Q>(self, query: String, values: Vec<Value<'_>>) -> Q::Result<'exe>
     where
-        'executor: 'result,
-        'data: 'result,
         Q: QueryStrategy;
 
     /// Get the executor's sql dialect.
     fn dialect(&self) -> DBImpl;
 
     /// Convenience method to convert into a "`dyn Executor`"
-    fn into_dyn(self) -> DynamicExecutor<'executor>;
+    fn into_dyn(self) -> DynamicExecutor<'exe>;
 
     /// A future producing a [`TransactionGuard`] returned by [`ensure_transaction`](Executor::ensure_transaction)
-    type EnsureTransactionFuture: Future<Output = Result<TransactionGuard<'executor>, Error>> + Send;
+    type EnsureTransactionFuture: Future<Output = Result<TransactionGuard<'exe>, Error>> + Send;
 
     /// Ensure a piece of code is run inside a transaction using a [`TransactionGuard`].
     ///
@@ -126,29 +120,22 @@ pub trait Executor<'executor> {
     ///
     /// This method solves this by producing a type which is either an owned or borrowed Transaction
     /// depending on the [`Executor`] it is called on.
-    fn ensure_transaction(self)
-        -> BoxFuture<'executor, Result<TransactionGuard<'executor>, Error>>;
+    fn ensure_transaction(self) -> BoxFuture<'exe, Result<TransactionGuard<'exe>, Error>>;
 }
 
 /// Choose whether to use transactions or not at runtime
 ///
 /// Like a `Box<dyn Executor<'executor>>`
-pub enum DynamicExecutor<'executor> {
+pub enum DynamicExecutor<'exe> {
     /// Use a default database connection
-    Database(&'executor Database),
+    Database(&'exe Database),
     /// Use a transaction
-    Transaction(&'executor mut Transaction),
+    Transaction(&'exe mut Transaction),
 }
 
-impl<'executor> Executor<'executor> for DynamicExecutor<'executor> {
-    fn execute<'data, 'result, Q>(
-        self,
-        query: String,
-        values: Vec<Value<'data>>,
-    ) -> Q::Result<'result>
+impl<'exe> Executor<'exe> for DynamicExecutor<'exe> {
+    fn execute<Q>(self, query: String, values: Vec<Value<'_>>) -> Q::Result<'exe>
     where
-        'executor: 'result,
-        'data: 'result,
         Q: QueryStrategy,
     {
         debug!(
@@ -170,11 +157,11 @@ impl<'executor> Executor<'executor> for DynamicExecutor<'executor> {
         }
     }
 
-    fn into_dyn(self) -> DynamicExecutor<'executor> {
+    fn into_dyn(self) -> DynamicExecutor<'exe> {
         self
     }
 
-    type EnsureTransactionFuture = BoxFuture<'executor, Result<TransactionGuard<'executor>, Error>>;
+    type EnsureTransactionFuture = BoxFuture<'exe, Result<TransactionGuard<'exe>, Error>>;
 
     fn ensure_transaction(self) -> Self::EnsureTransactionFuture {
         match self {
