@@ -26,9 +26,9 @@ uuid = { version = "~1" }
 libsqlite3-sys = { version = "~0.30", optional = true }
 
 # Bitvec support
-bit-vec = { version = "~0.6", optional = true }
+bit-vec = { version = "~0.8", optional = true }
 # Ip network
-ipnetwork = { version = "~0.20", optional = true }
+ipnetwork = { version = "~0.21", optional = true }
 # Mac Address support
 mac_address = { version = "~1", optional = true }
 
