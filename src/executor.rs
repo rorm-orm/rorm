@@ -8,7 +8,7 @@ use rorm_sql::DBImpl;
 use tracing::debug;
 
 use crate::futures_util::BoxFuture;
-use crate::transaction::{Transaction, TransactionGuard};
+use crate::transaction::{MaybeOwnedTransaction, Transaction};
 use crate::{internal, Database, Error};
 
 /// [`QueryStrategy`] returning nothing
@@ -107,7 +107,7 @@ pub trait Executor<'exe> {
     /// Convenience method to convert into a "`dyn Executor`"
     fn into_dyn(self) -> DynamicExecutor<'exe>;
 
-    /// Ensure a piece of code is run inside a transaction using a [`TransactionGuard`].
+    /// Ensure a piece of code is run inside a transaction using a [`MaybeOwnedTransaction`].
     ///
     /// In generic code an [`Executor`] might and might not be a `&mut Transaction`.
     /// But sometimes you'd want to ensure your code is run inside a transaction
@@ -115,7 +115,7 @@ pub trait Executor<'exe> {
     ///
     /// This method solves this by producing a type which is either an owned or borrowed Transaction
     /// depending on the [`Executor`] it is called on.
-    fn ensure_transaction(self) -> BoxFuture<'exe, Result<TransactionGuard<'exe>, Error>>;
+    fn ensure_transaction(self) -> BoxFuture<'exe, Result<MaybeOwnedTransaction<'exe>, Error>>;
 }
 
 /// Choose whether to use transactions or not at runtime
@@ -156,7 +156,7 @@ impl<'exe> Executor<'exe> for DynamicExecutor<'exe> {
         self
     }
 
-    fn ensure_transaction(self) -> BoxFuture<'exe, Result<TransactionGuard<'exe>, Error>> {
+    fn ensure_transaction(self) -> BoxFuture<'exe, Result<MaybeOwnedTransaction<'exe>, Error>> {
         match self {
             DynamicExecutor::Database(db) => db.ensure_transaction(),
             DynamicExecutor::Transaction(tr) => Box::pin(tr.ensure_transaction()),

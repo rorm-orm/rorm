@@ -3,7 +3,9 @@
 use std::error::Error as StdError;
 use std::fmt;
 use std::future::Future;
+use std::ops::{Deref, DerefMut};
 
+use rorm_sql::DBImpl;
 use tracing::debug;
 
 use crate::internal::any::AnyTransaction;
@@ -30,6 +32,16 @@ pub struct Transaction {
 impl Transaction {
     pub(crate) fn new(sqlx: AnyTransaction) -> Self {
         Self { sqlx, hooks: None }
+    }
+
+    /// Gets database's sql dialect.
+    pub fn dialect(&self) -> DBImpl {
+        match self.sqlx {
+            #[cfg(feature = "postgres")]
+            AnyTransaction::Postgres(_) => DBImpl::Postgres,
+            #[cfg(feature = "sqlite")]
+            AnyTransaction::Sqlite(_) => DBImpl::SQLite,
+        }
     }
 
     /// This function commits the transaction.
@@ -215,34 +227,78 @@ impl StdError for TransactionError {
     }
 }
 
+/// Type alias to the old name
+#[deprecated(note = "Use `MaybeOwnedTransaction` instead")]
+pub type TransactionGuard<'a> = MaybeOwnedTransaction<'a>;
+
 /// Either an owned or borrowed [`Transaction`].
-///
-/// "Guarding" a piece of code which has to be run in an transaction
-/// (see [`Executor::ensure_transaction`](crate::executor::Executor::ensure_transaction))
-#[must_use = "The potentially owned transaction needs to be committed."]
-pub enum TransactionGuard<'tr> {
+#[must_use = "The owned variant needs to be committed."]
+pub enum MaybeOwnedTransaction<'a> {
     /// An owned transaction
     Owned(Transaction),
 
     /// A borrowed transaction
-    Borrowed(&'tr mut Transaction),
+    Borrowed(&'a mut Transaction),
 }
 
-impl TransactionGuard<'_> {
+impl MaybeOwnedTransaction<'_> {
+    /// (Re-) Borrows the transaction
+    pub fn as_ref(&self) -> &Transaction {
+        &*self
+    }
+
+    /// (Re-) Borrows the transaction
+    pub fn as_mut(&mut self) -> &mut Transaction {
+        &mut *self
+    }
+
     /// Get a reference to the guarded transaction
+    #[deprecated(note = "Use deref instead")]
     pub fn get_transaction(&mut self) -> &mut Transaction {
-        match self {
-            TransactionGuard::Owned(tr) => tr,
-            TransactionGuard::Borrowed(tr) => tr,
+        &mut *self
+    }
+
+    /// Commits the potentially owned transaction.
+    pub async fn commit_if_owned(self) -> Result<(), TransactionError> {
+        if let Self::Owned(tr) = self {
+            tr.commit().await
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Rolls back the potentially owned transaction.
+    pub async fn rollback_if_owned(self) -> Result<(), Error> {
+        if let Self::Owned(tr) = self {
+            tr.rollback().await
+        } else {
+            Ok(())
         }
     }
 
     /// Consume the guard, committing the potentially owned transaction.
+    #[deprecated(note = "Use `commit_if_owned` instead")]
     pub async fn commit(self) -> Result<(), TransactionError> {
-        if let TransactionGuard::Owned(tr) = self {
-            tr.commit().await
-        } else {
-            Ok(())
+        self.commit_if_owned().await
+    }
+}
+
+impl Deref for MaybeOwnedTransaction<'_> {
+    type Target = Transaction;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Owned(x) => x,
+            Self::Borrowed(x) => x,
+        }
+    }
+}
+
+impl DerefMut for MaybeOwnedTransaction<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            Self::Owned(x) => x,
+            Self::Borrowed(x) => x,
         }
     }
 }

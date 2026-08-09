@@ -14,9 +14,9 @@ use crate::executor::{
     QueryStrategyResult, Stream,
 };
 use crate::futures_util::{BoxFuture, BoxStream};
-use crate::internal::any::{AnyExecutor, AnyPool, AnyQueryResult, AnyRow, AnyTransaction};
+use crate::internal::any::{AnyExecutor, AnyPool, AnyQueryResult, AnyRow};
 use crate::internal::bind_params::bind_param;
-use crate::transaction::{Transaction, TransactionGuard};
+use crate::transaction::{MaybeOwnedTransaction, Transaction};
 use crate::{Database, Error, Row};
 
 impl<'exe> Executor<'exe> for &'exe mut Transaction {
@@ -38,16 +38,11 @@ impl<'exe> Executor<'exe> for &'exe mut Transaction {
     }
 
     fn dialect(&self) -> DBImpl {
-        match self.sqlx {
-            #[cfg(feature = "postgres")]
-            AnyTransaction::Postgres(_) => DBImpl::Postgres,
-            #[cfg(feature = "sqlite")]
-            AnyTransaction::Sqlite(_) => DBImpl::SQLite,
-        }
+        Transaction::dialect(self)
     }
 
-    fn ensure_transaction(self) -> BoxFuture<'exe, Result<TransactionGuard<'exe>, Error>> {
-        Box::pin(ready(Ok(TransactionGuard::Borrowed(self))))
+    fn ensure_transaction(self) -> BoxFuture<'exe, Result<MaybeOwnedTransaction<'exe>, Error>> {
+        Box::pin(ready(Ok(MaybeOwnedTransaction::Borrowed(self))))
     }
 }
 
@@ -78,8 +73,12 @@ impl<'exe> Executor<'exe> for &'exe Database {
         }
     }
 
-    fn ensure_transaction(self) -> BoxFuture<'exe, Result<TransactionGuard<'exe>, Error>> {
-        Box::pin(async move { self.start_transaction().await.map(TransactionGuard::Owned) })
+    fn ensure_transaction(self) -> BoxFuture<'exe, Result<MaybeOwnedTransaction<'exe>, Error>> {
+        Box::pin(async move {
+            self.start_transaction()
+                .await
+                .map(MaybeOwnedTransaction::Owned)
+        })
     }
 }
 

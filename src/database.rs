@@ -271,8 +271,7 @@ pub async fn insert_bulk(
     columns: &[&str],
     rows: &[&[Value<'_>]],
 ) -> Result<(), Error> {
-    let mut guard = executor.ensure_transaction().await?;
-    let tr: &mut Transaction = guard.get_transaction();
+    let mut tr = executor.ensure_transaction().await?;
 
     for chunk in rows.chunks(25) {
         let mut insert = tr.dialect().insert(model, columns, chunk, None);
@@ -282,7 +281,7 @@ pub async fn insert_bulk(
         tr.execute::<Nothing>(insert_query, insert_params).await?;
     }
 
-    guard.commit().await.map_err(|x| match x {
+    tr.commit_if_owned().await.map_err(|x| match x {
         TransactionError::Database(x) => x,
         TransactionError::Hook(_) => {
             unreachable!("Potentially create transaction does not use hooks")
@@ -308,8 +307,7 @@ pub async fn insert_bulk_returning(
     rows: &[&[Value<'_>]],
     returning: &[&str],
 ) -> Result<Vec<Row>, Error> {
-    let mut guard = executor.ensure_transaction().await?;
-    let tr: &mut Transaction = guard.get_transaction();
+    let mut tr = executor.ensure_transaction().await?;
 
     let mut inserted = Vec::with_capacity(rows.len());
     for chunk in rows.chunks(25) {
@@ -320,7 +318,7 @@ pub async fn insert_bulk_returning(
         inserted.extend(tr.execute::<All>(insert_query, insert_params).await?);
     }
 
-    guard.commit().await.map_err(|x| match x {
+    tr.commit_if_owned().await.map_err(|x| match x {
         TransactionError::Database(x) => x,
         TransactionError::Hook(_) => {
             unreachable!("Potentially create transaction does not use hooks")
