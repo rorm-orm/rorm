@@ -25,7 +25,7 @@ futures-core = "~0.3" # Used for the stream trait
 pin-project = { version = "~1" } # Used to wrap futures and streams which are !Unpin
 
 # SQL executor
-sqlx = { version = "~0.8", default-features = false, features = ["json", "time", "chrono", "uuid", "runtime-tokio"] }
+sqlx = { version = "~0.9", default-features = false, features = ["json", "time", "chrono", "uuid", "runtime-tokio"] }
 
 # Logging facade
 tracing = { version = "~0.1" }

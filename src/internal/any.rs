@@ -16,7 +16,7 @@ use sqlx::query::Query;
 use sqlx::{postgres, Postgres};
 #[cfg(feature = "sqlite")]
 use sqlx::{sqlite, Sqlite};
-use sqlx::{ConnectOptions, Executor, Pool, Transaction};
+use sqlx::{ConnectOptions, Executor, Pool, SqlStr, Transaction};
 use tracing::log::LevelFilter;
 
 use crate::futures_util::BoxStream;
@@ -174,20 +174,27 @@ impl AnyTransaction {
 }
 
 /// Combination of an [`AnyExecutor`] and its associated [`Query<'q, DB, _>`]
-pub enum AnyQuery<'q> {
+pub enum AnyQuery<'exe> {
     #[cfg(feature = "postgres")]
-    PostgresPool(AnyQueryInner<'q, &'q Pool<Postgres>, postgres::PgArguments>),
+    PostgresPool {
+        executor: &'exe Pool<Postgres>,
+        query: Option<Query<'static, Postgres, postgres::PgArguments>>,
+    },
     #[cfg(feature = "sqlite")]
-    SqlitePool(AnyQueryInner<'q, &'q Pool<Sqlite>, sqlite::SqliteArguments<'q>>),
+    SqlitePool {
+        executor: &'exe Pool<Sqlite>,
+        query: Option<Query<'static, Sqlite, sqlite::SqliteArguments>>,
+    },
     #[cfg(feature = "postgres")]
-    PostgresConn(AnyQueryInner<'q, &'q mut postgres::PgConnection, postgres::PgArguments>),
+    PostgresConn {
+        executor: &'exe mut postgres::PgConnection,
+        query: Option<Query<'static, Postgres, postgres::PgArguments>>,
+    },
     #[cfg(feature = "sqlite")]
-    SqliteConn(AnyQueryInner<'q, &'q mut sqlite::SqliteConnection, sqlite::SqliteArguments<'q>>),
-}
-#[doc(hidden)]
-pub struct AnyQueryInner<'q, E: Executor<'q>, A> {
-    executor: E,
-    query: Option<Query<'q, E::Database, A>>,
+    SqliteConn {
+        executor: &'exe mut sqlite::SqliteConnection,
+        query: Option<Query<'static, Sqlite, sqlite::SqliteArguments>>,
+    },
 }
 
 impl<'q> AnyQuery<'q> {
@@ -200,13 +207,11 @@ impl<'q> AnyQuery<'q> {
     {
         match self {
             #[cfg(feature = "postgres")]
-            Self::PostgresPool(AnyQueryInner { query, .. })
-            | Self::PostgresConn(AnyQueryInner { query, .. }) => {
+            Self::PostgresPool { query, .. } | Self::PostgresConn { query, .. } => {
                 *query = query.take().map(|query| query.bind(value))
             }
             #[cfg(feature = "sqlite")]
-            Self::SqlitePool(AnyQueryInner { query, .. })
-            | Self::SqliteConn(AnyQueryInner { query, .. }) => {
+            Self::SqlitePool { query, .. } | Self::SqliteConn { query, .. } => {
                 *query = query.take().map(|query| query.bind(value))
             }
         }
@@ -239,25 +244,25 @@ impl<'q> AnyQuery<'q> {
         }
         match self {
             #[cfg(feature = "postgres")]
-            Self::PostgresPool(AnyQueryInner { executor, query }) => Box::pin(MappedStream {
+            Self::PostgresPool { executor, query } => Box::pin(MappedStream {
                 stream: executor.fetch_many(query.unwrap()),
                 map_left: AnyQueryResult::Postgres,
                 map_right: AnyRow::Postgres,
             }),
             #[cfg(feature = "postgres")]
-            Self::PostgresConn(AnyQueryInner { executor, query }) => Box::pin(MappedStream {
+            Self::PostgresConn { executor, query } => Box::pin(MappedStream {
                 stream: executor.fetch_many(query.unwrap()),
                 map_left: AnyQueryResult::Postgres,
                 map_right: AnyRow::Postgres,
             }),
             #[cfg(feature = "sqlite")]
-            Self::SqlitePool(AnyQueryInner { executor, query }) => Box::pin(MappedStream {
+            Self::SqlitePool { executor, query } => Box::pin(MappedStream {
                 stream: executor.fetch_many(query.unwrap()),
                 map_left: AnyQueryResult::Sqlite,
                 map_right: AnyRow::Sqlite,
             }),
             #[cfg(feature = "sqlite")]
-            Self::SqliteConn(AnyQueryInner { executor, query }) => Box::pin(MappedStream {
+            Self::SqliteConn { executor, query } => Box::pin(MappedStream {
                 stream: executor.fetch_many(query.unwrap()),
                 map_left: AnyQueryResult::Sqlite,
                 map_right: AnyRow::Sqlite,
@@ -270,7 +275,7 @@ impl<'q> AnyQuery<'q> {
         let mut vec = Vec::new();
         match self {
             #[cfg(feature = "postgres")]
-            Self::PostgresPool(AnyQueryInner { executor, query }) => {
+            Self::PostgresPool { executor, query } => {
                 let mut stream = executor.fetch_many(query.unwrap());
                 while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
                     .await
@@ -282,7 +287,7 @@ impl<'q> AnyQuery<'q> {
                 }
             }
             #[cfg(feature = "postgres")]
-            Self::PostgresConn(AnyQueryInner { executor, query }) => {
+            Self::PostgresConn { executor, query } => {
                 let mut stream = executor.fetch_many(query.unwrap());
                 while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
                     .await
@@ -294,7 +299,7 @@ impl<'q> AnyQuery<'q> {
                 }
             }
             #[cfg(feature = "sqlite")]
-            Self::SqlitePool(AnyQueryInner { executor, query }) => {
+            Self::SqlitePool { executor, query } => {
                 let mut stream = executor.fetch_many(query.unwrap());
                 while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
                     .await
@@ -306,7 +311,7 @@ impl<'q> AnyQuery<'q> {
                 }
             }
             #[cfg(feature = "sqlite")]
-            Self::SqliteConn(AnyQueryInner { executor, query }) => {
+            Self::SqliteConn { executor, query } => {
                 let mut stream = executor.fetch_many(query.unwrap());
                 while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
                     .await
@@ -325,22 +330,22 @@ impl<'q> AnyQuery<'q> {
     pub async fn fetch_optional(self) -> sqlx::Result<Option<AnyRow>> {
         match self {
             #[cfg(feature = "postgres")]
-            Self::PostgresPool(AnyQueryInner { executor, query }) => executor
+            Self::PostgresPool { executor, query } => executor
                 .fetch_optional(query.unwrap())
                 .await
                 .map(|option| option.map(AnyRow::Postgres)),
             #[cfg(feature = "postgres")]
-            Self::PostgresConn(AnyQueryInner { executor, query }) => executor
+            Self::PostgresConn { executor, query } => executor
                 .fetch_optional(query.unwrap())
                 .await
                 .map(|option| option.map(AnyRow::Postgres)),
             #[cfg(feature = "sqlite")]
-            Self::SqlitePool(AnyQueryInner { executor, query }) => executor
+            Self::SqlitePool { executor, query } => executor
                 .fetch_optional(query.unwrap())
                 .await
                 .map(|option| option.map(AnyRow::Sqlite)),
             #[cfg(feature = "sqlite")]
-            Self::SqliteConn(AnyQueryInner { executor, query }) => executor
+            Self::SqliteConn { executor, query } => executor
                 .fetch_optional(query.unwrap())
                 .await
                 .map(|option| option.map(AnyRow::Sqlite)),
@@ -352,7 +357,7 @@ impl<'q> AnyQuery<'q> {
         let mut count = 0;
         match self {
             #[cfg(feature = "postgres")]
-            Self::PostgresPool(AnyQueryInner { executor, query }) => {
+            Self::PostgresPool { executor, query } => {
                 let mut stream = executor.fetch_many(query.unwrap());
                 while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
                     .await
@@ -365,7 +370,7 @@ impl<'q> AnyQuery<'q> {
                 }
             }
             #[cfg(feature = "postgres")]
-            Self::PostgresConn(AnyQueryInner { executor, query }) => {
+            Self::PostgresConn { executor, query } => {
                 let mut stream = executor.fetch_many(query.unwrap());
                 while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
                     .await
@@ -378,7 +383,7 @@ impl<'q> AnyQuery<'q> {
                 }
             }
             #[cfg(feature = "sqlite")]
-            Self::SqlitePool(AnyQueryInner { executor, query }) => {
+            Self::SqlitePool { executor, query } => {
                 let mut stream = executor.fetch_many(query.unwrap());
                 while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
                     .await
@@ -391,7 +396,7 @@ impl<'q> AnyQuery<'q> {
                 }
             }
             #[cfg(feature = "sqlite")]
-            Self::SqliteConn(AnyQueryInner { executor, query }) => {
+            Self::SqliteConn { executor, query } => {
                 let mut stream = executor.fetch_many(query.unwrap());
                 while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
                     .await
@@ -442,45 +447,45 @@ pub trait AnyExecutor<'e> {
     ///
     /// This will consume the executor and store it alongside the query until it is executed.
     // This way there is no additional check required whether the executor's db matches the query's
-    fn query<'q>(self, query: &'q str) -> AnyQuery<'q>
+    fn query<'q>(self, query: SqlStr) -> AnyQuery<'q>
     where
         'e: 'q;
 }
 impl<'e> AnyExecutor<'e> for &'e AnyPool {
-    fn query<'q>(self, query: &'q str) -> AnyQuery<'q>
+    fn query<'q>(self, query: SqlStr) -> AnyQuery<'q>
     where
         'e: 'q,
     {
         match self {
             #[cfg(feature = "postgres")]
-            AnyPool::Postgres(pool) => AnyQuery::PostgresPool(AnyQueryInner {
+            AnyPool::Postgres(pool) => AnyQuery::PostgresPool {
                 executor: pool,
                 query: Some(sqlx::query(query)),
-            }),
+            },
             #[cfg(feature = "sqlite")]
-            AnyPool::Sqlite(pool) => AnyQuery::SqlitePool(AnyQueryInner {
+            AnyPool::Sqlite(pool) => AnyQuery::SqlitePool {
                 executor: pool,
                 query: Some(sqlx::query(query)),
-            }),
+            },
         }
     }
 }
 impl<'e> AnyExecutor<'e> for &'e mut AnyTransaction {
-    fn query<'q>(self, query: &'q str) -> AnyQuery<'q>
+    fn query<'q>(self, query: SqlStr) -> AnyQuery<'q>
     where
         'e: 'q,
     {
         match self {
             #[cfg(feature = "postgres")]
-            AnyTransaction::Postgres(tx) => AnyQuery::PostgresConn(AnyQueryInner {
+            AnyTransaction::Postgres(tx) => AnyQuery::PostgresConn {
                 executor: tx.deref_mut(),
                 query: Some(sqlx::query(query)),
-            }),
+            },
             #[cfg(feature = "sqlite")]
-            AnyTransaction::Sqlite(tx) => AnyQuery::SqliteConn(AnyQueryInner {
+            AnyTransaction::Sqlite(tx) => AnyQuery::SqliteConn {
                 executor: tx.deref_mut(),
                 query: Some(sqlx::query(query)),
-            }),
+            },
         }
     }
 }
