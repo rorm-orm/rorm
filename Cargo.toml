@@ -58,10 +58,10 @@ rorm-cli = { version = "~0.10", path = "./rorm-cli", default-features = false, o
 mac_address = { version = "~1", optional = true }
 
 # Bitvec support (postgres-only)
-bit-vec = { version = "~0.6", optional = true }
+bit-vec = { version = "~0.8", optional = true }
 
 # Ip network support (postgres-only)
-ipnetwork = { version = "~0.20", optional = true }
+ipnetwork = { version = "~0.21", optional = true }
 
 # Date and time support
 chrono = { version = ">=0.4.20", default-features = false, optional = true }

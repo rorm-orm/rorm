@@ -1,6 +1,10 @@
 Since 0.10.0
 -----------
 
+- Updated sqlx to 0.9
+- Updated ipnetwork to 0.21
+- Updated bitvec to 0.8
+
 - Added postgres arrays
 
 - Refactored rorm-sql's conditions
