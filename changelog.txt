@@ -1,3 +1,13 @@
+Since 0.10.1
+------------
+- Implemented the `index` annotation
+  - `make-migrations` emits the new `CreateIndex` and `DeleteIndex` operations
+  - `migrate` executes them as CREATE INDEX / DROP INDEX
+  - Indexes are named `<table>_<name-or-column>_idx`, the linter rejects collisions
+  - Adding or removing an index no longer recreates the column
+  - Projects whose existing migrations carry the annotation get a migration
+    creating the indexes which were never created
+
 Since 0.9.0
 -----------
 - Fixed display order of fields when renaming them

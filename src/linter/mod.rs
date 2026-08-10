@@ -143,12 +143,31 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
             ));
         }
     }
+
+    // Index names have to be unique across the whole database, not just their table
+    let mut index_names: HashMap<String, &str> = HashMap::new();
+    for model in &internal_models.models {
+        for index in model.indexes() {
+            let name = index.sql_name(model.name.as_str());
+            if let Some(other) = index_names.insert(name.clone(), model.name.as_str()) {
+                return Err(anyhow!(
+                    "Index name {} is used by model {} as well as model {}",
+                    name,
+                    other,
+                    model.name.as_str()
+                ));
+            }
+        }
+    }
+
     Ok(())
 }
 
 #[cfg(test)]
 mod test_check_internal_models {
-    use rorm_declaration::imr::{Annotation, DbType, Field, InternalModelFormat, Model};
+    use rorm_declaration::imr::{
+        Annotation, DbType, Field, IndexValue, InternalModelFormat, Model,
+    };
 
     use crate::linter::check_internal_models;
 
@@ -358,6 +377,93 @@ mod test_check_internal_models {
                 ],
                 source_defined_at: None,
             }],
+        };
+
+        assert!(check_internal_models(&imf).is_err())
+    }
+
+    /// A model named `name` whose fields are annotated with `indexes`
+    fn model_with_indexes(name: &str, indexes: Vec<(&str, Option<IndexValue>)>) -> Model {
+        let mut fields = vec![Field {
+            name: "prim".to_string(),
+            db_type: DbType::Int64,
+            annotations: vec![Annotation::PrimaryKey],
+            source_defined_at: None,
+        }];
+        fields.extend(indexes.into_iter().map(|(field, index)| Field {
+            name: field.to_string(),
+            db_type: DbType::VarChar,
+            annotations: vec![Annotation::Index(index)],
+            source_defined_at: None,
+        }));
+        Model {
+            name: name.to_string(),
+            fields,
+            source_defined_at: None,
+        }
+    }
+
+    #[test]
+    fn distinct_index_names() {
+        let imf = InternalModelFormat {
+            models: vec![
+                model_with_indexes("foo", vec![("a", None), ("b", None)]),
+                model_with_indexes("bar", vec![("a", None)]),
+            ],
+        };
+
+        assert!(check_internal_models(&imf).is_ok())
+    }
+
+    #[test]
+    fn index_name_colliding_with_another_model() {
+        // Index names are unique per database, so both models
+        // trying to create "foo_a_b_idx" is an error
+        let imf = InternalModelFormat {
+            models: vec![
+                model_with_indexes(
+                    "foo",
+                    vec![(
+                        "x",
+                        Some(IndexValue {
+                            name: "a_b".to_string(),
+                            priority: None,
+                        }),
+                    )],
+                ),
+                model_with_indexes(
+                    "foo_a",
+                    vec![(
+                        "y",
+                        Some(IndexValue {
+                            name: "b".to_string(),
+                            priority: None,
+                        }),
+                    )],
+                ),
+            ],
+        };
+
+        assert!(check_internal_models(&imf).is_err())
+    }
+
+    #[test]
+    fn index_named_like_a_column() {
+        // Both the unnamed index on "a" and the one named "a" would be "foo_a_idx"
+        let imf = InternalModelFormat {
+            models: vec![model_with_indexes(
+                "foo",
+                vec![
+                    ("a", None),
+                    (
+                        "b",
+                        Some(IndexValue {
+                            name: "a".to_string(),
+                            priority: None,
+                        }),
+                    ),
+                ],
+            )],
         };
 
         assert!(check_internal_models(&imf).is_err())

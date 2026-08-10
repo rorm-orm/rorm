@@ -1,15 +1,17 @@
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{create_dir_all, read_to_string};
 use std::hash::{Hash, Hasher};
+use std::iter::zip;
 use std::path::Path;
 
 use anyhow::{anyhow, Context};
-use rorm_declaration::imr::{Annotation, Field, InternalModelFormat, Model};
+use rorm_declaration::imr::{Annotation, Field, Index, InternalModelFormat, Model};
 use rorm_declaration::migration::{Migration, Operation};
 use tracing::info;
 
 use crate::linter;
+use crate::utils::indexes;
 use crate::utils::migrations::{
     convert_migration_to_file, convert_migrations_to_internal_models, get_existing_migrations,
 };
@@ -177,9 +179,8 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                     }
 
                     // Check for differences
-                    if old_field.db_type != new_field.db_type
-                        || old_field.annotations != new_field.annotations
-                    {
+                    // (indexes are compared separately, they don't alter the column)
+                    if !indexes::fields_eq(old_field, new_field) {
                         altered_fields
                             .entry(new_model.name.clone())
                             .or_default()
@@ -193,7 +194,9 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
         if !new_models.is_empty() && !deleted_models.is_empty() {
             for new_model in &new_models {
                 for old_model in &deleted_models {
-                    if new_model.fields == old_model.fields
+                    if new_model.fields.len() == old_model.fields.len()
+                        && zip(&new_model.fields, &old_model.fields)
+                            .all(|(new, old)| indexes::fields_eq(new, old))
                         && question(
                             format!(
                                 "Did you rename the model {} to {}?",
@@ -235,9 +238,9 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                     references
                         .entry(new_model.name.clone())
                         .or_default()
-                        .push(new_field.clone());
+                        .push(indexes::without_indexes(new_field));
                 } else {
-                    normal_fields.push(new_field.clone());
+                    normal_fields.push(indexes::without_indexes(new_field));
                 }
             }
 
@@ -271,7 +274,10 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                 for new_field in new_fields {
                     for old_field in old_fields {
                         if new_field.db_type == old_field.db_type
-                            && new_field.annotations == old_field.annotations
+                            && indexes::annotations_eq(
+                                &new_field.annotations,
+                                &old_field.annotations,
+                            )
                             && question(
                                 format!(
                                     "Did you rename the field {} of model {model_name} to {}?",
@@ -319,7 +325,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             for field in fields {
                 op.push(Operation::CreateField {
                     model: model_name.clone(),
-                    field: (*field).clone(),
+                    field: indexes::without_indexes(field),
                 });
                 info!("Added field {} to model {}", field.name, model_name);
             }
@@ -355,7 +361,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                             });
                             op.push(Operation::CreateField {
                                 model: model.clone(),
-                                field: (*new).clone(),
+                                field: indexes::without_indexes(new),
                             });
                             info!("Recreated field {} on model {}", &new.name, &model);
                         }
@@ -368,12 +374,62 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                     });
                     op.push(Operation::CreateField {
                         model: model.clone(),
-                        field: (*new).clone(),
+                        field: indexes::without_indexes(new),
                     });
                     info!("Recreated field {} on model {}", &new.name, &model);
                 }
             }
         }
+
+        // Recreating a field drops the indexes spanning it, so they have to be
+        // recreated as well - even though their definition didn't change.
+        let recreated_columns: HashSet<(&str, &str)> = altered_fields
+            .iter()
+            .flat_map(|(model, af)| {
+                af.iter()
+                    .map(|(old, _)| (model.as_str(), old.name.as_str()))
+            })
+            .collect();
+        let is_recreated = |model: &str, index: &Index| {
+            index
+                .columns
+                .iter()
+                .any(|column| recreated_columns.contains(&(model, column.as_str())))
+        };
+
+        let old_indexes = indexes::collect(&constructed);
+        let new_indexes = indexes::collect(&internal_models);
+        let old_index_set: HashSet<&(String, Index)> = old_indexes.iter().collect();
+        let new_index_set: HashSet<&(String, Index)> = new_indexes.iter().collect();
+
+        // Deleting an index has to happen before its columns are touched,
+        // creating one after they exist.
+        let mut deleted_indexes = vec![];
+        for entry in &old_indexes {
+            let (model, index) = entry;
+            if !new_index_set.contains(entry) || is_recreated(model, index) {
+                deleted_indexes.push(Operation::DeleteIndex {
+                    model: model.clone(),
+                    index: index.clone(),
+                });
+                info!("Deleted index {} of model {model}", index.sql_name(model));
+            }
+        }
+        let mut created_indexes = vec![];
+        for entry in &new_indexes {
+            let (model, index) = entry;
+            if !old_index_set.contains(entry) || is_recreated(model, index) {
+                created_indexes.push(Operation::CreateIndex {
+                    model: model.clone(),
+                    index: index.clone(),
+                });
+                info!("Created index {} on model {model}", index.sql_name(model));
+            }
+        }
+
+        let mut operations = deleted_indexes;
+        operations.extend(op);
+        operations.extend(created_indexes);
 
         new_migration = Some(Migration {
             hash: h.to_string(),
@@ -382,7 +438,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
             name: name.to_string(),
             dependency: Some(last_migration.id),
             replaces: vec![],
-            operations: op,
+            operations,
         });
     } else {
         // If there are no models yet, no migrations must be created
@@ -405,9 +461,9 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                         references
                             .entry(model.name.clone())
                             .or_default()
-                            .push(field.clone());
+                            .push(indexes::without_indexes(field));
                     } else {
-                        normal_fields.push(field.clone());
+                        normal_fields.push(indexes::without_indexes(field));
                     }
                 }
 
@@ -427,6 +483,14 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
                     })
                     .collect::<Vec<Operation>>()
             }));
+
+            // Indexes can only be created once all their columns exist
+            operations.extend(indexes::collect(&internal_models).into_iter().map(
+                |(model, index)| {
+                    info!("Created index {} on model {model}", index.sql_name(&model));
+                    Operation::CreateIndex { model, index }
+                },
+            ));
 
             new_migration = Some(Migration {
                 hash: h.to_string(),

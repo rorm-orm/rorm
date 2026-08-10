@@ -2,7 +2,9 @@
 
 use rorm_db::executor::{Executor, Nothing};
 use rorm_db::sql::alter_table::{AlterTable, AlterTableOperation};
+use rorm_db::sql::create_index::CreateIndex;
 use rorm_db::sql::create_table::CreateTable;
+use rorm_db::sql::drop_index::DropIndex;
 use rorm_db::sql::drop_table::DropTable;
 use rorm_db::sql::insert::Insert;
 use rorm_db::sql::value::Value;
@@ -205,6 +207,22 @@ pub async fn apply_operation(
                 tx.execute::<Nothing>(query_string, query_bind_params)
                     .await?;
             }
+        }
+        Operation::CreateIndex { model, index } => {
+            let name = index.sql_name(model);
+
+            let mut create_index = db_impl.create_index(name.as_str(), model.as_str());
+            for column in &index.columns {
+                create_index = create_index.add_column(column.as_str());
+            }
+
+            tx.execute::<Nothing>(create_index.build()?, Vec::new())
+                .await?;
+        }
+        Operation::DeleteIndex { model, index } => {
+            let query_string = db_impl.drop_index(index.sql_name(model).as_str()).build();
+
+            tx.execute::<Nothing>(query_string, Vec::new()).await?;
         }
         #[allow(unused_variables)]
         Operation::RawSQL {
