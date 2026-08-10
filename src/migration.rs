@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::imr::Field;
+use crate::imr::{Field, Index};
 
 /**
 The presentation of a migration file
@@ -102,6 +102,24 @@ pub enum Operation {
         model: String,
         /// Name of the field to delete
         name: String,
+    },
+
+    /// Representation of a CreateIndex operation
+    #[serde(rename_all = "PascalCase")]
+    CreateIndex {
+        /// Name of the model to create the index on
+        model: String,
+        /// The index that should be created
+        index: Index,
+    },
+
+    /// Representation of a DeleteIndex operation
+    #[serde(rename_all = "PascalCase")]
+    DeleteIndex {
+        /// Name of the model the index was created on
+        model: String,
+        /// The index that should be deleted
+        index: Index,
     },
 
     /// Representation of a RawSQL operation
