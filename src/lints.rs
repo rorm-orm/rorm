@@ -20,7 +20,12 @@ pub struct Annotations {
     /// Does the field have the [Annotation::DefaultValue]?
     pub default: bool,
 
-    /// Does the field have the [Annotation::Index]?
+    /// Does the field have an [Annotation::Index] *without* a name?
+    ///
+    /// A named index may span several columns, which makes it valid on columns
+    /// where a single column index wouldn't be, most notably a primary key.
+    /// Since this struct can't express which columns an index spans,
+    /// named indexes are not tracked here at all.
     pub index: bool,
 
     /// Does the field have the [Annotation::MaxLength]?
@@ -70,7 +75,7 @@ impl Annotations {
             A { default: true, auto_increment: true, .. } => "DefaultValue and AutoIncrement are mutually exclusive",
             A { default: true, primary_key: true, .. } => "DefaultValue and PrimaryKey are mutually exclusive",
             A { default: true, unique: true, .. } => "DefaultValue and Unique are mutually exclusive",
-            A { index: true, primary_key: true, .. } => "Index and PrimaryKey are mutually exclusive",
+            A { index: true, primary_key: true, .. } => "An unnamed Index and PrimaryKey are mutually exclusive; name the index to span the column as part of a composite index",
             A { not_null: true, primary_key: true, .. } => "NotNull and PrimaryKey are mutually exclusive",
 
             A { auto_increment: true, primary_key: false, .. } => "AutoIncrement requires PrimaryKey",
@@ -99,7 +104,8 @@ impl From<&[Annotation]> for Annotations {
                 Annotation::AutoIncrement => result.auto_increment = true,
                 Annotation::Choices(_) => result.choices = true,
                 Annotation::DefaultValue(_) => result.default = true,
-                Annotation::Index(_) => result.index = true,
+                // A named index may span several columns and is therefore not tracked
+                Annotation::Index(index) => result.index |= index.is_none(),
                 Annotation::MaxLength(_) => result.max_length = true,
                 Annotation::NotNull => result.not_null = true,
                 Annotation::PrimaryKey => result.primary_key = true,
@@ -108,5 +114,48 @@ impl From<&[Annotation]> for Annotations {
             }
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod test_index_on_primary_key {
+    use crate::imr::{Annotation, IndexValue};
+    use crate::lints::Annotations;
+
+    fn check(annotations: &[Annotation]) -> Result<(), &'static str> {
+        Annotations::from(annotations).check()
+    }
+
+    #[test]
+    fn unnamed_index_on_primary_key_is_redundant() {
+        assert!(check(&[Annotation::PrimaryKey, Annotation::Index(None)]).is_err());
+    }
+
+    #[test]
+    fn named_index_on_primary_key_is_allowed() {
+        // A primary key is a perfectly valid column of a composite index,
+        // e.g. "(collection, uuid)" for filtering by a foreign key
+        // and sorting by the primary key.
+        assert!(check(&[
+            Annotation::PrimaryKey,
+            Annotation::Index(Some(IndexValue {
+                name: "collection_uuid".to_string(),
+                priority: Some(2),
+            })),
+        ])
+        .is_ok());
+    }
+
+    #[test]
+    fn an_unnamed_index_is_still_caught_next_to_a_named_one() {
+        assert!(check(&[
+            Annotation::PrimaryKey,
+            Annotation::Index(Some(IndexValue {
+                name: "collection_uuid".to_string(),
+                priority: None,
+            })),
+            Annotation::Index(None),
+        ])
+        .is_err());
     }
 }
