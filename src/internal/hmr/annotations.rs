@@ -275,7 +275,9 @@ impl Annotations {
             auto_increment: self.auto_increment.is_some(),
             choices: self.choices.is_some(),
             default: self.default.is_some(),
-            index: self.index.is_some(),
+            // Only an unnamed index is tracked by the lints:
+            // a named one may span several columns
+            index: matches!(self.index, Some(Index(None))),
             max_length: self.max_length.is_some(),
             not_null: self.not_null(),
             primary_key: self.primary_key.is_some(),

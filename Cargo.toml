@@ -11,7 +11,7 @@ members = [
 
 [package]
 name = "rorm"
-version = "0.10.0"
+version = "0.10.1"
 edition = "2021"
 repository = "https://github.com/rorm-orm/rorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
@@ -49,7 +49,7 @@ pin-project = { version = "~1" } # Used to wrap futures and streams which are !U
 
 rorm-db = { version = "~0.12", path = "./rorm-db", features = ["serde"] }
 rorm-macro = { version = "~0.11", path = "./rorm-macro" }
-rorm-declaration = { version = "~0.5", path = "./rorm-declaration" }
+rorm-declaration = { version = "~0.5.2", path = "./rorm-declaration" }
 
 # rorm-cli exposes interfaces to integrate the cli as library
 rorm-cli = { version = "~0.10", path = "./rorm-cli", default-features = false, optional = true }
