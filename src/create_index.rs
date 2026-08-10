@@ -121,8 +121,8 @@ impl<'until_build> CreateIndex<'until_build> for CreateIndexImpl<'until_build> {
                 }
 
                 Ok(format!(
-                    "CREATE {} INDEX{} {} ON {} ({}) {};",
-                    if d.unique { "UNIQUE" } else { "" },
+                    "CREATE{} INDEX{} \"{}\" ON \"{}\" ({}){};",
+                    if d.unique { " UNIQUE" } else { "" },
                     if d.if_not_exists {
                         " IF NOT EXISTS"
                     } else {
@@ -130,8 +130,11 @@ impl<'until_build> CreateIndex<'until_build> for CreateIndexImpl<'until_build> {
                     },
                     d.name,
                     d.table_name,
-                    d.columns.join(", "),
-                    d.condition.as_ref().map_or("", |x| x.as_str()),
+                    quote_columns(&d.columns),
+                    match d.condition {
+                        None => String::from(""),
+                        Some(cond) => format!(" WHERE {}", cond.as_str()),
+                    }
                 ))
             }
             #[cfg(feature = "postgres")]
@@ -144,7 +147,7 @@ impl<'until_build> CreateIndex<'until_build> for CreateIndexImpl<'until_build> {
                 }
 
                 Ok(format!(
-                    "CREATE{} INDEX{} {} ON {} ({}){};",
+                    "CREATE{} INDEX{} \"{}\" ON \"{}\" ({}){};",
                     if d.unique { " UNIQUE" } else { "" },
                     if d.if_not_exists {
                         " IF NOT EXISTS"
@@ -153,7 +156,7 @@ impl<'until_build> CreateIndex<'until_build> for CreateIndexImpl<'until_build> {
                     },
                     d.name,
                     d.table_name,
-                    d.columns.join(", "),
+                    quote_columns(&d.columns),
                     match d.condition {
                         None => String::from(""),
                         Some(cond) => format!(" WHERE {}", cond.as_str()),
@@ -161,5 +164,112 @@ impl<'until_build> CreateIndex<'until_build> for CreateIndexImpl<'until_build> {
                 ))
             }
         }
+    }
+}
+
+/// Joins the `columns` into the comma separated list of a CREATE INDEX statement
+fn quote_columns(columns: &[&str]) -> String {
+    columns
+        .iter()
+        .map(|column| format!("\"{column}\""))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+#[cfg(test)]
+mod test {
+    use crate::create_index::CreateIndex;
+    use crate::DBImpl;
+
+    #[cfg(feature = "sqlite")]
+    #[test]
+    fn single_column_sqlite() {
+        assert_eq!(
+            DBImpl::SQLite
+                .create_index("user_login_idx", "user")
+                .add_column("login")
+                .build()
+                .unwrap(),
+            r#"CREATE INDEX "user_login_idx" ON "user" ("login");"#
+        );
+    }
+
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn single_column_postgres() {
+        assert_eq!(
+            DBImpl::Postgres
+                .create_index("user_login_idx", "user")
+                .add_column("login")
+                .build()
+                .unwrap(),
+            r#"CREATE INDEX "user_login_idx" ON "user" ("login");"#
+        );
+    }
+
+    #[cfg(feature = "sqlite")]
+    #[test]
+    fn multiple_columns_sqlite() {
+        assert_eq!(
+            DBImpl::SQLite
+                .create_index("user_full_name_idx", "user")
+                .add_column("last_name")
+                .add_column("first_name")
+                .build()
+                .unwrap(),
+            r#"CREATE INDEX "user_full_name_idx" ON "user" ("last_name", "first_name");"#
+        );
+    }
+
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn multiple_columns_postgres() {
+        assert_eq!(
+            DBImpl::Postgres
+                .create_index("user_full_name_idx", "user")
+                .add_column("last_name")
+                .add_column("first_name")
+                .build()
+                .unwrap(),
+            r#"CREATE INDEX "user_full_name_idx" ON "user" ("last_name", "first_name");"#
+        );
+    }
+
+    #[cfg(feature = "sqlite")]
+    #[test]
+    fn unique_and_if_not_exists_sqlite() {
+        assert_eq!(
+            DBImpl::SQLite
+                .create_index("user_login_idx", "user")
+                .add_column("login")
+                .unique()
+                .if_not_exists()
+                .build()
+                .unwrap(),
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS "user_login_idx" ON "user" ("login");"#
+        );
+    }
+
+    #[cfg(feature = "sqlite")]
+    #[test]
+    fn condition_sqlite() {
+        assert_eq!(
+            DBImpl::SQLite
+                .create_index("user_login_idx", "user")
+                .add_column("login")
+                .set_condition("\"login\" IS NOT NULL".to_string())
+                .build()
+                .unwrap(),
+            r#"CREATE INDEX "user_login_idx" ON "user" ("login") WHERE "login" IS NOT NULL;"#
+        );
+    }
+
+    #[cfg(feature = "sqlite")]
+    #[test]
+    fn missing_columns_is_an_error() {
+        assert!(DBImpl::SQLite
+            .create_index("user_login_idx", "user")
+            .build()
+            .is_err());
     }
 }

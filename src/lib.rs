@@ -21,6 +21,8 @@ pub mod create_table;
 pub mod create_trigger;
 /// Implementation of SQL DELETE operation
 pub mod delete;
+/// Implementation of SQL DROP INDEX statements
+pub mod drop_index;
 /// Implementation of SQL DROP TABLE statements
 pub mod drop_table;
 /// Definition of error types that can occur.
@@ -64,6 +66,7 @@ use crate::create_trigger::{
     SQLCreateTrigger, SQLCreateTriggerOperation, SQLCreateTriggerPointInTime,
 };
 use crate::delete::{Delete, DeleteData, DeleteImpl};
+use crate::drop_index::{DropIndex, DropIndexData, DropIndexImpl};
 use crate::drop_table::{DropTable, DropTableData, DropTableImpl};
 use crate::insert::{Insert, InsertData, InsertImpl};
 use crate::join_table::{JoinTableData, JoinTableImpl, JoinType};
@@ -171,6 +174,28 @@ impl DBImpl {
             DBImpl::SQLite => CreateIndexImpl::Sqlite(d),
             #[cfg(feature = "postgres")]
             DBImpl::Postgres => CreateIndexImpl::Postgres(d),
+        }
+    }
+
+    /**
+    The entry point to drop an index.
+
+    **Parameter**:
+    - `name`: Name of the index to drop.
+    */
+    pub fn drop_index<'until_build>(
+        &self,
+        name: &'until_build str,
+    ) -> impl DropIndex + 'until_build {
+        let d = DropIndexData {
+            name,
+            if_exists: false,
+        };
+        match self {
+            #[cfg(feature = "sqlite")]
+            DBImpl::SQLite => DropIndexImpl::SQLite(d),
+            #[cfg(feature = "postgres")]
+            DBImpl::Postgres => DropIndexImpl::Postgres(d),
         }
     }
 
