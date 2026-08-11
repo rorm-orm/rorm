@@ -301,21 +301,20 @@ where
         let mut context = QueryContext::new();
         let columns: Vec<_> = self
             .columns
-            .iter()
-            .map(|(name, value)| (name.as_str(), value.as_sql()))
+            .into_iter()
+            .map(|(name, value)| (name.as_str(), value.into_sql()))
             .collect();
-        let condition_index = context.add_condition(&condition);
-        let condition = context.get_condition(condition_index);
-        database::update(self.executor, M::TABLE, &columns, Some(&condition)).await
+        let condition = condition.build(&mut context);
+        database::update(self.executor, M::TABLE, columns, Some(&condition)).await
     }
 
     /// Update all rows
     pub async fn all(self) -> Result<u64, Error> {
         let columns: Vec<_> = self
             .columns
-            .iter()
-            .map(|(name, value)| (name.as_str(), value.as_sql()))
+            .into_iter()
+            .map(|(name, value)| (name.as_str(), value.into_sql()))
             .collect();
-        database::update(self.executor, M::TABLE, &columns, None).await
+        database::update(self.executor, M::TABLE, columns, None).await
     }
 }

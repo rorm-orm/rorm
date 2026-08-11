@@ -10,13 +10,13 @@ pub trait ConditionMarker<'a>: Send {
 
     /// Calls [`Condition::build`] if `Self: Condition`
     /// or returns `None` if `Self = ()`
-    fn build(&self, context: &mut QueryContext<'a>) -> Option<usize>;
+    fn build(&self, ctx: &mut QueryContext) -> Option<rorm_db::sql::conditional::Condition<'a>>;
 }
 
 impl<'a> ConditionMarker<'a> for () {
     sealed!(impl);
 
-    fn build(&self, _context: &mut QueryContext<'a>) -> Option<usize> {
+    fn build(&self, _ctx: &mut QueryContext) -> Option<rorm_db::sql::conditional::Condition<'a>> {
         None
     }
 }
@@ -24,7 +24,7 @@ impl<'a> ConditionMarker<'a> for () {
 impl<'a, T: Condition<'a>> ConditionMarker<'a> for T {
     sealed!(impl);
 
-    fn build(&self, context: &mut QueryContext<'a>) -> Option<usize> {
-        Some(context.add_condition(self))
+    fn build(&self, ctx: &mut QueryContext) -> Option<rorm_db::sql::conditional::Condition<'a>> {
+        Some(<T as Condition<'a>>::build(self, ctx))
     }
 }

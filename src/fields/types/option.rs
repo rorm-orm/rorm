@@ -17,7 +17,7 @@ use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::fake_field::FakeField;
 use crate::internal::field::Field;
 use crate::internal::hmr::annotations::Annotations;
-use crate::internal::query_context::{ConditionBuilder, QueryContext};
+use crate::internal::query_context::QueryContext;
 use crate::{and, const_fn, or};
 
 impl<'rhs, T, Rhs: 'rhs, Any> FieldEq<'rhs, Option<Rhs>, private::OptionFieldEq<Any>> for Option<T>
@@ -206,7 +206,7 @@ where
     I: FieldProxyImpl,
     C: Condition<'a>,
 {
-    fn build(&self, builder: ConditionBuilder<'_, 'a>) {
+    fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a> {
         if !self.not {
             // equals
             match &self.value {
@@ -214,7 +214,7 @@ where
                     operator: UnaryOperator::IsNull,
                     fst_arg: Column(self.column),
                 }
-                .build(builder),
+                .build(ctx),
                 Some(condition) => and![
                     Unary {
                         operator: UnaryOperator::IsNotNull,
@@ -222,7 +222,7 @@ where
                     },
                     condition
                 ]
-                .build(builder),
+                .build(ctx),
             }
         } else {
             // no equals
@@ -231,7 +231,7 @@ where
                     operator: UnaryOperator::IsNotNull,
                     fst_arg: Column(self.column),
                 }
-                .build(builder),
+                .build(ctx),
                 Some(condition) => or![
                     Unary {
                         operator: UnaryOperator::IsNull,
@@ -239,7 +239,7 @@ where
                     },
                     condition
                 ]
-                .build(builder),
+                .build(ctx),
             }
         }
     }

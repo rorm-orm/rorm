@@ -4,39 +4,37 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
 use std::{fmt, mem};
 
+use rorm_db::sql::conditional::BinaryExpression;
+use rorm_db::sql::cows::RefCow;
 use rorm_db::sql::join_table::JoinType;
 use rorm_db::sql::ordering::Ordering;
 use tracing::{trace, trace_span, Span};
 
-use crate::conditions::{BinaryOperator, Condition, Value};
+use crate::conditions::BinaryOperator;
 use crate::crud::selector::AggregatedColumn;
 use crate::fields::proxy::FieldProxyImpl;
 use crate::fields::utils::column_name::ColumnName;
 use crate::internal::field::Field;
-use crate::internal::query_context::flat_conditions::{FlatCondition, GetConditionError};
 use crate::internal::relation_path::{Path, PathField, PathId};
 use crate::Model;
-
-pub mod flat_conditions;
 
 /// Context for creating queries.
 ///
 /// Since rorm-db borrows all of its parameters, there has to be someone who own it.
 /// This struct owns all the implicit data required to query something i.e. join and alias information.
 #[derive(Debug)]
-pub struct QueryContext<'v> {
+pub struct QueryContext {
     span: Span,
     base_path: Option<PathId>,
-    join_aliases: HashMap<PathId, String>,
+    join_aliases: HashMap<PathId, Arc<str>>,
     selects: Vec<Select>,
     joins: Vec<Join>,
     order_bys: Vec<OrderBy>,
-    conditions: Vec<FlatCondition>,
-    values: Vec<Value<'v>>,
 }
-impl Default for QueryContext<'_> {
+impl Default for QueryContext {
     fn default() -> Self {
         Self {
             span: Span::none(),
@@ -45,12 +43,10 @@ impl Default for QueryContext<'_> {
             selects: Default::default(),
             joins: Default::default(),
             order_bys: Default::default(),
-            conditions: Default::default(),
-            values: Default::default(),
         }
     }
 }
-impl<'v> QueryContext<'v> {
+impl QueryContext {
     /// Create an empty context
     pub fn new() -> Self {
         Self::default()
@@ -61,12 +57,12 @@ impl<'v> QueryContext<'v> {
         self._select_field::<P>(&F::NAME)
     }
     fn _select_field<P: Path>(&mut self, column_name: &'static ColumnName) -> (usize, String) {
-        let path_id = P::add_to_context(self);
+        let (path_id, table_alias) = P::add_to_context(self);
         let alias = format!("{}", NumberAsAZ(self.selects.len()));
         let index = self.selects.len();
 
         self.selects.push(Select {
-            table_name: path_id,
+            table_name: table_alias.clone(),
             column_name,
             select_alias: alias.clone(),
             aggregation: None,
@@ -74,7 +70,7 @@ impl<'v> QueryContext<'v> {
 
         self.span.in_scope(|| {
             trace!(
-                table_name = self.join_aliases.get(&path_id),
+                table_name = &*table_alias,
                 column_name = &**column_name,
                 alias,
                 index,
@@ -90,12 +86,12 @@ impl<'v> QueryContext<'v> {
         &mut self,
         column: AggregatedColumn<I, R>,
     ) -> (usize, String) {
-        let path_id = I::Path::add_to_context(self);
+        let (path_id, table_alias) = I::Path::add_to_context(self);
         let alias = format!("{}", NumberAsAZ(self.selects.len()));
         let index = self.selects.len();
 
         self.selects.push(Select {
-            table_name: path_id,
+            table_name: table_alias.clone(),
             column_name: &I::Field::NAME,
             select_alias: alias.clone(),
             aggregation: Some(column.sql),
@@ -103,7 +99,7 @@ impl<'v> QueryContext<'v> {
 
         self.span.in_scope(|| {
             trace!(
-                table_name = self.join_aliases.get(&path_id),
+                table_name = &*table_alias,
                 column_name = &*I::Field::NAME,
                 alias,
                 index,
@@ -115,43 +111,18 @@ impl<'v> QueryContext<'v> {
         (index, alias)
     }
 
-    /// Adds a condition to the query context and returns its index
-    /// which can be used to retrieve it `rorm-sql` representation.
-    ///
-    /// (Use the index with [`QueryContext::get_condition`])
-    pub fn add_condition(&mut self, condition: &(impl Condition<'v> + ?Sized)) -> usize {
-        condition.build(ConditionBuilder {
-            context: self,
-            only_accept_paths: true,
-        });
-        let index = self.conditions.len();
-        condition.build(ConditionBuilder {
-            context: self,
-            only_accept_paths: false,
-        });
-        self.span.in_scope(|| {
-            trace!(
-                condition = ?self.conditions.get(index..),
-                index,
-                "QueryContext::add_condition"
-            )
-        });
-
-        index
-    }
-
     /// Add a field to order by
     pub fn order_by_field<F: Field, P: Path>(&mut self, ordering: Ordering) {
-        let path_id = P::add_to_context(self);
+        let (path_id, table_alias) = P::add_to_context(self);
         self.order_bys.push(OrderBy {
             column_name: &F::NAME,
-            table_name: path_id,
+            table_name: table_alias.clone(),
             ordering,
         });
 
         self.span.in_scope(|| {
             trace!(
-                table_name = self.join_aliases.get(&path_id),
+                table_name = &*table_alias,
                 column_name = &*F::NAME,
                 ?ordering,
                 "QueryContext::order_by_field"
@@ -160,7 +131,7 @@ impl<'v> QueryContext<'v> {
     }
 
     /// Create a vector borrowing the joins in rorm_db's format which can be passed to it as slice.
-    pub fn get_joins(&self) -> Vec<rorm_db::database::JoinTable<'_, '_>> {
+    pub fn get_joins(&self) -> Vec<rorm_db::database::JoinTable<'_, 'static>> {
         self.joins
             .iter()
             .map(
@@ -172,7 +143,7 @@ impl<'v> QueryContext<'v> {
                     join_type: JoinType::Join,
                     table_name,
                     join_alias: self.join_aliases.get(join_alias).unwrap(),
-                    join_condition: Cow::Owned(self.get_condition(*join_condition)),
+                    join_condition: RefCow::Borrowed(join_condition),
                 },
             )
             .collect()
@@ -190,7 +161,7 @@ impl<'v> QueryContext<'v> {
                      aggregation,
                  }| {
                     rorm_db::database::ColumnSelector {
-                        table_name: Some(self.join_aliases.get(table_name).unwrap()),
+                        table_name: Some(&*table_name),
                         column_name,
                         select_alias: Some(select_alias.as_str()),
                         aggregation: *aggregation,
@@ -200,59 +171,13 @@ impl<'v> QueryContext<'v> {
             .collect()
     }
 
-    /// Retrieves the `rorm-sql` representation of a previously added `Condition`.
-    ///
-    /// # Errors
-    /// If the index is invalid (wasn't returned by a previous call to [`QueryContext::add_condition`])
-    /// or the `Condition`'s implementation left the query context in an invalid state.
-    ///
-    /// Since both cases are programmers' faults,
-    /// you could consider [`QueryContext::get_condition`] which simply panics.
-    pub fn try_get_condition(
-        &self,
-        index: usize,
-    ) -> Result<rorm_db::sql::conditional::Condition<'_>, GetConditionError> {
-        let (head, mut tail) = self
-            .conditions
-            .get(index..)
-            .and_then(|subslice| {
-                let mut nodes = subslice.iter().copied();
-                nodes.next().zip(Some(nodes))
-            })
-            .ok_or(GetConditionError::MissingNodes)?;
-        self.get_condition_inner(head, &mut tail)
-    }
-
-    /// Retrieves the `rorm-sql` representation of a previously added `Condition`.
-    ///
-    /// If you want an error instead of panicking, use [`QueryContext::try_get_condition`].
-    ///
-    /// [`QueryContext::get_condition_opt`] might be a handy shorthand,
-    /// when working with `ConditionMarker` or other sources of optional conditions
-    ///
-    /// # Panics
-    /// If the index is invalid (wasn't returned by a previous call to [`QueryContext::add_condition`])
-    /// or the `Condition`'s implementation left the query context in an invalid state.
-    pub fn get_condition(&self, index: usize) -> rorm_db::sql::conditional::Condition<'_> {
-        self.try_get_condition(index)
-            .expect("Got invalid condition index")
-    }
-
-    /// Shorthand for calling [`Self::get_condition`] on an optional index
-    pub fn get_condition_opt(
-        &self,
-        index: Option<usize>,
-    ) -> Option<rorm_db::sql::conditional::Condition<'_>> {
-        index.map(|index| self.get_condition(index))
-    }
-
     /// Create a vector borrowing the order bys in rorm_db's format which can be passed to it as slice.
     pub fn get_order_bys(&self) -> Vec<rorm_db::sql::ordering::OrderByEntry<'_>> {
         self.order_bys
             .iter()
             .map(|order_by| rorm_db::sql::ordering::OrderByEntry {
                 ordering: order_by.ordering,
-                table_name: Some(self.join_aliases.get(&order_by.table_name).unwrap()),
+                table_name: Some(&order_by.table_name),
                 column_name: order_by.column_name,
             })
             .collect()
@@ -268,7 +193,7 @@ impl<'v> QueryContext<'v> {
         }
 
         let mut returning = Vec::with_capacity(self.selects.len());
-        let table_name = self.selects.first()?.table_name;
+        let table_name = self.selects.first()?.table_name.clone();
         for select in &self.selects {
             // Disallow aggregation
             if select.aggregation.is_some() {
@@ -326,18 +251,12 @@ impl<'v> QueryContext<'v> {
     /// let selects = ctx.get_selects();
     /// assert_eq!(selects[0].table_name, selects[1].table_name);
     /// ```
-    pub fn with_base_path<'ctx, P: Path>(&'ctx mut self) -> WithBasePath<'ctx, 'v> {
-        let new_base_path = P::add_to_context(self);
+    pub fn with_base_path<'ctx, P: Path>(&'ctx mut self) -> WithBasePath<'ctx> {
+        let (new_base_path, table_alias) = P::add_to_context(self);
 
         let new_span = self.span.in_scope(|| {
-            trace!(
-                table_name = self.join_aliases.get(&new_base_path),
-                "QueryContext::with_base_path"
-            );
-            trace_span!(
-                "QueryContext::with_base_path",
-                table_name = self.join_aliases.get(&new_base_path),
-            )
+            trace!(table_name = &*table_alias, "QueryContext::with_base_path");
+            trace_span!("QueryContext::with_base_path", table_name = &*table_alias,)
         });
 
         #[allow(clippy::mem_replace_option_with_some)]
@@ -349,43 +268,47 @@ impl<'v> QueryContext<'v> {
     }
 }
 /// Guard like wrapper for `QueryContext` returned by [`QueryContext::with_base_path`]
-pub struct WithBasePath<'ctx, 'v> {
+pub struct WithBasePath<'ctx> {
     prev_span: Span,
     prev_base_path: Option<PathId>,
 
-    ctx: &'ctx mut QueryContext<'v>,
+    ctx: &'ctx mut QueryContext,
 }
-impl Drop for WithBasePath<'_, '_> {
+impl Drop for WithBasePath<'_> {
     fn drop(&mut self) {
         mem::swap(&mut self.ctx.span, &mut self.prev_span);
         mem::swap(&mut self.ctx.base_path, &mut self.prev_base_path);
     }
 }
-impl<'v> Deref for WithBasePath<'_, 'v> {
-    type Target = QueryContext<'v>;
+impl<'v> Deref for WithBasePath<'_> {
+    type Target = QueryContext;
 
     fn deref(&self) -> &Self::Target {
         &*self.ctx
     }
 }
-impl DerefMut for WithBasePath<'_, '_> {
+impl DerefMut for WithBasePath<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut *self.ctx
     }
 }
 
-impl QueryContext<'_> {
+impl QueryContext {
     /// **Use [`Path::add_to_context`], this method is its impl detail!**
     ///
     /// Add the origin model to the builder
-    pub(crate) fn add_origin_path<M: Model>(&mut self) -> PathId {
+    pub(crate) fn add_origin_path<M: Model>(&mut self) -> (PathId, Arc<str>) {
         let path_id = M::id(self.base_path);
-        if self.base_path.is_none() {
-            self.join_aliases
+        if let Some(x) = self.base_path {
+            todo!()
+        } else {
+            let alias = self
+                .join_aliases
                 .entry(path_id)
-                .or_insert_with(|| M::TABLE.to_string());
+                .or_insert_with(|| Arc::from(M::TABLE.to_string()))
+                .clone();
+            (path_id, alias)
         }
-        path_id
     }
 
     /// **Use [`Path::add_to_context`], this method is its impl detail!**
@@ -393,87 +316,55 @@ impl QueryContext<'_> {
     /// Recursively add a relation path to the builder
     ///
     /// The generic parameters are the parameters defining the outer most [PathStep].
-    pub(crate) fn add_relation_path<F, P>(&mut self) -> PathId
+    pub(crate) fn add_relation_path<F, P>(&mut self) -> (PathId, Arc<str>)
     where
         F: Field + PathField<<F as Field>::Type>,
         P: Path<Current = <F::ParentField as Field>::Model>,
     {
         let path_id = <P::Step<F>>::id(self.base_path);
-        if !self.join_aliases.contains_key(&path_id) {
-            let parent_id = P::add_to_context(self);
-            let alias = format!("{}", NumberAsAZ(self.join_aliases.len()));
-            self.join_aliases.insert(path_id, alias);
+        if let Some(x) = self.join_aliases.get(&path_id) {
+            (path_id, x.clone())
+        } else {
+            let (parent_id, parent_alias) = P::add_to_context(self);
+            let alias: Arc<str> = Arc::from(format!("{}", NumberAsAZ(self.join_aliases.len())));
+            self.join_aliases.insert(path_id, alias.clone());
             self.joins.push({
                 Join {
                     table_name: <<F as PathField<_>>::ChildField as Field>::Model::TABLE,
                     join_alias: path_id,
-                    join_condition: self.conditions.len(),
+                    join_condition: rorm_db::sql::conditional::Condition::BinaryCondition(
+                        BinaryExpression {
+                            operator: BinaryOperator::Equals,
+                            values: Box::new([
+                                rorm_db::sql::conditional::Condition::Value(
+                                    rorm_db::sql::value::Value::Column {
+                                        table_name: Some(Cow::Owned(alias.to_string())),
+                                        column_name: Cow::Borrowed(
+                                            &<F as PathField<_>>::ChildField::NAME,
+                                        ),
+                                    },
+                                ),
+                                rorm_db::sql::conditional::Condition::Value(
+                                    rorm_db::sql::value::Value::Column {
+                                        table_name: Some(Cow::Owned(parent_alias.to_string())),
+                                        column_name: Cow::Borrowed(
+                                            &<F as PathField<_>>::ParentField::NAME,
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        },
+                    ),
                 }
             });
-            self.conditions.extend([
-                FlatCondition::BinaryCondition(BinaryOperator::Equals),
-                FlatCondition::Column(path_id, &<F as PathField<_>>::ChildField::NAME),
-                FlatCondition::Column(parent_id, &<F as PathField<_>>::ParentField::NAME),
-            ]);
+            (path_id, alias)
         }
-        path_id
-    }
-}
-
-/// A [`&mut QueryContext`] with restricted API which is passed to [`Condition::build`]
-pub struct ConditionBuilder<'r, 'v> {
-    context: &'r mut QueryContext<'v>,
-    only_accept_paths: bool,
-}
-
-impl<'v> ConditionBuilder<'_, 'v> {
-    pub(crate) fn reborrow<'r>(&'r mut self) -> ConditionBuilder<'r, 'v> {
-        ConditionBuilder::<'r, 'v> {
-            context: &mut *self.context,
-            only_accept_paths: self.only_accept_paths,
-        }
-    }
-
-    pub(crate) fn push_condition(&mut self, condition: FlatCondition) -> usize {
-        if self.only_accept_paths {
-            return usize::MAX;
-        }
-
-        let index = self.context.conditions.len();
-        self.context.conditions.push(condition);
-        index
-    }
-
-    pub(crate) fn pop_condition(&mut self) {
-        if self.only_accept_paths {
-            return;
-        }
-
-        self.context.conditions.pop();
-    }
-
-    pub(crate) fn len_condition(&mut self) -> usize {
-        self.context.conditions.len()
-    }
-
-    pub(crate) fn push_value(&mut self, value: Value<'v>) -> usize {
-        if self.only_accept_paths {
-            return usize::MAX;
-        }
-
-        let index = self.context.values.len();
-        self.context.values.push(value);
-        index
-    }
-
-    pub(crate) fn add_path<P: Path>(&mut self) -> PathId {
-        P::add_to_context(self.context)
     }
 }
 
 #[derive(Debug, Clone)]
 struct Select {
-    table_name: PathId,
+    table_name: Arc<str>,
     column_name: &'static ColumnName,
     select_alias: String,
     aggregation: Option<rorm_db::sql::aggregation::SelectAggregator>,
@@ -483,13 +374,13 @@ struct Select {
 struct Join {
     table_name: &'static str,
     join_alias: PathId,
-    join_condition: usize,
+    join_condition: rorm_db::sql::conditional::Condition<'static>,
 }
 
 #[derive(Debug, Clone)]
 struct OrderBy {
     column_name: &'static ColumnName,
-    table_name: PathId,
+    table_name: Arc<str>,
     ordering: Ordering,
 }
 

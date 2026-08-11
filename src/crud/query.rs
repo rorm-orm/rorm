@@ -286,12 +286,10 @@ where
         let mut ctx = QueryContext::new();
 
         let decoder = self.selector.select(&mut ctx);
-        let condition_index = self.condition.build(&mut ctx);
+        let condition = self.condition.build(&mut ctx);
         for modify in self.modify_ctx {
             modify(&mut ctx);
         }
-
-        let condition = ctx.get_condition_opt(condition_index);
 
         database::query::<All>(
             self.executor,
@@ -312,28 +310,25 @@ where
     }
 
     /// Retrieve and decode the query as a stream
-    pub fn stream<'stream>(self) -> QueryStream<'stream, 'c, S::Decoder>
+    pub fn stream(self) -> QueryStream<'e, S::Decoder>
     where
-        'e: 'stream,
-        'c: 'stream,
-        S: 'stream,
         LO: LimitMarker,
     {
         let mut ctx = QueryContext::new();
 
         let decoder = self.selector.select(&mut ctx);
-        let condition_index = self.condition.build(&mut ctx);
+        let condition = self.condition.build(&mut ctx);
         for modify in self.modify_ctx {
             modify(&mut ctx);
         }
 
-        QueryStream::new(decoder, ctx, move |ctx| {
+        QueryStream::new(decoder, {
             database::query::<Stream>(
                 self.executor,
                 S::Model::TABLE,
                 ctx.get_selects().as_slice(),
                 ctx.get_joins().as_slice(),
-                ctx.get_condition_opt(condition_index).as_ref(),
+                condition.as_ref(),
                 ctx.get_order_bys().as_slice(),
                 self.lim_off.into_option(),
                 self.distinct,
@@ -353,7 +348,7 @@ where
         let mut ctx = QueryContext::new();
 
         let decoder = self.selector.select(&mut ctx);
-        let condition_index = self.condition.build(&mut ctx);
+        let condition = self.condition.build(&mut ctx);
         for modify in self.modify_ctx {
             modify(&mut ctx);
         }
@@ -363,7 +358,7 @@ where
             S::Model::TABLE,
             ctx.get_selects().as_slice(),
             ctx.get_joins().as_slice(),
-            ctx.get_condition_opt(condition_index).as_ref(),
+            condition.as_ref(),
             ctx.get_order_bys().as_slice(),
             self.lim_off.into_option(),
             self.distinct,
@@ -382,7 +377,7 @@ where
         let mut ctx = QueryContext::new();
 
         let decoder = self.selector.select(&mut ctx);
-        let condition_index = self.condition.build(&mut ctx);
+        let condition = self.condition.build(&mut ctx);
         for modify in self.modify_ctx {
             modify(&mut ctx);
         }
@@ -392,7 +387,7 @@ where
             S::Model::TABLE,
             ctx.get_selects().as_slice(),
             ctx.get_joins().as_slice(),
-            ctx.get_condition_opt(condition_index).as_ref(),
+            condition.as_ref(),
             ctx.get_order_bys().as_slice(),
             self.lim_off.into_option(),
             self.distinct,
@@ -419,7 +414,6 @@ mod query_stream {
     use rorm_db::Error;
 
     use crate::crud::decoder::Decoder;
-    use crate::internal::query_context::QueryContext;
 
     /// Self-referential struct storing the query's data next to the stream which borrows it.
     ///
@@ -429,45 +423,23 @@ mod query_stream {
     ///     which needs to be separate from `'this` because it is invariant.
     #[pin_project::pin_project]
     #[allow(dead_code)] // The field's are never "read" because they are aliased before being assigned to the struct
-    pub struct QueryStream<'this, 'cond: 'this, D> {
+    pub struct QueryStream<'exe, D> {
         decoder: D,
 
-        ctx: Box<QueryContext<'cond>>,
-
         #[pin]
-        stream: <Stream as QueryStrategyResult>::Result<'this>,
+        stream: <Stream as QueryStrategyResult>::Result<'exe>,
     }
 
-    impl<'this, 'cond: 'this, D> QueryStream<'this, 'cond, D> {
+    impl<'exe, D> QueryStream<'exe, D> {
         pub(crate) fn new(
             decoder: D,
-            ctx: QueryContext<'cond>,
-            stream_builder: impl FnOnce(
-                &'this QueryContext<'cond>,
-            ) -> <Stream as QueryStrategyResult>::Result<'this>,
+            stream: <Stream as QueryStrategyResult>::Result<'exe>,
         ) -> Self {
-            unsafe fn change_lifetime<'old, 'new: 'old, T: 'new + ?Sized>(
-                data: &'old T,
-            ) -> &'new T {
-                &*(data as *const _)
-            }
-
-            unsafe {
-                let ctx = Box::new(ctx);
-                let ctx_ref: &'this QueryContext<'cond> = change_lifetime(ctx.as_ref());
-
-                let stream = stream_builder(ctx_ref);
-
-                Self {
-                    ctx,
-                    decoder,
-                    stream,
-                }
-            }
+            Self { decoder, stream }
         }
     }
 
-    impl<D: Decoder> futures_core::Stream for QueryStream<'_, '_, D> {
+    impl<D: Decoder> futures_core::Stream for QueryStream<'_, D> {
         type Item = Result<D::Result, Error>;
 
         fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {

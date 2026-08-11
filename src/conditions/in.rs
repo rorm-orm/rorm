@@ -1,7 +1,6 @@
 use crate::conditions::collections::CollectionOperator;
-use crate::conditions::{BinaryOperator, Condition, Value};
-use crate::internal::query_context::flat_conditions::FlatCondition;
-use crate::internal::query_context::ConditionBuilder;
+use crate::conditions::{Binary, BinaryOperator, Condition, DynamicCollection, Value};
+use crate::internal::query_context::QueryContext;
 
 /// An "IN" expression
 ///
@@ -31,7 +30,7 @@ where
     A: Condition<'a>,
     B: Condition<'a>,
 {
-    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
+    fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a> {
         let bool_fallback;
         let collection_operator;
         let binary_operator;
@@ -49,15 +48,21 @@ where
         }
 
         if self.snd_arg.is_empty() {
-            Value::Bool(bool_fallback).build(builder);
+            Value::Bool(bool_fallback).build(ctx)
         } else {
-            builder.push_condition(FlatCondition::StartCollection(collection_operator));
-            for snd_arg in self.snd_arg.iter() {
-                builder.push_condition(FlatCondition::BinaryCondition(binary_operator));
-                self.fst_arg.build(builder.reborrow());
-                snd_arg.build(builder.reborrow());
+            DynamicCollection {
+                operator: collection_operator,
+                vector: self
+                    .snd_arg
+                    .iter()
+                    .map(|snd_arg| Binary {
+                        operator: binary_operator,
+                        fst_arg: &self.fst_arg,
+                        snd_arg,
+                    })
+                    .collect(),
             }
-            builder.push_condition(FlatCondition::EndCollection);
+            .build(ctx)
         }
     }
 }

@@ -15,11 +15,13 @@ mod r#in;
 
 pub use collections::{DynamicCollection, StaticCollection};
 pub use r#in::{In, InOperator};
+use rorm_db::sql::conditional::{BinaryExpression, TernaryExpression, UnaryExpression};
+use rorm_db::sql::cows::VecCow;
 
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
 use crate::internal::field::Field;
-use crate::internal::query_context::flat_conditions::FlatCondition;
-use crate::internal::query_context::ConditionBuilder;
+use crate::internal::query_context::QueryContext;
+use crate::internal::relation_path::Path;
 
 /// Node in a condition tree
 pub trait Condition<'a>: Send + Sync {
@@ -32,7 +34,7 @@ pub trait Condition<'a>: Send + Sync {
     /// and then simply forward `build`.
     ///
     /// [`QueryContext::add_condition`]: crate::internal::query_context::QueryContext::add_condition
-    fn build(&self, builder: ConditionBuilder<'_, 'a>);
+    fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a>;
 
     /// Convert the condition into a boxed trait object to erase its concrete type
     fn boxed<'this>(self) -> Box<dyn Condition<'a> + 'this>
@@ -52,8 +54,8 @@ pub trait Condition<'a>: Send + Sync {
 }
 
 impl<'a> Condition<'a> for Box<dyn Condition<'a> + '_> {
-    fn build(&self, builder: ConditionBuilder<'_, 'a>) {
-        self.as_ref().build(builder);
+    fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a> {
+        self.as_ref().build(ctx)
     }
 
     fn boxed<'this>(self) -> Box<dyn Condition<'a> + 'this>
@@ -71,8 +73,8 @@ impl<'a> Condition<'a> for Box<dyn Condition<'a> + '_> {
     }
 }
 impl<'a> Condition<'a> for Arc<dyn Condition<'a> + '_> {
-    fn build(&self, builder: ConditionBuilder<'_, 'a>) {
-        self.as_ref().build(builder);
+    fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a> {
+        self.as_ref().build(ctx)
     }
 
     fn boxed<'this>(self) -> Box<dyn Condition<'a> + 'this>
@@ -90,8 +92,8 @@ impl<'a> Condition<'a> for Arc<dyn Condition<'a> + '_> {
     }
 }
 impl<'a, C: Condition<'a> + ?Sized> Condition<'a> for &'_ C {
-    fn build(&self, builder: ConditionBuilder<'_, 'a>) {
-        <C as Condition<'a>>::build(*self, builder);
+    fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a> {
+        <C as Condition<'a>>::build(*self, ctx)
     }
 }
 
@@ -231,107 +233,106 @@ pub enum Value<'a> {
     #[cfg(feature = "postgres-only")]
     ArrayBitVec(Vec<&'a bit_vec::BitVec>), // TODO: why no Cow?
 }
-impl Value<'_> {
+impl<'a> Value<'a> {
     /// Convert into an [`sql::Value`](value::Value) instead of an [`sql::Condition`](rorm_db::sql::conditional::Condition) directly.
-    pub fn as_sql(&self) -> value::Value<'_> {
+    pub fn into_sql(self) -> value::Value<'a> {
         match self {
-            Value::Null(null_type) => value::Value::Null(*null_type),
-            Value::String(v) => value::Value::String(v.as_ref()),
-            Value::Choice(v) => value::Value::Choice(v.as_ref()),
-            Value::I64(v) => value::Value::I64(*v),
-            Value::I32(v) => value::Value::I32(*v),
-            Value::I16(v) => value::Value::I16(*v),
-            Value::Bool(v) => value::Value::Bool(*v),
-            Value::F64(v) => value::Value::F64(*v),
-            Value::F32(v) => value::Value::F32(*v),
-            Value::Binary(v) => value::Value::Binary(v.as_ref()),
+            Value::Null(null_type) => value::Value::Null(null_type),
+            Value::String(v) => value::Value::String(v),
+            Value::Choice(v) => value::Value::Choice(v),
+            Value::I64(v) => value::Value::I64(v),
+            Value::I32(v) => value::Value::I32(v),
+            Value::I16(v) => value::Value::I16(v),
+            Value::Bool(v) => value::Value::Bool(v),
+            Value::F64(v) => value::Value::F64(v),
+            Value::F32(v) => value::Value::F32(v),
+            Value::Binary(v) => value::Value::Binary(v),
             #[cfg(feature = "chrono")]
-            Value::ChronoNaiveTime(v) => value::Value::ChronoNaiveTime(*v),
+            Value::ChronoNaiveTime(v) => value::Value::ChronoNaiveTime(v),
             #[cfg(feature = "chrono")]
-            Value::ChronoNaiveDate(v) => value::Value::ChronoNaiveDate(*v),
+            Value::ChronoNaiveDate(v) => value::Value::ChronoNaiveDate(v),
             #[cfg(feature = "chrono")]
-            Value::ChronoNaiveDateTime(v) => value::Value::ChronoNaiveDateTime(*v),
+            Value::ChronoNaiveDateTime(v) => value::Value::ChronoNaiveDateTime(v),
             #[cfg(feature = "chrono")]
-            Value::ChronoDateTime(v) => value::Value::ChronoDateTime(*v),
+            Value::ChronoDateTime(v) => value::Value::ChronoDateTime(v),
             #[cfg(feature = "time")]
-            Value::TimeDate(v) => value::Value::TimeDate(*v),
+            Value::TimeDate(v) => value::Value::TimeDate(v),
             #[cfg(feature = "time")]
-            Value::TimeTime(v) => value::Value::TimeTime(*v),
+            Value::TimeTime(v) => value::Value::TimeTime(v),
             #[cfg(feature = "time")]
-            Value::TimeOffsetDateTime(v) => value::Value::TimeOffsetDateTime(*v),
+            Value::TimeOffsetDateTime(v) => value::Value::TimeOffsetDateTime(v),
             #[cfg(feature = "time")]
-            Value::TimePrimitiveDateTime(v) => value::Value::TimePrimitiveDateTime(*v),
+            Value::TimePrimitiveDateTime(v) => value::Value::TimePrimitiveDateTime(v),
             #[cfg(feature = "uuid")]
-            Value::Uuid(v) => value::Value::Uuid(*v),
+            Value::Uuid(v) => value::Value::Uuid(v),
             #[cfg(feature = "postgres-only")]
-            Value::MacAddress(v) => value::Value::MacAddress(*v),
+            Value::MacAddress(v) => value::Value::MacAddress(v),
             #[cfg(feature = "postgres-only")]
-            Value::IpNetwork(v) => value::Value::IpNetwork(*v),
+            Value::IpNetwork(v) => value::Value::IpNetwork(v),
             #[cfg(feature = "postgres-only")]
-            Value::BitVec(v) => value::Value::BitVec(v.as_ref()),
+            Value::BitVec(v) => value::Value::BitVec(v),
 
             #[cfg(feature = "postgres-only")]
-            Value::ArrayNull(v) => value::Value::ArrayNull(*v),
+            Value::ArrayNull(v) => value::Value::ArrayNull(v),
             #[cfg(feature = "postgres-only")]
-            Value::ArrayString(v) => value::Value::ArrayString(v.as_ref()),
-            #[cfg(feature = "postgres-only")]
-            Value::ArrayI64(v) => value::Value::ArrayI64(v.as_ref()),
-            #[cfg(feature = "postgres-only")]
-            Value::ArrayI32(v) => value::Value::ArrayI32(v.as_ref()),
-            #[cfg(feature = "postgres-only")]
-            Value::ArrayI16(v) => value::Value::ArrayI16(v.as_ref()),
-            #[cfg(feature = "postgres-only")]
-            Value::ArrayBool(v) => value::Value::ArrayBool(v.as_ref()),
-            #[cfg(feature = "postgres-only")]
-            Value::ArrayF64(v) => value::Value::ArrayF64(v.as_ref()),
-            #[cfg(feature = "postgres-only")]
-            Value::ArrayF32(v) => value::Value::ArrayF32(v.as_ref()),
-            #[cfg(feature = "postgres-only")]
-            Value::ArrayBinary(v) => value::Value::ArrayBinary(v.as_ref()),
-            #[cfg(feature = "chrono")]
-            #[cfg(feature = "postgres-only")]
-            Value::ArrayChronoNaiveTime(v) => value::Value::ArrayChronoNaiveTime(v.as_ref()),
-            #[cfg(feature = "chrono")]
-            #[cfg(feature = "postgres-only")]
-            Value::ArrayChronoNaiveDate(v) => value::Value::ArrayChronoNaiveDate(v.as_ref()),
-            #[cfg(feature = "chrono")]
-            #[cfg(feature = "postgres-only")]
-            Value::ArrayChronoNaiveDateTime(v) => {
-                value::Value::ArrayChronoNaiveDateTime(v.as_ref())
+            Value::ArrayString(v) => {
+                value::Value::ArrayString(VecCow::Owned(v.into_iter().map(Cow::Borrowed).collect()))
             }
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayI64(v) => value::Value::ArrayI64(v.into()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayI32(v) => value::Value::ArrayI32(v.into()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayI16(v) => value::Value::ArrayI16(v.into()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayBool(v) => value::Value::ArrayBool(v.into()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayF64(v) => value::Value::ArrayF64(v.into()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayF32(v) => value::Value::ArrayF32(v.into()),
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayBinary(v) => value::Value::ArrayBinaryBorrowed(VecCow::Owned(v)),
             #[cfg(feature = "chrono")]
             #[cfg(feature = "postgres-only")]
-            Value::ArrayChronoDateTime(v) => value::Value::ArrayChronoDateTime(v.as_ref()),
+            Value::ArrayChronoNaiveTime(v) => value::Value::ArrayChronoNaiveTime(v.into()),
+            #[cfg(feature = "chrono")]
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayChronoNaiveDate(v) => value::Value::ArrayChronoNaiveDate(v.into()),
+            #[cfg(feature = "chrono")]
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayChronoNaiveDateTime(v) => value::Value::ArrayChronoNaiveDateTime(v.into()),
+            #[cfg(feature = "chrono")]
+            #[cfg(feature = "postgres-only")]
+            Value::ArrayChronoDateTime(v) => value::Value::ArrayChronoDateTime(v.into()),
             #[cfg(feature = "time")]
             #[cfg(feature = "postgres-only")]
-            Value::ArrayTimeDate(v) => value::Value::ArrayTimeDate(v.as_ref()),
+            Value::ArrayTimeDate(v) => value::Value::ArrayTimeDate(v.into()),
             #[cfg(feature = "time")]
             #[cfg(feature = "postgres-only")]
-            Value::ArrayTimeTime(v) => value::Value::ArrayTimeTime(v.as_ref()),
+            Value::ArrayTimeTime(v) => value::Value::ArrayTimeTime(v.into()),
             #[cfg(feature = "time")]
             #[cfg(feature = "postgres-only")]
-            Value::ArrayTimeOffsetDateTime(v) => value::Value::ArrayTimeOffsetDateTime(v.as_ref()),
+            Value::ArrayTimeOffsetDateTime(v) => value::Value::ArrayTimeOffsetDateTime(v.into()),
             #[cfg(feature = "time")]
             #[cfg(feature = "postgres-only")]
             Value::ArrayTimePrimitiveDateTime(v) => {
-                value::Value::ArrayTimePrimitiveDateTime(v.as_ref())
+                value::Value::ArrayTimePrimitiveDateTime(v.into())
             }
             #[cfg(feature = "uuid")]
             #[cfg(feature = "postgres-only")]
-            Value::ArrayUuid(v) => value::Value::ArrayUuid(v.as_ref()),
+            Value::ArrayUuid(v) => value::Value::ArrayUuid(v.into()),
             #[cfg(feature = "postgres-only")]
-            Value::ArrayMacAddress(v) => value::Value::ArrayMacAddress(v.as_ref()),
+            Value::ArrayMacAddress(v) => value::Value::ArrayMacAddress(v.into()),
             #[cfg(feature = "postgres-only")]
-            Value::ArrayIpNetwork(v) => value::Value::ArrayIpNetwork(v.as_ref()),
+            Value::ArrayIpNetwork(v) => value::Value::ArrayIpNetwork(v.into()),
             #[cfg(feature = "postgres-only")]
-            Value::ArrayBitVec(v) => value::Value::ArrayBitVec(v.as_ref()),
+            Value::ArrayBitVec(v) => value::Value::ArrayBitVecBorrowed(VecCow::Owned(v)),
         }
     }
 }
 impl<'c, 'v: 'c> Condition<'c> for Value<'v> {
-    fn build(&self, mut builder: ConditionBuilder<'_, 'c>) {
-        let value_index = builder.push_value(self.clone());
-        builder.push_condition(FlatCondition::Value(value_index));
+    fn build(&self, _ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'c> {
+        rorm_db::sql::conditional::Condition::Value(self.clone().into_sql())
     }
 }
 
@@ -340,9 +341,12 @@ impl<'c, 'v: 'c> Condition<'c> for Value<'v> {
 pub struct Column<I: FieldProxyImpl>(pub FieldProxy<I>);
 
 impl<'a, I: FieldProxyImpl> Condition<'a> for Column<I> {
-    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
-        let path_id = builder.add_path::<I::Path>();
-        builder.push_condition(FlatCondition::Column(path_id, &<I::Field as Field>::NAME));
+    fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a> {
+        let (path_id, table_alias) = <I::Path as Path>::add_to_context(ctx);
+        rorm_db::sql::conditional::Condition::Value(rorm_db::sql::value::Value::Column {
+            table_name: Some(Cow::Owned(table_alias.to_string())),
+            column_name: Cow::Borrowed(&<I::Field as Field>::NAME),
+        })
     }
 }
 
@@ -359,10 +363,11 @@ pub struct Binary<A, B> {
     pub snd_arg: B,
 }
 impl<'a, A: Condition<'a>, B: Condition<'a>> Condition<'a> for Binary<A, B> {
-    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
-        builder.push_condition(FlatCondition::BinaryCondition(self.operator));
-        self.fst_arg.build(builder.reborrow());
-        self.snd_arg.build(builder.reborrow());
+    fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a> {
+        rorm_db::sql::conditional::Condition::BinaryCondition(BinaryExpression {
+            operator: self.operator,
+            values: Box::new([self.fst_arg.build(&mut *ctx), self.snd_arg.build(&mut *ctx)]),
+        })
     }
 }
 
@@ -382,11 +387,15 @@ pub struct Ternary<A, B, C> {
     pub trd_arg: C,
 }
 impl<'a, A: Condition<'a>, B: Condition<'a>, C: Condition<'a>> Condition<'a> for Ternary<A, B, C> {
-    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
-        builder.push_condition(FlatCondition::TernaryCondition(self.operator));
-        self.fst_arg.build(builder.reborrow());
-        self.snd_arg.build(builder.reborrow());
-        self.trd_arg.build(builder.reborrow());
+    fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a> {
+        rorm_db::sql::conditional::Condition::TernaryCondition(TernaryExpression {
+            operator: self.operator,
+            values: Box::new([
+                self.fst_arg.build(&mut *ctx),
+                self.snd_arg.build(&mut *ctx),
+                self.trd_arg.build(&mut *ctx),
+            ]),
+        })
     }
 }
 
@@ -400,8 +409,10 @@ pub struct Unary<A> {
     pub fst_arg: A,
 }
 impl<'a, A: Condition<'a>> Condition<'a> for Unary<A> {
-    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
-        builder.push_condition(FlatCondition::UnaryCondition(self.operator));
-        self.fst_arg.build(builder.reborrow());
+    fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a> {
+        rorm_db::sql::conditional::Condition::UnaryCondition(UnaryExpression {
+            operator: self.operator,
+            value: Box::new(self.fst_arg.build(ctx)),
+        })
     }
 }

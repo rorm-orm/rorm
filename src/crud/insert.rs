@@ -191,7 +191,7 @@ where
         let columns = P::columns();
         let columns = columns.iter().map(ColumnName::as_str).collect::<Vec<_>>();
         let values = patch.references();
-        let values: Vec<_> = values.iter().map(Value::as_sql).collect();
+        let values: Vec<_> = values.into_iter().map(Value::into_sql).collect();
 
         let mut ctx = QueryContext::new();
         let decoder = self.selector.select(&mut ctx);
@@ -240,7 +240,7 @@ where
 
         let columns = P::columns();
         let columns = columns.iter().map(ColumnName::as_str).collect::<Vec<_>>();
-        let values: Vec<_> = values.iter().map(Value::as_sql).collect();
+        let values: Vec<_> = values.into_iter().map(Value::into_sql).collect();
         let values_slices: Vec<_> = values.chunks(columns.len()).collect();
 
         let mut ctx = QueryContext::new();
@@ -279,7 +279,7 @@ where
         let columns = P::columns();
         let columns = columns.iter().map(ColumnName::as_str).collect::<Vec<_>>();
         let values = patch.references();
-        let values: Vec<_> = values.iter().map(Value::as_sql).collect();
+        let values: Vec<_> = values.into_iter().map(Value::into_sql).collect();
 
         database::insert(self.executor, M::TABLE, &columns, &values).await
     }
@@ -301,7 +301,7 @@ where
 
         let columns = P::columns();
         let columns = columns.iter().map(ColumnName::as_str).collect::<Vec<_>>();
-        let values: Vec<_> = values.iter().map(Value::as_sql).collect();
+        let values: Vec<_> = values.into_iter().map(Value::into_sql).collect();
         let values_slices: Vec<_> = values.chunks(columns.len()).collect();
 
         database::insert_bulk(self.executor, M::TABLE, &columns, &values_slices).await

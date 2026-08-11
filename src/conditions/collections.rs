@@ -50,8 +50,7 @@
 //! ```
 
 use super::Condition;
-use crate::internal::query_context::flat_conditions::FlatCondition;
-use crate::internal::query_context::ConditionBuilder;
+use crate::internal::query_context::QueryContext;
 
 /// Operator to join a collection's conditions with
 #[derive(Copy, Clone, Debug)]
@@ -134,30 +133,41 @@ where
 }
 
 impl<'a, T: Condition<'a>> Condition<'a> for DynamicCollection<T> {
-    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
-        builder.push_condition(FlatCondition::StartCollection(self.operator));
-        for cond in self.vector.iter() {
-            cond.build(builder.reborrow());
+    fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a> {
+        let mut conditions = Vec::new();
+        for x in &self.vector {
+            conditions.push(x.build(&mut *ctx));
         }
-        builder.push_condition(FlatCondition::EndCollection);
+        match self.operator {
+            CollectionOperator::And => {
+                rorm_db::sql::conditional::Condition::Conjunction(conditions)
+            }
+            CollectionOperator::Or => rorm_db::sql::conditional::Condition::Disjunction(conditions),
+        }
     }
 }
 impl<'a, T: Condition<'a>> Condition<'a> for DynamicCollection<Option<T>> {
-    fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
-        builder.push_condition(FlatCondition::StartCollection(self.operator));
-        let len = builder.len_condition();
-        for cond in self.vector.iter().flat_map(Option::as_ref) {
-            cond.build(builder.reborrow());
+    fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a> {
+        let mut conditions = Vec::new();
+        for x in self.vector.iter().flatten() {
+            conditions.push(x.build(&mut *ctx));
         }
-        if len != builder.len_condition() {
-            builder.push_condition(FlatCondition::EndCollection);
+        if conditions.is_empty() {
+            rorm_db::sql::conditional::Condition::Value(rorm_db::sql::value::Value::Bool(
+                match self.operator {
+                    CollectionOperator::And => true,
+                    CollectionOperator::Or => false,
+                },
+            ))
         } else {
-            builder.pop_condition();
-            super::Value::Bool(match self.operator {
-                CollectionOperator::And => true,
-                CollectionOperator::Or => false,
-            })
-            .build(builder.reborrow());
+            match self.operator {
+                CollectionOperator::And => {
+                    rorm_db::sql::conditional::Condition::Conjunction(conditions)
+                }
+                CollectionOperator::Or => {
+                    rorm_db::sql::conditional::Condition::Disjunction(conditions)
+                }
+            }
         }
     }
 }
@@ -217,32 +227,51 @@ macro_rules! impl_static_collection {
     (impl $($generic:ident),+) => {
         #[allow(non_snake_case)] // the macro is simpler when generic variable are reused as value variables
         impl<'a, $($generic: Condition<'a>),+> Condition<'a> for StaticCollection<($($generic,)+)> {
-            fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
-                builder.push_condition(FlatCondition::StartCollection(self.operator));
+            fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a> {
+                let mut conditions = Vec::new();
+
                 let ($($generic,)+) = &self.tuple;
-                $($generic.build(builder.reborrow());)+
-                builder.push_condition(FlatCondition::EndCollection);
+                $(
+                    conditions.push($generic.build(&mut *ctx));
+                )+
+
+                match self.operator {
+                    CollectionOperator::And => {
+                        rorm_db::sql::conditional::Condition::Conjunction(conditions)
+                    }
+                    CollectionOperator::Or => rorm_db::sql::conditional::Condition::Disjunction(conditions),
+                }
             }
         }
 
         #[allow(non_snake_case)] // the macro is simpler when generic variable are reused as value variables
         impl<'a, $($generic: Condition<'a>),+> Condition<'a> for StaticCollection<($(Option<$generic>,)+)> {
-            fn build(&self, mut builder: ConditionBuilder<'_, 'a>) {
-                builder.push_condition(FlatCondition::StartCollection(self.operator));
-                let len = builder.len_condition();
+            fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a> {
+                let mut conditions = Vec::new();
+
                 let ($($generic,)+) = &self.tuple;
-                $(if let Some(cond) = $generic {
-                    cond.build(builder.reborrow());
-                })+
-                if len != builder.len_condition() {
-                    builder.push_condition(FlatCondition::EndCollection);
+                $(
+                    if let Some(x) = $generic {
+                        conditions.push(x.build(&mut *ctx));
+                    }
+                )+
+
+                if conditions.is_empty() {
+                    rorm_db::sql::conditional::Condition::Value(rorm_db::sql::value::Value::Bool(
+                        match self.operator {
+                            CollectionOperator::And => true,
+                            CollectionOperator::Or => false,
+                        },
+                    ))
                 } else {
-                    builder.pop_condition();
-                    super::Value::Bool(match self.operator {
-                        CollectionOperator::And => true,
-                        CollectionOperator::Or => false,
-                    })
-                    .build(builder.reborrow());
+                    match self.operator {
+                        CollectionOperator::And => {
+                            rorm_db::sql::conditional::Condition::Conjunction(conditions)
+                        }
+                        CollectionOperator::Or => {
+                            rorm_db::sql::conditional::Condition::Disjunction(conditions)
+                        }
+                    }
                 }
             }
         }

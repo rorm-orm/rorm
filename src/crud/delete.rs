@@ -137,13 +137,8 @@ where
     /// Delete all rows matching a condition
     pub async fn condition<'c, C: Condition<'c>>(self, condition: C) -> Result<u64, Error> {
         let mut context = QueryContext::new();
-        let condition_index = context.add_condition(&condition);
-        database::delete(
-            self.executor,
-            M::TABLE,
-            Some(&context.get_condition(condition_index)),
-        )
-        .await
+        let condition = condition.build(&mut context);
+        database::delete(self.executor, M::TABLE, Some(&condition)).await
     }
 
     /// Delete all rows

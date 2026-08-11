@@ -1,6 +1,7 @@
 //! Implicit join prototypes
 
 use std::fmt;
+use std::sync::Arc;
 
 use crate::fields::types::CascadingForeignModelByField;
 use crate::internal::djb2;
@@ -87,7 +88,7 @@ pub trait Path: 'static {
     ///
     /// The returned `PathId` is the id the path was actually added as.
     /// It might differ from `Self::ID`, see [`QueryContext::with_base_path`].
-    fn add_to_context(context: &mut QueryContext) -> PathId;
+    fn add_to_context(context: &mut QueryContext) -> (PathId, Arc<str>);
 
     /// Compute the path's id, a unique identifier
     ///
@@ -210,7 +211,7 @@ impl<M: Model> Path for M {
         F::ParentField: Field<Model = Self::Current>;
 
     #[inline(always)]
-    fn add_to_context(context: &mut QueryContext) -> PathId {
+    fn add_to_context(context: &mut QueryContext) -> (PathId, Arc<str>) {
         context.add_origin_path::<Self>()
     }
 
@@ -238,7 +239,7 @@ where
         F2::ParentField: Field<Model = Self::Current>;
 
     #[inline(always)]
-    fn add_to_context(context: &mut QueryContext) -> PathId {
+    fn add_to_context(context: &mut QueryContext) -> (PathId, Arc<str>) {
         context.add_relation_path::<F, P>()
     }
 
