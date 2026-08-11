@@ -57,7 +57,7 @@ impl QueryContext {
         self._select_field::<P>(&F::NAME)
     }
     fn _select_field<P: Path>(&mut self, column_name: &'static ColumnName) -> (usize, String) {
-        let (path_id, table_alias) = P::add_to_context(self);
+        let (_, table_alias) = P::add_to_context(self);
         let alias = format!("{}", NumberAsAZ(self.selects.len()));
         let index = self.selects.len();
 
@@ -86,7 +86,7 @@ impl QueryContext {
         &mut self,
         column: AggregatedColumn<I, R>,
     ) -> (usize, String) {
-        let (path_id, table_alias) = I::Path::add_to_context(self);
+        let (_, table_alias) = I::Path::add_to_context(self);
         let alias = format!("{}", NumberAsAZ(self.selects.len()));
         let index = self.selects.len();
 
@@ -113,7 +113,7 @@ impl QueryContext {
 
     /// Add a field to order by
     pub fn order_by_field<F: Field, P: Path>(&mut self, ordering: Ordering) {
-        let (path_id, table_alias) = P::add_to_context(self);
+        let (_, table_alias) = P::add_to_context(self);
         self.order_bys.push(OrderBy {
             column_name: &F::NAME,
             table_name: table_alias.clone(),
@@ -299,16 +299,22 @@ impl QueryContext {
     /// Add the origin model to the builder
     pub(crate) fn add_origin_path<M: Model>(&mut self) -> (PathId, Arc<str>) {
         let path_id = M::id(self.base_path);
-        if let Some(x) = self.base_path {
-            todo!()
-        } else {
-            let alias = self
-                .join_aliases
-                .entry(path_id)
-                .or_insert_with(|| Arc::from(M::TABLE.to_string()))
-                .clone();
-            (path_id, alias)
-        }
+        (
+            path_id,
+            if let Some(x) = self.base_path {
+                self.join_aliases
+                    .get(&x)
+                    .expect("with_base_path should have added alias before swapping base_path")
+                    .clone()
+            } else {
+                let alias = self
+                    .join_aliases
+                    .entry(path_id)
+                    .or_insert_with(|| Arc::from(M::TABLE.to_string()))
+                    .clone();
+                alias
+            },
+        )
     }
 
     /// **Use [`Path::add_to_context`], this method is its impl detail!**
@@ -325,7 +331,7 @@ impl QueryContext {
         if let Some(x) = self.join_aliases.get(&path_id) {
             (path_id, x.clone())
         } else {
-            let (parent_id, parent_alias) = P::add_to_context(self);
+            let (_, parent_alias) = P::add_to_context(self);
             let alias: Arc<str> = Arc::from(format!("{}", NumberAsAZ(self.join_aliases.len())));
             self.join_aliases.insert(path_id, alias.clone());
             self.joins.push({

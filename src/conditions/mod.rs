@@ -342,7 +342,7 @@ pub struct Column<I: FieldProxyImpl>(pub FieldProxy<I>);
 
 impl<'a, I: FieldProxyImpl> Condition<'a> for Column<I> {
     fn build(&self, ctx: &mut QueryContext) -> rorm_db::sql::conditional::Condition<'a> {
-        let (path_id, table_alias) = <I::Path as Path>::add_to_context(ctx);
+        let (_, table_alias) = <I::Path as Path>::add_to_context(ctx);
         rorm_db::sql::conditional::Condition::Value(rorm_db::sql::value::Value::Column {
             table_name: Some(Cow::Owned(table_alias.to_string())),
             column_name: Cow::Borrowed(&<I::Field as Field>::NAME),
