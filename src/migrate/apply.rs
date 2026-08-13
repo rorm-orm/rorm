@@ -10,7 +10,6 @@ use rorm_db::sql::insert::Insert;
 use rorm_db::sql::value::Value;
 use rorm_db::sql::DBImpl;
 use rorm_db::transaction::{Transaction, TransactionError};
-use rorm_db::Database;
 use rorm_declaration::migration::{Migration, Operation};
 use thiserror::Error;
 
@@ -22,12 +21,12 @@ use thiserror::Error;
 /// This function won't check the databases current state.
 /// It will simply try to apply the migration.
 pub async fn apply_migration(
-    db: &Database,
+    db: impl Executor<'_>,
     migration: &Migration,
     last_migration_table_name: &str,
 ) -> Result<(), ApplyMigrationError> {
     let mut tx = db
-        .start_transaction()
+        .ensure_transaction()
         .await
         .map_err(|error| ApplyMigrationError {
             error,
@@ -35,7 +34,7 @@ pub async fn apply_migration(
         })?;
 
     for (index, operation) in migration.operations.iter().enumerate() {
-        apply_operation(&mut tx, operation)
+        apply_operation(tx.get_transaction(), operation)
             .await
             .map_err(|error| ApplyMigrationError {
                 error,
@@ -43,7 +42,8 @@ pub async fn apply_migration(
             })?;
     }
 
-    let (query_string, bind_params) = db
+    let (query_string, bind_params) = tx
+        .get_transaction()
         .dialect()
         .insert(
             last_migration_table_name,
@@ -54,7 +54,8 @@ pub async fn apply_migration(
         .rollback_transaction()
         .build();
 
-    tx.execute::<Nothing>(query_string, bind_params)
+    tx.get_transaction()
+        .execute::<Nothing>(query_string, bind_params)
         .await
         .map_err(|error| ApplyMigrationError {
             error,
