@@ -4,7 +4,7 @@ use std::path::Path;
 use anyhow::{anyhow, Context};
 use rorm_db::executor::{Executor, Nothing, Optional};
 use rorm_db::sql::create_table::CreateTable;
-use rorm_db::transaction::TransactionError;
+use rorm_db::transaction::{Transaction, TransactionError};
 use rorm_db::Database;
 use rorm_declaration::config::DatabaseConfig;
 use rorm_declaration::imr::{Annotation, DbType};
@@ -12,7 +12,7 @@ use tracing::{error, info};
 
 use crate::migrate::apply::apply_migration;
 use crate::migrate::config::{create_db_config, deserialize_db_conf};
-use crate::utils::migrations::get_existing_migrations;
+pub use crate::utils::migrations::get_existing_migrations;
 
 pub mod apply;
 pub mod config;
@@ -65,40 +65,14 @@ pub async fn run_migrate_custom(
         .as_ref()
         .map_or("_rorm__last_migration", |x| x.as_str());
 
-    let db_impl = (&db).dialect();
-    let statements = db_impl
-        .create_table(last_migration_table_name)
-        .add_column(db_impl.create_column(
-            last_migration_table_name,
-            "id",
-            DbType::Int64,
-            &[Annotation::PrimaryKey, Annotation::AutoIncrement],
-        ))
-        .add_column(db_impl.create_column(
-            last_migration_table_name,
-            "updated_at",
-            DbType::DateTime,
-            &[Annotation::AutoUpdateTime],
-        ))
-        .add_column(db_impl.create_column(
-            last_migration_table_name,
-            "migration_id",
-            DbType::Int32,
-            &[Annotation::NotNull],
-        ))
-        .if_not_exists()
-        .build()?;
-
     let mut tx = db
         .start_transaction()
         .await
         .with_context(|| "Could not create transaction")?;
 
-    for (query_string, bind_params) in statements {
-        tx.execute::<Nothing>(query_string, bind_params)
-            .await
-            .with_context(|| "Couldn't create internal last migration table")?;
-    }
+    create_last_migration_table(&mut tx, last_migration_table_name)
+        .await
+        .with_context(|| "Couldn't create internal last migration table")?;
 
     tx.commit()
         .await
@@ -211,4 +185,57 @@ pub async fn run_migrate(options: MigrateOptions) -> anyhow::Result<()> {
     let db_conf = deserialize_db_conf(db_conf_path)?;
 
     run_migrate_custom(db_conf, options.migration_dir, options.apply_until).await
+}
+
+/// Creates the "last_migration_table" if it doesn't exist already
+///
+/// This table is used to track which migrations have already been applied.
+///
+/// This would be its rorm shape:
+/// ```text
+/// #[derive(Model)
+/// #[rorm(name = "<table_name>")]
+/// struct LastMigrationTable {
+///     #[rorm(id)]
+///     id: i64,
+///
+///     #[rorm(auto_update_time)]
+///     updated_at: OffsetDateTime,
+///
+///     migration_id: i32,
+/// }
+/// ```
+pub async fn create_last_migration_table(
+    tx: &mut Transaction,
+    table_name: &str,
+) -> Result<(), rorm_db::Error> {
+    let db_impl = tx.dialect();
+    let statements = db_impl
+        .create_table(table_name)
+        .add_column(db_impl.create_column(
+            table_name,
+            "id",
+            DbType::Int64,
+            &[Annotation::PrimaryKey, Annotation::AutoIncrement],
+        ))
+        .add_column(db_impl.create_column(
+            table_name,
+            "updated_at",
+            DbType::DateTime,
+            &[Annotation::AutoUpdateTime],
+        ))
+        .add_column(db_impl.create_column(
+            table_name,
+            "migration_id",
+            DbType::Int32,
+            &[Annotation::NotNull],
+        ))
+        .if_not_exists()
+        .build()?;
+
+    for (query_string, bind_params) in statements {
+        tx.execute::<Nothing>(query_string, bind_params).await?;
+    }
+
+    Ok(())
 }
