@@ -2,15 +2,19 @@ mod handler;
 mod models;
 mod test;
 
+use std::borrow::Cow;
 use std::fs;
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
+use rorm::conditions::{Binary, BinaryOperator, Column, Value};
 use rorm::config::DatabaseConfig;
 use rorm::{Database, DatabaseConfiguration, DatabaseDriver};
 use tokio::net::TcpListener;
 use tower_sessions::{MemoryStore, SessionManagerLayer};
 use tracing::info;
+
+use crate::models::user::User;
 
 /// The cli
 #[derive(Parser)]
@@ -50,13 +54,26 @@ pub async fn run_main(cli: Cli) -> anyhow::Result<()> {
             serde_json::from_reader(fs::File::open(path).context("Failed to open db config")?)
                 .context("Failed to read db config")?
         }
-        None => DatabaseDriver::SQLite {
-            filename: "db.sqlite".to_string(),
+        None => DatabaseDriver::Postgres {
+            name: "".to_string(),
+            host: "".to_string(),
+            port: 0,
+            user: "".to_string(),
+            password: "".to_string(),
         },
     };
     let db = Database::connect(DatabaseConfiguration::new(db_driver.clone()))
         .await
         .context("Failed to connect to db")?;
+
+    rorm::query(&db, User)
+        .condition(Binary {
+            operator: BinaryOperator::EqualsAny,
+            fst_arg: Column(User.id),
+            snd_arg: Value::ArrayI64(Cow::Borrowed(&[1, 2, 3])),
+        })
+        .all()
+        .await?;
 
     match cli.command {
         #[cfg(debug_assertions)]

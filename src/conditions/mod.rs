@@ -291,7 +291,7 @@ impl<'a> Value<'a> {
             #[cfg(feature = "postgres-only")]
             Value::ArrayF32(v) => value::Value::ArrayF32(v.into()),
             #[cfg(feature = "postgres-only")]
-            Value::ArrayBinary(v) => value::Value::ArrayBinaryBorrowed(VecCow::Owned(v)),
+            Value::ArrayBinary(v) => value::Value::ArrayBinary(VecCow::Owned(v)),
             #[cfg(feature = "chrono")]
             #[cfg(feature = "postgres-only")]
             Value::ArrayChronoNaiveTime(v) => value::Value::ArrayChronoNaiveTime(v.into()),
@@ -326,7 +326,7 @@ impl<'a> Value<'a> {
             #[cfg(feature = "postgres-only")]
             Value::ArrayIpNetwork(v) => value::Value::ArrayIpNetwork(v.into()),
             #[cfg(feature = "postgres-only")]
-            Value::ArrayBitVec(v) => value::Value::ArrayBitVecBorrowed(VecCow::Owned(v)),
+            Value::ArrayBitVec(v) => value::Value::ArrayBitVec(VecCow::Owned(v)),
         }
     }
 }
