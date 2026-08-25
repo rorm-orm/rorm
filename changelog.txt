@@ -5,6 +5,7 @@ Since 0.10.0
 - Updated ipnetwork to 0.21
 - Updated bitvec to 0.8
 
+- Implemented FieldType for more ip types
 - Added postgres arrays
 - Added escape hatch to access sqlx's pool
 

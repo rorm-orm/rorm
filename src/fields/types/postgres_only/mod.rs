@@ -1,13 +1,14 @@
 use std::borrow::Cow;
 
 use bit_vec::BitVec;
-use ipnetwork::IpNetwork;
 use mac_address::MacAddress;
 
 use crate::conditions::Value;
 use crate::fields::traits::into_value::IntoValue;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
 use crate::impl_FieldType;
+
+mod ip;
 
 impl_FieldType!(MacAddress, MacAddress);
 impl<'a> IntoValue<'a> for MacAddress {
@@ -17,15 +18,6 @@ impl<'a> IntoValue<'a> for MacAddress {
 }
 impl SimpleFieldEq for MacAddress {}
 impl SimpleFieldIn for MacAddress {}
-
-impl_FieldType!(IpNetwork, IpNetwork);
-impl<'a> IntoValue<'a> for IpNetwork {
-    fn into_value(self) -> Value<'a> {
-        Value::IpNetwork(self)
-    }
-}
-impl SimpleFieldEq for IpNetwork {}
-impl SimpleFieldIn for IpNetwork {}
 
 impl_FieldType!(BitVec, BitVec);
 impl<'a> IntoValue<'a> for BitVec {

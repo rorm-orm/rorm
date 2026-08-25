@@ -46,6 +46,14 @@ where
     }
 }
 
+/// Syntax example
+/// ```
+/// new_converting_decoder!(
+///     /// My custom decoder
+///     pub MyCustomDecoder,
+///     |x: i64| -> MyCustomType {Ok(x)}
+/// );
+/// ```
 #[doc(hidden)]
 #[macro_export]
 macro_rules! new_converting_decoder {
