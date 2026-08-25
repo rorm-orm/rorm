@@ -6,6 +6,7 @@ Since 0.10.0
 - Updated bitvec to 0.8
 
 - Added postgres arrays
+- Added escape hatch to access sqlx's pool
 
 - Refactored rorm-sql's conditions
 - Re-export new operator enums instead of defining them
