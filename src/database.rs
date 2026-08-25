@@ -120,6 +120,19 @@ impl Database {
     }
 }
 
+#[cfg(feature = "postgres-only")]
+impl Database {
+    /// Accesses the raw underlying connection pool
+    ///
+    /// This can be used to access some postgres specific features
+    /// which sqlx implements but rorm doesn't (yet).
+    pub fn as_pool(&self) -> &sqlx::postgres::PgPool {
+        match &self.0 {
+            AnyPool::Postgres(x) => x,
+        }
+    }
+}
+
 impl Drop for Database {
     /// Checks whether [`Database::close`] has been called before the last instance is dropped
     fn drop(&mut self) {
