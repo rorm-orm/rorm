@@ -128,7 +128,7 @@ macro_rules! impl_FieldType {
         impl_FieldType!(
             $type,
             $null_type,
-            $crate::fields::utils::check::shared_linter_check<1>,
+            $Check,
             $crate::crud::decoder::DirectDecoder<Self>
         );
     };

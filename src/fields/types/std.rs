@@ -11,6 +11,7 @@ use crate::fields::traits::simple::{
     SimpleFieldEq, SimpleFieldIn, SimpleFieldLike, SimpleFieldOrd,
 };
 use crate::fields::traits::{Array, FieldColumns, FieldType};
+use crate::fields::utils::check;
 use crate::fields::utils::check::disallow_annotations_check;
 use crate::fields::utils::get_annotations::forward_annotations;
 use crate::fields::utils::get_names::no_columns_names;
