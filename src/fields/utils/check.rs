@@ -49,22 +49,3 @@ const_fn! {
         Ok(())
     }
 }
-
-const_fn! {
-    /// [`FieldType::Check`] which runs the linter shared with `rorm-cli` on every column
-    /// and checks `max_length` to be set.
-    #[allow(clippy::result_large_err, reason = "There is no heap in const")]
-    pub fn string_check(_field: Annotations, [column]: [Annotations; 1]) -> Result<(), ConstString<1024>> {
-        if let Err(error) = shared_linter_check(_field, [column]) {
-            return Err(error);
-        }
-
-        if column.max_length.is_none() {
-            return Err(ConstString::error(&[
-                "missing annotation: max_length",
-            ]));
-        }
-
-        Ok(())
-    }
-}

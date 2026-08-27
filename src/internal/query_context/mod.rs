@@ -300,7 +300,6 @@ impl<'v> QueryContext<'v> {
     /// # struct Group {
     /// #     #[rorm(id)]
     /// #     id: i64,
-    /// #     #[rorm(max_length = 255)]
     /// #     name: String,
     /// # }
     /// # #[derive(Model)]

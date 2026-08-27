@@ -52,7 +52,6 @@
 //!     boolean: bool,
 //!     integer: i32,
 //!     float: f64,
-//!     #[rorm(max_length = 255)]
 //!     string: String,
 //!     binary: Vec<u8>,
 //!

@@ -24,9 +24,7 @@
 //! # struct User {
 //! #     #[rorm(id)]
 //! #     id: i64,
-//! #     #[rorm(max_length = 255)]
 //! #     name: String,
-//! #     #[rorm(max_length = 255)]
 //! #     region: String,
 //! # }
 //! async fn query_users(

@@ -7,7 +7,7 @@ use crate::conditions::Value;
 use crate::fields::traits::into_value::IntoValue;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
 use crate::fields::traits::{Array, FieldColumns, FieldType};
-use crate::fields::utils::check::string_check;
+use crate::fields::utils::check::shared_linter_check;
 use crate::fields::utils::get_annotations::forward_annotations;
 use crate::fields::utils::get_names::single_column_name;
 use crate::new_converting_decoder;
@@ -32,7 +32,7 @@ impl FieldType for Url {
 
     type GetAnnotations = forward_annotations<1>;
 
-    type Check = string_check;
+    type Check = shared_linter_check<1>;
 }
 new_converting_decoder!(
     pub UrlDecoder,

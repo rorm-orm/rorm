@@ -11,7 +11,6 @@ use crate::fields::traits::simple::{
     SimpleFieldEq, SimpleFieldIn, SimpleFieldLike, SimpleFieldOrd,
 };
 use crate::fields::traits::{Array, FieldColumns, FieldType};
-use crate::fields::utils::check;
 use crate::fields::utils::check::disallow_annotations_check;
 use crate::fields::utils::get_annotations::forward_annotations;
 use crate::fields::utils::get_names::no_columns_names;
@@ -61,7 +60,7 @@ impl SimpleFieldOrd for f64 {}
 impl_FieldSum_FieldAvg!(f64, sum_result: f64);
 impl_FieldMin_FieldMax!(f64);
 
-impl_FieldType!(String, String, check::string_check);
+impl_FieldType!(String, String);
 
 impl SimpleFieldEq for String {}
 impl SimpleFieldEq<&'_ str> for String {}

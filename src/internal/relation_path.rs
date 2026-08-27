@@ -20,7 +20,6 @@ use crate::{sealed, Model};
 /// # struct Group {
 /// #     #[rorm(id)]
 /// #     id: i64,
-/// #     #[rorm(max_length = 255)]
 /// #     name: String,
 /// # }
 /// # #[derive(Model)]
@@ -105,7 +104,6 @@ pub trait Path: 'static {
     /// # struct Group {
     /// #     #[rorm(id)]
     /// #     id: i64,
-    /// #     #[rorm(max_length = 255)]
     /// #     name: String,
     /// # }
     /// # #[derive(Model)]

@@ -43,7 +43,12 @@ impl_annotations!(
     DefaultValue(DefaultValueData),
     /// Create an index. The optional [IndexData] can be used, to build more complex indexes.
     Index(Option<IndexData>),
-    /// Only for VARCHAR. Specifies the maximum length of the column's content.
+    /// Specifies the maximum length of the column's content.
+    ///
+    /// This is a constraint, not part of the column's type: postgres enforces
+    /// it with a `CHECK (length(...) <= n)`, sqlite doesn't enforce it at all.
+    /// Use [`MaxStr`](crate::fields::types::MaxStr) for a limit which holds on
+    /// every backend.
     MaxLength(i32),
     /// The annotated column will be used as primary key
     PrimaryKey,
@@ -284,13 +289,6 @@ impl Annotations {
         }
     }
 
-    /// Is the annotation `index` set?
-    pub const fn is_set(&self, index: &AnnotationIndex) -> bool {
-        match index {
-            AnnotationIndex::MaxLength => self.max_length.is_some(),
-        }
-    }
-
     /// Merge with another annotations instance
     ///
     /// This method is used to merge a field's explicitly set annotations with its type's implicit ones.
@@ -333,20 +331,5 @@ impl Annotations {
             unique,
         } = other;);
         Ok(self)
-    }
-}
-
-/// Enum used in [`Annotations::is_set`] as index
-pub enum AnnotationIndex {
-    /// [`Annotations`]'s `max_length` field
-    MaxLength,
-}
-
-impl AnnotationIndex {
-    /// Get the index as string to print it
-    pub const fn as_str(&self) -> &'static str {
-        match self {
-            AnnotationIndex::MaxLength => "max_length",
-        }
     }
 }

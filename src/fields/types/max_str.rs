@@ -31,16 +31,28 @@ use crate::internal::query_context::QueryContext;
 
 /// String which is restricted to a maximum length
 ///
-/// When storing strings in a database you have to specify a `#[rorm(max_length = ...)]`
-/// which is enforced by the database upon insertion or update.
-/// This can result in a rather opaque [`rorm::Error`](crate::Error) when you
-/// fail to check your strings before passing to the database.
-/// This type forces you to perform this check before the database by having a fallible constructor.
+/// A plain [`String`] maps to an unbounded text column.
+/// You can annotate the field with a `#[rorm(max_length = ...)]`, but that
+/// bound is only enforced by postgres, through a `CHECK` constraint, and not by sqlite.
+///
+/// You'd also only learn about a violation after a failed round trip to the
+/// database, as a rather opaque [`rorm::Error`](crate::Error).
+///
+/// `MaxStr` instead enforces the limit in rust, through a fallible constructor,
+/// before the string is ever sent to the database. It sets `max_length`
+/// implicitly, so postgres will enforce the same bound as a second line of
+/// defense.
+/// (Consequently you must not set `#[rorm(max_length = ...)]` on a `MaxStr` field yourself.)
 ///
 /// The "length" of a string is not really a well-defined thing
 /// and different databases might have different opinions.
 /// So this type uses a generic `Impl: LenImpl` to select our databases definition of "length".
 /// However, note that this will reduce our code's portability and is therefor not the recommended default.
+///
+/// The default [`NumBytes`] counts bytes whereas postgres' `length()` counts
+/// characters, and since a string never has fewer bytes than characters,
+/// `MaxStr`'s check is the stricter one: the database's `CHECK` will never fire
+/// for a value `MaxStr` accepted.
 ///
 /// This type is also generic over the string implementation to also support `&str` and `Cow<'_, str>`.
 #[derive(Copy, Clone, Debug)]

@@ -82,10 +82,8 @@ use crate::sealed;
 /// #     #[rorm(id)]
 /// #     id: i64,
 /// #
-/// #     #[rorm(max_length = 255)]
 /// #     username: String,
 /// #
-/// #     #[rorm(max_length = 255)]
 /// #     password: String,
 /// # }
 /// #

@@ -10,7 +10,6 @@ pub struct Thread {
     pub identifier: String,
 
     /// The thread's display name
-    #[rorm(max_length = 255)]
     pub name: String,
 
     /// When was this thread opened?

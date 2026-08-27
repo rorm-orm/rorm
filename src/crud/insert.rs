@@ -21,7 +21,7 @@ use crate::model::{Model, Patch};
 /// # Basic usage
 /// ```no_run
 /// # use rorm::{Model, Patch, Database, insert};
-/// # #[derive(Model)] pub struct User { #[rorm(id)] id: i64, #[rorm(max_length = 255)] name: String, }
+/// # #[derive(Model)] pub struct User { #[rorm(id)] id: i64, name: String, }
 /// # #[derive(Patch)] #[rorm(model = "User")] pub struct NewUser { name: String, }
 /// pub async fn create_single_user(db: &Database, user: &NewUser) {
 ///     insert(db, User)
@@ -51,7 +51,7 @@ use crate::model::{Model, Patch};
 /// # Return value
 /// ```no_run
 /// # use rorm::{Model, Patch, Database, insert, Error};
-/// # #[derive(Model)] pub struct User { #[rorm(id)] id: i64, #[rorm(max_length = 255)] name: String, }
+/// # #[derive(Model)] pub struct User { #[rorm(id)] id: i64, name: String, }
 /// # #[derive(Patch)] #[rorm(model = "User")] pub struct NewUser { name: String, }
 /// # pub type UserPatch = NewUser;
 /// pub async fn show_various_returns(db: &Database, user: &NewUser) -> Result<(), Error> {

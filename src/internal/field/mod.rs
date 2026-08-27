@@ -119,7 +119,7 @@ pub fn push_imr<F: Field>(imr: &mut Vec<imr::Field>) {
         imr.push(imr::Field {
             name: name.as_str().to_string(),
             db_type: match null_type {
-                NullType::String => imr::DbType::VarChar,
+                NullType::String => imr::DbType::Text,
                 NullType::Choice => imr::DbType::Choices,
                 NullType::I64 => imr::DbType::Int64,
                 NullType::I32 => imr::DbType::Int32,
