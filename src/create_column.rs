@@ -163,7 +163,10 @@ impl<'post_build> CreateColumn<'post_build> for CreateColumnImpl<'_, 'post_build
             CreateColumnImpl::Postgres(mut column) => {
                 write!(sql, "\"{}\" ", column.name).unwrap();
 
-                match postgres_type(column.data_type, &column.annotations)? {
+                match postgres_type(
+                    column.data_type,
+                    column.annotations.iter().map(|x| x.annotation),
+                )? {
                     PostgresType::Normal(x) => write!(sql, "{x}").unwrap(),
                     PostgresType::Choices(values) => {
                         if let Some(stmts) = column.pre_statements {
@@ -306,18 +309,19 @@ pub enum PostgresType<'a> {
 /// The `Choices` need special handling and is returned as its own enum variant.
 pub fn postgres_type<'a>(
     data_type: DbType,
-    annotations: &'a [SQLAnnotation],
+    annotations: impl IntoIterator<Item = &'a Annotation> + Clone,
 ) -> Result<PostgresType<'a>, Error> {
     let auto_increment = annotations
-        .iter()
-        .any(|x| matches!(x.annotation, Annotation::AutoIncrement));
+        .clone()
+        .into_iter()
+        .any(|x| matches!(x, Annotation::AutoIncrement));
 
-    let max_length = annotations.iter().find_map(|x| match x.annotation {
-        Annotation::MaxLength(x) => Some(*x),
+    let max_length = annotations.clone().into_iter().find_map(|x| match x {
+        Annotation::MaxLength(x) => Some(x),
         _ => None,
     });
 
-    let choices = annotations.iter().find_map(|x| match x.annotation {
+    let choices = annotations.clone().into_iter().find_map(|x| match x {
         Annotation::Choices(x) => Some(x.as_slice()),
         _ => None,
     });
