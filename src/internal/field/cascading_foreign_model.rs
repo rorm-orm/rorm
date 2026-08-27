@@ -78,15 +78,10 @@ where
 }
 
 const_fn! {
-    /// - copies `max_length` from the foreign key
     /// - sets `foreign`
     /// - sets `on_update` and `on_delete` to `Cascade`
     pub fn cascading_foreign_annotations<FF: SingleColumnField>(field: Annotations) -> [Annotations; 1] {
         let mut annos = field;
-        if annos.max_length.is_none() {
-            let target_annos = FF::EFFECTIVE_ANNOTATION;
-            annos.max_length = target_annos.max_length;
-        }
         annos.foreign = Some(hmr::annotations::ForeignKey {
             table_name: FF::Model::TABLE,
             column_name: &FF::NAME,
