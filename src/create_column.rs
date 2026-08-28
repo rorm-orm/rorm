@@ -241,6 +241,21 @@ impl<'post_build> CreateColumn<'post_build> for CreateColumnImpl<'_, 'post_build
                             fk.table_name, fk.column_name, fk.on_delete, fk.on_update
                         )
                         .unwrap(),
+                        // A `character varying` carries its maximum length in
+                        // its type already, and every non string column has
+                        // nothing for `length()` to be applied to.
+                        Annotation::MaxLength(max_length) => {
+                            if matches!(column.data_type, DbType::Text) {
+                                write!(
+                                    sql,
+                                    "CONSTRAINT \"{}\" CHECK (length(\"{}\") <= {max_length})",
+                                    postgres::max_length_check_name(column.table_name, column.name),
+                                    column.name,
+                                )
+                                .unwrap();
+                            }
+                        }
+
                         _ => {}
                     };
                 }
@@ -260,6 +275,7 @@ pub fn sqlite_type(data_type: DbType) -> Result<&'static str, Error> {
     Ok(match data_type {
         DbType::Binary | DbType::Uuid => "BLOB",
         DbType::VarChar
+        | DbType::Text
         | DbType::Date
         | DbType::DateTime
         | DbType::Timestamp
@@ -275,8 +291,12 @@ pub fn sqlite_type(data_type: DbType) -> Result<&'static str, Error> {
     })
 }
 
+/// Return type of [`postgres_type`]
 pub enum PostgresType<'a> {
+    /// A "normal" postgres identified by a string
     Normal(Cow<'static, str>),
+
+    /// Choices use a custom unique postgres type per column.
     Choices(&'a [String]),
 }
 
@@ -304,6 +324,7 @@ pub fn postgres_type<'a>(
 
     #[allow(deprecated)]
     Ok(PostgresType::Normal(Cow::Borrowed(match data_type {
+        DbType::Text => "text",
         DbType::Uuid => "uuid",
         DbType::MacAddress => "macaddr",
         DbType::IpNetwork => "inet",
