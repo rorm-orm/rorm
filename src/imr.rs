@@ -113,6 +113,7 @@ pub struct Source {
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum DbType {
+    #[deprecated(note = "Use Text instead")]
     VarChar,
     Binary,
     Int8,
@@ -133,6 +134,7 @@ pub enum DbType {
     MacAddress,
     IpNetwork,
     BitVec,
+    Text,
 }
 
 /// The subset of annotations which need to be communicated with the migration tool
@@ -155,7 +157,12 @@ pub enum Annotation {
     DefaultValue(DefaultValue),
     /// Create an index. The optional [IndexValue] can be used, to build more complex indexes.
     Index(Option<IndexValue>),
-    /// Only for VARCHAR, VARBINARY. Specifies the maximum length of the column's content.
+    /// Specifies the maximum length of the column's content.
+    ///
+    /// It is part of the column's type for a [`DbType::VarChar`]
+    /// and a check constraint for a [`DbType::Text`].
+    /// Everywhere else, and in sqlite entirely, it is ignored -
+    /// sqlite has no `varchar` and never enforces a string's length.
     MaxLength(i32),
     /// NOT NULL constraint
     NotNull,
