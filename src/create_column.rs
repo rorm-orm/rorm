@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt::Write;
 
 use rorm_declaration::imr::DefaultValue;
@@ -86,30 +87,7 @@ impl<'post_build> CreateColumn<'post_build> for CreateColumnImpl<'_, 'post_build
         match self {
             #[cfg(feature = "sqlite")]
             CreateColumnImpl::SQLite(mut d) => {
-                write!(
-                    s,
-                    "\"{}\" {} ",
-                    d.name,
-                    match d.data_type {
-                        DbType::Binary | DbType::Uuid => "BLOB",
-                        DbType::VarChar
-                        | DbType::Date
-                        | DbType::DateTime
-                        | DbType::Timestamp
-                        | DbType::Time
-                        | DbType::Choices => "TEXT",
-                        DbType::Int8
-                        | DbType::Int16
-                        | DbType::Int32
-                        | DbType::Int64
-                        | DbType::Boolean => "INTEGER",
-                        DbType::Float | DbType::Double => "REAL",
-                        DbType::BitVec | DbType::MacAddress | DbType::IpNetwork => unreachable!(
-                            "BitVec, MacAddress and IpNetwork are not available for sqlite"
-                        ),
-                    }
-                )
-                .unwrap();
+                write!(s, "\"{}\" {} ", d.name, sqlite_type(d.data_type)?).unwrap();
 
                 for (idx, x) in d.annotations.iter().enumerate() {
                     if let Some(ref mut s) = d.statements {
@@ -175,102 +153,26 @@ impl<'post_build> CreateColumn<'post_build> for CreateColumnImpl<'_, 'post_build
             CreateColumnImpl::Postgres(mut d) => {
                 write!(s, "\"{}\" ", d.name).unwrap();
 
-                match d.data_type {
-                    DbType::VarChar => {
-                        let max_length = d
-                            .annotations
-                            .iter()
-                            .find_map(|x| match x.annotation {
-                                Annotation::MaxLength(x) => Some(*x),
-                                _ => None,
-                            })
-                            .ok_or_else(|| {
-                                Error::SQLBuildError(
-                                    "character varying must have a max_length annotation"
-                                        .to_string(),
-                                )
-                            })?;
-
-                        write!(s, "character varying ({max_length}) ").unwrap();
-                    }
-                    DbType::Choices => {
-                        let a_opt = d
-                            .annotations
-                            .iter()
-                            .find(|x| matches!(x.annotation, Annotation::Choices(_)));
-
-                        if let Some(a) = a_opt {
-                            if let Annotation::Choices(values) = a.annotation {
-                                if let Some(stmts) = d.pre_statements {
-                                    stmts.push((
-                                        format!(
-                                            "CREATE TYPE _{}_{} AS ENUM({});",
-                                            d.table_name,
-                                            d.name,
-                                            values
-                                                .iter()
-                                                .map(|x| { postgres::fmt(x) })
-                                                .collect::<Vec<String>>()
-                                                .join(", ")
-                                        ),
-                                        vec![],
-                                    ));
-                                };
-                                write!(s, "_{}_{} ", d.table_name, d.name,).unwrap();
-                            } else {
-                                return Err(Error::SQLBuildError(
-                                    "VARCHAR must have a MaxLength annotation".to_string(),
-                                ));
-                            }
-                        } else {
-                            return Err(Error::SQLBuildError(
-                                "VARCHAR must have a MaxLength annotation".to_string(),
+                match postgres_type(d.data_type, &d.annotations)? {
+                    PostgresType::Normal(x) => write!(s, "{x} ").unwrap(),
+                    PostgresType::Choices(values) => {
+                        if let Some(stmts) = d.pre_statements {
+                            stmts.push((
+                                format!(
+                                    "CREATE TYPE _{}_{} AS ENUM({});",
+                                    d.table_name,
+                                    d.name,
+                                    values
+                                        .iter()
+                                        .map(|x| { postgres::fmt(x) })
+                                        .collect::<Vec<String>>()
+                                        .join(", ")
+                                ),
+                                vec![],
                             ));
-                        }
+                        };
+                        write!(s, "_{}_{} ", d.table_name, d.name,).unwrap();
                     }
-                    DbType::Uuid => write!(s, "uuid ").unwrap(),
-                    DbType::MacAddress => write!(s, "macaddr ").unwrap(),
-                    DbType::IpNetwork => write!(s, "inet ").unwrap(),
-                    DbType::BitVec => write!(s, "varbit ").unwrap(),
-                    DbType::Binary => write!(s, "bytea ").unwrap(),
-                    DbType::Int8 => write!(s, "smallint ").unwrap(),
-                    DbType::Int16 => {
-                        if d.annotations
-                            .iter()
-                            .any(|x| matches!(x.annotation, Annotation::AutoIncrement))
-                        {
-                            write!(s, "smallserial ").unwrap();
-                        } else {
-                            write!(s, "smallint ").unwrap();
-                        }
-                    }
-                    DbType::Int32 => {
-                        if d.annotations
-                            .iter()
-                            .any(|x| matches!(x.annotation, Annotation::AutoIncrement))
-                        {
-                            write!(s, "serial ").unwrap();
-                        } else {
-                            write!(s, "integer ").unwrap();
-                        }
-                    }
-                    DbType::Int64 => {
-                        if d.annotations
-                            .iter()
-                            .any(|x| matches!(x.annotation, Annotation::AutoIncrement))
-                        {
-                            write!(s, "bigserial ").unwrap();
-                        } else {
-                            write!(s, "bigint ").unwrap();
-                        }
-                    }
-                    DbType::Float => write!(s, "real ").unwrap(),
-                    DbType::Double => write!(s, "double precision ").unwrap(),
-                    DbType::Boolean => write!(s, "boolean ").unwrap(),
-                    DbType::Date => write!(s, "date ").unwrap(),
-                    DbType::DateTime => write!(s, "timestamptz ").unwrap(),
-                    DbType::Timestamp => write!(s, "timestamp ").unwrap(),
-                    DbType::Time => write!(s, "time ").unwrap(),
                 };
 
                 for (idx, x) in d.annotations.iter().enumerate() {
@@ -333,4 +235,97 @@ impl<'post_build> CreateColumn<'post_build> for CreateColumnImpl<'_, 'post_build
             }
         }
     }
+}
+
+/// Converts a [`DbType`] into the associated sqlite type.
+///
+/// Note, we create tables in the `STRICT` mode.
+/// Only the actual basic datatypes can be used and not their various aliases.
+pub fn sqlite_type(data_type: DbType) -> Result<&'static str, Error> {
+    #[allow(deprecated)]
+    Ok(match data_type {
+        DbType::Binary | DbType::Uuid => "BLOB",
+        DbType::VarChar
+        | DbType::Date
+        | DbType::DateTime
+        | DbType::Timestamp
+        | DbType::Time
+        | DbType::Choices => "TEXT",
+        DbType::Int8 | DbType::Int16 | DbType::Int32 | DbType::Int64 | DbType::Boolean => "INTEGER",
+        DbType::Float | DbType::Double => "REAL",
+        DbType::BitVec | DbType::MacAddress | DbType::IpNetwork => {
+            return Err(Error::SQLBuildError(format!(
+                "{data_type:?} is not available for sqlite"
+            )))
+        }
+    })
+}
+
+pub enum PostgresType<'a> {
+    Normal(Cow<'static, str>),
+    Choices(&'a [String]),
+}
+
+/// Converts a [`DbType`] into the associated postgres type.
+///
+/// Some type have to take the `annotations` into account.
+/// The `Choices` need special handling and is returned as its own enum variant.
+pub fn postgres_type<'a>(
+    data_type: DbType,
+    annotations: &'a [SQLAnnotation],
+) -> Result<PostgresType<'a>, Error> {
+    let auto_increment = annotations
+        .iter()
+        .any(|x| matches!(x.annotation, Annotation::AutoIncrement));
+
+    let max_length = annotations.iter().find_map(|x| match x.annotation {
+        Annotation::MaxLength(x) => Some(*x),
+        _ => None,
+    });
+
+    let choices = annotations.iter().find_map(|x| match x.annotation {
+        Annotation::Choices(x) => Some(x.as_slice()),
+        _ => None,
+    });
+
+    #[allow(deprecated)]
+    Ok(PostgresType::Normal(Cow::Borrowed(match data_type {
+        DbType::Uuid => "uuid",
+        DbType::MacAddress => "macaddr",
+        DbType::IpNetwork => "inet",
+        DbType::BitVec => "varbit",
+        DbType::Binary => "bytea",
+        DbType::Int8 => "smallint",
+        DbType::Int16 if auto_increment => "smallserial",
+        DbType::Int16 => "smallint",
+        DbType::Int32 if auto_increment => "serial",
+        DbType::Int32 => "integer",
+        DbType::Int64 if auto_increment => "bigserial",
+        DbType::Int64 => "bigint",
+        DbType::Float => "real",
+        DbType::Double => "double precision",
+        DbType::Boolean => "boolean",
+        DbType::Date => "date",
+        DbType::DateTime => "timestamptz",
+        DbType::Timestamp => "timestamp ",
+        DbType::Time => "time",
+        DbType::VarChar => {
+            return match max_length {
+                Some(x) => Ok(PostgresType::Normal(Cow::Owned(format!(
+                    "character varying ({x})"
+                )))),
+                None => Err(Error::SQLBuildError(
+                    "character varying must have a max_length annotation".to_string(),
+                )),
+            };
+        }
+        DbType::Choices => {
+            return match choices {
+                Some(x) => Ok(PostgresType::Choices(x)),
+                None => Err(Error::SQLBuildError(
+                    "VARCHAR must have a MaxLength annotation".to_string(),
+                )),
+            };
+        }
+    })))
 }
