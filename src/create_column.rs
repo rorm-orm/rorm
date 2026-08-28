@@ -83,85 +83,95 @@ pub enum CreateColumnImpl<'until_build, 'post_build> {
 }
 
 impl<'post_build> CreateColumn<'post_build> for CreateColumnImpl<'_, 'post_build> {
-    fn build(self, s: &mut String) -> Result<(), Error> {
+    fn build(self, sql: &mut String) -> Result<(), Error> {
         match self {
             #[cfg(feature = "sqlite")]
-            CreateColumnImpl::SQLite(mut d) => {
-                write!(s, "\"{}\" {} ", d.name, sqlite_type(d.data_type)?).unwrap();
+            CreateColumnImpl::SQLite(mut column) => {
+                write!(
+                    sql,
+                    "\"{}\" {}",
+                    column.name,
+                    sqlite_type(column.data_type)?
+                )
+                .unwrap();
 
-                for (idx, x) in d.annotations.iter().enumerate() {
-                    if let Some(ref mut s) = d.statements {
+                for x in &column.annotations {
+                    let SQLAnnotation { annotation } = x;
+
+                    if let Some(s) = &mut column.statements {
                         trigger_annotation_to_trigger_sqlite(
-                            x.annotation,
-                            &d.data_type,
-                            d.table_name,
-                            d.name,
+                            annotation,
+                            &column.data_type,
+                            column.table_name,
+                            column.name,
                             s,
                         );
                     }
 
-                    match &x.annotation {
-                        Annotation::AutoIncrement => write!(s, "AUTOINCREMENT").unwrap(),
+                    sql.push(' ');
+                    match &annotation {
+                        Annotation::AutoIncrement => write!(sql, "AUTOINCREMENT").unwrap(),
                         Annotation::AutoCreateTime => {
                             write!(
-                                s,
+                                sql,
                                 "DEFAULT {}",
-                                match d.data_type {
+                                match column.data_type {
                                     DbType::Date => "CURRENT_DATE",
                                     DbType::DateTime => "CURRENT_TIMESTAMP",
                                     DbType::Timestamp => "CURRENT_TIMESTAMP",
                                     DbType::Time => "CURRENT_TIME",
-                                    _ => "",
+                                    _ =>
+                                        return Err(Error::SQLBuildError(format!(
+                                            "AutoCreateTime not compatible with {:?}",
+                                            column.data_type
+                                        ))),
                                 }
                             )
                             .unwrap();
                         }
-                        Annotation::DefaultValue(d) => match d {
-                            DefaultValue::String(dv) => {
-                                write!(s, "DEFAULT {}", sqlite::fmt(dv)).unwrap()
-                            }
-                            DefaultValue::Integer(i) => write!(s, "DEFAULT {i}").unwrap(),
-                            DefaultValue::Float(f) => write!(s, "DEFAULT {f}").unwrap(),
-                            DefaultValue::Boolean(b) => {
-                                if *b {
-                                    write!(s, "DEFAULT 1").unwrap();
-                                } else {
-                                    write!(s, "DEFAULT 0").unwrap();
-                                }
-                            }
-                        },
-                        Annotation::NotNull => write!(s, "NOT NULL").unwrap(),
-                        Annotation::PrimaryKey => write!(s, "PRIMARY KEY").unwrap(),
-                        Annotation::Unique => write!(s, "UNIQUE").unwrap(),
+                        Annotation::DefaultValue(DefaultValue::String(x)) => {
+                            write!(sql, "DEFAULT {}", sqlite::fmt(x)).unwrap()
+                        }
+                        Annotation::DefaultValue(DefaultValue::Integer(x)) => {
+                            write!(sql, "DEFAULT {x}").unwrap()
+                        }
+                        Annotation::DefaultValue(DefaultValue::Float(x)) => {
+                            write!(sql, "DEFAULT {x}").unwrap()
+                        }
+                        Annotation::DefaultValue(DefaultValue::Boolean(true)) => {
+                            write!(sql, "DEFAULT 1").unwrap()
+                        }
+                        Annotation::DefaultValue(DefaultValue::Boolean(false)) => {
+                            write!(sql, "DEFAULT 0").unwrap()
+                        }
+                        Annotation::NotNull => write!(sql, "NOT NULL").unwrap(),
+                        Annotation::PrimaryKey => write!(sql, "PRIMARY KEY").unwrap(),
+                        Annotation::Unique => write!(sql, "UNIQUE").unwrap(),
                         Annotation::ForeignKey(fk) => write!(
-                            s,
+                            sql,
                             "REFERENCES \"{}\" (\"{}\") ON DELETE {} ON UPDATE {}",
                             fk.table_name, fk.column_name, fk.on_delete, fk.on_update
                         )
                         .unwrap(),
                         _ => {}
                     }
-
-                    if idx != d.annotations.len() - 1 {
-                        write!(s, " ").unwrap();
-                    }
                 }
 
                 Ok(())
             }
             #[cfg(feature = "postgres")]
-            CreateColumnImpl::Postgres(mut d) => {
-                write!(s, "\"{}\" ", d.name).unwrap();
+            CreateColumnImpl::Postgres(mut column) => {
+                write!(sql, "\"{}\" ", column.name).unwrap();
 
-                match postgres_type(d.data_type, &d.annotations)? {
-                    PostgresType::Normal(x) => write!(s, "{x} ").unwrap(),
+                match postgres_type(column.data_type, &column.annotations)? {
+                    PostgresType::Normal(x) => write!(sql, "{x}").unwrap(),
                     PostgresType::Choices(values) => {
-                        if let Some(stmts) = d.pre_statements {
+                        if let Some(stmts) = column.pre_statements {
                             stmts.push((
                                 format!(
                                     "CREATE TYPE _{}_{} AS ENUM({});",
-                                    d.table_name,
-                                    d.name,
+                                    column.table_name,
+                                    column.name,
                                     values
                                         .iter()
                                         .map(|x| { postgres::fmt(x) })
@@ -171,64 +181,68 @@ impl<'post_build> CreateColumn<'post_build> for CreateColumnImpl<'_, 'post_build
                                 vec![],
                             ));
                         };
-                        write!(s, "_{}_{} ", d.table_name, d.name,).unwrap();
+                        write!(sql, "_{}_{}", column.table_name, column.name,).unwrap();
                     }
                 };
 
-                for (idx, x) in d.annotations.iter().enumerate() {
-                    if let Some(ref mut s) = d.statements {
+                for x in &column.annotations {
+                    let SQLAnnotation { annotation } = x;
+
+                    if let Some(s) = &mut column.statements {
                         trigger_annotation_to_trigger_postgres(
-                            x.annotation,
-                            d.table_name,
-                            d.name,
+                            annotation,
+                            column.table_name,
+                            column.name,
                             s,
                         );
                     }
 
-                    match &x.annotation {
+                    sql.push(' ');
+                    match &annotation {
                         Annotation::AutoCreateTime => {
                             write!(
-                                s,
+                                sql,
                                 "DEFAULT {}",
-                                match d.data_type {
+                                match column.data_type {
                                     DbType::Date => "CURRENT_DATE",
                                     DbType::DateTime => "now()",
                                     DbType::Timestamp => "CURRENT_TIMESTAMP",
                                     DbType::Time => "CURRENT_TIME",
-                                    _ => "",
+                                    _ =>
+                                        return Err(Error::SQLBuildError(format!(
+                                            "AutoCreateTime not compatible with {:?}",
+                                            column.data_type
+                                        ))),
                                 }
                             )
                             .unwrap();
                         }
-                        Annotation::DefaultValue(d) => match d {
-                            DefaultValue::String(dv) => {
-                                write!(s, "DEFAULT {}", postgres::fmt(dv)).unwrap()
-                            }
-                            DefaultValue::Integer(i) => write!(s, "DEFAULT {i}").unwrap(),
-                            DefaultValue::Float(f) => write!(s, "DEFAULT {f}").unwrap(),
-                            DefaultValue::Boolean(b) => {
-                                if *b {
-                                    write!(s, "DEFAULT true").unwrap();
-                                } else {
-                                    write!(s, "DEFAULT false").unwrap();
-                                }
-                            }
-                        },
-                        Annotation::NotNull => write!(s, "NOT NULL").unwrap(),
-                        Annotation::PrimaryKey => write!(s, "PRIMARY KEY").unwrap(),
-                        Annotation::Unique => write!(s, "UNIQUE").unwrap(),
+                        Annotation::DefaultValue(DefaultValue::String(x)) => {
+                            write!(sql, "DEFAULT {}", postgres::fmt(x)).unwrap()
+                        }
+                        Annotation::DefaultValue(DefaultValue::Integer(x)) => {
+                            write!(sql, "DEFAULT {x}").unwrap()
+                        }
+                        Annotation::DefaultValue(DefaultValue::Float(x)) => {
+                            write!(sql, "DEFAULT {x}").unwrap()
+                        }
+                        Annotation::DefaultValue(DefaultValue::Boolean(true)) => {
+                            write!(sql, "DEFAULT true").unwrap()
+                        }
+                        Annotation::DefaultValue(DefaultValue::Boolean(false)) => {
+                            write!(sql, "DEFAULT false").unwrap()
+                        }
+                        Annotation::NotNull => write!(sql, "NOT NULL").unwrap(),
+                        Annotation::PrimaryKey => write!(sql, "PRIMARY KEY").unwrap(),
+                        Annotation::Unique => write!(sql, "UNIQUE").unwrap(),
                         Annotation::ForeignKey(fk) => write!(
-                            s,
+                            sql,
                             "REFERENCES \"{}\"(\"{}\") ON DELETE {} ON UPDATE {}",
                             fk.table_name, fk.column_name, fk.on_delete, fk.on_update
                         )
                         .unwrap(),
                         _ => {}
                     };
-
-                    if idx != d.annotations.len() - 1 {
-                        write!(s, " ").unwrap();
-                    }
                 }
 
                 Ok(())
