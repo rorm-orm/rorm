@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::imr::{Field, Index};
+use crate::imr::{Annotation, DbType, Field, Index};
 
 /**
 The presentation of a migration file
@@ -93,6 +93,47 @@ pub enum Operation {
 
         /// New name of the column
         new: String,
+    },
+
+    /// Representation of an AlterField operation
+    ///
+    /// It changes an existing column in place, preserving its data.
+    ///
+    /// `make-migrations` only emits it for changes every supported dialect can
+    /// perform in place; everything else stays a [`Operation::DeleteField`]
+    /// followed by a [`Operation::CreateField`], which loses the column's data.
+    #[serde(rename_all = "PascalCase")]
+    AlterField {
+        /// Name of the model
+        model: String,
+
+        /// Name of the column
+        name: String,
+
+        /// The type to change the column to
+        ///
+        /// It is `None` if the column's type doesn't have to be touched at all,
+        /// which is worth avoiding: postgres rebuilds a column's indexes and
+        /// constraints on every `ALTER COLUMN ... TYPE`,
+        /// even one which doesn't actually change the type.
+        ///
+        /// It is always set for a [`DbType::VarChar`],
+        /// whose [`Annotation::MaxLength`] is part of its type.
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        new_type: Option<DbType>,
+
+        /// The column's complete new list of annotations
+        ///
+        /// Unlike `new_type` this is not a diff. A migration is applied without
+        /// any knowledge of the column's current annotations, so the operation
+        /// has to declare the state to assert instead of the change to make.
+        ///
+        /// It notably can't be skipped when it is unchanged: turning a
+        /// `character varying(n)` into a `text` leaves the annotations equal,
+        /// but moves the maximum length from the type into a constraint.
+        // This serializes as an array of tables, which toml requires to come
+        // after all of a table's values, so it has to stay the last field.
+        new_annotations: Vec<Annotation>,
     },
 
     /// Representation of a DeleteField operation
