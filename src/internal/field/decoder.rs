@@ -47,7 +47,7 @@ where
 }
 
 /// Syntax example
-/// ```
+/// ```text
 /// new_converting_decoder!(
 ///     /// My custom decoder
 ///     pub MyCustomDecoder,
