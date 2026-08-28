@@ -184,10 +184,11 @@ pub struct ForeignKey {
 /**
 Action that gets trigger on update and on delete.
 */
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub enum ReferentialAction {
     /// Stop operation if any keys still depend on the parent table
+    #[default]
     Restrict,
     /// The action is cascaded
     Cascade,
@@ -195,12 +196,6 @@ pub enum ReferentialAction {
     SetNull,
     /// The field is set to its default
     SetDefault,
-}
-
-impl Default for ReferentialAction {
-    fn default() -> Self {
-        Self::Restrict
-    }
 }
 
 impl Display for ReferentialAction {
