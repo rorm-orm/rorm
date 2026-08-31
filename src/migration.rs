@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::imr::{Annotation, DbType, Field, Index};
+use crate::imr::{DbType, Field, Index};
 
 /**
 The presentation of a migration file
@@ -95,15 +95,15 @@ pub enum Operation {
         new: String,
     },
 
-    /// Representation of an AlterField operation
+    /// Representation of a SetFieldType operation
     ///
-    /// It changes an existing column in place, preserving its data.
+    /// It changes an existing column's type in place, preserving its data.
     ///
-    /// `make-migrations` only emits it for changes every supported dialect can
-    /// perform in place; everything else stays a [`Operation::DeleteField`]
-    /// followed by a [`Operation::CreateField`], which loses the column's data.
+    /// The type has to be one which is fully described by itself. A
+    /// [`DbType::VarChar`] carries its maximum length and a [`DbType::Choices`]
+    /// its enum, so neither can be set through this operation.
     #[serde(rename_all = "PascalCase")]
-    AlterField {
+    SetFieldType {
         /// Name of the model
         model: String,
 
@@ -111,29 +111,41 @@ pub enum Operation {
         name: String,
 
         /// The type to change the column to
-        ///
-        /// It is `None` if the column's type doesn't have to be touched at all,
-        /// which is worth avoiding: postgres rebuilds a column's indexes and
-        /// constraints on every `ALTER COLUMN ... TYPE`,
-        /// even one which doesn't actually change the type.
-        ///
-        /// It is always set for a [`DbType::VarChar`],
-        /// whose [`Annotation::MaxLength`] is part of its type.
-        #[serde(skip_serializing_if = "Option::is_none", default)]
-        new_type: Option<DbType>,
+        #[serde(rename = "DbType")]
+        db_type: DbType,
+    },
 
-        /// The column's complete new list of annotations
-        ///
-        /// Unlike `new_type` this is not a diff. A migration is applied without
-        /// any knowledge of the column's current annotations, so the operation
-        /// has to declare the state to assert instead of the change to make.
-        ///
-        /// It notably can't be skipped when it is unchanged: turning a
-        /// `character varying(n)` into a `text` leaves the annotations equal,
-        /// but moves the maximum length from the type into a constraint.
-        // This serializes as an array of tables, which toml requires to come
-        // after all of a table's values, so it has to stay the last field.
-        new_annotations: Vec<Annotation>,
+    /// Representation of a SetFieldMaxLength operation
+    ///
+    /// It constrains a [`DbType::Text`] column to a maximum length. Postgres
+    /// enforces it with a check constraint; sqlite has no `varchar` and never
+    /// checks a string's length, so there it does nothing.
+    ///
+    /// A column which already has a maximum length has to
+    /// [drop](Operation::DropFieldMaxLength) it first: a constraint can't be
+    /// redefined, only replaced.
+    #[serde(rename_all = "PascalCase")]
+    SetFieldMaxLength {
+        /// Name of the model
+        model: String,
+
+        /// Name of the column
+        name: String,
+
+        /// The maximum number of characters the column may hold
+        max_length: i32,
+    },
+
+    /// Representation of a DropFieldMaxLength operation
+    ///
+    /// It removes the constraint [`Operation::SetFieldMaxLength`] created.
+    #[serde(rename_all = "PascalCase")]
+    DropFieldMaxLength {
+        /// Name of the model
+        model: String,
+
+        /// Name of the column
+        name: String,
     },
 
     /// Representation of a DeleteField operation
