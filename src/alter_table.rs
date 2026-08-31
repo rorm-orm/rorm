@@ -1,4 +1,4 @@
-use rorm_declaration::imr::{Annotation, DbType};
+use rorm_declaration::imr::DbType;
 
 use crate::create_column::{self, CreateColumn, CreateColumnImpl, PostgresType};
 #[cfg(feature = "postgres")]
@@ -34,31 +34,52 @@ pub enum AlterTableOperation<'until_build, 'post_build> {
         name: String,
     },
     /**
-    Use this operation to change an existing column's type and constraints
-    in place, preserving its data.
+    Use this operation to change an existing column in place, preserving its data.
 
-    The operation asserts the column's max length instead of applying a diff,
-    because a migration is applied without any knowledge of the column's
-    current definition.
-
-    In sqlite this is a no-op. It has no `ALTER COLUMN`, and none of the
-    changes `rorm-cli` considers alterable are observable in a `STRICT` table:
-    `VarChar` and `Text` are both `TEXT`, every integer is `INTEGER`, both
-    floats are `REAL`, and a max length is never enforced.
+    Which change to make is decided by the caller: this operation renders the
+    single statement it is given and nothing else.
     */
     AlterColumn {
         /// Name of the column to alter
         name: &'until_build str,
 
-        /// The type to change the column to, or `None` to leave it alone
-        ///
-        /// It is never `None` for a [`DbType::VarChar`] column, whose
-        /// [`Annotation::MaxLength`] is part of its type.
-        data_type: Option<DbType>,
-
-        /// The annotations the column will have
-        annotations: &'post_build [Annotation],
+        /// The change to apply to it
+        operation: AlterColumnOperation,
     },
+}
+
+/**
+Representation of a single change to an existing column.
+
+Each variant renders into exactly one `ALTER TABLE` statement, or into none at
+all in sqlite: it has no `ALTER COLUMN`, and none of these changes are
+observable in a `STRICT` table - [`DbType::VarChar`] and [`DbType::Text`] are
+both `TEXT`, every integer is `INTEGER`, both floats are `REAL`, and a maximum
+length is never enforced.
+ */
+#[derive(Copy, Clone, Debug)]
+pub enum AlterColumnOperation {
+    /// Set the column's type
+    ///
+    /// The type has to be one which is fully described by itself. A
+    /// [`DbType::VarChar`] carries its maximum length and a [`DbType::Choices`]
+    /// its enum, so neither can be rendered from the type alone.
+    SetType {
+        /// The type to change the column to
+        data_type: DbType,
+    },
+
+    /// Add the check constraint enforcing the column's maximum length
+    ///
+    /// A column which already has one has to [drop](AlterColumnOperation::DropMaxLength)
+    /// it first: a constraint can't be redefined, only replaced.
+    SetMaxLength {
+        /// The maximum number of characters the column may hold
+        max_length: i32,
+    },
+
+    /// Drop the check constraint enforcing the column's maximum length
+    DropMaxLength,
 }
 
 /**
@@ -138,9 +159,9 @@ impl<'post_build> AlterTable<'post_build> for AlterTableImpl<'_, 'post_build> {
                     AlterTableOperation::DropColumn { name } => {
                         actions.push(format!("DROP COLUMN \"{name}\""))
                     }
-                    // Deliberately a no-op, see `AlterTableOperation::AlterColumn`.
-                    // `rorm-cli` only emits it for changes which leave a
-                    // sqlite column's definition untouched.
+                    // Deliberately a no-op, see `AlterColumnOperation`.
+                    // Sqlite has no `ALTER COLUMN` and needs none for these
+                    // changes: not one of them is observable in a `STRICT` table.
                     AlterTableOperation::AlterColumn { .. } => {}
                 };
 
@@ -177,56 +198,47 @@ impl<'post_build> AlterTable<'post_build> for AlterTableImpl<'_, 'post_build> {
                     AlterTableOperation::DropColumn { name } => {
                         actions.push(format!("DROP COLUMN \"{name}\""))
                     }
-                    AlterTableOperation::AlterColumn {
-                        name,
-                        data_type,
-                        annotations,
-                    } => {
-                        if let Some(data_type) = data_type {
-                            // `smallserial`, `serial` and `bigserial` create a
-                            // sequence which `ALTER COLUMN ... TYPE` does not
-                            // alter along with its column, leaving it to
-                            // overflow at its old type's maximum.
-                            if annotations.contains(&Annotation::AutoIncrement) {
-                                return Err(Error::SQLBuildError(format!(
-                                    "Column \"{name}\" can't be altered: the sequence behind \
-                                     an auto_increment column would keep its old type"
-                                )));
+                    AlterTableOperation::AlterColumn { name, operation } => {
+                        actions.push(match operation {
+                            AlterColumnOperation::SetType { data_type } => {
+                                // A `character varying` carries its maximum
+                                // length and a `Choices` its enum, so for
+                                // neither does the type describe the column.
+                                #[allow(deprecated)]
+                                let unrenderable = match data_type {
+                                    DbType::VarChar => {
+                                        Some("its maximum length is part of its type")
+                                    }
+                                    DbType::Choices => {
+                                        Some("its enum type belongs to the column creating it")
+                                    }
+                                    _ => None,
+                                };
+                                if let Some(reason) = unrenderable {
+                                    return Err(Error::SQLBuildError(format!(
+                                        "Column \"{name}\" can't be given the type \
+                                         {data_type:?}: {reason}"
+                                    )));
+                                }
+
+                                let data_type = match create_column::postgres_type(data_type, [])? {
+                                    PostgresType::Normal(x) => x,
+                                    PostgresType::Choices(_) => {
+                                        unreachable!("Choices is rejected above")
+                                    }
+                                };
+
+                                format!("ALTER COLUMN \"{name}\" TYPE {data_type}")
                             }
-
-                            let PostgresType::Normal(data_type) =
-                                create_column::postgres_type(data_type, annotations)?
-                            else {
-                                return Err(Error::SQLBuildError(format!(
-                                    "Column \"{name}\" can't be altered to an enum type"
-                                )));
-                            };
-
-                            actions.push(format!("ALTER COLUMN \"{name}\" TYPE {data_type}"));
-                        }
-
-                        // A `text` column's max length is a check constraint.
-                        // It is asserted rather than diffed, because the
-                        // column's current definition is unknown - hence the
-                        // unconditional drop, which also removes the
-                        // constraint of a column which lost its `MaxLength`.
-                        //
-                        // A `character varying` must not get one: it carries
-                        // its max length in its type. `data_type == None`
-                        // implies the column is not one, because `rorm-cli`
-                        // always sets the type of a `character varying`.
-                        let constraint = postgres::max_length_check_name(d.name, name);
-                        actions.push(format!("DROP CONSTRAINT IF EXISTS \"{constraint}\""));
-                        if matches!(data_type, None | Some(DbType::Text)) {
-                            if let Some(max_length) = annotations.iter().find_map(|x| match x {
-                                Annotation::MaxLength(x) => Some(x),
-                                _ => None,
-                            }) {
-                                actions.push(format!(
-                                    "ADD CONSTRAINT \"{constraint}\" CHECK (length(\"{name}\") <= {max_length})"
-                                ));
-                            }
-                        }
+                            AlterColumnOperation::SetMaxLength { max_length } => format!(
+                                "ADD CONSTRAINT \"{}\" CHECK (length(\"{name}\") <= {max_length})",
+                                postgres::max_length_check_name(d.name, name),
+                            ),
+                            AlterColumnOperation::DropMaxLength => format!(
+                                "DROP CONSTRAINT \"{}\"",
+                                postgres::max_length_check_name(d.name, name),
+                            ),
+                        });
                     }
                 };
 
@@ -263,9 +275,23 @@ fn finish<'post_build>(
 mod test {
     use rorm_declaration::imr::{Annotation, DbType};
 
-    use crate::alter_table::{AlterTable, AlterTableOperation};
+    use crate::alter_table::{AlterColumnOperation, AlterTable, AlterTableOperation};
     use crate::error::Error;
     use crate::DBImpl;
+
+    /// Collapses insignificant whitespace in `sql`
+    ///
+    /// Sql ignores whitespace, so the builders are free to leave a separator
+    /// behind an annotation which rendered nothing, and the assertions here
+    /// shouldn't have to spell those out. (Which also means they must not
+    /// contain string literals.)
+    fn normalize(sql: &str) -> String {
+        sql.split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .replace(" ;", ";")
+            .replace(" ,", ",")
+    }
 
     /// The statements `db` produces for `operation` on the `user` table
     fn alter(db: DBImpl, operation: AlterTableOperation) -> Vec<String> {
@@ -273,7 +299,7 @@ mod test {
             .build()
             .expect("The operation builds")
             .into_iter()
-            .map(|(statement, _)| statement)
+            .map(|(statement, _)| normalize(&statement))
             .collect()
     }
 
@@ -283,14 +309,10 @@ mod test {
             .expect_err("The operation doesn't build")
     }
 
-    fn alter_column<'a>(
-        data_type: Option<DbType>,
-        annotations: &'a [Annotation],
-    ) -> AlterTableOperation<'a, 'a> {
+    fn alter_column(operation: AlterColumnOperation) -> AlterTableOperation<'static, 'static> {
         AlterTableOperation::AlterColumn {
             name: "login",
-            data_type,
-            annotations,
+            operation,
         }
     }
 
@@ -349,36 +371,43 @@ mod test {
             );
         }
 
-        /// Sqlite has no `ALTER COLUMN`, and it doesn't need one: every change
-        /// rorm-cli considers alterable leaves a sqlite column untouched.
+        /// Sqlite has no `ALTER COLUMN` and needs none: not one of these
+        /// changes is observable in a `STRICT` table.
         #[test]
-        fn alter_column_is_a_noop() {
-            let annotations = [Annotation::MaxLength(255), Annotation::NotNull];
-            let cases: [Option<DbType>; 4] = [
-                Some(DbType::Text),
-                Some(DbType::VarChar),
-                Some(DbType::Int64),
-                None,
+        fn every_alter_column_operation_is_a_noop() {
+            let cases = [
+                AlterColumnOperation::SetType {
+                    data_type: DbType::Text,
+                },
+                AlterColumnOperation::SetType {
+                    data_type: DbType::Int64,
+                },
+                AlterColumnOperation::SetMaxLength { max_length: 255 },
+                AlterColumnOperation::DropMaxLength,
             ];
-            for data_type in cases {
+            for operation in cases {
                 assert_eq!(
-                    alter(DBImpl::SQLite, alter_column(data_type, &annotations)),
+                    alter(DBImpl::SQLite, alter_column(operation)),
                     Vec::<String>::new(),
-                    "{data_type:?}"
+                    "{operation:?}"
                 );
             }
         }
 
-        /// Not even the one case postgres refuses may produce anything
+        /// Not even the types postgres refuses may produce anything
         #[test]
-        fn altering_an_auto_increment_column_is_a_noop_too() {
-            assert_eq!(
-                alter(
-                    DBImpl::SQLite,
-                    alter_column(Some(DbType::Int64), &[Annotation::AutoIncrement])
-                ),
-                Vec::<String>::new()
-            );
+        fn an_unrenderable_type_is_a_noop_too() {
+            #[allow(deprecated)]
+            for data_type in [DbType::VarChar, DbType::Choices] {
+                assert_eq!(
+                    alter(
+                        DBImpl::SQLite,
+                        alter_column(AlterColumnOperation::SetType { data_type })
+                    ),
+                    Vec::<String>::new(),
+                    "{data_type:?}"
+                );
+            }
         }
     }
 
@@ -407,71 +436,47 @@ mod test {
             );
         }
 
-        /// The `varchar(n)` -> `text` migration every existing deployment gets
+        /// Every operation renders into exactly one statement,
+        /// just like the four which existed before.
         #[test]
-        fn to_text_with_a_max_length() {
+        fn every_operation_is_a_single_statement() {
             assert_eq!(
                 alter(
                     DBImpl::Postgres,
-                    alter_column(
-                        Some(DbType::Text),
-                        &[Annotation::MaxLength(255), Annotation::NotNull]
-                    )
+                    alter_column(AlterColumnOperation::SetType {
+                        data_type: DbType::Text
+                    })
+                ),
+                [r#"ALTER TABLE "user" ALTER COLUMN "login" TYPE text;"#]
+            );
+            assert_eq!(
+                alter(
+                    DBImpl::Postgres,
+                    alter_column(AlterColumnOperation::SetMaxLength { max_length: 255 })
                 ),
                 [
-                    r#"ALTER TABLE "user" ALTER COLUMN "login" TYPE text;"#,
-                    r#"ALTER TABLE "user" DROP CONSTRAINT IF EXISTS "user_login_max_length";"#,
-                    r#"ALTER TABLE "user" ADD CONSTRAINT "user_login_max_length" CHECK (length("login") <= 255);"#,
+                    r#"ALTER TABLE "user" ADD CONSTRAINT "user_login_max_length" CHECK (length("login") <= 255);"#
                 ]
+            );
+            assert_eq!(
+                alter(
+                    DBImpl::Postgres,
+                    alter_column(AlterColumnOperation::DropMaxLength)
+                ),
+                [r#"ALTER TABLE "user" DROP CONSTRAINT "user_login_max_length";"#]
             );
         }
 
-        /// Dropping `max_length` altogether has to drop the constraint,
-        /// which is why the drop is unconditional.
+        /// The caller decides whether a constraint exists, so the drop is
+        /// unqualified: a `DROP CONSTRAINT IF EXISTS` would paper over a
+        /// migration which got its own delta wrong.
         #[test]
-        fn to_text_without_a_max_length() {
-            assert_eq!(
-                alter(
-                    DBImpl::Postgres,
-                    alter_column(Some(DbType::Text), &[Annotation::NotNull])
-                ),
-                [
-                    r#"ALTER TABLE "user" ALTER COLUMN "login" TYPE text;"#,
-                    r#"ALTER TABLE "user" DROP CONSTRAINT IF EXISTS "user_login_max_length";"#,
-                ]
+        fn dropping_a_max_length_is_not_conditional() {
+            let statements = alter(
+                DBImpl::Postgres,
+                alter_column(AlterColumnOperation::DropMaxLength),
             );
-        }
-
-        /// Changing only the max length must not touch the column's type:
-        /// postgres rebuilds a column's indexes on every `ALTER COLUMN TYPE`.
-        #[test]
-        fn only_the_max_length() {
-            assert_eq!(
-                alter(
-                    DBImpl::Postgres,
-                    alter_column(None, &[Annotation::MaxLength(300), Annotation::NotNull])
-                ),
-                [
-                    r#"ALTER TABLE "user" DROP CONSTRAINT IF EXISTS "user_login_max_length";"#,
-                    r#"ALTER TABLE "user" ADD CONSTRAINT "user_login_max_length" CHECK (length("login") <= 300);"#,
-                ]
-            );
-        }
-
-        /// A `character varying` carries its max length in its type,
-        /// so it may not get a constraint on top of it.
-        #[test]
-        fn to_varchar_gets_no_constraint() {
-            assert_eq!(
-                alter(
-                    DBImpl::Postgres,
-                    alter_column(Some(DbType::VarChar), &[Annotation::MaxLength(300)])
-                ),
-                [
-                    r#"ALTER TABLE "user" ALTER COLUMN "login" TYPE character varying (300);"#,
-                    r#"ALTER TABLE "user" DROP CONSTRAINT IF EXISTS "user_login_max_length";"#,
-                ]
-            );
+            assert!(!statements[0].contains("IF EXISTS"), "{statements:?}");
         }
 
         /// Widening an integer, the other alterable type change
@@ -480,37 +485,62 @@ mod test {
             assert_eq!(
                 alter(
                     DBImpl::Postgres,
-                    alter_column(Some(DbType::Int64), &[Annotation::NotNull])
+                    alter_column(AlterColumnOperation::SetType {
+                        data_type: DbType::Int64
+                    })
                 ),
-                [
-                    r#"ALTER TABLE "user" ALTER COLUMN "login" TYPE bigint;"#,
-                    r#"ALTER TABLE "user" DROP CONSTRAINT IF EXISTS "user_login_max_length";"#,
-                ]
+                [r#"ALTER TABLE "user" ALTER COLUMN "login" TYPE bigint;"#]
             );
         }
 
-        /// `serial` is not a type but a column with its own sequence, which
-        /// `ALTER COLUMN ... TYPE` would leave at its old type.
+        /// `serial` is not a type but a column with its own sequence, so an
+        /// `auto_increment` column must never be given one. That is a migration
+        /// decision though, so rorm-cli makes it - here the base type is
+        /// rendered, which is the only correct thing for an `ALTER COLUMN`.
         #[test]
-        fn altering_an_auto_increment_column_is_an_error() {
+        fn a_type_is_never_rendered_as_serial() {
+            for (data_type, expected) in [
+                (DbType::Int16, "smallint"),
+                (DbType::Int32, "integer"),
+                (DbType::Int64, "bigint"),
+            ] {
+                assert_eq!(
+                    alter(
+                        DBImpl::Postgres,
+                        alter_column(AlterColumnOperation::SetType { data_type })
+                    ),
+                    [format!(
+                        r#"ALTER TABLE "user" ALTER COLUMN "login" TYPE {expected};"#
+                    )]
+                );
+            }
+        }
+
+        /// A `character varying` carries its maximum length in its type,
+        /// so the type alone doesn't describe the column.
+        #[test]
+        fn setting_a_varchar_type_is_an_error() {
+            #[allow(deprecated)]
+            let operation = AlterColumnOperation::SetType {
+                data_type: DbType::VarChar,
+            };
             assert!(matches!(
-                alter_err(
-                    DBImpl::Postgres,
-                    alter_column(Some(DbType::Int64), &[Annotation::AutoIncrement])
-                ),
-                Error::SQLBuildError(msg) if msg.contains("auto_increment")
+                alter_err(DBImpl::Postgres, alter_column(operation)),
+                Error::SQLBuildError(msg) if msg.contains("maximum length")
             ));
         }
 
         /// An enum's type is only known to the column which creates it
         #[test]
-        fn altering_to_an_enum_is_an_error() {
+        fn setting_an_enum_type_is_an_error() {
             assert!(matches!(
                 alter_err(
                     DBImpl::Postgres,
-                    alter_column(Some(DbType::Choices), &[Annotation::Choices(vec![])])
+                    alter_column(AlterColumnOperation::SetType {
+                        data_type: DbType::Choices
+                    })
                 ),
-                Error::SQLBuildError(msg) if msg.contains("enum")
+                Error::SQLBuildError(msg) if msg.contains("enum type")
             ));
         }
     }

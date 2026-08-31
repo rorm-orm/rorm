@@ -346,7 +346,7 @@ pub fn postgres_type<'a>(
         DbType::Boolean => "boolean",
         DbType::Date => "date",
         DbType::DateTime => "timestamptz",
-        DbType::Timestamp => "timestamp ",
+        DbType::Timestamp => "timestamp",
         DbType::Time => "time",
         DbType::VarChar => {
             return match max_length {
