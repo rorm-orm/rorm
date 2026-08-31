@@ -34,7 +34,7 @@ pub async fn apply_migration(
         })?;
 
     for (index, operation) in migration.operations.iter().enumerate() {
-        apply_operation(tx.get_transaction(), operation)
+        apply_operation(&mut tx, operation)
             .await
             .map_err(|error| ApplyMigrationError {
                 error,
@@ -43,7 +43,6 @@ pub async fn apply_migration(
     }
 
     let (query_string, bind_params) = tx
-        .get_transaction()
         .dialect()
         .insert(
             last_migration_table_name,
@@ -54,21 +53,22 @@ pub async fn apply_migration(
         .rollback_transaction()
         .build();
 
-    tx.get_transaction()
-        .execute::<Nothing>(query_string, bind_params)
+    tx.execute::<Nothing>(query_string, bind_params)
         .await
         .map_err(|error| ApplyMigrationError {
             error,
             location: ApplyMigrationErrorLocation::UpdateLastMigration,
         })?;
 
-    tx.commit().await.map_err(|x| ApplyMigrationError {
-        error: match x {
-            TransactionError::Database(x) => x,
-            TransactionError::Hook(_) => unreachable!("rorm-cli does not use hooks"),
-        },
-        location: ApplyMigrationErrorLocation::CommitTransaction,
-    })?;
+    tx.commit_if_owned()
+        .await
+        .map_err(|x| ApplyMigrationError {
+            error: match x {
+                TransactionError::Database(x) => x,
+                TransactionError::Hook(_) => unreachable!("rorm-cli does not use hooks"),
+            },
+            location: ApplyMigrationErrorLocation::CommitTransaction,
+        })?;
 
     Ok(())
 }
