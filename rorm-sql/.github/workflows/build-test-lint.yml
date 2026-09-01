@@ -1,0 +1,135 @@
+name: Build & Test & Lint
+on:
+  push:
+    paths-ignore:
+      - "*.md"
+  pull_request:
+
+defaults:
+  run:
+    shell: sh
+
+env:
+  SQLITE_VERSION: 3400000
+
+jobs:
+  build-test:
+    name: Build & Test
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    env:
+      RUSTFLAGS: "-Cinstrument-coverage"
+      LLVM_PROFILE_FILE: "coverage-rorm_%p-%m.profraw"
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Download the SQLite3 lib files
+        run: |
+          set -x
+          echo SQLite Version: ${SQLITE_VERSION}
+          curl https://sqlite.org/2022/sqlite-amalgamation-${SQLITE_VERSION}.zip -O
+          unzip sqlite-amalgamation-${SQLITE_VERSION}.zip
+          mv sqlite-amalgamation-${SQLITE_VERSION} sqlite-dev
+          rm -v sqlite-amalgamation-${SQLITE_VERSION}.zip
+          curl https://sqlite.org/2022/sqlite-dll-win64-x64-${SQLITE_VERSION}.zip -O
+          unzip sqlite-dll-win64-x64-${SQLITE_VERSION}.zip
+          mv sqlite3.def sqlite3.dll sqlite-dev
+          rm -v sqlite-dll-win64-x64-${SQLITE_VERSION}.zip
+        if: ${{ matrix.os == 'windows-latest' }}
+
+      - name: Build the SQLite3 library
+        shell: cmd
+        run: |
+          cd sqlite-dev
+          dir
+          set VSCMD_DEBUG=1
+          "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\Tools\\VsDevCmd.bat" & dir && lib /DEF:sqlite3.def /OUT:sqlite3.lib /MACHINE:x64 & dir
+        if: ${{ matrix.os == 'windows-latest' }}
+
+      - name: Update rust
+        run: rustup update
+
+      - name: Clone rorm-declaration (main)
+        run: git clone https://github.com/rorm-orm/rorm-declaration -b main --recursive && mv rorm-declaration ..
+        if: ${{ github.ref_name == 'main' }}
+
+      - name: Clone rorm-declaration (dev)
+        run: git clone https://github.com/rorm-orm/rorm-declaration -b dev --recursive && mv rorm-declaration ..
+        if: ${{ github.ref_name != 'main' }}
+
+      - name: Move the SQLite library
+        run: ls -lah && cp -v sqlite-dev/sqlite3.lib ./ && cp -v sqlite-dev/sqlite3.lib ../
+        if: ${{ matrix.os == 'windows-latest' }}
+
+      - name: Cargo test
+        run: |
+          cargo test -F sqlite
+          cargo test -F mysql
+          cargo test -F postgres
+
+  lint-coverage:
+    name: Lint & Coverage
+    runs-on: [ self-hosted, linux, x64 ]
+    env:
+      RUSTFLAGS: "-Cinstrument-coverage"
+      LLVM_PROFILE_FILE: "coverage-rorm_%p-%m.profraw"
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Clone rorm-declaration (main)
+        run: git clone https://github.com/rorm-orm/rorm-declaration -b main --recursive
+        if: ${{ github.ref_name == 'main' }}
+
+      - name: Clone rorm-declaration (dev)
+        run: git clone https://github.com/rorm-orm/rorm-declaration -b dev --recursive
+        if: ${{ github.ref_name != 'main' }}
+
+      - name: Configure rorm-declaration
+        run: |
+          ls -la ..
+          rm -fv ../rorm-declaration
+          ln -sv $(pwd)/rorm-declaration ../
+          cd rorm-declaration
+          git log -n1
+
+      - name: Cargo test
+        run: |
+          export PATH=~/.cargo/bin:$PATH
+          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/target
+          cargo test -F sqlite
+          cargo test -F mysql
+          cargo test -F postgres
+
+      - name: Run rust-clippy
+        run: |
+          export PATH=~/.cargo/bin:$PATH
+          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/target
+          cargo clippy -F sqlite,mysql,postgres --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+        continue-on-error: true
+
+      - name: Upload clippy analysis results to GitHub
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: rust-clippy-results.sarif
+          wait-for-processing: true
+
+      - name: Create code coverage report
+        run: |
+          export PATH=~/.cargo/bin:$PATH
+          export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/target
+          grcov . --binary-path ${CARGO_TARGET_DIR}/debug -s . -t html --branch --ignore-not-existing -o ./coverage
+          cp -rv coverage-rorm*raw ./coverage
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: coverage

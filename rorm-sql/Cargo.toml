@@ -1,0 +1,50 @@
+[package]
+name = "rorm-sql"
+version = "0.11.2"
+edition = "2021"
+keywords = ["database", "abstraction-layer", "sqlite", "postgres", "mysql"]
+categories = ["database"]
+authors = ["myOmikron <git@omikron.dev>"]
+repository = "https://github.com/rorm-orm/rorm-sql"
+homepage = "https://rorm.rs"
+documentation = "https://docs.rorm.rs"
+license = "MIT"
+description = "The sql abstraction layer."
+
+[dependencies]
+# Date & time library
+chrono = { version = ">=0.4.20", default-features = false }
+time = { version = "~0.3" }
+
+# Serialization library
+serde_json = { version = "~1" }
+
+# Uuid support
+uuid = { version = "~1" }
+
+# SQlite bindings for printf
+libsqlite3-sys = { version = "~0.30", optional = true }
+
+# Bitvec support
+bit-vec = { version = "~0.8", optional = true }
+# Ip network
+ipnetwork = { version = "~0.21", optional = true }
+# Mac Address support
+mac_address = { version = "~1", optional = true }
+
+rorm-declaration = { version = "~0.5.1", path = "../rorm-declaration" }
+
+[package.metadata.docs.rs]
+all-features = true
+
+[features]
+sqlite = [
+    "dep:libsqlite3-sys",
+]
+postgres = []
+postgres-only = [
+    "postgres",
+    "dep:bit-vec",
+    "dep:ipnetwork",
+    "dep:mac_address",
+]
