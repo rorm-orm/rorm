@@ -1,0 +1,76 @@
+[package]
+name = "rorm-db"
+version = "0.12.3"
+edition = "2021"
+categories = ["database"]
+keywords = ["async", "orm", "database", "orm"]
+repository = "https://github.com/rorm-orm/rorm-db"
+authors = ["myOmikron <git@omikron.dev>"]
+homepage = "https://rorm.rs"
+documentation = "https://docs.rorm.rs"
+license = "MIT"
+description = "The inner database abstraction layer from rorm."
+
+[lib]
+name = "rorm_db"
+
+[dependencies]
+rorm-sql = { version = "~0.11.2", path = "../rorm-sql" }
+rorm-declaration = { version = "~0.5", path = "../rorm-declaration" }
+
+# Basic traits and types required for async
+futures-core = "~0.3" # Used for the stream trait
+
+# Macro implemeting pin-projection
+pin-project = { version = "~1" } # Used to wrap futures and streams which are !Unpin
+
+# SQL executor
+sqlx = { version = "~0.9", default-features = false, features = ["json", "time", "chrono", "uuid", "runtime-tokio"] }
+
+# Logging facade
+tracing = { version = "~0.1" }
+
+# Serialization
+serde = { version = "~1", features = ["derive"], optional = true }
+
+[package.metadata.docs.rs]
+features = ["all-driver", "serde", "native-tls", "rustls"]
+
+[features]
+all-driver = [
+    "postgres",
+    "sqlite"
+]
+
+serde = [
+    "dep:serde",
+]
+
+# database backends
+postgres = [
+    "sqlx/postgres",
+    "rorm-sql/postgres",
+    "rorm-declaration/postgres"
+]
+sqlite = [
+    "sqlx/sqlite",
+    "rorm-sql/sqlite",
+    "rorm-declaration/sqlite"
+]
+
+## Exclusive drivers
+postgres-only = [
+    "postgres",
+    "rorm-sql/postgres-only",
+    "sqlx/mac_address",
+    "sqlx/ipnetwork",
+    "sqlx/bit-vec",
+]
+
+# sqlx tls
+rustls = [
+    "sqlx/tls-rustls"
+]
+native-tls = [
+    "sqlx/tls-native-tls"
+]
