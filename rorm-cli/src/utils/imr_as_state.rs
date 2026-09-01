@@ -286,7 +286,7 @@ mod test_indexes {
                 .into_iter()
                 .map(|(name, index)| Field {
                     name: name.to_string(),
-                    db_type: DbType::VarChar,
+                    db_type: DbType::Text,
                     annotations: vec![Annotation::Index(index)],
                     source_defined_at: None,
                 })

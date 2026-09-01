@@ -205,7 +205,7 @@ mod test_check_internal_models {
                             name: $test.to_string(),
                             annotations: vec![Annotation::PrimaryKey],
                             source_defined_at: None,
-                            db_type: DbType::VarChar,
+                            db_type: DbType::Text,
                         }],
                         source_defined_at: None,
                     }],
@@ -260,7 +260,7 @@ mod test_check_internal_models {
                 name: "foobar".to_string(),
                 fields: vec![Field {
                     name: "foo".to_string(),
-                    db_type: DbType::VarChar,
+                    db_type: DbType::Text,
                     annotations: vec![],
                     source_defined_at: None,
                 }],
@@ -394,7 +394,7 @@ mod test_check_internal_models {
         }];
         fields.extend(indexes.into_iter().map(|(field, index)| Field {
             name: field.to_string(),
-            db_type: DbType::VarChar,
+            db_type: DbType::Text,
             annotations: vec![Annotation::Index(index)],
             source_defined_at: None,
         }));
