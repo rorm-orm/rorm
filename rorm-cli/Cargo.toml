@@ -1,0 +1,71 @@
+[package]
+name = "rorm-cli"
+version = "0.10.4"
+edition = "2021"
+authors = ["myOmikron <git@omikron.dev>"]
+repository = "https://github.com/rorm-orm/rorm-cli"
+keywords = ["cli", "database", "migrator", "orm"]
+categories = ["command-line-utilities", "database"]
+homepage = "https://rorm.rs"
+documentation = "https://docs.rorm.rs"
+license = "MIT"
+description = "The cli tool for managing rorm applications."
+
+[dependencies]
+# Internal dependencies
+rorm-declaration = { version = "~0.5.1", path = "../rorm-declaration" }
+rorm-db = { version = "~0.12.3", path = "../rorm-db" }
+
+# CLI parsing tool
+clap = { version = "~4", features = ["derive"] }
+
+# Serialization library
+serde = { version = "~1", features = ["derive"] }
+serde_json = { version = "~1" }
+toml = { version = "~1" }
+
+# Error handling for binaries
+anyhow = { version = "~1" }
+
+# Error handling for libraries
+thiserror = { version = "~2" }
+
+# Regex
+regex = { version = "~1" }
+
+# Lazy implementation
+once_cell = { version = "~1" }
+
+# Runtime
+tokio = { version = ">=1.23.1", features = ["macros", "rt"] }
+
+# Read passwords from cli
+rpassword = { version = "~7" }
+
+tracing = { version = "~0.1" }
+tracing-subscriber = { version = "0.3", optional = true }
+
+[dev-dependencies]
+# Creating and clearing temporary directories
+temp-dir = { version = "~0.1" }
+
+[features]
+default = [
+    "bin",
+    "sqlite",
+    "postgres",
+]
+
+# Feature required to use rorm-cli as standalone executable
+bin = [
+    "tracing-subscriber",
+]
+
+sqlite = [
+    "rorm-db/sqlite",
+    "rorm-declaration/sqlite",
+]
+postgres = [
+    "rorm-db/postgres",
+    "rorm-declaration/postgres",
+]

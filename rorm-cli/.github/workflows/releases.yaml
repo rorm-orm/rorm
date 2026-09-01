@@ -1,0 +1,27 @@
+name: Compile releases locally
+on:
+  push:
+    tags:
+      - "*"
+
+defaults:
+  run:
+    shell: sh
+
+jobs:
+  install:
+    name: Install rorm-cli on local runners
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - [ self-hosted, linux, x64 ]
+          - [ self-hosted, windows, x64 ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install rorm-cli locally
+        run: CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/target ~/.cargo/bin/cargo install -f rorm-cli --path .

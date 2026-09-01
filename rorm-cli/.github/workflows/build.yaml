@@ -1,0 +1,25 @@
+name: Build rorm-cli
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: Build rorm-cli from scratch
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Update rust
+        run: rustup update
+
+      - name: Build rorm
+        run: cargo build
