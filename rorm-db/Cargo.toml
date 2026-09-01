@@ -1,6 +1,6 @@
 [package]
 name = "rorm-db"
-version = "0.12.3"
+version = "0.13.0"
 edition = "2021"
 categories = ["database"]
 keywords = ["async", "orm", "database", "orm"]
@@ -15,8 +15,8 @@ description = "The inner database abstraction layer from rorm."
 name = "rorm_db"
 
 [dependencies]
-rorm-sql = { version = "~0.11.2", path = "../rorm-sql" }
-rorm-declaration = { version = "~0.5", path = "../rorm-declaration" }
+rorm-sql = { version = "~0.12", path = "../rorm-sql" }
+rorm-declaration = { version = "~0.6", path = "../rorm-declaration" }
 
 # Basic traits and types required for async
 futures-core = "~0.3" # Used for the stream trait

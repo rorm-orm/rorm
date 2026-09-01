@@ -1,25 +1,5 @@
-Since 0.10.0
+Since 0.11.0
 -----------
-
-- Updated sqlx to 0.9
-- Updated ipnetwork to 0.21
-- Updated bitvec to 0.8
-
-- Implemented FieldType for more ip types
-- Added Postgres arrays
-- Added escape hatch to access sqlx's pool
-
-- `String` doesn't require `max_length` anymore
-  It maps to `text` instead of `character varying(n)`.
-  `max_length` is still honored, but only as a constraint.
-
-  Existing databases are converted in place by the migrator's new `AlterField`.
-  No column is dropped and no data is lost.
-
-- `Url` doesn't require `max_length` anymore either
-
-- Refactored rorm-sql's conditions
-- Re-export new operator enums instead of defining them
 
 Notes for publishing
 --------------------
