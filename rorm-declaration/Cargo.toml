@@ -1,0 +1,26 @@
+[package]
+name = "rorm-declaration"
+version = "0.5.2"
+edition = "2021"
+repository = "https://github.com/rorm-orm/rorm-declaration"
+categories = ["database"]
+authors = ["myOmikron <git@omikron.dev>", "gammelalf"]
+keywords = ["database", "declarative"]
+homepage = "https://rorm.rs"
+documentation = "https://docs.rorm.rs"
+license = "MIT"
+description = "The base defintion layer all rorm crates rely on."
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+# Implements Eq and Order types for f64
+ordered-float = { version = "~3", features = ["serde"] }
+
+# serde defines (de-)serialization behaviour for structs and enums
+serde = { version = "~1", features = ["derive"] }
+
+[features]
+sqlite = []
+postgres = []
