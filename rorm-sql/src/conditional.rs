@@ -363,21 +363,28 @@ is always [Condition::Conjunction].
 ```
 use rorm_sql::and;
 use rorm_sql::conditional::Condition;
-use rorm_sql::conditional::BinaryCondition;
+use rorm_sql::conditional::BinaryExpression;
+use rorm_sql::conditional::BinaryOperator;
 use rorm_sql::value::Value;
 
 let condition = and!(
     Condition::BinaryCondition(
-        BinaryCondition::Equals(Box::new([
-            Condition::Value(Value::Ident("id")),
-            Condition::Value(Value::I64(23)),
-        ]))
+        BinaryExpression {
+            operator: BinaryOperator::Equals,
+            values: Box::new([
+                Condition::Value(Value::Ident("id")),
+                Condition::Value(Value::I64(23)),
+            ])
+        }
     ),
     Condition::BinaryCondition(
-        BinaryCondition::Like(Box::new([
-            Condition::Value(Value::Ident("foo")),
-            Condition::Value(Value::String("%bar")),
-        ]))
+        BinaryExpression {
+            operator: BinaryOperator::Like,
+            values: Box::new([
+                Condition::Value(Value::Ident("foo")),
+                Condition::Value(Value::String("%bar")),
+            ])
+        }
     ),
 );
 ```
@@ -405,21 +412,28 @@ is always [Condition::Disjunction].
 ```
 use rorm_sql::or;
 use rorm_sql::conditional::Condition;
-use rorm_sql::conditional::BinaryCondition;
+use rorm_sql::conditional::BinaryExpression;
+use rorm_sql::conditional::BinaryOperator;
 use rorm_sql::value::Value;
 
 let condition = or!(
     Condition::BinaryCondition(
-        BinaryCondition::Equals(Box::new([
-            Condition::Value(Value::Ident("id")),
-            Condition::Value(Value::I64(23)),
-        ]))
+        BinaryExpression {
+            operator: BinaryOperator::Equals,
+            values: Box::new([
+                Condition::Value(Value::Ident("id")),
+                Condition::Value(Value::I64(23)),
+            ])
+        }
     ),
     Condition::BinaryCondition(
-        BinaryCondition::Like(Box::new([
-            Condition::Value(Value::Ident("foo")),
-            Condition::Value(Value::String("%bar")),
-        ]))
+        BinaryExpression {
+            operator: BinaryOperator::Like,
+            values: Box::new([
+                Condition::Value(Value::Ident("foo")),
+                Condition::Value(Value::String("%bar")),
+            ])
+        }
     ),
 );
 ```
