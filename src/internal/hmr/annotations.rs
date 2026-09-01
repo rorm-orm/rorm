@@ -280,7 +280,15 @@ impl Annotations {
             auto_increment: self.auto_increment.is_some(),
             choices: self.choices.is_some(),
             default: self.default.is_some(),
-            index: self.index.is_some(),
+            // Only an *unnamed* index is tracked by the shared lints: they can't
+            // express which columns an index spans, so a named one is checked by
+            // `rorm-cli` against the whole model instead of per column.
+            // TODO:
+            // Move index names to rorm-declaration
+            index: match &self.index {
+                Some(index) => index.0.is_none(),
+                None => false,
+            },
             max_length: self.max_length.is_some(),
             not_null: self.not_null(),
             primary_key: self.primary_key.is_some(),
