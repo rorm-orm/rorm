@@ -3,7 +3,7 @@
 #![warn(missing_docs)]
 
 #[cfg(not(any(feature = "sqlite", feature = "postgres")))]
-compile_error!("One of the features sqlite, postgres, mysql must be activated");
+compile_error!("One of the features sqlite, postgres must be activated");
 
 /// Implementation of a aggregator functions
 pub mod aggregation;

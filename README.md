@@ -11,7 +11,6 @@
 
 The following databases are currently supported:
 - SQLite 3
-- MariaDB 10.5 - 10.9
 - Postgres 11 - 15
 
 ## Documentation

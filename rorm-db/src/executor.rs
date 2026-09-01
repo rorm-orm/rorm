@@ -88,7 +88,7 @@ pub trait Executor<'exe> {
     /// Executes a raw SQL query
     ///
     /// The query is executed as prepared statement.
-    /// To bind parameter, use ? as placeholder in SQLite and MySQL
+    /// To bind parameter, use ? as placeholder in SQLite
     /// and $1, $2, $n in Postgres.
     ///
     /// The generic `Q` is used to "select" what the database is supposed to respond with.

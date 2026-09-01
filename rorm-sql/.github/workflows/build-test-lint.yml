@@ -71,7 +71,6 @@ jobs:
       - name: Cargo test
         run: |
           cargo test -F sqlite
-          cargo test -F mysql
           cargo test -F postgres
 
   lint-coverage:
@@ -106,14 +105,13 @@ jobs:
           export PATH=~/.cargo/bin:$PATH
           export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/target
           cargo test -F sqlite
-          cargo test -F mysql
           cargo test -F postgres
 
       - name: Run rust-clippy
         run: |
           export PATH=~/.cargo/bin:$PATH
           export CARGO_TARGET_DIR=~/cache/${GITHUB_REPOSITORY}/target
-          cargo clippy -F sqlite,mysql,postgres --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+          cargo clippy -F sqlite,postgres --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
         continue-on-error: true
 
       - name: Upload clippy analysis results to GitHub

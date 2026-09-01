@@ -60,6 +60,7 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
                 "Model name must not start with \"sqlite_\". Found {}.",
                 model.name.as_str()
             ));
+        // TODO: revisit this restriction
         // Mysql only allows numeric table names if they are quoted
         } else if RE.numeric_only.is_match(model.name.as_str()) {
             return Err(anyhow!(
@@ -101,6 +102,7 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
             // Reserved for internal use
             } else if field.name.starts_with('_') || field.name.ends_with('_') {
                 return Err(anyhow!("Model name must not start or end with \"_\""));
+            // TODO: revisit this restriction
             // Mysql only allows numeric table names if they are quoted
             } else if RE.numeric_only.is_match(field.name.as_str()) {
                 return Err(anyhow!("Model name must not only consist of numerics"));

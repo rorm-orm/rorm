@@ -1,6 +1,8 @@
 Since 0.11.0
 -----------
 
+- Removed MySQL field from RawSQL migration operation
+
 Notes for publishing
 --------------------
 - don't forget to bump and publish rorm-macro & rorm-macro-impl!

@@ -260,10 +260,7 @@ pub async fn apply_operation(
         }
         #[allow(unused_variables)]
         Operation::RawSQL {
-            mysql,
-            postgres,
-            sqlite,
-            ..
+            postgres, sqlite, ..
         } => match db_impl {
             #[cfg(feature = "sqlite")]
             DBImpl::SQLite => tx.execute::<Nothing>(sqlite.clone(), Vec::new()).await?,

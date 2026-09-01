@@ -2,7 +2,7 @@
 name = "rorm-sql"
 version = "0.12.0"
 edition = "2021"
-keywords = ["database", "abstraction-layer", "sqlite", "postgres", "mysql"]
+keywords = ["database", "abstraction-layer", "sqlite", "postgres"]
 categories = ["database"]
 authors = ["myOmikron <git@omikron.dev>"]
 repository = "https://github.com/rorm-orm/rorm-sql"

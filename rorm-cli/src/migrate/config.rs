@@ -28,16 +28,6 @@ Driver = "SQLite"
 Filename = ""
 
 # -------------------------------
-# Example MySQL configuration
-# -------------------------------
-# Driver = "MySQL"
-# Name = "dbname"
-# Host = "127.0.0.1"
-# Port = 3306
-# User = "dbuser"
-# Password = "super-secure-password"
-
-# -------------------------------
 # Example Postgres configuration
 # -------------------------------
 # Driver = "Postgres"

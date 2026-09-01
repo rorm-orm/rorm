@@ -50,7 +50,7 @@ pub struct CreateColumnSQLiteData<'until_build, 'post_build> {
 }
 
 /**
-Representation of the data of the creation of a column for the mysql dialect
+Representation of the data of the creation of a column for the postgres dialect
  */
 #[derive(Debug)]
 #[cfg(feature = "postgres")]

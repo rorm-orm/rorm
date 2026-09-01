@@ -189,8 +189,5 @@ pub enum Operation {
         /// SQL for postgres
         #[serde(rename = "Postgres")]
         postgres: String,
-        /// SQL for mysql
-        #[serde(rename = "MySQL")]
-        mysql: String,
     },
 }
