@@ -1,9 +1,6 @@
 [submodule "rorm-cli"]
 	path = rorm-cli
 	url = https://github.com/rorm-orm/rorm-cli
-[submodule "rorm-sql"]
-	path = rorm-sql
-	url = https://github.com/rorm-orm/rorm-sql
 [submodule "rorm-db"]
 	path = rorm-db
 	url = https://github.com/rorm-orm/rorm-db
