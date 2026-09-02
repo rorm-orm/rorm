@@ -11,8 +11,15 @@
 //! - [`Vec<u8>`]
 //! - [`Option<T>`] where `T` is on this list
 //!
+//! *The following required the "postgres-only" feature:*
+//!
+//! - [`IpAddr`](std::net::IpAddr)
+//! - [`Ipv4Addr`](std::net::Ipv4Addr)
+//! - [`Ipv6Addr`](std::net::Ipv6Addr)
+//!
 //! # Our types
 //! - [`ForeignModel<M>`](types::ForeignModel)
+//! - [`CascadingForeignModel<M>`](types::CascadingForeignModel)
 //! - [`BackRef<M>`](types::BackRef) (doesn't work inside an [`Option<T>`])
 //! - [`Json<T>`](types::Json)
 //! - [`MsgPack<T>`](types::MsgPack) (requires the "msgpack" feature)
@@ -35,6 +42,12 @@
 //!
 //! # url types (requires the "url" feature)
 //! - [`Url`](url::Url)
+//!
+//! # ipnetwork types (requires the "postgres-only" feature)
+//!
+//! - [`IpNetwork`](ipnetwork::IpNetwork)
+//! - [`Ipv4Network`](ipnetwork::Ipv4Network)
+//! - [`Ipv6Network`](ipnetwork::Ipv6Network)
 //!
 //! ---
 //!
