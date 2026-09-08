@@ -466,3 +466,19 @@ mod schemars_impl {
         }
     }
 }
+
+#[cfg(feature = "zeroize")]
+mod zeroize_impl {
+    use zeroize::Zeroize;
+
+    use crate::fields::types::MaxStr;
+
+    impl<const MAX_LEN: usize, Impl, Str> Zeroize for MaxStr<MAX_LEN, Impl, Str>
+    where
+        Str: Zeroize,
+    {
+        fn zeroize(&mut self) {
+            self.string.zeroize();
+        }
+    }
+}

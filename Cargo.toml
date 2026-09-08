@@ -11,7 +11,7 @@ members = [
 
 [package]
 name = "rorm"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2021"
 repository = "https://github.com/rorm-orm/rorm"
 authors = ["gammelalf", "myOmikron <git@omikron.dev>"]
@@ -82,6 +82,9 @@ utoipa = { version = "~4", optional = true }
 # `JsonSchema` support for `MaxStr`
 schemars = { version = "~0.8", optional = true }
 
+# `Zeroize` support for `MaxStr`
+zeroize = { version = "~1", optional = true }
+
 [package.metadata.docs.rs]
 features = [
     "all-drivers",
@@ -91,6 +94,7 @@ features = [
     "url",
     "utoipa",
     "schemars",
+    "zeroize",
     "msgpack",
     "cli",
     "rustls",
@@ -128,6 +132,7 @@ uuid = ["dep:uuid"]
 url = ["dep:url"]
 utoipa = ["dep:utoipa"]
 schemars = ["dep:schemars"]
+zeroize = ["dep:zeroize"]
 
 msgpack = ["dep:rmp-serde"]
 cli = ["dep:rorm-cli"]
