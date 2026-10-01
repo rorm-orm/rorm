@@ -278,7 +278,9 @@
 //! }
 //! ```
 
-use crate::const_fn;
+use crate::fields::traits::{FieldColumns, FieldType};
+use crate::fields::utils::const_fn::{ConstFn, Contains};
+use crate::internal::const_concat::ConstString;
 use crate::internal::hmr::annotations::Annotations;
 
 /// Constructs arrays by concatenating others
@@ -339,25 +341,26 @@ impl<T, const N: usize> ArrayBuilder<T, N> {
     }
 }
 
-const_fn! {
-    /// Helper for a multi-column `FieldType`'s `Check` implementation.
-    ///
-    /// The multi-column type would have to "call" each subfield's check function.
-    /// Each of which takes an array of annotations of some unique length `M`.
-    /// The multi-column type only has an array of length `N` which is the sum of all `M`s.
-    ///
-    /// This function takes the field's array of length `N` and extracts a subarray of length `M`
-    /// starting at position `I`.
-    pub fn slice_for_check<const N: usize, const M: usize, const I: usize>(single: Annotations, items: [Annotations; N]) -> (Annotations, [Annotations; M]) {
-        let mut array = [Annotations::empty(); M];
+/// Marker exposing [`Annotations::empty`] as argument for a [`ConstFn`]
+pub struct EmptyAnnotations;
+impl Contains<Annotations> for EmptyAnnotations {
+    const ITEM: Annotations = Annotations::empty();
+}
 
-        let mut i = 0;
-        while i < M {
-            array[i] = items[i + I];
-
-            i += 1;
-        }
-
-        (single, array)
-    }
+/// Checks a subfield for correctness by evaluating its [`FieldType`]'s `Check`
+///
+/// A subfield's [`Field`] type is generic over its parent's [`Field`].
+/// However, you can't set explicit annotations on the parent (a multi-column field).
+/// This means the check does not depend on the parent.
+/// This function is a workaround to call the `FieldType`'s `Check`
+/// without using on the normal machinery which would expect a [`Field`].
+#[allow(clippy::result_large_err, reason = "There is no heap in const")]
+pub const fn check<T: FieldType, A: Contains<Annotations>>() -> Result<(), ConstString<1024>> {
+    <<<T as FieldType>::Check as ConstFn<_, _>>::Body<(
+        A,
+        <<T as FieldType>::GetAnnotations as ConstFn<
+            (Annotations,),
+            FieldColumns<T, Annotations>,
+        >>::Body<(A,)>,
+    )> as Contains<_>>::ITEM
 }
