@@ -7,6 +7,7 @@ use crate::const_fn;
 #[cfg(doc)]
 use crate::fields::traits::FieldType;
 use crate::fields::utils::const_fn::Contains;
+use crate::fields::utils::new_generic_array;
 use crate::internal::const_concat::ConstString;
 use crate::internal::hmr::annotations::Annotations;
 
@@ -31,16 +32,7 @@ const_fn! {
 const_fn! {
     /// [`FieldType::GetAnnotations`] which forwards the field's explicit annotations to every column.
     pub fn forward_annotations<N: ArrayLength>(field: Annotations) -> GenericArray<Annotations, N> {
-        let mut array = GenericArray::uninit();
-        let mut i = 0;
-        while i < array.as_mut_slice().len() {
-            array.as_mut_slice()[i].write(field);
-            i += 1;
-        }
-        unsafe {
-            // SAFETY: we iterated over the entire array and wrote to every index
-            GenericArray::assume_init(array)
-        }
+        new_generic_array(field)
     }
 }
 

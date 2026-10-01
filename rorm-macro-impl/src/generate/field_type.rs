@@ -39,18 +39,21 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
     let fields__get_name = fields.map_collect(|x| &x.get_name);
     let fields__ty: Vec<_> = fields.map_collect(|x| &x.ty);
 
+    let mut sum = quote!(#rorm_path::fields::traits::generic_array::typenum::U0);
+    for fields__ty in &fields__ty {
+        sum = quote!(#rorm_path::fields::traits::generic_array::typenum::Sum<#sum, <#fields__ty as #rorm_path::fields::traits::FieldType>::Columns>);
+    }
+
     quote! {const _: () = {
         #field_declarations
 
-        const NUM_COLUMNS: usize = {
-            0 #(+ <<#fields__ty as #rorm_path::fields::traits::FieldType>::Columns as #rorm_path::fields::traits::Columns>::NUM)*
-        };
+        type NUM_COLUMNS = #sum;
         impl #rorm_path::fields::traits::FieldType for #ident {
-            type Columns = #rorm_path::fields::traits::Array<NUM_COLUMNS>;
+            type Columns = NUM_COLUMNS;
 
             const NULL: #rorm_path::fields::traits::FieldColumns<Self, #rorm_path::db::sql::value::NullType> = {
-                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
-                    [#rorm_path::db::sql::value::NullType::Bool; NUM_COLUMNS]
+                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::from_value(
+                    #rorm_path::db::sql::value::NullType::Bool
                 );
                 #(
                     builder.extend_const(
@@ -61,21 +64,21 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
             };
 
             fn into_values<'a>(self) -> #rorm_path::fields::traits::FieldColumns<Self, #rorm_path::conditions::Value<'a>> {
-                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
-                    ::std::array::from_fn(|_| #rorm_path::conditions::Value::Bool(false))
+                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::from_fn(
+                    |_| #rorm_path::conditions::Value::Bool(false)
                 );
                 #(
-                    self.#fields__ident.into_values();
+                    builder.extend(self.#fields__ident.into_values());
                 )*
                 builder.finish()
             }
 
             fn as_values(&self) -> #rorm_path::fields::traits::FieldColumns<Self, #rorm_path::conditions::Value<'_>> {
-                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
-                    ::std::array::from_fn(|_| #rorm_path::conditions::Value::Bool(false))
+                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::from_fn(
+                    |_| #rorm_path::conditions::Value::Bool(false)
                 );
                 #(
-                    self.#fields__ident.as_values();
+                    builder.extend(self.#fields__ident.as_values());
                 )*
                 builder.finish()
             }
@@ -121,8 +124,8 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
             #vis fn #get_names(
                 #[raw] T: (#rorm_path::fields::utils::column_name::ColumnName,)
             ) -> #rorm_path::fields::traits::FieldColumns<#ident, #rorm_path::fields::utils::column_name::ColumnName> {
-                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
-                    [#rorm_path::fields::utils::column_name::ColumnName::placeholder(); NUM_COLUMNS]
+                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::from_value(
+                    #rorm_path::fields::utils::column_name::ColumnName::placeholder()
                 );
                 #(
                     builder.extend_const(
@@ -152,8 +155,8 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
             #vis fn #get_annotations(
                 #[raw] T: (#rorm_path::internal::hmr::annotations::Annotations,)
             ) -> #rorm_path::fields::traits::FieldColumns<#ident, #rorm_path::internal::hmr::annotations::Annotations> {
-                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
-                    [#rorm_path::internal::hmr::annotations::Annotations::empty(); NUM_COLUMNS]
+                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::from_value(
+                    #rorm_path::internal::hmr::annotations::Annotations::empty()
                 );
                 #(
                     builder.extend_const(

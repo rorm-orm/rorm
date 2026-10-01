@@ -43,18 +43,18 @@ const _: () = {
             Self(::std::marker::PhantomData)
         }
     }
-    const NUM_COLUMNS: usize = {
-        0
-            + <<String as ::rorm::fields::traits::FieldType>::Columns as ::rorm::fields::traits::Columns>::NUM
-    };
+    type NUM_COLUMNS = ::rorm::fields::traits::generic_array::typenum::Sum<
+        ::rorm::fields::traits::generic_array::typenum::U0,
+        <String as ::rorm::fields::traits::FieldType>::Columns,
+    >;
     impl ::rorm::fields::traits::FieldType for BasicFieldType {
-        type Columns = ::rorm::fields::traits::Array<NUM_COLUMNS>;
+        type Columns = NUM_COLUMNS;
         const NULL: ::rorm::fields::traits::FieldColumns<
             Self,
             ::rorm::db::sql::value::NullType,
         > = {
-            let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
-                [::rorm::db::sql::value::NullType::Bool; NUM_COLUMNS],
+            let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::from_value(
+                ::rorm::db::sql::value::NullType::Bool,
             );
             builder.extend_const(<String as ::rorm::fields::traits::FieldType>::NULL);
             builder.finish_const()
@@ -62,19 +62,19 @@ const _: () = {
         fn into_values<'a>(
             self,
         ) -> ::rorm::fields::traits::FieldColumns<Self, ::rorm::conditions::Value<'a>> {
-            let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
-                ::std::array::from_fn(|_| ::rorm::conditions::Value::Bool(false)),
-            );
-            self.description.into_values();
+            let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::from_fn(|
+                _|
+            ::rorm::conditions::Value::Bool(false));
+            builder.extend(self.description.into_values());
             builder.finish()
         }
         fn as_values(
             &self,
         ) -> ::rorm::fields::traits::FieldColumns<Self, ::rorm::conditions::Value<'_>> {
-            let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
-                ::std::array::from_fn(|_| ::rorm::conditions::Value::Bool(false)),
-            );
-            self.description.as_values();
+            let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::from_fn(|
+                _|
+            ::rorm::conditions::Value::Bool(false));
+            builder.extend(self.description.as_values());
             builder.finish()
         }
         type GetNames = get_BasicFieldType_names;
@@ -115,10 +115,9 @@ const _: () = {
         (::rorm::fields::utils::column_name::ColumnName,)) ->
         ::rorm::fields::traits::FieldColumns < BasicFieldType,
         ::rorm::fields::utils::column_name::ColumnName > { let mut builder =
-        ::rorm::internal::field::multi_column::ArrayBuilder::new([::rorm::fields::utils::column_name::ColumnName::placeholder();
-        NUM_COLUMNS]); builder.extend_const(<< < String as
-        ::rorm::fields::traits::FieldType > ::GetNames as
-        ::rorm::fields::utils::const_fn::ConstFn < _, _ >> ::Body < (<
+        ::rorm::internal::field::multi_column::ArrayBuilder::from_value(::rorm::fields::utils::column_name::ColumnName::placeholder());
+        builder.extend_const(<< < String as ::rorm::fields::traits::FieldType >
+        ::GetNames as ::rorm::fields::utils::const_fn::ConstFn < _, _ >> ::Body < (<
         get_BasicFieldType_description_name as ::rorm::fields::utils::const_fn::ConstFn <
         _, _ >> ::Body < T >,) > as ::rorm::fields::utils::const_fn::Contains < _ >>
         ::ITEM,); builder.finish_const() }
@@ -134,12 +133,11 @@ const _: () = {
         (::rorm::internal::hmr::annotations::Annotations,)) ->
         ::rorm::fields::traits::FieldColumns < BasicFieldType,
         ::rorm::internal::hmr::annotations::Annotations > { let mut builder =
-        ::rorm::internal::field::multi_column::ArrayBuilder::new([::rorm::internal::hmr::annotations::Annotations::empty();
-        NUM_COLUMNS]); builder.extend_const(<< < String as
-        ::rorm::fields::traits::FieldType > ::GetAnnotations as
-        ::rorm::fields::utils::const_fn::ConstFn < _, _ >> ::Body < T > as
-        ::rorm::fields::utils::const_fn::Contains < _ >> ::ITEM,); builder.finish_const()
-        }
+        ::rorm::internal::field::multi_column::ArrayBuilder::from_value(::rorm::internal::hmr::annotations::Annotations::empty());
+        builder.extend_const(<< < String as ::rorm::fields::traits::FieldType >
+        ::GetAnnotations as ::rorm::fields::utils::const_fn::ConstFn < _, _ >> ::Body < T
+        > as ::rorm::fields::utils::const_fn::Contains < _ >> ::ITEM,); builder
+        .finish_const() }
     }
     ::rorm::const_fn! {
         pub fn check_BasicFieldType(#[raw] T :

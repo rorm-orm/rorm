@@ -278,23 +278,38 @@
 //! }
 //! ```
 
-use crate::const_fn;
-use crate::internal::hmr::annotations::Annotations;
+use crate::fields::utils::new_generic_array;
+use generic_array::sequence::GenericSequence;
+use generic_array::{ArrayLength, GenericArray};
 
 /// Constructs arrays by concatenating others
-pub struct ArrayBuilder<T, const N: usize> {
-    array: [T; N],
+pub struct ArrayBuilder<T, N: ArrayLength> {
+    array: GenericArray<T, N>,
     index: usize,
 }
-impl<T, const N: usize> ArrayBuilder<T, N> {
+impl<T, N: ArrayLength> ArrayBuilder<T, N> {
     /// Constructs a new `ArrayBuilder`
-    pub const fn new(array: [T; N]) -> Self {
-        Self { array, index: 0 }
+    pub fn from_fn(f: impl FnMut(usize) -> T) -> Self {
+        Self {
+            array: GenericArray::generate(f),
+            index: 0,
+        }
+    }
+
+    /// Constructs a new `ArrayBuilder`
+    pub const fn from_value(value: T) -> Self
+    where
+        T: Copy,
+    {
+        Self {
+            array: new_generic_array(value),
+            index: 0,
+        }
     }
 
     /// Extends `self` by another array
-    pub fn extend<const M: usize>(&mut self, other: [T; M]) {
-        if M > N - self.index {
+    pub fn extend<M: ArrayLength>(&mut self, other: GenericArray<T, M>) {
+        if M::USIZE > N::USIZE - self.index {
             panic!();
         }
         for item in other {
@@ -304,60 +319,73 @@ impl<T, const N: usize> ArrayBuilder<T, N> {
     }
 
     /// Returns the final array
-    pub fn finish(self) -> [T; N] {
-        if self.index != N {
+    pub fn finish(self) -> GenericArray<T, N> {
+        if self.index != N::USIZE {
             panic!();
         }
         self.array
     }
 
     /// Extends `self` by another array
-    pub const fn extend_const<const M: usize>(&mut self, other: [T; M])
+    pub const fn extend_const<M: ArrayLength>(&mut self, other: GenericArray<T, M>)
     where
+        GenericArray<T, M>: Copy,
         T: Copy,
     {
-        if M > N - self.index {
+        if M::USIZE > N::USIZE - self.index {
             panic!();
         }
         let mut other = other.as_slice();
         while let [item, remaining @ ..] = other {
             other = remaining;
-            self.array[self.index] = *item;
+            self.array.as_mut_slice()[self.index] = *item;
             self.index += 1;
         }
     }
 
     /// Returns the final array
-    pub const fn finish_const(self) -> [T; N]
+    pub const fn finish_const(self) -> GenericArray<T, N>
     where
-        T: Copy,
+        Self: Copy,
     {
-        if self.index != N {
+        if self.index != N::USIZE {
             panic!();
         }
         self.array
     }
 }
-
-const_fn! {
-    /// Helper for a multi-column `FieldType`'s `Check` implementation.
-    ///
-    /// The multi-column type would have to "call" each subfield's check function.
-    /// Each of which takes an array of annotations of some unique length `M`.
-    /// The multi-column type only has an array of length `N` which is the sum of all `M`s.
-    ///
-    /// This function takes the field's array of length `N` and extracts a subarray of length `M`
-    /// starting at position `I`.
-    pub fn slice_for_check<const N: usize, const M: usize, const I: usize>(single: Annotations, items: [Annotations; N]) -> (Annotations, [Annotations; M]) {
-        let mut array = [Annotations::empty(); M];
-
-        let mut i = 0;
-        while i < M {
-            array[i] = items[i + I];
-
-            i += 1;
+impl<T, N: ArrayLength> Clone for ArrayBuilder<T, N>
+where
+    GenericArray<T, N>: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            array: self.array.clone(),
+            index: self.index,
         }
-
-        (single, array)
     }
 }
+impl<T, N: ArrayLength> Copy for ArrayBuilder<T, N> where GenericArray<T, N>: Copy {}
+
+// const_fn! {
+//     /// Helper for a multi-column `FieldType`'s `Check` implementation.
+//     ///
+//     /// The multi-column type would have to "call" each subfield's check function.
+//     /// Each of which takes an array of annotations of some unique length `M`.
+//     /// The multi-column type only has an array of length `N` which is the sum of all `M`s.
+//     ///
+//     /// This function takes the field's array of length `N` and extracts a subarray of length `M`
+//     /// starting at position `I`.
+//     pub fn slice_for_check<N: ArrayLength, const M: usize, const I: usize>(single: Annotations, items: [Annotations; N]) -> (Annotations, [Annotations; M]) {
+//         let mut array = [Annotations::empty(); M];
+//
+//         let mut i = 0;
+//         while i < M {
+//             array[i] = items[i + I];
+//
+//             i += 1;
+//         }
+//
+//         (single, array)
+//     }
+// }
