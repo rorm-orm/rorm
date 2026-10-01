@@ -72,6 +72,7 @@ pub fn analyze_field_type(parsed: ParsedFieldType) -> darling::Result<AnalyzedFi
             },
             unit: format_ident!("__{}_{}", model_ident, ident),
             get_name: format_ident!("get_{model_ident}_{ident}_name"),
+            check: format_ident!("check_{model_ident}_{ident}"),
         });
     }
 
@@ -108,6 +109,7 @@ pub struct AnalyzedField {
     // Precomputed identifier
     pub unit: Ident,
     pub get_name: Ident,
+    pub check: Ident,
 }
 
 pub struct AnalyzedFieldAnnotations {
