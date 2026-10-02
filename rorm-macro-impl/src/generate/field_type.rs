@@ -260,7 +260,7 @@ fn generate_fields(model: &AnalyzedFieldType, config: &MacroConfig) -> TokenStre
                 type Type = #ty;
                 type Model = <__Field as #rorm_path::internal::field::Field>::Model;
                 const INDEX: usize = #index;
-                const NAME: #rorm_path::fields::utils::column_name::ColumnName = #rorm_path::fields::utils::column_name::ColumnName::new(#column);
+                const NAME: #rorm_path::fields::utils::column_name::ColumnName = <__Field as #rorm_path::internal::field::Field>::NAME.join(#column);
                 const EXPLICIT_ANNOTATIONS: #rorm_path::internal::hmr::annotations::Annotations = #annos;
                 const SOURCE: #rorm_path::internal::hmr::Source = #source;
                 fn new() -> Self {
