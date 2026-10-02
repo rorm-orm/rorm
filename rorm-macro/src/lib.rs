@@ -21,7 +21,14 @@ pub fn derive_patch(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(FieldType, attributes(rorm))]
 pub fn derive_field_type(input: TokenStream) -> TokenStream {
-    rorm_macro_impl::derive_field_type(input.into(), rorm_macro_impl::MacroConfig::default()).into()
+    rorm_macro_impl::derive_field_type(
+        input.into(),
+        rorm_macro_impl::MacroConfig {
+            rorm_path: quote! {rorm},
+            ..Default::default()
+        },
+    )
+    .into()
 }
 
 #[proc_macro_attribute]
