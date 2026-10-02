@@ -22,9 +22,8 @@ const _: () = {
         type Type = String;
         type Model = <__Field as ::rorm::internal::field::Field>::Model;
         const INDEX: usize = 0usize;
-        const NAME: ::rorm::fields::utils::column_name::ColumnName = ::rorm::fields::utils::column_name::ColumnName::new(
-            "description",
-        );
+        const NAME: ::rorm::fields::utils::column_name::ColumnName = <__Field as ::rorm::internal::field::Field>::NAME
+            .join("description");
         const EXPLICIT_ANNOTATIONS: ::rorm::internal::hmr::annotations::Annotations = ::rorm::internal::hmr::annotations::Annotations {
             default: None,
             index: None,
