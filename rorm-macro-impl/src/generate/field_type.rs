@@ -50,7 +50,7 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
             type Columns = #rorm_path::fields::traits::Array<NUM_COLUMNS>;
 
             const NULL: #rorm_path::fields::traits::FieldColumns<Self, #rorm_path::db::sql::value::NullType> = {
-                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
+                let mut builder = #rorm_path::internal::field::multi_column::ArrayBuilder::new(
                     [#rorm_path::db::sql::value::NullType::Bool; NUM_COLUMNS]
                 );
                 #(
@@ -62,7 +62,7 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
             };
 
             fn into_values<'a>(self) -> #rorm_path::fields::traits::FieldColumns<Self, #rorm_path::conditions::Value<'a>> {
-                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
+                let mut builder = #rorm_path::internal::field::multi_column::ArrayBuilder::new(
                     ::std::array::from_fn(|_| #rorm_path::conditions::Value::Bool(false))
                 );
                 #(
@@ -72,7 +72,7 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
             }
 
             fn as_values(&self) -> #rorm_path::fields::traits::FieldColumns<Self, #rorm_path::conditions::Value<'_>> {
-                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
+                let mut builder = #rorm_path::internal::field::multi_column::ArrayBuilder::new(
                     ::std::array::from_fn(|_| #rorm_path::conditions::Value::Bool(false))
                 );
                 #(
@@ -122,7 +122,7 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
             #vis fn #get_names(
                 #[raw] T: (#rorm_path::fields::utils::column_name::ColumnName,)
             ) -> #rorm_path::fields::traits::FieldColumns<#ident, #rorm_path::fields::utils::column_name::ColumnName> {
-                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
+                let mut builder = #rorm_path::internal::field::multi_column::ArrayBuilder::new(
                     [#rorm_path::fields::utils::column_name::ColumnName::placeholder(); NUM_COLUMNS]
                 );
                 #(
@@ -153,12 +153,12 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
             #vis fn #get_annotations(
                 _field: #rorm_path::internal::hmr::annotations::Annotations,
             ) -> #rorm_path::fields::traits::FieldColumns<#ident, #rorm_path::internal::hmr::annotations::Annotations> {
-                let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
+                let mut builder = #rorm_path::internal::field::multi_column::ArrayBuilder::new(
                     [#rorm_path::internal::hmr::annotations::Annotations::empty(); NUM_COLUMNS]
                 );
                 #(
                     builder.extend_const(
-                        <<<#fields__ty as #rorm_path::fields::traits::FieldType>::GetAnnotations as #rorm_path::fields::utils::const_fn::ConstFn<_, _>>::Body<(::rorm::internal::field::multi_column::EmptyAnnotations,)> as #rorm_path::fields::utils::const_fn::Contains<_>>::ITEM,
+                        <<<#fields__ty as #rorm_path::fields::traits::FieldType>::GetAnnotations as #rorm_path::fields::utils::const_fn::ConstFn<_, _>>::Body<(#rorm_path::internal::field::multi_column::EmptyAnnotations,)> as #rorm_path::fields::utils::const_fn::Contains<_>>::ITEM,
                     );
                 )*
                 builder.finish_const()
@@ -170,7 +170,7 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
                 field: #rorm_path::internal::hmr::annotations::Annotations,
                 columns: #rorm_path::fields::traits::FieldColumns<#ident, #rorm_path::internal::hmr::annotations::Annotations>,
             ) -> Result<(), #rorm_path::internal::const_concat::ConstString<1024>> {
-                if let Err(x) = ::rorm::fields::utils::check::disallow_annotations_check(field, columns) {
+                if let Err(x) = #rorm_path::fields::utils::check::disallow_annotations_check(field, columns) {
                     return Err(x);
                 }
                 #(
@@ -269,7 +269,7 @@ fn generate_fields(model: &AnalyzedFieldType, config: &MacroConfig) -> TokenStre
             }
             const fn #check() -> Result<(), #rorm_path::internal::const_concat::ConstString<1024>> {
                 struct __ExplicitAnnotations;
-                impl ::rorm::fields::utils::const_fn::Contains<#rorm_path::internal::hmr::annotations::Annotations> for __ExplicitAnnotations {
+                impl #rorm_path::fields::utils::const_fn::Contains<#rorm_path::internal::hmr::annotations::Annotations> for __ExplicitAnnotations {
                     const ITEM: #rorm_path::internal::hmr::annotations::Annotations = #annos;
                 }
                 #rorm_path::internal::field::multi_column::check::<#ty, __ExplicitAnnotations>()
