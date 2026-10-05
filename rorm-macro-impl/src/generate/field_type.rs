@@ -267,6 +267,7 @@ fn generate_fields(model: &AnalyzedFieldType, config: &MacroConfig) -> TokenStre
                     Self(::std::marker::PhantomData)
                 }
             }
+            #[allow(clippy::result_large_err, reason = "There is no other way to return dynamic error messages in const")]
             const fn #check() -> Result<(), #rorm_path::internal::const_concat::ConstString<1024>> {
                 struct __ExplicitAnnotations;
                 impl #rorm_path::fields::utils::const_fn::Contains<#rorm_path::internal::hmr::annotations::Annotations> for __ExplicitAnnotations {
