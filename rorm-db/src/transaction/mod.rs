@@ -242,16 +242,6 @@ pub enum MaybeOwnedTransaction<'a> {
 }
 
 impl MaybeOwnedTransaction<'_> {
-    /// (Re-) Borrows the transaction
-    pub fn as_ref(&self) -> &Transaction {
-        &*self
-    }
-
-    /// (Re-) Borrows the transaction
-    pub fn as_mut(&mut self) -> &mut Transaction {
-        &mut *self
-    }
-
     /// Get a reference to the guarded transaction
     #[deprecated(note = "Use deref instead")]
     pub fn get_transaction(&mut self) -> &mut Transaction {
@@ -280,6 +270,18 @@ impl MaybeOwnedTransaction<'_> {
     #[deprecated(note = "Use `commit_if_owned` instead")]
     pub async fn commit(self) -> Result<(), TransactionError> {
         self.commit_if_owned().await
+    }
+}
+
+impl AsRef<Transaction> for MaybeOwnedTransaction<'_> {
+    fn as_ref(&self) -> &Transaction {
+        self
+    }
+}
+
+impl AsMut<Transaction> for MaybeOwnedTransaction<'_> {
+    fn as_mut(&mut self) -> &mut Transaction {
+        &mut *self
     }
 }
 

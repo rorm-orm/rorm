@@ -11,12 +11,12 @@ use rorm_declaration::migration::{Migration, Operation};
 use tracing::info;
 
 use crate::linter;
-use crate::utils::{alter, indexes};
 use crate::utils::migrations::{
     convert_migration_to_file, convert_migrations_to_internal_models, get_existing_migrations,
 };
 use crate::utils::question;
 use crate::utils::re::RE;
+use crate::utils::{alter, indexes};
 
 /// Options struct for [run_make_migrations]
 #[derive(Debug)]
@@ -489,7 +489,7 @@ pub fn run_make_migrations(options: MakeMigrationsOptions) -> anyhow::Result<()>
     if let Some(migration) = new_migration {
         // Write migration to disk
         let path = Path::new(options.migration_dir.as_str())
-            .join(format!("{:04}_{}.toml", migration.id, &migration.name));
+            .join(format!("{:04}_{}.toml", migration.id, migration.name));
         convert_migration_to_file(migration, &path)
             .with_context(|| "Error occurred while converting migration to file")?;
     }

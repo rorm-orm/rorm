@@ -73,11 +73,11 @@ impl<'until_build, 'post_query> Delete<'until_build, 'post_query>
             DeleteImpl::SQLite(mut d) => {
                 let mut s = format!("DELETE FROM \"{}\" ", d.model);
 
-                if d.where_clause.is_some() {
+                if let Some(where_clause) = d.where_clause {
                     write!(
                         s,
                         "WHERE {} ",
-                        d.where_clause.unwrap().build(DBImpl::SQLite, &mut d.lookup)
+                        where_clause.build(DBImpl::SQLite, &mut d.lookup)
                     )
                     .unwrap();
                 }
@@ -89,13 +89,11 @@ impl<'until_build, 'post_query> Delete<'until_build, 'post_query>
             DeleteImpl::Postgres(mut d) => {
                 let mut s = format!("DELETE FROM \"{}\" ", d.model);
 
-                if d.where_clause.is_some() {
+                if let Some(where_clause) = d.where_clause {
                     write!(
                         s,
                         "WHERE {} ",
-                        d.where_clause
-                            .unwrap()
-                            .build(DBImpl::Postgres, &mut d.lookup)
+                        where_clause.build(DBImpl::Postgres, &mut d.lookup)
                     )
                     .unwrap();
                 }

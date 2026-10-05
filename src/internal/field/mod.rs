@@ -111,11 +111,7 @@ pub fn push_imr<F: Field>(imr: &mut Vec<imr::Field>) {
     let annotations = F::EFFECTIVE_ANNOTATIONS;
     let source_defined_at = F::SOURCE.as_imr();
 
-    for ((name, annotations), null_type) in names
-        .into_iter()
-        .zip(annotations.into_iter())
-        .zip(db_types.into_iter())
-    {
+    for ((name, annotations), null_type) in names.into_iter().zip(annotations).zip(db_types) {
         imr.push(imr::Field {
             name: name.as_str().to_string(),
             db_type: match null_type {

@@ -86,7 +86,7 @@ pub async fn run_migrate_custom(
         .execute::<Optional>(
             format!(
                 "SELECT migration_id FROM {} ORDER BY id DESC LIMIT 1;",
-                &last_migration_table_name
+                last_migration_table_name
             ),
             Vec::new(),
         )

@@ -119,8 +119,8 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
                     return Err(anyhow!(
                             "Found second annotation {:?} on field {} of model {} but annotation {:?} is only allowed once per model",
                             Annotation::AutoIncrement,
-                            &field.name,
-                            &model.name,
+                            field.name,
+                            model.name,
                             Annotation::AutoIncrement,
                         ));
                 }
