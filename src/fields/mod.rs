@@ -1,6 +1,8 @@
 //! All types valid as model fields and traits to make them valid.
 //!
-//! # Std types
+//! # Supported types
+//!
+//! ## `std`
 //! - [`bool`]
 //! - [`i16`]
 //! - [`i32`]
@@ -10,6 +12,7 @@
 //! - [`String`]
 //! - [`Vec<u8>`]
 //! - [`Option<T>`] where `T` is on this list
+//! - [`PhantomData<T>`](std::marker::PhantomData)
 //!
 //! *The following required the "postgres-only" feature:*
 //!
@@ -17,39 +20,59 @@
 //! - [`Ipv4Addr`](std::net::Ipv4Addr)
 //! - [`Ipv6Addr`](std::net::Ipv6Addr)
 //!
-//! # Our types
+//! ## `rorm`
 //! - [`ForeignModel<M>`](types::ForeignModel)
 //! - [`CascadingForeignModel<M>`](types::CascadingForeignModel)
 //! - [`BackRef<M>`](types::BackRef) (doesn't work inside an [`Option<T>`])
 //! - [`Json<T>`](types::Json)
 //! - [`MsgPack<T>`](types::MsgPack) (requires the "msgpack" feature)
-//! - [`MaxStr`](types::MaxStr)
+//! - [`MaxStr<MAX_LEN>`](types::MaxStr)
 //!
-//! # chrono types (requires the "chrono" feature)
+//! ## Bring your own
+//! - [`#[derive(DbEnum)]`](crate::DbEnum)
+//! - [`#[derive(FieldType)]`](crate::FieldType)
+//!
+//! ## `chrono` (requires the "chrono" feature)
 //! - [`NaiveDateTime`](chrono::NaiveDateTime)
 //! - [`NaiveTime`](chrono::NaiveTime)
 //! - [`NaiveDate`](chrono::NaiveDate)
 //! - [`DateTime<Utc>`](chrono::DateTime)
 //!
-//! # time types (requires the "time" feature)
+//! ## `time` (requires the "time" feature)
 //! - [`PrimitiveDateTime`](time::PrimitiveDateTime)
 //! - [`Time`](time::Time)
 //! - [`Date`](time::Date)
 //! - [`OffsetDateTime<Utc>`](time::OffsetDateTime)
 //!
-//! # uuid types (requires the "uuid" feature)
+//! ## `uuid` (requires the "uuid" feature)
 //! - [`Uuid`](uuid::Uuid)
 //!
-//! # url types (requires the "url" feature)
+//! ## `url` (requires the "url" feature)
 //! - [`Url`](url::Url)
 //!
-//! # ipnetwork types (requires the "postgres-only" feature)
-//!
+//! ## `ipnetwork` (requires the "postgres-only" feature)
 //! - [`IpNetwork`](ipnetwork::IpNetwork)
 //! - [`Ipv4Network`](ipnetwork::Ipv4Network)
 //! - [`Ipv6Network`](ipnetwork::Ipv6Network)
 //!
-//! ---
+//! # Field vs Column
+//!
+//! `rorm` bridges two domains: rust and SQL
+//!
+//! On the rust side there are structs (deriving `Model`) and fields.
+//! On the SQL side there are tables and columns.
+//!
+//! Models and tables map to each other one-to-one. (Ignoring generic models)
+//!
+//! Fields and columns don't.
+//! A field might correspond to multiple columns (or none).
+//!
+//! This allows writing abstractions which store more complex rust types
+//! in the database by splitting it into multiple columns.
+//!
+//! The feature is not fully developed yet. But the distinction is already good to keep in mind.
+//!
+//! # Example
 //!
 //! ```no_run
 //! use serde::{Deserialize, Serialize};
