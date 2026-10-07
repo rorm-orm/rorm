@@ -9,8 +9,9 @@ use rorm_db::executor::Executor;
 use crate::conditions::{Condition, DynamicCollection, Value};
 use crate::crud::selector::Selector;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
+use crate::fields::traits::FieldType;
 use crate::fields::utils::column_name::ColumnName;
-use crate::internal::field::{Field, SingleColumnField};
+use crate::internal::field::Field;
 use crate::internal::patch::{IntoPatchCow, PatchCow};
 use crate::internal::query_context::QueryContext;
 use crate::model::Identifiable;
@@ -61,7 +62,7 @@ use crate::{Model, Patch};
 /// ```
 ///
 /// Before executing the query [`set`](UpdateBuilder::set) has to be called at least once
-/// to set a value to set for a column (The first call changes the builders type).
+/// to set a value for a field (The first call changes the builders type).
 /// Otherwise the query wouldn't do anything.
 ///
 /// This can be limiting when your calls are made conditionally.
@@ -107,7 +108,7 @@ where
 #[must_use]
 pub struct UpdateBuilder<'rf, E, M, C> {
     executor: E,
-    columns: Vec<(&'static ColumnName, Value<'rf>)>,
+    columns: Vec<(ColumnName, Value<'rf>)>,
 
     _phantom: PhantomData<(M, C)>,
 }
@@ -145,26 +146,25 @@ impl<'rf, E, M> UpdateBuilder<'rf, E, M, columns::Empty> {
 }
 
 impl<'rf, E, M> UpdateBuilder<'rf, E, M, columns::MaybeEmpty> {
-    /// Add a column to update.
+    /// Add a field to update.
     ///
     /// Can be called multiple times.
     pub fn set<I>(mut self, _field: FieldProxy<I>, value: <I::Field as Field>::Type) -> Self
     where
-        I: FieldProxyImpl<Field: SingleColumnField, Path = M>,
+        I: FieldProxyImpl<Path = M>,
     {
-        self.columns.push((
-            &<I::Field as Field>::NAME,
-            <I::Field as SingleColumnField>::type_into_value(value),
-        ));
+        let columns = <I::Field as Field>::EFFECTIVE_NAMES;
+        let values = value.into_values();
+        self.columns.extend(columns.into_iter().zip(values));
         self
     }
 
-    /// Add a column to update if `value` is `Some`
+    /// Add a field to update if `value` is `Some`
     ///
     /// Can be called multiple times.
     pub fn set_if<I>(self, field: FieldProxy<I>, value: Option<<I::Field as Field>::Type>) -> Self
     where
-        I: FieldProxyImpl<Field: SingleColumnField, Path = M>,
+        I: FieldProxyImpl<Path = M>,
     {
         if let Some(value) = value {
             self.set(field, value)
@@ -193,7 +193,7 @@ impl<'rf, E, M> UpdateBuilder<'rf, E, M, columns::Empty>
 where
     M: Model,
 {
-    /// Add a column to update.
+    /// Add a field to update.
     ///
     /// Can be called multiple times.
     pub fn set<I>(
@@ -202,12 +202,12 @@ where
         value: <I::Field as Field>::Type,
     ) -> UpdateBuilder<'rf, E, M, columns::NonEmpty>
     where
-        I: FieldProxyImpl<Field: SingleColumnField, Path = M>,
+        // TODO: technically the type transition is not valid for zero-column fields
+        I: FieldProxyImpl<Path = M>,
     {
-        self.columns.push((
-            &<I::Field as Field>::NAME,
-            <I::Field as SingleColumnField>::type_into_value(value),
-        ));
+        let columns = <I::Field as Field>::EFFECTIVE_NAMES;
+        let values = value.into_values();
+        self.columns.extend(columns.into_iter().zip(values));
         self.set_column_state()
     }
 }
@@ -216,26 +216,25 @@ impl<E, M> UpdateBuilder<'_, E, M, columns::NonEmpty>
 where
     M: Model,
 {
-    /// Add a column to update.
+    /// Add a field to update.
     ///
     /// Can be called multiple times.
     pub fn set<I>(mut self, _field: FieldProxy<I>, value: <I::Field as Field>::Type) -> Self
     where
-        I: FieldProxyImpl<Field: SingleColumnField, Path = M>,
+        I: FieldProxyImpl<Path = M>,
     {
-        self.columns.push((
-            &<I::Field as Field>::NAME,
-            <I::Field as SingleColumnField>::type_into_value(value),
-        ));
+        let columns = <I::Field as Field>::EFFECTIVE_NAMES;
+        let values = value.into_values();
+        self.columns.extend(columns.into_iter().zip(values));
         self
     }
 
-    /// Add a column to update if `value` is `Some`
+    /// Add a field to update if `value` is `Some`
     ///
     /// Can be called multiple times.
     pub fn set_if<I>(self, field: FieldProxy<I>, value: Option<<I::Field as Field>::Type>) -> Self
     where
-        I: FieldProxyImpl<Field: SingleColumnField, Path = M>,
+        I: FieldProxyImpl<Path = M>,
     {
         if let Some(value) = value {
             self.set(field, value)

@@ -89,12 +89,13 @@ fn main() {
     let sql = get_sql(DBImpl::Postgres, |db| {
         rorm::update(db, Pixel)
             .set(Pixel.pos.x, 0)
-            .set(Pixel.pos.y, 0)
-            // TODO: not supported yet
-            // .set(Pixel.color, Color::default())
+            .set(Pixel.color, Color::default())
             .all()
     });
-    assert_eq!(sql, r#"UPDATE "px" SET "pos_x" = $1, "pos_y" = $2;"#);
+    assert_eq!(
+        sql,
+        r#"UPDATE "px" SET "pos_x" = $1, "color_r" = $2, "color_g" = $3, "color_b" = $4;"#
+    );
 }
 
 fn custom_panic_hook() {
