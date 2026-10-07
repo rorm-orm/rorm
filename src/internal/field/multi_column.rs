@@ -297,7 +297,7 @@ impl<T, const N: usize> ArrayBuilder<T, N> {
     /// Extends `self` by another array
     pub fn extend<const M: usize>(&mut self, other: [T; M]) {
         if M > N - self.index {
-            panic!();
+            panic!("Called ArrayBuild::extend with to many items (Array already contains {} / {N} elements, can't add {M} more)", self.index);
         }
         for item in other {
             self.array[self.index] = item;
@@ -308,7 +308,7 @@ impl<T, const N: usize> ArrayBuilder<T, N> {
     /// Returns the final array
     pub fn finish(self) -> [T; N] {
         if self.index != N {
-            panic!();
+            panic!("Called ArrayBuild::finish but the array is not finished yet ({} / {N} items are initialized)", self.index);
         }
         self.array
     }
@@ -319,7 +319,7 @@ impl<T, const N: usize> ArrayBuilder<T, N> {
         T: Copy,
     {
         if M > N - self.index {
-            panic!();
+            panic!("Called ArrayBuild::extend_const with to many items");
         }
         let mut other = other.as_slice();
         while let [item, remaining @ ..] = other {
@@ -335,7 +335,7 @@ impl<T, const N: usize> ArrayBuilder<T, N> {
         T: Copy,
     {
         if self.index != N {
-            panic!();
+            panic!("Called ArrayBuild::finish_const but the array is not finished yet");
         }
         self.array
     }

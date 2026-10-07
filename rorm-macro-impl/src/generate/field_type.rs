@@ -66,7 +66,7 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
                     ::std::array::from_fn(|_| #rorm_path::conditions::Value::Bool(false))
                 );
                 #(
-                    self.#fields__ident.into_values();
+                    builder.extend(self.#fields__ident.into_values());
                 )*
                 builder.finish()
             }
@@ -76,7 +76,7 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
                     ::std::array::from_fn(|_| #rorm_path::conditions::Value::Bool(false))
                 );
                 #(
-                    self.#fields__ident.as_values();
+                    builder.extend(self.#fields__ident.as_values());
                 )*
                 builder.finish()
             }
