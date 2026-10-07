@@ -101,13 +101,13 @@ pub trait FieldRegexp<'rhs, Rhs, Any = ()>: FieldType {
 ///
 /// **Read module notes, before using.**
 pub trait FieldIn<'rhs, Rhs, Any = ()>: FieldType {
-    /// Condition type returned from [`FieldRegexp::field_in`]
+    /// Condition type returned from [`FieldIn::field_in`]
     type InCond<I: FieldProxyImpl>: Condition<'rhs>;
 
     /// Compare the field to another value using `IN`
     fn field_in<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::InCond<I>;
 
-    /// Condition type returned from [`FieldRegexp::field_not_in`]
+    /// Condition type returned from [`FieldIn::field_not_in`]
     type NiCond<I: FieldProxyImpl>: Condition<'rhs>;
 
     /// Compare the field to another value using `NOT IN`
@@ -119,13 +119,13 @@ pub trait FieldIn<'rhs, Rhs, Any = ()>: FieldType {
 /// **Read module notes, before using.**
 #[cfg(feature = "postgres-only")]
 pub trait FieldILike<'rhs, Rhs, Any = ()>: FieldType {
-    /// Condition type returned from [`FieldLike::field_ilike`]
+    /// Condition type returned from [`FieldILike::field_ilike`]
     type IliCond<I: FieldProxyImpl>: Condition<'rhs>;
 
     /// Compare the field to another value using `LIKE`
     fn field_ilike<I: FieldProxyImpl>(field: FieldProxy<I>, value: Rhs) -> Self::IliCond<I>;
 
-    /// Condition type returned from [`FieldLike::field_not_ilike`]
+    /// Condition type returned from [`FieldILike::field_not_ilike`]
     type NilCond<I: FieldProxyImpl>: Condition<'rhs>;
 
     /// Compare the field to another value using `NOT LIKE`

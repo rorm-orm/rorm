@@ -13,7 +13,7 @@ use crate::internal::ConstRef;
 
 /// Trait implemented on Patches i.e. a subset of a model's fields.
 ///
-/// Implemented by [`derive(Patch)`] as well as [`derive(Model)`].
+/// Implemented by [`derive(Patch)`](crate::Patch) as well as [`derive(Model)`](crate::Model).
 pub trait Patch: Sized + 'static {
     /// The model this patch is for
     type Model: Model;
@@ -65,7 +65,7 @@ pub trait Model: Patch<Model = Self> {
     /// The primary key
     type Primary: Field<Model = Self> + SingleColumnField;
 
-    /// A struct which "maps" field identifiers their descriptions (i.e. [`Field`](crate::internal::field::Field)).
+    /// A struct which "maps" field identifiers their descriptions (i.e. [`Field`]).
     type Fields<P: Path>: ConstRef;
 
     /// The model's table name
