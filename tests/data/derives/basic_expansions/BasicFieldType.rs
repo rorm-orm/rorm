@@ -42,6 +42,10 @@ const _: () = {
             Self(::std::marker::PhantomData)
         }
     }
+    #[allow(
+        clippy::result_large_err,
+        reason = "There is no other way to return dynamic error messages in const"
+    )]
     const fn check_BasicFieldType_description() -> Result<
         (),
         ::rorm::internal::const_concat::ConstString<1024>,
@@ -84,7 +88,7 @@ const _: () = {
             let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
                 ::std::array::from_fn(|_| ::rorm::conditions::Value::Bool(false)),
             );
-            self.description.into_values();
+            builder.extend(self.description.into_values());
             builder.finish()
         }
         fn as_values(
@@ -93,7 +97,7 @@ const _: () = {
             let mut builder = ::rorm::internal::field::multi_column::ArrayBuilder::new(
                 ::std::array::from_fn(|_| ::rorm::conditions::Value::Bool(false)),
             );
-            self.description.as_values();
+            builder.extend(self.description.as_values());
             builder.finish()
         }
         type GetNames = get_BasicFieldType_names;

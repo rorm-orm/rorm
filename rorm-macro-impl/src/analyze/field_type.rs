@@ -13,10 +13,14 @@ pub fn analyze_field_type(parsed: ParsedFieldType) -> darling::Result<AnalyzedFi
     let ParsedFieldType {
         vis,
         ident,
-        annos: FieldTypeAnnotations {},
+        annos: FieldTypeAnnotations { experimental },
         fields,
     } = parsed;
     let mut errors = darling::Error::accumulator();
+
+    if !experimental {
+        errors.push(darling::Error::custom("Multi column fields are experimental. Please add `#[rorm(experimental)]` to acknowledge this fact."));
+    }
 
     let mut analyzed_fields = Vec::new();
     let model_ident = &ident; // alias to avoid shadowing in following loop

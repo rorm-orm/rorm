@@ -21,6 +21,7 @@ enum BasicEnum {
 }
 
 #[derive(FieldType)]
+#[rorm(experimental)]
 pub struct BasicFieldType {
     #[rorm(max_length = 255)]
     pub description: String,

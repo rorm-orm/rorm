@@ -43,7 +43,10 @@ fn expand(input_file: &Utf8Path, input_str: String) -> Result<()> {
                 fs::write(&expansion_path, &expansion_str)
                     .context("Failed to write expansion to file")?;
             } else {
-                return Err(format!("Expansion of {ident} doesn't match").into());
+                return Err(format!(
+                    "Expansion of {ident} doesn't match (Set `RORM_WRITE_EXPANSION` to rewrite it)"
+                )
+                .into());
             }
         }
     }

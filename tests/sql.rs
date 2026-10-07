@@ -21,12 +21,14 @@ struct Pixel {
 }
 
 #[derive(FieldType, Default)] // Default has no meaning and is for easier insert test
+#[rorm(experimental)]
 struct Position {
     x: i16,
     y: i16,
 }
 
 #[derive(FieldType, Default)] // Default has no meaning and is for easier insert test
+#[rorm(experimental)]
 struct Color {
     r: i16,
     g: i16,

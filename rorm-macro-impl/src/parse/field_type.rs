@@ -68,7 +68,9 @@ pub struct ParsedFieldType {
 
 #[derive(FromAttributes, Debug, Default)]
 #[darling(attributes(rorm), default)]
-pub struct FieldTypeAnnotations {}
+pub struct FieldTypeAnnotations {
+    pub experimental: bool,
+}
 
 pub struct ParsedField {
     pub vis: Visibility,
