@@ -1,8 +1,9 @@
-Since 0.11.0
+Since 0.12.0
 -----------
 
 - Removed MySQL field from RawSQL migration operation
 - Made `const_fn!` support `where` clauses
+- Implemented multi-column fields (functional but experimental)
 
 Notes for publishing
 --------------------
