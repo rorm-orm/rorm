@@ -83,6 +83,16 @@ fn main() {
         sql,
         r#"INSERT INTO "px" ("id", "pos_x", "pos_y", "color_r", "color_g", "color_b") VALUES ($1, $2, $3, $4, $5, $6) RETURNING "id", "pos_x", "pos_y", "color_r";"#
     );
+
+    let sql = get_sql(DBImpl::Postgres, |db| {
+        rorm::update(db, Pixel)
+            .set(Pixel.pos.x, 0)
+            .set(Pixel.pos.y, 0)
+            // TODO: not supported yet
+            // .set(Pixel.color, Color::default())
+            .all()
+    });
+    assert_eq!(sql, r#"UPDATE "px" SET "pos_x" = $1, "pos_y" = $2;"#);
 }
 
 fn custom_panic_hook() {
