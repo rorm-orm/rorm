@@ -10,6 +10,7 @@ homepage = "https://rorm.rs"
 documentation = "https://docs.rorm.rs"
 license = "MIT"
 description = "The sql abstraction layer."
+rust-version = "1.88.0"
 
 [dependencies]
 # Date & time library
