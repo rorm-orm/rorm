@@ -21,6 +21,9 @@ pub mod transaction;
 
 pub(crate) mod internal;
 
+/// Re-export underlying db implementation
+pub use sqlx;
+
 /// Re-export [rorm-sql](rorm_sql)
 pub mod sql {
     pub use rorm_sql::*;
