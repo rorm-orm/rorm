@@ -445,11 +445,35 @@ mod utoipa_impl {
     }
 }
 
-#[cfg(feature = "schemars")]
-mod schemars_impl {
-    use schemars::gen::SchemaGenerator;
-    use schemars::schema::{InstanceType, Schema, SchemaObject, SingleOrVec};
-    use schemars::JsonSchema;
+#[cfg(feature = "schemars1")]
+mod schemars1_impl {
+    use schemars1::json_schema;
+    use schemars1::JsonSchema;
+    use schemars1::Schema;
+    use schemars1::SchemaGenerator;
+    use std::borrow::Cow;
+
+    use crate::fields::types::MaxStr;
+
+    impl<const MAX_LEN: usize> JsonSchema for MaxStr<MAX_LEN> {
+        fn schema_name() -> Cow<'static, str> {
+            Cow::Owned(format!("MaxStr_{MAX_LEN}"))
+        }
+
+        fn json_schema(_gen: &mut SchemaGenerator) -> Schema {
+            json_schema!({
+                "type": "string",
+                "max_length": MAX_LEN,
+            })
+        }
+    }
+}
+
+#[cfg(feature = "schemars08")]
+mod schemars08_impl {
+    use schemars08::gen::SchemaGenerator;
+    use schemars08::schema::{InstanceType, Schema, SchemaObject, SingleOrVec};
+    use schemars08::JsonSchema;
 
     use crate::fields::types::MaxStr;
 
@@ -458,6 +482,10 @@ mod schemars_impl {
             format!("MaxStr_{MAX_LEN}")
         }
 
+        #[allow(
+            clippy::field_reassign_with_default,
+            reason = "I prefer it in this case"
+        )]
         fn json_schema(_gen: &mut SchemaGenerator) -> Schema {
             let mut object = SchemaObject::default();
             object.instance_type = Some(SingleOrVec::Single(Box::new(InstanceType::String)));

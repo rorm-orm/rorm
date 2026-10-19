@@ -1,6 +1,7 @@
 Since 0.12.0
 -----------
 
+- Added support for schemars v1 keeping support for v0.8
 - Removed MySQL field from RawSQL migration operation
 - Made `const_fn!` support `where` clauses
 - Implemented multi-column fields (functional but experimental)

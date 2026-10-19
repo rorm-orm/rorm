@@ -80,7 +80,8 @@ rmp-serde = { version = "~1", optional = true }
 utoipa = { version = "~4", optional = true }
 
 # `JsonSchema` support for `MaxStr`
-schemars = { version = "~0.8", optional = true }
+schemars1 = { package = "schemars", version = "~1", optional = true }
+schemars08 = { package = "schemars", version = "~0.8", optional = true }
 
 # `Zeroize` support for `MaxStr`
 zeroize = { version = "~1", optional = true }
@@ -93,7 +94,8 @@ features = [
     "uuid",
     "url",
     "utoipa",
-    "schemars",
+    "schemars1",
+    "schemars08",
     "zeroize",
     "msgpack",
     "cli",
@@ -131,7 +133,8 @@ time = ["dep:time"]
 uuid = ["dep:uuid"]
 url = ["dep:url"]
 utoipa = ["dep:utoipa"]
-schemars = ["dep:schemars"]
+schemars1 = ["dep:schemars1"]
+schemars08 = ["dep:schemars08"]
 zeroize = ["dep:zeroize"]
 
 msgpack = ["dep:rmp-serde"]
