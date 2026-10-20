@@ -348,7 +348,7 @@ where
     where
         I: FieldProxyImpl<Field: Field<Type = Self::Result>>,
     {
-        let (index, _column) = ctx.select_field::<I::Field, I::Path>();
+        let index = ctx.select_field::<I::Field, I::Path>();
         Self {
             index,
             generics: PhantomData,

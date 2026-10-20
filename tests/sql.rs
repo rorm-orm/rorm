@@ -42,27 +42,24 @@ fn main() {
     let sql = get_sql(DBImpl::Postgres, |db| rorm::query(db, Pixel).all());
     assert_eq!(
         sql,
-        r#"SELECT "px"."id" AS a, "px"."pos_x" AS b, "px"."pos_y" AS c, "px"."color_r" AS d, "px"."color_g" AS e, "px"."color_b" AS f FROM "px";"#
+        r#"SELECT "px"."id", "px"."pos_x", "px"."pos_y", "px"."color_r", "px"."color_g", "px"."color_b" FROM "px";"#
     );
 
     let sql = get_sql(DBImpl::Postgres, |db| rorm::query(db, Pixel.color).all());
     assert_eq!(
         sql,
-        r#"SELECT "px"."color_r" AS a, "px"."color_g" AS b, "px"."color_b" AS c FROM "px";"#
+        r#"SELECT "px"."color_r", "px"."color_g", "px"."color_b" FROM "px";"#
     );
 
     let sql = get_sql(DBImpl::Postgres, |db| rorm::query(db, Pixel.pos.x).all());
-    assert_eq!(sql, r#"SELECT "px"."pos_x" AS a FROM "px";"#);
+    assert_eq!(sql, r#"SELECT "px"."pos_x" FROM "px";"#);
 
     let sql = get_sql(DBImpl::Postgres, |db| {
         rorm::query(db, Pixel.id)
             .condition(Pixel.id.equals(0))
             .all()
     });
-    assert_eq!(
-        sql,
-        r#"SELECT "px"."id" AS a FROM "px" WHERE ("px".id = $1);"#
-    );
+    assert_eq!(sql, r#"SELECT "px"."id" FROM "px" WHERE ("px".id = $1);"#);
 
     let sql = get_sql(DBImpl::Postgres, |db| {
         rorm::query(db, Pixel.id)
@@ -71,7 +68,7 @@ fn main() {
     });
     assert_eq!(
         sql,
-        r#"SELECT "px"."id" AS a FROM "px" WHERE ("px".color_r = $1);"#
+        r#"SELECT "px"."id" FROM "px" WHERE ("px".color_r = $1);"#
     );
 
     let sql = get_sql(DBImpl::Postgres, |db| async move {

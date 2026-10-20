@@ -57,18 +57,16 @@ impl<'v> QueryContext<'v> {
     }
 
     /// Add a field to select returning its index and alias
-    pub fn select_field<F: Field, P: Path>(&mut self) -> (usize, String) {
+    pub fn select_field<F: Field, P: Path>(&mut self) -> usize {
         self._select_field::<P>(&F::NAME)
     }
-    fn _select_field<P: Path>(&mut self, column_name: &'static ColumnName) -> (usize, String) {
+    fn _select_field<P: Path>(&mut self, column_name: &'static ColumnName) -> usize {
         let path_id = P::add_to_context(self);
-        let alias = format!("{}", NumberAsAZ(self.selects.len()));
         let index = self.selects.len();
 
         self.selects.push(Select {
             table_name: path_id,
             column_name,
-            select_alias: alias.clone(),
             aggregation: None,
         });
 
@@ -76,13 +74,12 @@ impl<'v> QueryContext<'v> {
             trace!(
                 table_name = self.join_aliases.get(&path_id),
                 column_name = &**column_name,
-                alias,
                 index,
                 "QueryContext::select_field"
             )
         });
 
-        (index, alias)
+        index
     }
 
     /// Add a field to aggregate returning its index and alias
@@ -97,7 +94,6 @@ impl<'v> QueryContext<'v> {
         self.selects.push(Select {
             table_name: path_id,
             column_name: &I::Field::NAME,
-            select_alias: alias.clone(),
             aggregation: Some(column.sql),
         });
 
@@ -186,13 +182,12 @@ impl<'v> QueryContext<'v> {
                 |Select {
                      table_name,
                      column_name,
-                     select_alias,
                      aggregation,
                  }| {
                     rorm_db::database::ColumnSelector {
                         table_name: Some(self.join_aliases.get(table_name).unwrap()),
                         column_name,
-                        select_alias: Some(select_alias.as_str()),
+                        select_alias: None,
                         aggregation: *aggregation,
                     }
                 },
@@ -474,7 +469,6 @@ impl<'v> ConditionBuilder<'_, 'v> {
 struct Select {
     table_name: PathId,
     column_name: &'static ColumnName,
-    select_alias: String,
     aggregation: Option<rorm_db::sql::aggregation::SelectAggregator>,
 }
 

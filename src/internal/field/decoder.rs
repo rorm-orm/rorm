@@ -25,7 +25,7 @@ where
     where
         I: FieldProxyImpl<Field: Field<Type = Self::Result>>,
     {
-        let (index, _column) = ctx.select_field::<I::Field, I::Path>();
+        let index = ctx.select_field::<I::Field, I::Path>();
         Self {
             result: PhantomData,
             index,
@@ -98,7 +98,7 @@ macro_rules! new_converting_decoder {
                     >,
                 >,
             {
-                let (index, _column) = ctx.select_field::<I::Field, I::Path>();
+                let index = ctx.select_field::<I::Field, I::Path>();
                 Self {
                     index,
                     $(generics: ::std::marker::PhantomData::<($($generic,)+)>)?
