@@ -2,7 +2,6 @@ use std::borrow::{Borrow, Cow};
 use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::marker::PhantomData;
 use std::ops::Deref;
 
 use rorm_db::row::RowError;
@@ -12,8 +11,6 @@ use serde::de::Unexpected;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::conditions::Value;
-use crate::crud::decoder::Decoder;
-use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
 use crate::fields::traits::into_value::IntoValue;
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::simple::SimpleFieldILike;
@@ -24,10 +21,7 @@ use crate::fields::utils::check::shared_linter_check;
 use crate::fields::utils::const_fn::Contains;
 use crate::fields::utils::get_annotations::merge_annotations;
 use crate::fields::utils::get_names::single_column_name;
-use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::Field;
 use crate::internal::hmr::annotations::{Annotations, MaxLength};
-use crate::internal::query_context::QueryContext;
 
 /// String which is restricted to a maximum length
 ///
@@ -313,47 +307,17 @@ where
         [Value::String(Cow::Borrowed(&self.string))]
     }
 
-    type Decoder = MaxStrDecoder<MAX_LEN, Impl>;
+    fn decode(row: &Row, index: usize) -> Result<Self, RowError<'static>> {
+        let value = String::decode(row, index)?;
+        MaxStr::<MAX_LEN, Impl, String>::new(value).map_err(|error| RowError::Decode {
+            index: index.into(),
+            source: error.into(),
+        })
+    }
+
     type GetAnnotations = merge_annotations<ImplicitMaxLength<MAX_LEN>>;
     type Check = shared_linter_check<1>;
     type GetNames = single_column_name;
-}
-
-pub struct MaxStrDecoder<const MAX_LEN: usize, Impl: LenImpl> {
-    index: usize,
-    generics: PhantomData<Impl>,
-}
-
-impl<const MAX_LEN: usize, Impl> Decoder for MaxStrDecoder<MAX_LEN, Impl>
-where
-    Impl: LenImpl + Default,
-{
-    type Result = MaxStr<MAX_LEN, Impl, String>;
-
-    fn decode<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        MaxStr::<MAX_LEN, Impl, String>::new(row.get(self.index)?).map_err(|error| {
-            RowError::Decode {
-                index: self.index.into(),
-                source: error.into(),
-            }
-        })
-    }
-}
-
-impl<const MAX_LEN: usize, Impl> FieldDecoder for MaxStrDecoder<MAX_LEN, Impl>
-where
-    Impl: LenImpl + Default,
-{
-    fn new<I>(ctx: &mut QueryContext, _: FieldProxy<I>) -> Self
-    where
-        I: FieldProxyImpl<Field: Field<Type = Self::Result>>,
-    {
-        let index = ctx.select_field::<I::Field, I::Path>();
-        Self {
-            index,
-            generics: PhantomData,
-        }
-    }
 }
 
 /// Type passed to [`merge_annotations`] to set the `max_length` annotation;

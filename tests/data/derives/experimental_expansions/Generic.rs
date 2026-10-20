@@ -157,8 +157,8 @@ pub enum __Generic_ValueSpaceImpl<T: rorm::fields::traits::FieldType> {
 pub use __Generic_ValueSpaceImpl::*;
 #[doc(hidden)]
 pub struct __Generic_Decoder<T: rorm::fields::traits::FieldType> {
-    id: <i64 as ::rorm::fields::traits::FieldType>::Decoder,
-    x: <T as ::rorm::fields::traits::FieldType>::Decoder,
+    id: ::rorm::crud::selector::FieldDecoder<i64>,
+    x: ::rorm::crud::selector::FieldDecoder<T>,
 }
 impl<T: rorm::fields::traits::FieldType> ::rorm::crud::selector::Selector
 for __Generic_ValueSpaceImpl<T> {

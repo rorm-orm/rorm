@@ -100,10 +100,25 @@ const _: () = {
             builder.extend(self.description.as_values());
             builder.finish()
         }
+        fn decode(
+            row: &::rorm::db::Row,
+            mut index: usize,
+        ) -> Result<Self, ::rorm::db::row::RowError<'static>> {
+            Ok(Self {
+                description: String::decode(
+                    row,
+                    {
+                        let current = index;
+                        index
+                            += <<String as ::rorm::fields::traits::FieldType>::Columns as ::rorm::fields::traits::Columns>::NUM;
+                        current
+                    },
+                )?,
+            })
+        }
         type GetNames = get_BasicFieldType_names;
         type GetAnnotations = get_BasicFieldType_annotations;
         type Check = check_BasicFieldType;
-        type Decoder = BasicFieldTypeDecoder;
     }
     impl<__Field, __Path> ::rorm::internal::field::ContainerFieldType<__Field, __Path>
     for BasicFieldType
@@ -174,39 +189,5 @@ const _: () = {
         ::rorm::fields::utils::check::disallow_annotations_check(field, columns) { return
         Err(x); } if let Err(x) = check_BasicFieldType_description() { return Err(x); }
         Ok(()) }
-    }
-    pub struct BasicFieldTypeDecoder {
-        pub description: <String as ::rorm::fields::traits::FieldType>::Decoder,
-    }
-    impl ::rorm::crud::decoder::Decoder for BasicFieldTypeDecoder {
-        type Result = BasicFieldType;
-        fn decode<'index>(
-            &'index self,
-            row: &'_ ::rorm::db::Row,
-        ) -> Result<Self::Result, ::rorm::db::row::RowError<'index>> {
-            Ok(BasicFieldType {
-                description: self.description.decode(row)?,
-            })
-        }
-    }
-    impl ::rorm::internal::field::decoder::FieldDecoder for BasicFieldTypeDecoder {
-        fn new<I>(
-            ctx: &mut ::rorm::internal::query_context::QueryContext,
-            _: ::rorm::fields::proxy::FieldProxy<I>,
-        ) -> Self
-        where
-            I: ::rorm::fields::proxy::FieldProxyImpl<
-                Field: ::rorm::internal::field::Field<Type = Self::Result>,
-            >,
-        {
-            Self {
-                description: <<String as ::rorm::fields::traits::FieldType>::Decoder as ::rorm::internal::field::decoder::FieldDecoder>::new(
-                    &mut *ctx,
-                    ::rorm::fields::proxy::new::<
-                        (__BasicFieldType_description<I::Field>, I::Path),
-                    >(),
-                ),
-            }
-        }
     }
 };

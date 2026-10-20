@@ -87,7 +87,6 @@ pub fn analyze_field_type(parsed: ParsedFieldType) -> darling::Result<AnalyzedFi
         get_names: format_ident!("get_{ident}_names"),
         get_annotations: format_ident!("get_{ident}_annotations"),
         check: format_ident!("check_{ident}"),
-        decoder: format_ident!("{ident}Decoder"),
     })
 }
 
@@ -100,7 +99,6 @@ pub struct AnalyzedFieldType {
     pub get_names: Ident,
     pub get_annotations: Ident,
     pub check: Ident,
-    pub decoder: Ident,
 }
 
 pub struct AnalyzedField {

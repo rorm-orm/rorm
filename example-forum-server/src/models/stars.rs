@@ -1,15 +1,15 @@
+use crate::models::post::Post;
+use crate::models::user::User;
 use rorm::conditions::Value;
+use rorm::db::row::RowError;
 use rorm::db::sql::value::NullType;
 use rorm::fields::traits::{Array, FieldColumns, FieldType};
 use rorm::fields::utils::check::shared_linter_check;
 use rorm::fields::utils::get_annotations::forward_annotations;
 use rorm::fields::utils::get_names::single_column_name;
 use rorm::prelude::ForeignModel;
-use rorm::{Model, Patch};
+use rorm::{Model, Patch, Row};
 use serde::{Deserialize, Deserializer, Serialize};
-
-use crate::models::post::Post;
-use crate::models::user::User;
 
 #[derive(Model)]
 pub struct Stars {
@@ -82,16 +82,15 @@ impl FieldType for StarsAmount {
         self.0.as_values()
     }
 
-    type Decoder = StarsAmountDecoder;
+    fn decode(row: &Row, index: usize) -> Result<Self, RowError<'static>> {
+        let value: i16 = row.get(index)?;
+        StarsAmount::new(value).ok_or_else(|| RowError::Decode {
+            index: index.into(),
+            source: format!("Got invalid number of stars: {value}").into(),
+        })
+    }
+
     type GetNames = single_column_name;
     type GetAnnotations = forward_annotations<1>;
     type Check = shared_linter_check<1>;
-}
-rorm::new_converting_decoder! {
-    pub StarsAmountDecoder,
-    |value: i16| -> StarsAmount {
-        StarsAmount::new(value).ok_or_else(
-            || format!("Got invalid number of stars: {value}")
-        )
-    }
 }

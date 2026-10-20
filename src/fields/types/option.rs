@@ -5,19 +5,14 @@ use rorm_db::Row;
 use crate::conditions::{
     Binary, BinaryOperator, Column, Condition, In, InOperator, Unary, UnaryOperator, Value,
 };
-use crate::crud::decoder::Decoder;
-use crate::fields::proxy;
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
 use crate::fields::traits::into_value::IntoValue;
 use crate::fields::traits::simple::{SimpleFieldIn, SimpleFieldOrd};
 use crate::fields::traits::{Array, Columns, FieldEq, FieldIn, FieldLike, FieldOrd};
 use crate::fields::traits::{FieldColumns, FieldType};
 use crate::fields::utils::const_fn::{ConstFn, Contains};
-use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::fake_field::FakeField;
-use crate::internal::field::Field;
 use crate::internal::hmr::annotations::Annotations;
-use crate::internal::query_context::{ConditionBuilder, QueryContext};
+use crate::internal::query_context::ConditionBuilder;
 use crate::{and, const_fn, or};
 
 impl<'rhs, T, Rhs: 'rhs, Any> FieldEq<'rhs, Option<Rhs>, private::OptionFieldEq<Any>> for Option<T>
@@ -261,34 +256,18 @@ impl<T: FieldType> FieldType for Option<T> {
             .unwrap_or(T::Columns::map(T::NULL, Value::Null))
     }
 
-    type Decoder = OptionDecoder<T>;
+    fn decode(row: &Row, index: usize) -> Result<Self, RowError<'static>> {
+        T::decode(row, index)
+            .map(Some)
+            .or_else(|error| match error {
+                RowError::UnexpectedNull { .. } => Ok(None),
+                _ => Err(error),
+            })
+    }
+
     type GetNames = T::GetNames;
     type GetAnnotations = get_option_annotations<T>;
     type Check = T::Check;
-}
-
-/// [`FieldDecoder`] for [`Option<T>`]
-pub struct OptionDecoder<T: FieldType>(T::Decoder);
-impl<T: FieldType> FieldDecoder for OptionDecoder<T> {
-    fn new<I>(ctx: &mut QueryContext, _: FieldProxy<I>) -> Self
-    where
-        I: FieldProxyImpl<Field: Field<Type = Self::Result>>,
-    {
-        Self(T::Decoder::new::<(FakeField<T, I::Field>, I::Path)>(
-            ctx,
-            proxy::new(),
-        ))
-    }
-}
-impl<T: FieldType> Decoder for OptionDecoder<T> {
-    type Result = Option<T>;
-
-    fn decode<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        self.0.decode(row).map(Some).or_else(|error| match error {
-            RowError::UnexpectedNull { .. } => Ok(None),
-            _ => Err(error),
-        })
-    }
 }
 
 const_fn! {

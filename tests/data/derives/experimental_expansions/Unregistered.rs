@@ -91,7 +91,7 @@ pub enum __Unregistered_ValueSpaceImpl {
 pub use __Unregistered_ValueSpaceImpl::*;
 #[doc(hidden)]
 pub struct __Unregistered_Decoder {
-    id: <i64 as ::rorm::fields::traits::FieldType>::Decoder,
+    id: ::rorm::crud::selector::FieldDecoder<i64>,
 }
 impl ::rorm::crud::selector::Selector for __Unregistered_ValueSpaceImpl {
     type Result = Unregistered;

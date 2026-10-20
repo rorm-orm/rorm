@@ -56,27 +56,31 @@ impl<'v> QueryContext<'v> {
         Self::default()
     }
 
-    /// Add a field to select returning its index and alias
+    /// Adds a field to select returning its index
+    ///
+    /// This method will select all columns of a **multi-column field**
+    /// and return the index of the first column.
+    /// The columns will be continuous and in the order defined by the field type.
+    /// (I.e. [`Field::EFFECTIVE_NAMES`] which is computed from [`FieldType::GetNames`](crate::fields::traits::FieldType::GetNames))
     pub fn select_field<F: Field, P: Path>(&mut self) -> usize {
-        self._select_field::<P>(&F::NAME)
-    }
-    fn _select_field<P: Path>(&mut self, column_name: &'static ColumnName) -> usize {
         let path_id = P::add_to_context(self);
         let index = self.selects.len();
 
-        self.selects.push(Select {
-            table_name: path_id,
-            column_name,
-            aggregation: None,
-        });
-
         self.span.in_scope(|| {
-            trace!(
-                table_name = self.join_aliases.get(&path_id),
-                column_name = &**column_name,
-                index,
-                "QueryContext::select_field"
-            )
+            for column_name in F::EFFECTIVE_NAMES {
+                self.selects.push(Select {
+                    table_name: path_id,
+                    column_name,
+                    aggregation: None,
+                });
+
+                trace!(
+                    table_name = self.join_aliases.get(&path_id),
+                    column_name = &*column_name,
+                    index,
+                    "QueryContext::select_field"
+                )
+            }
         });
 
         index
@@ -93,7 +97,7 @@ impl<'v> QueryContext<'v> {
 
         self.selects.push(Select {
             table_name: path_id,
-            column_name: &I::Field::NAME,
+            column_name: I::Field::NAME,
             aggregation: Some(column.sql),
         });
 
@@ -256,7 +260,7 @@ impl<'v> QueryContext<'v> {
     /// Create a vector borrowing the selects only by their `column_name` to be used in `INSERT RETURNING`.
     ///
     /// This method also checks, if the context would be valid in the first place.
-    pub fn get_returning(&self) -> Option<Vec<&'static str>> {
+    pub fn get_returning(&self) -> Option<Vec<&str>> {
         // Disallow joins
         if !self.joins.is_empty() {
             return None;
@@ -468,7 +472,7 @@ impl<'v> ConditionBuilder<'_, 'v> {
 #[derive(Debug, Clone)]
 struct Select {
     table_name: PathId,
-    column_name: &'static ColumnName,
+    column_name: ColumnName,
     aggregation: Option<rorm_db::sql::aggregation::SelectAggregator>,
 }
 

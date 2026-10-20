@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
+use quote::quote;
 
 use crate::parse::db_enum::ParsedDbEnum;
 use crate::MacroConfig;
@@ -10,12 +10,7 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum, config: &MacroConfig) -> TokenStr
         non_exhaustive: _,
     } = config;
 
-    let ParsedDbEnum {
-        vis,
-        ident,
-        variants,
-    } = parsed;
-    let decoder = format_ident!("__{ident}_Decoder");
+    let ParsedDbEnum { ident, variants } = parsed;
 
     quote! {
         const _: () = {
@@ -46,7 +41,18 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum, config: &MacroConfig) -> TokenStr
                     }))]
                 }
 
-                type Decoder = #decoder;
+                fn decode(row: &#rorm_path::db::Row, index: usize) -> Result<Self, #rorm_path::db::row::RowError<'static>> {
+                    let #rorm_path::db::choice::Choice(value) = row.get(index)?;
+                    match value.as_str() {
+                        #(
+                            stringify!(#variants) => Ok(#ident::#variants),
+                        )*
+                        _ => Err(#rorm_path::db::row::RowError::Decode {
+                            index: index.into(),
+                            source: format!("Invalid value '{}' for enum '{}'", value, stringify!(#ident)).into(),
+                        }),
+                    }
+                }
 
                 type GetAnnotations = get_db_enum_annotations;
 
@@ -54,19 +60,6 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum, config: &MacroConfig) -> TokenStr
 
                 type GetNames = #rorm_path::fields::utils::get_names::single_column_name;
             }
-            #rorm_path::new_converting_decoder!(
-                #[doc(hidden)]
-                #vis #decoder,
-                |value: #rorm_path::db::choice::Choice| -> #ident {
-                    let value: String = value.0;
-                    match value.as_str() {
-                        #(
-                            stringify!(#variants) => Ok(#ident::#variants),
-                        )*
-                        _ => Err(format!("Invalid value '{}' for enum '{}'", value, stringify!(#ident))),
-                    }
-                }
-            );
             impl<'a> #rorm_path::fields::traits::into_value::IntoValue<'a> for #ident {
                 fn into_value(self) -> #rorm_path::conditions::Value<'a> {
                     let [value] = #rorm_path::fields::traits::FieldType::into_values(self);

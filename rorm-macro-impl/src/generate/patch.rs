@@ -104,7 +104,7 @@ pub fn partially_generate_patch<'a>(
         #[doc(hidden)]
         #vis struct #decoder #impl_generics #where_clause {
             #(
-                #fields_1: <#types as #rorm_path::fields::traits::FieldType>::Decoder,
+                #fields_1: #rorm_path::crud::selector::FieldDecoder<#types>,
             )*
         }
 

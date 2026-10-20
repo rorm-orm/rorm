@@ -1,6 +1,8 @@
 //! Traits defining types which can be used as fields.
 
+use rorm_db::row::RowError;
 use rorm_db::sql::value::NullType;
+use rorm_db::Row;
 
 pub use self::aggregate::*;
 pub use self::cmp::*;
@@ -8,7 +10,6 @@ use crate::conditions::Value;
 use crate::fields::utils::column_name::ColumnName;
 use crate::fields::utils::const_fn::ConstFn;
 use crate::internal::const_concat::ConstString;
-use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::hmr::annotations::Annotations;
 use crate::{const_fn, sealed};
 
@@ -18,7 +19,7 @@ pub mod into_value;
 pub mod simple;
 
 /// Base trait for types which are allowed as fields in models
-pub trait FieldType: 'static {
+pub trait FieldType: Sized + 'static {
     /// Array with length specific to the field type
     type Columns: Columns;
 
@@ -34,8 +35,18 @@ pub trait FieldType: 'static {
     /// Construct an array of [`Value`] representing `self` in the database via borrowing
     fn as_values(&self) -> FieldColumns<Self, Value<'_>>;
 
-    /// [`FieldDecoder`] to use for fields of this type
-    type Decoder: FieldDecoder<Result = Self>;
+    /// TODO
+    ///
+    /// ```text
+    /// fn decode(row: &Row, index: usize) -> Result<Self, RowError<'static>> {
+    ///     let value: PrimitiveType = row.get(index)?;
+    ///     Self::try_from(value).map_err(|error| RowError::Decode {
+    ///         index: index.into(),
+    ///         source: error.into(),
+    ///     })
+    /// }
+    /// ```
+    fn decode(row: &Row, index: usize) -> Result<Self, RowError<'static>>;
 
     /// Get the columns' names from the field's name
     type GetNames: ConstFn<(ColumnName,), FieldColumns<Self, ColumnName>>;
@@ -125,14 +136,6 @@ macro_rules! impl_FieldType {
         );
     };
     ($type:ty, $null_type:ident, $Check:ty) => {
-        impl_FieldType!(
-            $type,
-            $null_type,
-            $Check,
-            $crate::crud::decoder::DirectDecoder<Self>
-        );
-    };
-    ($type:ty, $null_type:ident, $Check:ty, $Decoder:ty) => {
         impl $crate::fields::traits::FieldType for $type {
             type Columns = $crate::fields::traits::Array<1>;
 
@@ -156,7 +159,12 @@ macro_rules! impl_FieldType {
                 [self.into_value()]
             }
 
-            type Decoder = $Decoder;
+            fn decode(
+                row: &$crate::db::Row,
+                index: usize,
+            ) -> Result<Self, $crate::db::row::RowError<'static>> {
+                row.get(index)
+            }
 
             type GetAnnotations = $crate::fields::utils::get_annotations::forward_annotations<1>;
 

@@ -87,7 +87,7 @@ pub enum __BasicModel_ValueSpaceImpl {
 pub use __BasicModel_ValueSpaceImpl::*;
 #[doc(hidden)]
 pub struct __BasicModel_Decoder {
-    id: <i64 as ::rorm::fields::traits::FieldType>::Decoder,
+    id: ::rorm::crud::selector::FieldDecoder<i64>,
 }
 impl ::rorm::crud::selector::Selector for __BasicModel_ValueSpaceImpl {
     type Result = BasicModel;

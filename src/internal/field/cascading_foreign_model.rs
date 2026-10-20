@@ -8,22 +8,16 @@ use rorm_db::Row;
 
 use crate::conditions::Value;
 use crate::const_fn;
-use crate::crud::decoder::Decoder;
-use crate::fields::proxy;
-use crate::fields::proxy::FieldProxyImpl;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn, SimpleFieldLike};
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::FieldILike;
 use crate::fields::traits::{Array, FieldColumns};
 use crate::fields::types::CascadingForeignModelByField;
 use crate::fields::utils::get_names::single_column_name;
-use crate::internal::field::decoder::FieldDecoder;
-use crate::internal::field::fake_field::FakeField;
 use crate::internal::field::foreign_model::ForeignModelTrait;
-use crate::internal::field::{Field, FieldProxy, FieldType, SingleColumnField};
+use crate::internal::field::{Field, FieldType, SingleColumnField};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::{Annotations, OnDelete, OnUpdate};
-use crate::internal::query_context::QueryContext;
 use crate::model::Model;
 use crate::sealed;
 
@@ -43,7 +37,9 @@ where
         [FF::type_as_value(&self.0)]
     }
 
-    type Decoder = CascadingForeignModelByFieldDecoder<FF>;
+    fn decode(row: &Row, index: usize) -> Result<Self, RowError<'static>> {
+        FF::Type::decode(row, index).map(Self)
+    }
 
     type GetAnnotations = cascading_foreign_annotations<FF>;
 
@@ -92,32 +88,6 @@ const_fn! {
         annos.on_update = Some(OnUpdate::Cascade);
         annos.on_delete = Some(OnDelete::Cascade);
         [annos]
-    }
-}
-
-/// [`FieldDecoder`] for [`CascadingForeignModelByField<FF>`]
-pub struct CascadingForeignModelByFieldDecoder<FF: SingleColumnField>(
-    <FF::Type as FieldType>::Decoder,
-);
-impl<FF: SingleColumnField> Decoder for CascadingForeignModelByFieldDecoder<FF> {
-    type Result = CascadingForeignModelByField<FF>;
-
-    fn decode<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        self.0.decode(row).map(CascadingForeignModelByField)
-    }
-}
-impl<FF> FieldDecoder for CascadingForeignModelByFieldDecoder<FF>
-where
-    FF: SingleColumnField,
-{
-    fn new<I>(ctx: &mut QueryContext, _: FieldProxy<I>) -> Self
-    where
-        I: FieldProxyImpl<Field: Field<Type = Self::Result>>,
-    {
-        Self(FieldDecoder::new(
-            ctx,
-            proxy::new::<(FakeField<FF::Type, I::Field>, I::Path)>(),
-        ))
     }
 }
 

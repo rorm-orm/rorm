@@ -3,16 +3,16 @@
 use std::borrow::Cow;
 use std::ops::{Deref, DerefMut};
 
-use rorm_db::sql::value::NullType;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
-
 use crate::conditions::Value;
 use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::utils::check::shared_linter_check;
 use crate::fields::utils::get_annotations::forward_annotations;
 use crate::fields::utils::get_names::single_column_name;
-use crate::new_converting_decoder;
+use rorm_db::row::RowError;
+use rorm_db::sql::value::NullType;
+use rorm_db::Row;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 /// Stores data by serializing it to json.
 ///
@@ -41,14 +41,6 @@ impl<T: Serialize + DeserializeOwned> Json<T> {
     }
 }
 
-new_converting_decoder!(
-    pub JsonDecoder<T: Serialize + DeserializeOwned>,
-    |value: Vec<u8>| -> Json<T> {
-        serde_json::from_slice(&value)
-            .map(Json)
-            .map_err(|err| format!("Couldn't decoder json: {err}"))
-    }
-);
 impl<T: Serialize + DeserializeOwned + 'static> FieldType for Json<T> {
     type Columns = Array<1>;
 
@@ -66,7 +58,15 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Json<T> {
         ))] // TODO propagate error?
     }
 
-    type Decoder = JsonDecoder<T>;
+    fn decode(row: &Row, index: usize) -> Result<Self, RowError<'static>> {
+        let value = Vec::<u8>::decode(row, index)?;
+        serde_json::from_slice(&value)
+            .map(Json)
+            .map_err(|error| RowError::Decode {
+                index: index.into(),
+                source: error.into(),
+            })
+    }
 
     type GetAnnotations = forward_annotations<1>;
 

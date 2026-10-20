@@ -1,10 +1,10 @@
+use rorm_db::row::RowError;
+use rorm_db::sql::value::NullType;
+use rorm_db::Row;
 use std::borrow::Cow;
 use std::marker::PhantomData;
 
-use rorm_db::sql::value::NullType;
-
 use crate::conditions::Value;
-use crate::crud::decoder::NoopDecoder;
 #[cfg(feature = "postgres-only")]
 use crate::fields::traits::simple::SimpleFieldILike;
 use crate::fields::traits::simple::{
@@ -117,7 +117,9 @@ impl<T: 'static> FieldType for PhantomData<T> {
         []
     }
 
-    type Decoder = NoopDecoder<Self>;
+    fn decode(_row: &Row, _index: usize) -> Result<Self, RowError<'static>> {
+        Ok(Self)
+    }
 
     type GetNames = no_columns_names;
 

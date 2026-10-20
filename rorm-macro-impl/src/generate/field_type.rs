@@ -26,7 +26,6 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
         get_names,
         get_annotations,
         check,
-        decoder,
     } = field_type;
 
     let fields_struct_ident = format_ident!("__{}_Fields_Struct", field_type.ident);
@@ -81,10 +80,19 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
                 builder.finish()
             }
 
+            fn decode(row: &#rorm_path::db::Row, mut index: usize) -> Result<Self, #rorm_path::db::row::RowError<'static>> {
+                Ok(Self {#(
+                    #fields__ident: #fields__ty::decode(row, {
+                        let current = index;
+                        index += <<#fields__ty as #rorm_path::fields::traits::FieldType>::Columns as #rorm_path::fields::traits::Columns>::NUM;
+                        current
+                    })?,
+                )*})
+            }
+
             type GetNames = #get_names;
             type GetAnnotations = #get_annotations;
             type Check = #check;
-            type Decoder = #decoder;
         }
 
         impl<__Field, __Path> #rorm_path::internal::field::ContainerFieldType<__Field, __Path> for #ident
@@ -179,33 +187,6 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
                     }
                 )*
                 Ok(())
-            }
-        }
-
-        #vis struct #decoder {#(
-            pub #fields__ident: <#fields__ty as #rorm_path::fields::traits::FieldType>::Decoder,
-        )*}
-
-        impl #rorm_path::crud::decoder::Decoder for #decoder {
-            type Result = #ident;
-
-            fn decode<'index>(&'index self, row: &'_ #rorm_path::db::Row) -> Result<Self::Result, #rorm_path::db::row::RowError<'index>> {
-                Ok(#ident {#(
-                    #fields__ident: self.#fields__ident.decode(row)?,
-                )*})
-            }
-        }
-
-        impl #rorm_path::internal::field::decoder::FieldDecoder for #decoder {
-            fn new<I>(ctx: &mut #rorm_path::internal::query_context::QueryContext, _: #rorm_path::fields::proxy::FieldProxy<I>) -> Self
-            where
-                I: #rorm_path::fields::proxy::FieldProxyImpl<Field: #rorm_path::internal::field::Field<Type= Self::Result>>,
-            {
-                Self {#(
-                    #fields__ident: <<#fields__ty as #rorm_path::fields::traits::FieldType>::Decoder as #rorm_path::internal::field::decoder::FieldDecoder>::new(
-                        &mut *ctx, #rorm_path::fields::proxy::new::<(#fields__unit<I::Field>, I::Path)>()
-                    ),
-                )*}
             }
         }
     };}

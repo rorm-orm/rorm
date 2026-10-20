@@ -1,14 +1,13 @@
 //! Trait for selecting stuff
 
-use std::marker::PhantomData;
-
-use rorm_db::row::DecodeOwned;
+use rorm_db::row::{DecodeOwned, RowError};
 use rorm_db::sql::aggregation::SelectAggregator;
+use rorm_db::Row;
+use std::marker::PhantomData;
 
 use crate::crud::decoder::{Decoder, DirectDecoder};
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
 use crate::fields::traits::FieldType;
-use crate::internal::field::decoder::FieldDecoder;
 use crate::internal::field::Field;
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
@@ -65,11 +64,27 @@ where
 {
     type Result = F::Type;
     type Model = P::Origin;
-    type Decoder = T::Decoder;
+    type Decoder = FieldDecoder<T>;
     const INSERT_COMPATIBLE: bool = P::IS_ORIGIN;
 
     fn select(self, ctx: &mut QueryContext) -> Self::Decoder {
-        FieldDecoder::new(ctx, self)
+        let first_column = ctx.select_field::<F, P>();
+        FieldDecoder {
+            first_column,
+            field_type: PhantomData,
+        }
+    }
+}
+
+pub struct FieldDecoder<T> {
+    first_column: usize,
+    field_type: PhantomData<T>,
+}
+impl<T: FieldType> Decoder for FieldDecoder<T> {
+    type Result = T;
+
+    fn decode<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
+        T::decode(row, self.first_column)
     }
 }
 

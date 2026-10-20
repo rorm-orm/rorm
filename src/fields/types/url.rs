@@ -1,8 +1,5 @@
 use std::borrow::Cow;
 
-use rorm_db::sql::value::NullType;
-use url::Url;
-
 use crate::conditions::Value;
 use crate::fields::traits::into_value::IntoValue;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn};
@@ -10,7 +7,10 @@ use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::utils::check::shared_linter_check;
 use crate::fields::utils::get_annotations::forward_annotations;
 use crate::fields::utils::get_names::single_column_name;
-use crate::new_converting_decoder;
+use rorm_db::row::{RowError, RowIndex};
+use rorm_db::sql::value::NullType;
+use rorm_db::Row;
+use url::Url;
 
 impl FieldType for Url {
     type Columns = Array<1>;
@@ -26,7 +26,13 @@ impl FieldType for Url {
         [Value::String(Cow::Borrowed(self.as_str()))]
     }
 
-    type Decoder = UrlDecoder;
+    fn decode(row: &Row, index: usize) -> Result<Self, RowError<'static>> {
+        let string = String::decode(row, index)?;
+        Url::parse(&string).map_err(|err| RowError::Decode {
+            index: RowIndex::Position(index),
+            source: format!("Couldn't parse url: {err}").into(),
+        })
+    }
 
     type GetNames = single_column_name;
 
@@ -34,12 +40,6 @@ impl FieldType for Url {
 
     type Check = shared_linter_check<1>;
 }
-new_converting_decoder!(
-    pub UrlDecoder,
-    |value: String| -> Url {
-        Url::parse(&value).map_err(|err| format!("Couldn't parse url: {err}"))
-    }
-);
 impl<'a> IntoValue<'a> for Url {
     fn into_value(self) -> Value<'a> {
         Value::String(Cow::Owned(self.into()))

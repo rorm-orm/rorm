@@ -5,14 +5,8 @@ use std::fmt;
 use std::future::poll_fn;
 use std::pin::pin;
 
-use futures_core::Stream;
-use rorm_db::executor::Executor;
-use rorm_db::sql::value::NullType;
-use rorm_db::Error;
-
 use crate::conditions::collections::CollectionOperator::Or;
 use crate::conditions::{Binary, BinaryOperator, Column, Condition, DynamicCollection, Value};
-use crate::crud::decoder::NoopDecoder;
 use crate::crud::query::query;
 use crate::fields::proxy;
 use crate::fields::proxy::FieldProxy;
@@ -25,6 +19,11 @@ use crate::internal::field::{foreign_model, Field, SingleColumnField};
 use crate::model::GetField;
 #[allow(unused_imports)] // clion needs this import to access Patch::field on a Model
 use crate::Patch;
+use futures_core::Stream;
+use rorm_db::executor::Executor;
+use rorm_db::row::RowError;
+use rorm_db::sql::value::NullType;
+use rorm_db::{Error, Row};
 
 /// A back reference is the other direction to a [foreign model](crate::prelude::ForeignModelByField)
 #[derive(Clone)]
@@ -59,7 +58,9 @@ impl<FMF: ForeignModelField> FieldType for BackRef<FMF> {
         []
     }
 
-    type Decoder = NoopDecoder<Self>;
+    fn decode(_row: &Row, _index: usize) -> Result<Self, RowError<'static>> {
+        Ok(Self::default())
+    }
 
     type GetAnnotations = forward_annotations<0>;
 

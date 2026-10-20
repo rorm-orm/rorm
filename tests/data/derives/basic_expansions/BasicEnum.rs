@@ -40,18 +40,31 @@ const _: () = {
                 ),
             ]
         }
-        type Decoder = __BasicEnum_Decoder;
+        fn decode(
+            row: &::rorm::db::Row,
+            index: usize,
+        ) -> Result<Self, ::rorm::db::row::RowError<'static>> {
+            let ::rorm::db::choice::Choice(value) = row.get(index)?;
+            match value.as_str() {
+                stringify!(Foo) => Ok(BasicEnum::Foo),
+                stringify!(Bar) => Ok(BasicEnum::Bar),
+                stringify!(Baz) => Ok(BasicEnum::Baz),
+                _ => {
+                    Err(::rorm::db::row::RowError::Decode {
+                        index: index.into(),
+                        source: format!(
+                            "Invalid value '{}' for enum '{}'", value,
+                            stringify!(BasicEnum)
+                        )
+                            .into(),
+                    })
+                }
+            }
+        }
         type GetAnnotations = get_db_enum_annotations;
         type Check = ::rorm::fields::utils::check::shared_linter_check<1>;
         type GetNames = ::rorm::fields::utils::get_names::single_column_name;
     }
-    ::rorm::new_converting_decoder!(
-        #[doc(hidden)] __BasicEnum_Decoder, | value : ::rorm::db::choice::Choice | ->
-        BasicEnum { let value : String = value.0; match value.as_str() { stringify!(Foo)
-        => Ok(BasicEnum::Foo), stringify!(Bar) => Ok(BasicEnum::Bar), stringify!(Baz) =>
-        Ok(BasicEnum::Baz), _ => Err(format!("Invalid value '{}' for enum '{}'", value,
-        stringify!(BasicEnum))), } }
-    );
     impl<'a> ::rorm::fields::traits::into_value::IntoValue<'a> for BasicEnum {
         fn into_value(self) -> ::rorm::conditions::Value<'a> {
             let [value] = ::rorm::fields::traits::FieldType::into_values(self);

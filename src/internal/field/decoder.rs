@@ -1,50 +1,5 @@
 //! [`FieldDecoder`] trait, some simple impls and a macro to create new ones
 
-use std::marker::PhantomData;
-
-use rorm_db::row::DecodeOwned;
-
-use crate::crud::decoder::{Decoder, DirectDecoder, NoopDecoder};
-use crate::fields::proxy::FieldProxyImpl;
-use crate::internal::field::{Field, FieldProxy};
-use crate::internal::query_context::QueryContext;
-
-/// [`Decoder`] for a single field's [`Field::Type`]
-pub trait FieldDecoder: Decoder {
-    /// Construct decoder for a specific field and path
-    fn new<I>(ctx: &mut QueryContext, _: FieldProxy<I>) -> Self
-    where
-        I: FieldProxyImpl<Field: Field<Type = Self::Result>>;
-}
-
-impl<T> FieldDecoder for DirectDecoder<T>
-where
-    T: DecodeOwned,
-{
-    fn new<I>(ctx: &mut QueryContext, _: FieldProxy<I>) -> Self
-    where
-        I: FieldProxyImpl<Field: Field<Type = Self::Result>>,
-    {
-        let index = ctx.select_field::<I::Field, I::Path>();
-        Self {
-            result: PhantomData,
-            index,
-        }
-    }
-}
-
-impl<T> FieldDecoder for NoopDecoder<T>
-where
-    T: Default,
-{
-    fn new<I>(_: &mut QueryContext, _: FieldProxy<I>) -> Self
-    where
-        I: FieldProxyImpl<Field: Field<Type = Self::Result>>,
-    {
-        Self(PhantomData)
-    }
-}
-
 /// Syntax example
 /// ```text
 /// new_converting_decoder!(
