@@ -112,20 +112,12 @@ impl ::std::default::Default for __BasicModel_ValueSpaceImpl {
 }
 impl ::rorm::crud::decoder::Decoder for __BasicModel_Decoder {
     type Result = BasicModel;
-    fn by_name<'index>(
+    fn decode<'index>(
         &'index self,
         row: &'_ ::rorm::db::Row,
     ) -> Result<Self::Result, ::rorm::db::row::RowError<'index>> {
         Ok(BasicModel {
-            id: self.id.by_name(row)?,
-        })
-    }
-    fn by_index<'index>(
-        &'index self,
-        row: &'_ ::rorm::db::Row,
-    ) -> Result<Self::Result, ::rorm::db::row::RowError<'index>> {
-        Ok(BasicModel {
-            id: self.id.by_index(row)?,
+            id: self.id.decode(row)?,
         })
     }
 }

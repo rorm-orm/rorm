@@ -180,20 +180,12 @@ const _: () = {
     }
     impl ::rorm::crud::decoder::Decoder for BasicFieldTypeDecoder {
         type Result = BasicFieldType;
-        fn by_name<'index>(
+        fn decode<'index>(
             &'index self,
             row: &'_ ::rorm::db::Row,
         ) -> Result<Self::Result, ::rorm::db::row::RowError<'index>> {
             Ok(BasicFieldType {
-                description: self.description.by_name(row)?,
-            })
-        }
-        fn by_index<'index>(
-            &'index self,
-            row: &'_ ::rorm::db::Row,
-        ) -> Result<Self::Result, ::rorm::db::row::RowError<'index>> {
-            Ok(BasicFieldType {
-                description: self.description.by_index(row)?,
+                description: self.description.decode(row)?,
             })
         }
     }

@@ -8,8 +8,6 @@ use rorm_db::Row;
 /// Something which decodes a [value](Self::Result) from a [`&Row`](rorm_db::Row)
 ///
 /// It is basically a closure `Fn(&Row) -> Result<Self::Result, Error>`.
-/// Sadly we need to support decoding via indexes so this trait actually has two method.
-/// One for decoding [`by_name`](Self::by_name) and another one for decoding [`by_index`](Self::by_index).
 ///
 /// This trait does not manage
 /// a) how the decoder is constructed
@@ -22,29 +20,21 @@ pub trait Decoder {
     /// The value decoded from a row
     type Result;
 
-    /// Decode a value from a row using select aliases to access the columns
-    fn by_name<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>>;
-
-    /// Decode a value from a row using indexes to access the columns
-    fn by_index<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>>;
+    /// Decode a value from a row
+    fn decode<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>>;
 }
 
 impl<D: Decoder> Decoder for &'_ D {
     type Result = D::Result;
 
-    fn by_name<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        D::by_name(self, row)
-    }
-
-    fn by_index<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        D::by_index(self, row)
+    fn decode<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
+        D::decode(self, row)
     }
 }
 
 /// A [`Decoder`] which directly decodes a [`T: DecodedOwned`](DecodeOwned)
 pub struct DirectDecoder<T> {
     pub(crate) result: PhantomData<T>,
-    pub(crate) column: String,
     pub(crate) index: usize,
 }
 impl<T> Decoder for DirectDecoder<T>
@@ -53,11 +43,7 @@ where
 {
     type Result = T;
 
-    fn by_name<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        row.get(self.column.as_str())
-    }
-
-    fn by_index<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
+    fn decode<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
         row.get(self.index)
     }
 }
@@ -72,11 +58,7 @@ where
 {
     type Result = T;
 
-    fn by_name<'index>(&'index self, _row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        Ok(Default::default())
-    }
-
-    fn by_index<'index>(&'index self, _row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
+    fn decode<'index>(&'index self, _row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
         Ok(Default::default())
     }
 }
@@ -88,15 +70,9 @@ macro_rules! decoder {
                 $S::Result,
             )+);
 
-            fn by_name<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
+            fn decode<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
                 Ok(($(
-                    self.$index.by_name(row)?,
-                )+))
-            }
-
-            fn by_index<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-                Ok(($(
-                    self.$index.by_index(row)?,
+                    self.$index.decode(row)?,
                 )+))
             }
         }
@@ -160,12 +136,8 @@ where
 {
     type Result = T;
 
-    fn by_name<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        self.decoder.by_name(row).map(&self.function)
-    }
-
-    fn by_index<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        self.decoder.by_index(row).map(&self.function)
+    fn decode<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
+        self.decoder.decode(row).map(&self.function)
     }
 }
 
@@ -179,16 +151,8 @@ where
 {
     type Result = Option<D::Result>;
 
-    fn by_name<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        match self.decoder.by_name(row) {
-            Ok(result) => Ok(Some(result)),
-            Err(RowError::UnexpectedNull { .. }) => Ok(None),
-            Err(error) => Err(error),
-        }
-    }
-
-    fn by_index<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        match self.decoder.by_index(row) {
+    fn decode<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
+        match self.decoder.decode(row) {
             Ok(result) => Ok(Some(result)),
             Err(RowError::UnexpectedNull { .. }) => Ok(None),
             Err(error) => Err(error),

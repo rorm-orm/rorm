@@ -92,10 +92,9 @@ where
     const INSERT_COMPATIBLE: bool = false;
 
     fn select(self, ctx: &mut QueryContext) -> Self::Decoder {
-        let (index, column) = ctx.select_aggregation(self);
+        let (index, _column) = ctx.select_aggregation(self);
         DirectDecoder {
             result: PhantomData,
-            column,
             index,
         }
     }

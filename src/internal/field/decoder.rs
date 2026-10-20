@@ -25,10 +25,9 @@ where
     where
         I: FieldProxyImpl<Field: Field<Type = Self::Result>>,
     {
-        let (index, column) = ctx.select_field::<I::Field, I::Path>();
+        let (index, _column) = ctx.select_field::<I::Field, I::Path>();
         Self {
             result: PhantomData,
-            column,
             index,
         }
     }
@@ -60,7 +59,6 @@ macro_rules! new_converting_decoder {
     ($(#[$attr:meta])* $vis:vis $decoder:ident$(<$($generic:ident$(: $bound1:ident $(+ $boundN:ident)*)?),+>)?, |$convert_arg:ident: $primitive:ty| -> $result:ty $convert_block:block) => {
         $(#[$attr])*
         $vis struct $decoder$(<$($generic),+>)? {
-            column: String,
             index: usize,
             $(generics: ::std::marker::PhantomData<($($generic,)+)>)?
         }
@@ -73,16 +71,7 @@ macro_rules! new_converting_decoder {
         {
             type Result = $result;
 
-            fn by_name<'index>(&'index self, row: &'_ $crate::Row) -> Result<Self::Result, $crate::db::row::RowError<'index>> {
-                let $convert_arg: $primitive = row.get(self.column.as_str())?;
-                let convert_result = $convert_block;
-                convert_result.map_err(|error| $crate::db::row::RowError::Decode {
-                    index: self.column.as_str().into(),
-                    source: error.into(),
-                })
-            }
-
-            fn by_index<'index>(&'index self, row: &'_ $crate::Row) -> Result<Self::Result, $crate::db::row::RowError<'index>> {
+            fn decode<'index>(&'index self, row: &'_ $crate::Row) -> Result<Self::Result, $crate::db::row::RowError<'index>> {
                 let $convert_arg: $primitive = row.get(self.index)?;
                 let convert_result = $convert_block;
                 convert_result.map_err(|error| $crate::db::row::RowError::Decode {
@@ -109,9 +98,8 @@ macro_rules! new_converting_decoder {
                     >,
                 >,
             {
-                let (index, column) = ctx.select_field::<I::Field, I::Path>();
+                let (index, _column) = ctx.select_field::<I::Field, I::Path>();
                 Self {
-                    column,
                     index,
                     $(generics: ::std::marker::PhantomData::<($($generic,)+)>)?
                 }

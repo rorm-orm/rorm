@@ -320,7 +320,6 @@ where
 }
 
 pub struct MaxStrDecoder<const MAX_LEN: usize, Impl: LenImpl> {
-    column: String,
     index: usize,
     generics: PhantomData<Impl>,
 }
@@ -331,16 +330,7 @@ where
 {
     type Result = MaxStr<MAX_LEN, Impl, String>;
 
-    fn by_name<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        MaxStr::<MAX_LEN, Impl, String>::new(row.get(self.column.as_str())?).map_err(|error| {
-            RowError::Decode {
-                index: self.column.as_str().into(),
-                source: error.into(),
-            }
-        })
-    }
-
-    fn by_index<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
+    fn decode<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
         MaxStr::<MAX_LEN, Impl, String>::new(row.get(self.index)?).map_err(|error| {
             RowError::Decode {
                 index: self.index.into(),
@@ -358,9 +348,8 @@ where
     where
         I: FieldProxyImpl<Field: Field<Type = Self::Result>>,
     {
-        let (index, column) = ctx.select_field::<I::Field, I::Path>();
+        let (index, _column) = ctx.select_field::<I::Field, I::Path>();
         Self {
-            column,
             index,
             generics: PhantomData,
         }

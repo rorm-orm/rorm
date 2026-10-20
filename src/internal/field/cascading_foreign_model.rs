@@ -102,12 +102,8 @@ pub struct CascadingForeignModelByFieldDecoder<FF: SingleColumnField>(
 impl<FF: SingleColumnField> Decoder for CascadingForeignModelByFieldDecoder<FF> {
     type Result = CascadingForeignModelByField<FF>;
 
-    fn by_name<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        self.0.by_name(row).map(CascadingForeignModelByField)
-    }
-
-    fn by_index<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        self.0.by_index(row).map(CascadingForeignModelByField)
+    fn decode<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
+        self.0.decode(row).map(CascadingForeignModelByField)
     }
 }
 impl<FF> FieldDecoder for CascadingForeignModelByFieldDecoder<FF>

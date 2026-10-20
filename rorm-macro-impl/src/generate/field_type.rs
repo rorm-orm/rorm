@@ -189,15 +189,9 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
         impl #rorm_path::crud::decoder::Decoder for #decoder {
             type Result = #ident;
 
-            fn by_name<'index>(&'index self, row: &'_ #rorm_path::db::Row) -> Result<Self::Result, #rorm_path::db::row::RowError<'index>> {
+            fn decode<'index>(&'index self, row: &'_ #rorm_path::db::Row) -> Result<Self::Result, #rorm_path::db::row::RowError<'index>> {
                 Ok(#ident {#(
-                    #fields__ident: self.#fields__ident.by_name(row)?,
-                )*})
-            }
-
-            fn by_index<'index>(&'index self, row: &'_ #rorm_path::db::Row) -> Result<Self::Result, #rorm_path::db::row::RowError<'index>> {
-                Ok(#ident {#(
-                    #fields__ident: self.#fields__ident.by_index(row)?,
+                    #fields__ident: self.#fields__ident.decode(row)?,
                 )*})
             }
         }

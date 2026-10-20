@@ -283,15 +283,8 @@ impl<T: FieldType> FieldDecoder for OptionDecoder<T> {
 impl<T: FieldType> Decoder for OptionDecoder<T> {
     type Result = Option<T>;
 
-    fn by_name<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        self.0.by_name(row).map(Some).or_else(|error| match error {
-            RowError::UnexpectedNull { .. } => Ok(None),
-            _ => Err(error),
-        })
-    }
-
-    fn by_index<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
-        self.0.by_index(row).map(Some).or_else(|error| match error {
+    fn decode<'index>(&'index self, row: &'_ Row) -> Result<Self::Result, RowError<'index>> {
+        self.0.decode(row).map(Some).or_else(|error| match error {
             RowError::UnexpectedNull { .. } => Ok(None),
             _ => Err(error),
         })

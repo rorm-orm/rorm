@@ -187,22 +187,13 @@ for __Generic_ValueSpaceImpl<T> {
 impl<T: rorm::fields::traits::FieldType> ::rorm::crud::decoder::Decoder
 for __Generic_Decoder<T> {
     type Result = Generic<T>;
-    fn by_name<'index>(
+    fn decode<'index>(
         &'index self,
         row: &'_ ::rorm::db::Row,
     ) -> Result<Self::Result, ::rorm::db::row::RowError<'index>> {
         Ok(Generic {
-            id: self.id.by_name(row)?,
-            x: self.x.by_name(row)?,
-        })
-    }
-    fn by_index<'index>(
-        &'index self,
-        row: &'_ ::rorm::db::Row,
-    ) -> Result<Self::Result, ::rorm::db::row::RowError<'index>> {
-        Ok(Generic {
-            id: self.id.by_index(row)?,
-            x: self.x.by_index(row)?,
+            id: self.id.decode(row)?,
+            x: self.x.decode(row)?,
         })
     }
 }

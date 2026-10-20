@@ -28,13 +28,7 @@ impl ::std::default::Default for __BasicPatch_ValueSpaceImpl {
 }
 impl ::rorm::crud::decoder::Decoder for __BasicPatch_Decoder {
     type Result = BasicPatch;
-    fn by_name<'index>(
-        &'index self,
-        row: &'_ ::rorm::db::Row,
-    ) -> Result<Self::Result, ::rorm::db::row::RowError<'index>> {
-        Ok(BasicPatch {})
-    }
-    fn by_index<'index>(
+    fn decode<'index>(
         &'index self,
         row: &'_ ::rorm::db::Row,
     ) -> Result<Self::Result, ::rorm::db::row::RowError<'index>> {

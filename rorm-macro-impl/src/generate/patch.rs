@@ -129,15 +129,9 @@ pub fn partially_generate_patch<'a>(
         impl #impl_generics #rorm_path::crud::decoder::Decoder for #decoder #type_generics #where_clause {
             type Result = #patch #type_generics;
 
-            fn by_name<'index>(&'index self, row: &'_ #rorm_path::db::Row) -> Result<Self::Result, #rorm_path::db::row::RowError<'index>> {
+            fn decode<'index>(&'index self, row: &'_ #rorm_path::db::Row) -> Result<Self::Result, #rorm_path::db::row::RowError<'index>> {
                 Ok(#patch {#(
-                    #fields_2: self.#fields_2.by_name(row)?,
-                )*})
-            }
-
-            fn by_index<'index>(&'index self, row: &'_ #rorm_path::db::Row) -> Result<Self::Result, #rorm_path::db::row::RowError<'index>> {
-                Ok(#patch {#(
-                    #fields_3: self.#fields_3.by_index(row)?,
+                    #fields_3: self.#fields_3.decode(row)?,
                 )*})
             }
         }

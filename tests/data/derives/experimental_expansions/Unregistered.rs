@@ -116,20 +116,12 @@ impl ::std::default::Default for __Unregistered_ValueSpaceImpl {
 }
 impl ::rorm::crud::decoder::Decoder for __Unregistered_Decoder {
     type Result = Unregistered;
-    fn by_name<'index>(
+    fn decode<'index>(
         &'index self,
         row: &'_ ::rorm::db::Row,
     ) -> Result<Self::Result, ::rorm::db::row::RowError<'index>> {
         Ok(Unregistered {
-            id: self.id.by_name(row)?,
-        })
-    }
-    fn by_index<'index>(
-        &'index self,
-        row: &'_ ::rorm::db::Row,
-    ) -> Result<Self::Result, ::rorm::db::row::RowError<'index>> {
-        Ok(Unregistered {
-            id: self.id.by_index(row)?,
+            id: self.id.decode(row)?,
         })
     }
 }

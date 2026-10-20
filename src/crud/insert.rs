@@ -207,7 +207,7 @@ where
             &returning,
         )
         .await?;
-        Ok(decoder.by_index(&row)?)
+        Ok(decoder.decode(&row)?)
     }
 
     /// Insert a bulk of patches into the db
@@ -258,7 +258,7 @@ where
         )
         .await?;
         rows.iter()
-            .map(|row| decoder.by_index(row).map_err(Into::into))
+            .map(|row| decoder.decode(row).map_err(Into::into))
             .collect()
     }
 }
