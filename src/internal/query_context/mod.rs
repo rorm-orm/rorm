@@ -90,9 +90,8 @@ impl<'v> QueryContext<'v> {
     pub fn select_aggregation<I: FieldProxyImpl, R>(
         &mut self,
         column: AggregatedColumn<I, R>,
-    ) -> (usize, String) {
+    ) -> usize {
         let path_id = I::Path::add_to_context(self);
-        let alias = format!("{}", NumberAsAZ(self.selects.len()));
         let index = self.selects.len();
 
         self.selects.push(Select {
@@ -105,14 +104,13 @@ impl<'v> QueryContext<'v> {
             trace!(
                 table_name = self.join_aliases.get(&path_id),
                 column_name = &*I::Field::NAME,
-                alias,
                 index,
                 aggregation = ?column.sql,
                 "QueryContext::select_aggregation"
             )
         });
 
-        (index, alias)
+        index
     }
 
     /// Adds a condition to the query context and returns its index
