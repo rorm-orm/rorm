@@ -405,6 +405,7 @@ mod test {
         let index = Annotation::Index(Some(IndexValue {
             name: "login".to_string(),
             priority: Some(0),
+            unique: true,
         }));
         assert_eq!(
             delta(

@@ -158,6 +158,9 @@ pub enum Operation {
     },
 
     /// Representation of a CreateIndex operation
+    ///
+    /// A [unique](Index::unique) index enforces its columns' values to be unique.
+    /// It is how a unique constraint spanning multiple columns is created.
     #[serde(rename_all = "PascalCase")]
     CreateIndex {
         /// Name of the model to create the index on

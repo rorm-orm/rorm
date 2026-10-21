@@ -104,6 +104,7 @@ impl AsImr for Option<IndexData> {
         self.as_ref().map(|data| imr::IndexValue {
             name: data.name.to_string(),
             priority: data.priority,
+            unique: false,
         })
     }
 }

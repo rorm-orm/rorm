@@ -2,7 +2,7 @@ use darling::FromAttributes;
 use proc_macro2::{Ident, TokenStream};
 use syn::{parse2, Field, Generics, ItemStruct, LitInt, LitStr, Type, Visibility};
 
-use crate::parse::annotations::{Default, Index, OnAction};
+use crate::parse::annotations::{Default, Index, OnAction, Unique};
 use crate::parse::get_fields_named;
 
 pub fn parse_model(tokens: TokenStream) -> darling::Result<ParsedModel> {
@@ -69,6 +69,12 @@ pub struct ParsedModel {
 #[darling(attributes(rorm), default)]
 pub struct ModelAnnotations {
     pub rename: Option<LitStr>,
+
+    /// Parse the `#[rorm(unique(<field>, ...))]` annotation.
+    ///
+    /// It may be repeated to declare several unique constraints.
+    #[darling(multiple)]
+    pub unique: Vec<Unique>,
 
     pub experimental_unregistered: bool,
     pub experimental_generics: bool,

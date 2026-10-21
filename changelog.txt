@@ -10,6 +10,10 @@ Since 0.12.0
 - Removed MySQL field from RawSQL migration operation
 - Made `const_fn!` support `where` clauses
 - Implemented multi-column fields (functional but experimental)
+- Implemented `#[rorm(unique(field, ...))]` on models
+  - It declares a unique constraint spanning several fields
+    (or a multi-column field's columns) using a unique index
+  - It may be repeated to declare several constraints
 
 Notes for publishing
 --------------------

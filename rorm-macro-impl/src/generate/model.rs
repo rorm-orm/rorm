@@ -2,7 +2,9 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use syn::{GenericParam, LitStr};
 
-use crate::analyze::model::{AnalyzedField, AnalyzedModel, AnalyzedModelFieldAnnotations};
+use crate::analyze::model::{
+    AnalyzedField, AnalyzedModel, AnalyzedModelFieldAnnotations, AnalyzedUnique,
+};
 use crate::generate::patch::partially_generate_patch;
 use crate::generate::utils::get_source;
 use crate::generate::utils::phantom_data;
@@ -24,6 +26,7 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
         ident,
         table,
         fields,
+        uniques,
         primary_key,
         experimental_unregistered,
         experimental_generics,
@@ -51,6 +54,32 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
         .push(GenericParam::Type(syn::parse_quote!(P)));
     let (_, type_generics_with_path, _) = generics_with_path.split_for_impl();
 
+    let push_uniques = uniques.iter().map(
+        |AnalyzedUnique {
+             name,
+             fields: unique,
+         }| {
+            let units = unique.iter().map(|(index, _)| &fields[*index].unit);
+            quote! {
+                #rorm_path::internal::field::push_unique_imr(&mut *fields, #name, &[#(
+                    #rorm_path::internal::field::column_names::<#units #type_generics>(),
+                )*]);
+            }
+        },
+    );
+    let check_uniques: Vec<_> = uniques
+        .iter()
+        .flat_map(|unique| &unique.fields)
+        .map(|(index, ident)| {
+            let unit = &fields[*index].unit;
+            quote_spanned! {ident.span()=>
+                if let Err(err) = #rorm_path::internal::field::check_unique::<#unit #type_generics>() {
+                    panic!("{}", err.as_str());
+                }
+            }
+        })
+        .collect();
+
     let mut tokens = quote! {
         #field_declarations
         #fields_struct
@@ -70,9 +99,12 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
             const TABLE: &'static str = #table;
             const SOURCE: #rorm_path::internal::hmr::Source = #source;
 
-            fn push_fields_imr(fields: &mut Vec<#rorm_path::imr::Field>) {#(
-                #rorm_path::internal::field::push_imr::<#fields__unit #type_generics>(&mut *fields);
-            )*}
+            fn push_fields_imr(fields: &mut Vec<#rorm_path::imr::Field>) {
+                #(
+                    #rorm_path::internal::field::push_imr::<#fields__unit #type_generics>(&mut *fields);
+                )*
+                #(#push_uniques)*
+            }
         }
 
         #impl_patch
@@ -87,6 +119,7 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
                     #(
                         <#fields__unit #type_generics>::__rorm_internal__check();
                     )*
+                    #(#check_uniques)*
                 }
             }
         });
@@ -98,6 +131,13 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
                 static __get_imr: fn() -> #rorm_path::imr::Model = <#ident as #rorm_path::model::Model>::get_imr;
             };
         });
+        if !check_uniques.is_empty() {
+            tokens.extend(quote! {
+                const _: () = {
+                    #(#check_uniques)*
+                };
+            });
+        }
     }
 
     for (index, field) in fields.iter().enumerate() {

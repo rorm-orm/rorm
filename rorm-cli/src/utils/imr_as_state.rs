@@ -1,6 +1,6 @@
 //! Extension trait to treat [`imr`] types as queryable and updatable state
 
-use rorm_declaration::imr::{Annotation, Field, InternalModelFormat, Model};
+use rorm_declaration::imr::{Annotation, Field, Index, InternalModelFormat, Model};
 use rorm_declaration::migration::Operation;
 use thiserror::Error;
 
@@ -86,17 +86,19 @@ pub trait InternalModelFormatExt {
                 model.fields.retain(|z| z.name != *name);
             }
             Operation::CreateIndex { model, index } => {
+                check_unique_index_is_named(model, index)?;
                 let model = get_model(self.as_mut(), model)?;
                 for (position, column) in index.columns.iter().enumerate() {
-                    let annotation = indexes::annotation(index.name.clone(), position);
+                    let annotation = indexes::annotation(index, position);
                     get_field(model, column)?.annotations.push(annotation);
                 }
             }
             Operation::DeleteIndex { model, index } => {
+                check_unique_index_is_named(model, index)?;
                 let name = index.sql_name(model);
                 let model = get_model(self.as_mut(), model)?;
                 for (position, column) in index.columns.iter().enumerate() {
-                    let annotation = indexes::annotation(index.name.clone(), position);
+                    let annotation = indexes::annotation(index, position);
                     let annotations = &mut get_field(model, column)?.annotations;
                     let Some(position) = annotations.iter().position(|x| *x == annotation) else {
                         return Err(ApplyOperationError::UnknownIndex {
@@ -177,6 +179,10 @@ pub enum ApplyOperationError {
     #[error("Index {index} does not span column {column}")]
     UnknownIndex { index: String, column: String },
 
+    /// The operation referenced a unique index without a name
+    #[error("Unique index {index} has no name")]
+    UnnamedUniqueIndex { index: String },
+
     /// The operation is an unsafe RawSQL
     #[error("Encountered RawSQL which is not marked as structure safe")]
     UnsafeRawSql,
@@ -233,6 +239,20 @@ fn check_field_exists(model: &Model, field: &str) -> Result<(), ApplyOperationEr
 fn check_field_not_exists(model: &Model, field: &str) -> Result<(), ApplyOperationError> {
     if model.has_field(field) {
         todo!()
+    } else {
+        Ok(())
+    }
+}
+
+/// Helper used by [`apply_operation`](InternalModelFormatExt::apply_operation)
+///
+/// An unnamed index is stored as [`Annotation::Index(None)`](Annotation::Index),
+/// which can't tell a unique index from a regular one.
+fn check_unique_index_is_named(model: &str, index: &Index) -> Result<(), ApplyOperationError> {
+    if index.unique && index.name.is_none() {
+        Err(ApplyOperationError::UnnamedUniqueIndex {
+            index: index.sql_name(model),
+        })
     } else {
         Ok(())
     }
@@ -316,6 +336,7 @@ mod test_indexes {
             Some(IndexValue {
                 name: "login".to_string(),
                 priority: None,
+                unique: false,
             }),
         )])]);
 
@@ -327,6 +348,7 @@ mod test_indexes {
         let index = Index {
             name: Some("full_name".to_string()),
             columns: vec!["last_name".to_string(), "first_name".to_string()],
+            unique: false,
         };
         let state = state(vec![
             create_model(vec![("first_name", None), ("last_name", None)]),
@@ -341,10 +363,83 @@ mod test_indexes {
     }
 
     #[test]
+    fn create_unique_index_restores_the_index() {
+        let index = Index {
+            name: Some("full_name".to_string()),
+            columns: vec!["last_name".to_string(), "first_name".to_string()],
+            unique: true,
+        };
+        let state = state(vec![
+            create_model(vec![("first_name", None), ("last_name", None)]),
+            Operation::CreateIndex {
+                model: "user".to_string(),
+                index: index.clone(),
+            },
+        ]);
+
+        assert_eq!(indexes(&state), vec![index]);
+    }
+
+    #[test]
+    fn delete_unique_index_keeps_a_regular_one_of_the_same_name() {
+        let regular = Index {
+            name: Some("full_name".to_string()),
+            columns: vec!["last_name".to_string(), "first_name".to_string()],
+            unique: false,
+        };
+        let unique = Index {
+            unique: true,
+            ..regular.clone()
+        };
+        let state = state(vec![
+            create_model(vec![("first_name", None), ("last_name", None)]),
+            Operation::CreateIndex {
+                model: "user".to_string(),
+                index: regular.clone(),
+            },
+            Operation::CreateIndex {
+                model: "user".to_string(),
+                index: unique.clone(),
+            },
+            Operation::DeleteIndex {
+                model: "user".to_string(),
+                index: unique,
+            },
+        ]);
+
+        assert_eq!(indexes(&state), vec![regular]);
+    }
+
+    #[test]
+    fn unnamed_unique_index_is_rejected() {
+        let mut state = state(vec![create_model(vec![("login", None)])]);
+        let index = Index {
+            name: None,
+            columns: vec!["login".to_string()],
+            unique: true,
+        };
+
+        for operation in [
+            Operation::CreateIndex {
+                model: "user".to_string(),
+                index: index.clone(),
+            },
+            Operation::DeleteIndex {
+                model: "user".to_string(),
+                index,
+            },
+        ] {
+            assert!(state.apply_operation(&operation).is_err(), "{operation:?}");
+        }
+        assert_eq!(state.models[0].fields[0].annotations, vec![]);
+    }
+
+    #[test]
     fn delete_index_removes_the_index() {
         let index = Index {
             name: None,
             columns: vec!["login".to_string()],
+            unique: false,
         };
         let state = state(vec![
             create_model(vec![("login", None)]),
@@ -373,6 +468,7 @@ mod test_indexes {
                 index: Index {
                     name: None,
                     columns: vec!["login".to_string()],
+                    unique: false,
                 },
             })
             .is_err());
@@ -502,6 +598,7 @@ mod test_alter {
         let index = Index {
             name: None,
             columns: vec!["login".to_string()],
+            unique: false,
         };
         #[allow(deprecated)]
         let state = state(vec![

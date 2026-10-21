@@ -141,6 +141,7 @@ mod test_index_on_primary_key {
             Annotation::Index(Some(IndexValue {
                 name: "collection_uuid".to_string(),
                 priority: Some(2),
+                unique: false,
             })),
         ])
         .is_ok());
@@ -153,6 +154,7 @@ mod test_index_on_primary_key {
             Annotation::Index(Some(IndexValue {
                 name: "collection_uuid".to_string(),
                 priority: None,
+                unique: false,
             })),
             Annotation::Index(None),
         ])

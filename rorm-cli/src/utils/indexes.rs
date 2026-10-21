@@ -69,14 +69,17 @@ pub fn collect(state: &InternalModelFormat) -> Vec<(String, Index)> {
         .collect()
 }
 
-/// The [`Annotation::Index`] a column at `position` of an index named `name` carries
+/// The [`Annotation::Index`] a column at `position` of `index` carries
 ///
 /// The position is stored as the annotation's priority,
 /// so that [`Model::indexes`](rorm_declaration::imr::Model::indexes)
 /// restores the index' original column order.
-pub fn annotation(name: Option<String>, position: usize) -> Annotation {
-    Annotation::Index(name.map(|name| IndexValue {
+///
+/// An unnamed index' annotation has no room to store [`Index::unique`].
+pub fn annotation(index: &Index, position: usize) -> Annotation {
+    Annotation::Index(index.name.clone().map(|name| IndexValue {
         name,
         priority: Some(position as i32),
+        unique: index.unique,
     }))
 }

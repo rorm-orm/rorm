@@ -4,7 +4,7 @@ use syn::visit_mut::VisitMut;
 use syn::{Generics, LitInt, LitStr, Type, Visibility};
 
 use crate::analyze::vis_to_display;
-use crate::parse::annotations::{Default, Index, OnAction};
+use crate::parse::annotations::{Default, Index, OnAction, Unique};
 use crate::parse::model::{ModelAnnotations, ModelFieldAnnotations, ParsedField, ParsedModel};
 use crate::utils::to_db_name;
 
@@ -16,6 +16,7 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
         annos:
             ModelAnnotations {
                 rename,
+                unique,
                 experimental_unregistered,
                 experimental_generics,
             },
@@ -158,11 +159,71 @@ pub fn analyze_model(parsed: ParsedModel) -> darling::Result<AnalyzedModel> {
         )),
     }
 
+    // Resolve the fields spanned by unique constraints
+    let field_names: Vec<String> = analyzed_fields
+        .iter()
+        .map(|field| field.ident.to_string())
+        .collect();
+    let mut uniques: Vec<AnalyzedUnique> = Vec::with_capacity(unique.len());
+    for Unique(idents) in unique {
+        let mut fields = Vec::with_capacity(idents.len());
+        for ident in idents {
+            let name = ident.to_string();
+            let Some(index) = field_names.iter().position(|field| *field == name) else {
+                errors.push(
+                    darling::Error::unknown_field_with_alts(&name, &field_names).with_span(&ident),
+                );
+                continue;
+            };
+            if fields.iter().any(|(other, _)| *other == index) {
+                errors.push(
+                    darling::Error::custom(format!(
+                        "`{name}` is already part of this unique constraint"
+                    ))
+                    .with_span(&ident),
+                );
+                continue;
+            }
+            fields.push((index, ident));
+        }
+        let Some(first) = fields.first().map(|(_, ident)| ident.clone()) else {
+            continue; // Every field produced an error
+        };
+
+        // The index' name is derived from its columns, so two uniques
+        // with the same name would be merged into a single index.
+        let name = fields
+            .iter()
+            .map(|(index, _)| analyzed_fields[*index].column.value())
+            .collect::<Vec<_>>()
+            .join("_");
+        if let Some(other) = uniques.iter().find(|other| other.name.value() == name) {
+            let message = if other
+                .fields
+                .iter()
+                .map(|(index, _)| index)
+                .eq(fields.iter().map(|(index, _)| index))
+            {
+                "This unique constraint is declared twice".to_string()
+            } else {
+                format!("This unique constraint's name `{name}` (derived from its columns) is already taken by another one")
+            };
+            errors.push(darling::Error::custom(message).with_span(&first));
+            continue;
+        }
+
+        uniques.push(AnalyzedUnique {
+            name: LitStr::new(&name, first.span()),
+            fields,
+        });
+    }
+
     errors.finish_with(AnalyzedModel {
         vis: vis.clone(),
         ident,
         table,
         fields: analyzed_fields,
+        uniques,
         primary_key,
         experimental_unregistered: experimental_unregistered || experimental_generics,
         experimental_generics: generics,
@@ -174,11 +235,22 @@ pub struct AnalyzedModel {
     pub ident: Ident,
     pub table: LitStr,
     pub fields: Vec<AnalyzedField>,
+    pub uniques: Vec<AnalyzedUnique>,
     /// the primary key's index
     pub primary_key: usize,
 
     pub experimental_unregistered: bool,
     pub experimental_generics: Generics,
+}
+
+/// A `#[rorm(unique(...))]`
+pub struct AnalyzedUnique {
+    /// The name of the unique index i.e. its fields' column names joined by `_`
+    pub name: LitStr,
+
+    /// The fields the unique spans as index into [`AnalyzedModel::fields`],
+    /// paired with the identifier they were referenced by
+    pub fields: Vec<(usize, Ident)>,
 }
 
 pub struct AnalyzedField {

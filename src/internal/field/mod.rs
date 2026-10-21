@@ -55,7 +55,7 @@ pub mod fake_field;
 pub mod foreign_model;
 pub mod multi_column;
 
-use crate::fields::traits::{Array, FieldColumns, FieldType};
+use crate::fields::traits::{Array, Columns, FieldColumns, FieldType};
 use crate::fields::utils::column_name::ColumnName;
 use crate::fields::utils::const_fn::{ConstFn, Contains};
 use crate::internal::const_concat::ConstString;
@@ -158,6 +158,48 @@ pub const fn check<F: Field>() -> Result<(), ConstString<1024>> {
         contains::ExplicitAnnotations<F>,
         contains::EffectiveAnnotations<F>,
     )> as Contains<_>>::ITEM
+}
+
+/// Marks the columns a model's unique index spans in its [`imr`]
+///
+/// This function is called by the `#[derive(Model)]` macro for every `#[rorm(unique(...))]`
+/// after all columns have been pushed using [`push_imr`].
+/// `fields` contains the [`column_names`] of each field the index spans, in order.
+pub fn push_unique_imr(imr: &mut [imr::Field], name: &str, fields: &[Vec<ColumnName>]) {
+    for (position, column) in fields.iter().flatten().enumerate() {
+        let field = imr
+            .iter_mut()
+            .find(|field| field.name == column.as_str())
+            .expect("A model's fields should have pushed all their columns");
+        field
+            .annotations
+            .push(imr::Annotation::Index(Some(imr::IndexValue {
+                name: name.to_string(),
+                priority: Some(position as i32),
+                unique: true,
+            })));
+    }
+}
+
+/// Collects a [`Field`]'s columns' names for [`push_unique_imr`]
+pub fn column_names<F: Field>() -> Vec<ColumnName> {
+    F::EFFECTIVE_NAMES.into_iter().collect()
+}
+
+/// Check a [`Field`] to be usable in a `#[rorm(unique(...))]`
+///
+/// This function is called and its error reported by the `#[derive(Model)]` macro.
+#[allow(clippy::result_large_err, reason = "There is no heap in const")]
+pub const fn check_unique<F: Field>() -> Result<(), ConstString<1024>> {
+    if <<F::Type as FieldType>::Columns as Columns>::NUM == 0 {
+        Err(ConstString::error(&[
+            "`",
+            F::NAME.as_str(),
+            "` has no columns which could be unique",
+        ]))
+    } else {
+        Ok(())
+    }
 }
 
 /// A field which is stored in db via a single column

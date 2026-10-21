@@ -217,7 +217,7 @@ impl Display for ReferentialAction {
 }
 
 /// Represents a complex index
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub struct IndexValue {
     /// Name of the index. Can be used multiple times in a [Model] to create an
@@ -229,6 +229,31 @@ pub struct IndexValue {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<i32>,
+
+    /// Whether the index enforces its columns' values to be unique
+    ///
+    /// A unique index and a regular one may share a name.
+    /// They are still two separate indexes.
+    #[serde(default)]
+    #[serde(skip_serializing_if = "is_false")]
+    pub unique: bool,
+}
+
+impl Hash for IndexValue {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.priority.hash(state);
+        // The models' hash is stored in the migration files
+        // and has to stay the same for models without a unique index.
+        if self.unique {
+            self.unique.hash(state);
+        }
+    }
+}
+
+/// Helper for `#[serde(skip_serializing_if)]`
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// An index of a [Model] i.e. the table's index over one or more of its columns
@@ -249,6 +274,14 @@ pub struct Index {
 
     /// The columns the index spans, in the order they should be indexed in
     pub columns: Vec<String>,
+
+    /// Whether the index enforces its columns' values to be unique
+    /// i.e. [IndexValue::unique]
+    ///
+    /// Only an index with a [name](Index::name) can be unique.
+    #[serde(default)]
+    #[serde(skip_serializing_if = "is_false")]
+    pub unique: bool,
 }
 
 impl Index {
@@ -257,11 +290,16 @@ impl Index {
     /// Unlike columns, indexes don't live in their table's namespace.
     /// Their names have to be unique across the whole database,
     /// which is why they are prefixed with their `table`'s name.
+    ///
+    /// A unique index deliberately doesn't end in `_key`, which is what postgres
+    /// itself generates for an unnamed unique column (i.e. [Annotation::Unique]),
+    /// so that it can never collide with a constraint rorm didn't name.
     pub fn sql_name(&self, table: &str) -> String {
+        let suffix = if self.unique { "unique" } else { "idx" };
         match &self.name {
-            Some(name) => format!("{table}_{name}_idx"),
+            Some(name) => format!("{table}_{name}_{suffix}"),
             // An index without a name always spans exactly one column
-            None => format!("{table}_{}_idx", self.columns.join("_")),
+            None => format!("{table}_{}_{suffix}", self.columns.join("_")),
         }
     }
 }
@@ -269,9 +307,9 @@ impl Index {
 impl Model {
     /// Gathers the [Index]es declared by this model's [Field]s
     ///
-    /// Fields sharing an [IndexValue::name] are combined into a single index
-    /// spanning all of them. Their order inside the index is their order of
-    /// declaration, which can be overwritten using [IndexValue::priority].
+    /// Fields sharing an [IndexValue::name] and [IndexValue::unique] are combined
+    /// into a single index spanning all of them. Their order inside the index
+    /// is their order of declaration, which can be overwritten using [IndexValue::priority].
     pub fn indexes(&self) -> Vec<Index> {
         /// A column of an index paired with the priority to sort it by
         struct Column<'a> {
@@ -281,7 +319,7 @@ impl Model {
 
         // Both vectors are kept in sync and ordered by the indexes' first occurrence,
         // to produce the same output for the same model every time.
-        let mut names: Vec<Option<&str>> = Vec::new();
+        let mut keys: Vec<Option<(&str, bool)>> = Vec::new();
         let mut columns: Vec<Vec<Column>> = Vec::new();
 
         for field in &self.fields {
@@ -290,17 +328,18 @@ impl Model {
                     continue;
                 };
 
-                let name = value.as_ref().map(|value| value.name.as_str());
+                let key = value
+                    .as_ref()
+                    .map(|value| (value.name.as_str(), value.unique));
                 let priority = value.as_ref().and_then(|value| value.priority).unwrap_or(0);
 
                 // Fields sharing a name contribute to the same index
-                let index = match name.and_then(|name| names.iter().position(|x| *x == Some(name)))
-                {
+                let index = match key.and_then(|key| keys.iter().position(|x| *x == Some(key))) {
                     Some(index) => index,
                     None => {
-                        names.push(name);
+                        keys.push(key);
                         columns.push(Vec::new());
-                        names.len() - 1
+                        keys.len() - 1
                     }
                 };
 
@@ -311,19 +350,19 @@ impl Model {
             }
         }
 
-        names
-            .into_iter()
+        keys.into_iter()
             .zip(columns)
-            .map(|(name, mut columns)| {
+            .map(|(key, mut columns)| {
                 // `sort_by_key` is stable, so columns of equal priority
                 // keep their order of declaration
                 columns.sort_by_key(|column| column.priority);
                 Index {
-                    name: name.map(str::to_string),
+                    name: key.map(|(name, _)| name.to_string()),
                     columns: columns
                         .into_iter()
                         .map(|column| column.name.to_string())
                         .collect(),
+                    unique: key.is_some_and(|(_, unique)| unique),
                 }
             })
             .collect()
@@ -355,6 +394,15 @@ mod test_indexes {
         Some(IndexValue {
             name: name.to_string(),
             priority,
+            unique: false,
+        })
+    }
+
+    fn unique(name: &str, priority: Option<i32>) -> Option<IndexValue> {
+        Some(IndexValue {
+            name: name.to_string(),
+            priority,
+            unique: true,
         })
     }
 
@@ -365,11 +413,13 @@ mod test_indexes {
             vec![
                 Index {
                     name: None,
-                    columns: vec!["a".to_string()]
+                    columns: vec!["a".to_string()],
+                    unique: false,
                 },
                 Index {
                     name: None,
-                    columns: vec!["b".to_string()]
+                    columns: vec!["b".to_string()],
+                    unique: false,
                 },
             ]
         );
@@ -387,11 +437,13 @@ mod test_indexes {
             vec![
                 Index {
                     name: Some("ab".to_string()),
-                    columns: vec!["a".to_string(), "b".to_string()]
+                    columns: vec!["a".to_string(), "b".to_string()],
+                    unique: false,
                 },
                 Index {
                     name: None,
-                    columns: vec!["c".to_string()]
+                    columns: vec!["c".to_string()],
+                    unique: false,
                 },
             ]
         );
@@ -407,7 +459,8 @@ mod test_indexes {
             .indexes(),
             vec![Index {
                 name: Some("ab".to_string()),
-                columns: vec!["b".to_string(), "a".to_string()]
+                columns: vec!["b".to_string(), "a".to_string()],
+                unique: false,
             }]
         );
     }
@@ -423,8 +476,49 @@ mod test_indexes {
             .indexes(),
             vec![Index {
                 name: Some("abc".to_string()),
-                columns: vec!["c".to_string(), "a".to_string(), "b".to_string()]
+                columns: vec!["c".to_string(), "a".to_string(), "b".to_string()],
+                unique: false,
             }]
+        );
+    }
+
+    #[test]
+    fn fields_sharing_a_name_and_uniqueness_are_combined() {
+        assert_eq!(
+            model(vec![
+                ("a", unique("ab", Some(1))),
+                ("b", unique("ab", Some(0))),
+            ])
+            .indexes(),
+            vec![Index {
+                name: Some("ab".to_string()),
+                columns: vec!["b".to_string(), "a".to_string()],
+                unique: true,
+            }]
+        );
+    }
+
+    #[test]
+    fn unique_and_regular_indexes_sharing_a_name_are_separate() {
+        assert_eq!(
+            model(vec![
+                ("a", named("ab", None)),
+                ("b", unique("ab", None)),
+                ("c", named("ab", None)),
+            ])
+            .indexes(),
+            vec![
+                Index {
+                    name: Some("ab".to_string()),
+                    columns: vec!["a".to_string(), "c".to_string()],
+                    unique: false,
+                },
+                Index {
+                    name: Some("ab".to_string()),
+                    columns: vec!["b".to_string()],
+                    unique: true,
+                },
+            ]
         );
     }
 
@@ -451,14 +545,51 @@ mod test_indexes {
         let unnamed = Index {
             name: None,
             columns: vec!["login".to_string()],
+            unique: false,
         };
         assert_eq!(unnamed.sql_name("user"), "user_login_idx");
 
         let named = Index {
             name: Some("full_name".to_string()),
             columns: vec!["last_name".to_string(), "first_name".to_string()],
+            unique: false,
         };
         assert_eq!(named.sql_name("user"), "user_full_name_idx");
+    }
+
+    #[test]
+    fn sql_names_of_unique_indexes_differ_from_regular_ones() {
+        let unique = Index {
+            name: Some("full_name".to_string()),
+            columns: vec!["last_name".to_string(), "first_name".to_string()],
+            unique: true,
+        };
+        assert_eq!(unique.sql_name("user"), "user_full_name_unique");
+    }
+
+    #[test]
+    fn hash_of_non_unique_index_value_is_unchanged() {
+        use std::hash::{DefaultHasher, Hash, Hasher};
+
+        /// [`IndexValue`] before it gained [`IndexValue::unique`]
+        #[derive(Hash)]
+        struct OldIndexValue {
+            name: String,
+            priority: Option<i32>,
+        }
+
+        fn hash(value: impl Hash) -> u64 {
+            let mut hasher = DefaultHasher::new();
+            value.hash(&mut hasher);
+            hasher.finish()
+        }
+
+        let old = hash(OldIndexValue {
+            name: "full_name".to_string(),
+            priority: Some(1),
+        });
+        assert_eq!(hash(named("full_name", Some(1)).unwrap()), old);
+        assert_ne!(hash(unique("full_name", Some(1)).unwrap()), old);
     }
 }
 

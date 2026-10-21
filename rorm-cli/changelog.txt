@@ -1,2 +1,11 @@
 Since 0.11.0
 ------------
+- Implemented unique constraints spanning multiple columns
+  - An index can be unique now: `CreateIndex` and `DeleteIndex` carry
+    `Unique = true`, which `migrate` executes as CREATE UNIQUE INDEX
+  - Unique indexes are named `<table>_<name>_unique`. They deliberately don't
+    end in `_key`, which postgres uses for a column's own `UNIQUE`
+  - A unique index has to be named; `make-migrations` rejects existing
+    migrations containing an unnamed one
+  - An older rorm-cli silently ignores `Unique = true` and creates a regular
+    index instead. Update every deployment before generating new migrations

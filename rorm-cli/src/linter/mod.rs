@@ -430,6 +430,7 @@ mod test_check_internal_models {
                         Some(IndexValue {
                             name: "a_b".to_string(),
                             priority: None,
+                            unique: false,
                         }),
                     )],
                 ),
@@ -440,6 +441,7 @@ mod test_check_internal_models {
                         Some(IndexValue {
                             name: "b".to_string(),
                             priority: None,
+                            unique: false,
                         }),
                     )],
                 ),
@@ -462,10 +464,74 @@ mod test_check_internal_models {
                         Some(IndexValue {
                             name: "a".to_string(),
                             priority: None,
+                            unique: false,
                         }),
                     ),
                 ],
             )],
+        };
+
+        assert!(check_internal_models(&imf).is_err())
+    }
+
+    #[test]
+    fn unique_index_named_like_a_regular_one() {
+        // "foo_a_idx" and "foo_a_unique" don't collide
+        let imf = InternalModelFormat {
+            models: vec![model_with_indexes(
+                "foo",
+                vec![
+                    (
+                        "a",
+                        Some(IndexValue {
+                            name: "a".to_string(),
+                            priority: None,
+                            unique: false,
+                        }),
+                    ),
+                    (
+                        "b",
+                        Some(IndexValue {
+                            name: "a".to_string(),
+                            priority: None,
+                            unique: true,
+                        }),
+                    ),
+                ],
+            )],
+        };
+
+        assert!(check_internal_models(&imf).is_ok())
+    }
+
+    #[test]
+    fn unique_index_name_colliding_with_another_model() {
+        // Both models trying to create "foo_a_b_unique" is an error
+        let imf = InternalModelFormat {
+            models: vec![
+                model_with_indexes(
+                    "foo",
+                    vec![(
+                        "x",
+                        Some(IndexValue {
+                            name: "a_b".to_string(),
+                            priority: None,
+                            unique: true,
+                        }),
+                    )],
+                ),
+                model_with_indexes(
+                    "foo_a",
+                    vec![(
+                        "y",
+                        Some(IndexValue {
+                            name: "b".to_string(),
+                            priority: None,
+                            unique: true,
+                        }),
+                    )],
+                ),
+            ],
         };
 
         assert!(check_internal_models(&imf).is_err())

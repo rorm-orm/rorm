@@ -1,7 +1,7 @@
 use darling::ast::NestedMeta;
 use darling::{Error, FromAttributes, FromMeta};
 use proc_macro2::Ident;
-use syn::{Lit, LitInt, LitStr};
+use syn::{Lit, LitInt, LitStr, Meta};
 
 #[derive(FromAttributes, Debug)]
 #[darling(attributes(rorm))]
@@ -68,4 +68,31 @@ impl FromMeta for Index {
 pub struct NamedIndex {
     pub name: LitStr,
     pub priority: Option<LitInt>,
+}
+
+/// The fields a model's `#[rorm(unique(...))]` spans
+#[derive(Debug)]
+pub struct Unique(pub Vec<Ident>);
+impl FromMeta for Unique {
+    fn from_list(items: &[NestedMeta]) -> darling::Result<Self> {
+        if items.is_empty() {
+            return Err(Error::too_few_items(1));
+        }
+
+        let mut errors = Error::accumulator();
+        let fields = items
+            .iter()
+            .filter_map(|item| {
+                errors.handle(match item {
+                    NestedMeta::Meta(Meta::Path(path)) => {
+                        path.get_ident().cloned().ok_or_else(|| {
+                            Error::custom("Expected a field's identifier").with_span(path)
+                        })
+                    }
+                    _ => Err(Error::custom("Expected a field's identifier").with_span(item)),
+                })
+            })
+            .collect();
+        errors.finish_with(Unique(fields))
+    }
 }

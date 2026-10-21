@@ -249,6 +249,9 @@ pub async fn apply_operation(
             for column in &index.columns {
                 create_index = create_index.add_column(column.as_str());
             }
+            if index.unique {
+                create_index = create_index.unique();
+            }
 
             tx.execute::<Nothing>(create_index.build()?, Vec::new())
                 .await?;
