@@ -3,7 +3,9 @@
 use std::borrow::Cow;
 use std::ops::{Deref, DerefMut};
 
+use rorm_db::row::RowError;
 use rorm_db::sql::value::NullType;
+use rorm_db::Row;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -12,7 +14,6 @@ use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::utils::check::shared_linter_check;
 use crate::fields::utils::get_annotations::forward_annotations;
 use crate::fields::utils::get_names::single_column_name;
-use crate::new_converting_decoder;
 
 /// Stores data by serializing it to message pack.
 ///
@@ -41,14 +42,6 @@ impl<T: Serialize + DeserializeOwned> MsgPack<T> {
     }
 }
 
-new_converting_decoder!(
-    pub MsgPackDecoder<T: Serialize + DeserializeOwned>,
-    |value: Vec<u8>| -> MsgPack<T> {
-        rmp_serde::from_slice(&value)
-            .map(MsgPack)
-            .map_err(|err| format!("Couldn't decode msg pack: {err}"))
-    }
-);
 impl<T: Serialize + DeserializeOwned + 'static> FieldType for MsgPack<T> {
     type Columns = Array<1>;
 
@@ -66,11 +59,19 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for MsgPack<T> {
         ))]
     }
 
-    type Decoder = MsgPackDecoder<T>;
+    fn decode(row: &Row, index: usize) -> Result<Self, RowError<'static>> {
+        let value = <Vec<u8>>::decode(row, index)?;
+        rmp_serde::from_slice(&value)
+            .map(MsgPack)
+            .map_err(|error| RowError::Decode {
+                index: index.into(),
+                source: error.into(),
+            })
+    }
 
+    type GetNames = single_column_name;
     type GetAnnotations = forward_annotations<1>;
     type Check = shared_linter_check<1>;
-    type GetNames = single_column_name;
 }
 
 // From
