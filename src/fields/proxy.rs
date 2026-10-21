@@ -251,8 +251,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     {
         AggregatedColumn {
             sql: SelectAggregator::Count,
-            alias: "count",
-            field: self,
+            _field: self,
             result: PhantomData,
         }
     }
@@ -265,8 +264,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     {
         AggregatedColumn {
             sql: SelectAggregator::Sum,
-            alias: "sum",
-            field: self,
+            _field: self,
             result: PhantomData,
         }
     }
@@ -280,8 +278,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     {
         AggregatedColumn {
             sql: SelectAggregator::Avg,
-            alias: "avg",
-            field: self,
+            _field: self,
             result: PhantomData,
         }
     }
@@ -294,8 +291,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     {
         AggregatedColumn {
             sql: SelectAggregator::Max,
-            alias: "max",
-            field: self,
+            _field: self,
             result: PhantomData,
         }
     }
@@ -308,8 +304,7 @@ impl<I: FieldProxyImpl> FieldProxy<I> {
     {
         AggregatedColumn {
             sql: SelectAggregator::Min,
-            alias: "min",
-            field: self,
+            _field: self,
             result: PhantomData,
         }
     }

@@ -96,8 +96,7 @@ impl<T: FieldType> Decoder for FieldDecoder<T> {
 #[derive(Copy, Clone)]
 pub struct AggregatedColumn<I, R> {
     pub(crate) sql: SelectAggregator,
-    pub(crate) alias: &'static str,
-    pub(crate) field: FieldProxy<I>,
+    pub(crate) _field: FieldProxy<I>,
     pub(crate) result: PhantomData<R>,
 }
 impl<I, R> Selector for AggregatedColumn<I, R>
