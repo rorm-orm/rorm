@@ -1,3 +1,8 @@
+#![allow(
+    non_snake_case,
+    reason = "We use `__` in variables used for quote to indicate a field access (ex `let foo__bar = &foo.bar`)"
+)]
+
 pub mod db_enum;
 pub mod field_type;
 pub mod model;

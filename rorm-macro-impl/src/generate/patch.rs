@@ -1,11 +1,9 @@
-use std::array;
-
+use crate::generate::SliceExt;
+use crate::parse::patch::ParsedPatch;
+use crate::MacroConfig;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::{Generics, Type, Visibility};
-
-use crate::parse::patch::ParsedPatch;
-use crate::MacroConfig;
 
 pub fn generate_patch(patch: &ParsedPatch, config: &MacroConfig) -> TokenStream {
     let MacroConfig {
@@ -20,17 +18,16 @@ pub fn generate_patch(patch: &ParsedPatch, config: &MacroConfig) -> TokenStream 
         fields,
     } = patch;
 
-    let field_idents_1 = fields.iter().map(|field| &field.ident);
-    let field_idents_2 = field_idents_1.clone();
-    let field_types = fields.iter().map(|field| &field.ty);
+    let fields__ident = fields.map_collect(|x| &x.ident);
+    let fields__type = fields.map_collect(|x| &x.ty);
 
     let partial = partially_generate_patch(
         ident,
         model,
         vis,
         &Default::default(),
-        field_idents_1.clone(),
-        fields.iter().map(|field| &field.ty),
+        &fields__ident,
+        &fields__type,
         config,
     );
 
@@ -38,28 +35,28 @@ pub fn generate_patch(patch: &ParsedPatch, config: &MacroConfig) -> TokenStream 
         #partial
 
         #(
-            impl #rorm_path::model::GetField<#rorm_path::get_field!(#ident, #field_idents_2)> for #ident {
-                fn get_field(self) -> #field_types {
-                    self.#field_idents_2
+            impl #rorm_path::model::GetField<#rorm_path::get_field!(#ident, #fields__ident)> for #ident {
+                fn get_field(self) -> #fields__type {
+                    self.#fields__ident
                 }
-                fn borrow_field(&self) -> &#field_types {
-                    &self.#field_idents_2
+                fn borrow_field(&self) -> &#fields__type {
+                    &self.#fields__ident
                 }
-                fn borrow_field_mut(&mut self) -> &mut #field_types {
-                    &mut self.#field_idents_2
+                fn borrow_field_mut(&mut self) -> &mut #fields__type {
+                    &mut self.#fields__ident
                 }
             }
         )*
     }
 }
 
-pub fn partially_generate_patch<'a>(
+pub fn partially_generate_patch(
     patch: &Ident,
     model: &impl ToTokens, // Ident or Path
     vis: &Visibility,
     generics: &Generics,
-    fields: impl Iterator<Item = &'a Ident> + Clone,
-    types: impl Iterator<Item = &'a Type> + Clone,
+    fields__ident: &[&Ident],
+    fields__type: &[&Type],
     config: &MacroConfig,
 ) -> TokenStream {
     let MacroConfig {
@@ -72,8 +69,6 @@ pub fn partially_generate_patch<'a>(
 
     let decoder = format_ident!("__{patch}_Decoder");
 
-    let [fields_1, fields_2, fields_3, fields_4, fields_5, fields_6, fields_7] =
-        array::from_fn(|_| fields.clone());
     let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
     let lifetime_generics = {
         let mut tokens = impl_generics
@@ -104,7 +99,7 @@ pub fn partially_generate_patch<'a>(
         #[doc(hidden)]
         #vis struct #decoder #impl_generics #where_clause {
             #(
-                #fields_1: #rorm_path::crud::selector::FieldDecoder<#types>,
+                #fields__ident: #rorm_path::crud::selector::FieldDecoder<#fields__type>,
             )*
         }
 
@@ -115,7 +110,7 @@ pub fn partially_generate_patch<'a>(
             const INSERT_COMPATIBLE: bool = true;
             fn select(self, ctx: &mut #rorm_path::internal::query_context::QueryContext) -> Self::Decoder {
                 #decoder {#(
-                    #fields_4: #rorm_path::internal::patch::model_fields::<#model #type_generics>().#fields_4.select(&mut *ctx),
+                    #fields__ident: #rorm_path::internal::patch::model_fields::<#model #type_generics>().#fields__ident.select(&mut *ctx),
                 )*}
             }
         }
@@ -131,7 +126,7 @@ pub fn partially_generate_patch<'a>(
 
             fn decode<'index>(&'index self, row: &'_ #rorm_path::db::Row) -> Result<Self::Result, #rorm_path::db::row::RowError<'index>> {
                 Ok(#patch {#(
-                    #fields_3: self.#fields_3.decode(row)?,
+                    #fields__ident: self.#fields__ident.decode(row)?,
                 )*})
             }
         }
@@ -143,19 +138,19 @@ pub fn partially_generate_patch<'a>(
 
             fn push_columns(columns: &mut Vec<#rorm_path::fields::utils::column_name::ColumnName>) {#(
                 columns.extend(
-                    #rorm_path::fields::proxy::columns(|| #rorm_path::internal::patch::model_fields::<#model #type_generics>().#fields_5)
+                    #rorm_path::fields::proxy::columns(|| #rorm_path::internal::patch::model_fields::<#model #type_generics>().#fields__ident)
                 );
             )*}
 
             fn push_references<'a>(&'a self, values: &mut Vec<#rorm_path::conditions::Value<'a>>) {
                 #(
-                    values.extend(#rorm_path::fields::traits::FieldType::as_values(&self.#fields_6));
+                    values.extend(#rorm_path::fields::traits::FieldType::as_values(&self.#fields__ident));
                 )*
             }
 
             fn push_values(self, values: &mut Vec<#rorm_path::conditions::Value>) {
                 #(
-                    values.extend(#rorm_path::fields::traits::FieldType::into_values(self.#fields_7));
+                    values.extend(#rorm_path::fields::traits::FieldType::into_values(self.#fields__ident));
                 )*
             }
         }

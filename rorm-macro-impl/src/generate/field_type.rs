@@ -1,8 +1,3 @@
-#![allow(
-    non_snake_case,
-    reason = "We use `__` in variables used for quote to indicate a field access (ex `let foo__bar = &foo.bar`)"
-)]
-
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use syn::LitStr;

@@ -6,6 +6,7 @@ use crate::analyze::model::{AnalyzedField, AnalyzedModel, AnalyzedModelFieldAnno
 use crate::generate::patch::partially_generate_patch;
 use crate::generate::utils::get_source;
 use crate::generate::utils::phantom_data;
+use crate::generate::SliceExt;
 use crate::parse::annotations::{Index, NamedIndex, OnAction};
 use crate::MacroConfig;
 
@@ -35,12 +36,11 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
         ident,
         vis,
         experimental_generics,
-        fields.iter().map(|field| &field.ident),
-        fields.iter().map(|field| &field.ty),
+        &fields.map_collect(|x| &x.ident),
+        &fields.map_collect(|x| &x.ty),
         config,
     );
-    let field_structs_1 = fields.iter().map(|field| &field.unit);
-    let field_structs_2 = field_structs_1.clone();
+    let fields__unit = fields.map_collect(|field| &field.unit);
 
     let source = get_source(ident.span(), config);
 
@@ -71,7 +71,7 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
             const SOURCE: #rorm_path::internal::hmr::Source = #source;
 
             fn push_fields_imr(fields: &mut Vec<#rorm_path::imr::Field>) {#(
-                #rorm_path::internal::field::push_imr::<#field_structs_1 #type_generics>(&mut *fields);
+                #rorm_path::internal::field::push_imr::<#fields__unit #type_generics>(&mut *fields);
             )*}
         }
 
@@ -85,7 +85,7 @@ pub fn generate_model(model: &AnalyzedModel, config: &MacroConfig) -> TokenStrea
                 #[doc(hidden)]
                 pub const fn __rorm_internal__check() {
                     #(
-                        <#field_structs_2 #type_generics>::__rorm_internal__check();
+                        <#fields__unit #type_generics>::__rorm_internal__check();
                     )*
                 }
             }
