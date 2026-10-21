@@ -35,16 +35,36 @@ pub trait FieldType: Sized + 'static {
     /// Construct an array of [`Value`] representing `self` in the database via borrowing
     fn as_values(&self) -> FieldColumns<Self, Value<'_>>;
 
-    /// TODO
+    /// Decodes this type from a row
     ///
-    /// ```text
+    /// `index` is the index this type was selected in.
+    /// For multi-column fields, this is the first column's index.
+    /// The other columns follow consecutively.
+    ///
+    /// # Example implementations for newtypes
+    ///
+    /// ```
+    /// # use std::convert::Infallible;
+    /// use rorm::db::Row;
+    /// # use rorm::db::row::RowError;
+    /// # use rorm::fields::traits::FieldType;
+    /// # struct NewType(());
+    /// # type PrimitiveType = String;
+    /// # impl TryFrom<PrimitiveType> for NewType {
+    /// #     type Error = Infallible;
+    /// #     fn try_from(value: PrimitiveType) -> Result<Self, Self::Error> {
+    /// #         Ok(Self(()))
+    /// #     }
+    /// # }
+    /// # impl NewType {
     /// fn decode(row: &Row, index: usize) -> Result<Self, RowError<'static>> {
-    ///     let value: PrimitiveType = row.get(index)?;
+    ///     let value = PrimitiveType::decode(row, index)?;
     ///     Self::try_from(value).map_err(|error| RowError::Decode {
     ///         index: index.into(),
     ///         source: error.into(),
     ///     })
     /// }
+    /// # }
     /// ```
     fn decode(row: &Row, index: usize) -> Result<Self, RowError<'static>>;
 

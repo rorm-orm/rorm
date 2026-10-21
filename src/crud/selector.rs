@@ -76,6 +76,10 @@ where
     }
 }
 
+/// [`Decoder`] produced by [`FieldProxy`]'s [`Selector`] implementation
+///
+/// It stores the index the field was selected with and forwards the `decode` call
+/// to [`FieldType::decode`].
 pub struct FieldDecoder<T> {
     first_column: usize,
     field_type: PhantomData<T>,

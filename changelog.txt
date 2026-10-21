@@ -1,7 +1,11 @@
 Since 0.12.0
 -----------
 
-- Removed select aliases
+- Simplified decoding FieldType's
+  - Removed select aliases
+  - Removed Decoder::by_name
+  - Renamed Decoder::by_index to Decoder::decode
+  - Replaced FieldType::Decoder type with FieldType::decode method
 - Added support for schemars v1 keeping support for v0.8
 - Removed MySQL field from RawSQL migration operation
 - Made `const_fn!` support `where` clauses
