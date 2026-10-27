@@ -11,6 +11,7 @@ use crate::fields::utils::column_name::ColumnName;
 use crate::fields::utils::const_fn::ConstFn;
 use crate::internal::const_concat::ConstString;
 use crate::internal::hmr::annotations::Annotations;
+use crate::internal::hmr::db_type;
 use crate::{const_fn, sealed};
 
 pub mod aggregate;
@@ -141,11 +142,10 @@ const_fn! {
 const_fn! {
     /// Iterates over all annotations and sets the `nullable` flag.
     #[allow(clippy::result_large_err, reason = "There is no heap in const")]
-    #[expect(unused, reason = "Up coming feature")]
     pub fn lint<const N: usize>(names: [ColumnName; N], types: [NullType; N], annotations: [Annotations; N]) -> Result<(), ConstString<1024>> {
         let mut idx = 0;
         while idx < N {
-            if let Err(msg) = annotations[idx].as_lint().check() {
+            if let Err(msg) = annotations[idx].as_lint().check(db_type(types[idx])) {
                 return Err(ConstString::error(&[
                     if N == 1 { "Field `" } else { "Column `" },
                     names[idx].as_str(),

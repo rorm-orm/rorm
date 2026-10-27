@@ -1,6 +1,6 @@
 //! Some common lints whose code can be shared between rorm-macro and rorm-cli.
 
-use crate::imr::Annotation;
+use crate::imr::{Annotation, DbType};
 
 /// Simple struct storing whether a specific annotation is set on a given field or not.
 #[derive(Copy, Clone, Default, Debug)]
@@ -45,14 +45,20 @@ pub struct Annotations {
 }
 
 impl Annotations {
-    /// Check whether this set of annotations is valid.
+    /// Check whether this set of annotations is valid on a column of type `db_type`.
     ///
     /// Returns a non-empty error message, when it is not.
     // Disable auto-format to make the following match compacter and more readable.
     #[rustfmt::skip]
-    pub const fn check(self) -> Result<(), &'static str> {
+    pub const fn check(self, db_type: DbType) -> Result<(), &'static str> {
         // Alias to reduce line length and noise
         use Annotations as A;
+
+        #[allow(deprecated, reason = "`VarChar` is still found in existing migrations")]
+        let supports_max_length = matches!(db_type, DbType::Text | DbType::VarChar | DbType::Binary);
+        if self.max_length && !supports_max_length {
+            return Err("MaxLength is only allowed on string and binary columns");
+        }
 
         let msg = match self {
             A { auto_create_time: true, auto_increment: true, .. } => "AutoCreateTime and AutoIncrement are mutually exclusive",
@@ -119,11 +125,11 @@ impl From<&[Annotation]> for Annotations {
 
 #[cfg(test)]
 mod test_index_on_primary_key {
-    use crate::imr::{Annotation, IndexValue};
+    use crate::imr::{Annotation, DbType, IndexValue};
     use crate::lints::Annotations;
 
     fn check(annotations: &[Annotation]) -> Result<(), &'static str> {
-        Annotations::from(annotations).check()
+        Annotations::from(annotations).check(DbType::Int64)
     }
 
     #[test]

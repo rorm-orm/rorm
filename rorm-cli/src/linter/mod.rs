@@ -128,11 +128,12 @@ pub fn check_internal_models(internal_models: &InternalModelFormat) -> anyhow::R
             }
 
             // Check forbidden Annotation combinations
-            if let Err(msg) = annotations.check() {
+            if let Err(msg) = annotations.check(field.db_type) {
                 return Err(anyhow!(
-                    "Field {} of model {} has invalid annotations: {}",
+                    "Field {} of model {} has invalid annotations for type {:?}: {}",
                     field.name.as_str(),
                     model.name.as_str(),
+                    field.db_type,
                     msg,
                 ));
             }
@@ -292,7 +293,7 @@ mod test_check_internal_models {
     fn duplicate_fields() {
         let f = Field {
             name: "foobar".to_string(),
-            db_type: DbType::VarChar,
+            db_type: DbType::Text,
             annotations: vec![],
             source_defined_at: None,
         };
@@ -382,6 +383,62 @@ mod test_check_internal_models {
         };
 
         assert!(check_internal_models(&imf).is_err())
+    }
+
+    /// Lint a model with a field of type `db_type` annotated with [`Annotation::MaxLength`]
+    fn check_max_length_on(db_type: DbType) -> anyhow::Result<()> {
+        check_internal_models(&InternalModelFormat {
+            models: vec![Model {
+                name: "foobar".to_string(),
+                fields: vec![
+                    Field {
+                        name: "prim".to_string(),
+                        db_type: DbType::Int64,
+                        annotations: vec![Annotation::PrimaryKey],
+                        source_defined_at: None,
+                    },
+                    Field {
+                        name: "bounded".to_string(),
+                        db_type,
+                        annotations: vec![Annotation::MaxLength(255)],
+                        source_defined_at: None,
+                    },
+                ],
+                source_defined_at: None,
+            }],
+        })
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn max_length_on_string_and_binary_columns() {
+        for db_type in [DbType::Text, DbType::VarChar, DbType::Binary] {
+            assert!(check_max_length_on(db_type).is_ok(), "{db_type:?}");
+        }
+    }
+
+    #[test]
+    fn max_length_on_other_columns() {
+        for db_type in [
+            DbType::Int8,
+            DbType::Int16,
+            DbType::Int32,
+            DbType::Int64,
+            DbType::Float,
+            DbType::Double,
+            DbType::Boolean,
+            DbType::Date,
+            DbType::DateTime,
+            DbType::Timestamp,
+            DbType::Time,
+            DbType::Choices,
+            DbType::Uuid,
+            DbType::MacAddress,
+            DbType::IpNetwork,
+            DbType::BitVec,
+        ] {
+            assert!(check_max_length_on(db_type).is_err(), "{db_type:?}");
+        }
     }
 
     /// A model named `name` whose fields are annotated with `indexes`

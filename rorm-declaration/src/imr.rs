@@ -162,8 +162,11 @@ pub enum Annotation {
     /// It is part of the column's type for a [`DbType::VarChar`] and a check
     /// constraint for a [`DbType::Text`] (counting characters) and a
     /// [`DbType::Binary`] (counting bytes).
-    /// Everywhere else, and in sqlite entirely, it is ignored -
+    /// On any other type it is invalid (see [`Annotations::check`]).
+    /// In sqlite it is ignored entirely -
     /// sqlite has no `varchar` and never enforces a value's length.
+    ///
+    /// [`Annotations::check`]: crate::lints::Annotations::check
     MaxLength(i32),
     /// NOT NULL constraint
     NotNull,
@@ -343,7 +346,7 @@ mod test_indexes {
                 .into_iter()
                 .map(|(name, index)| Field {
                     name: name.to_string(),
-                    db_type: DbType::VarChar,
+                    db_type: DbType::Text,
                     annotations: vec![Annotation::Index(index)],
                     source_defined_at: None,
                 })

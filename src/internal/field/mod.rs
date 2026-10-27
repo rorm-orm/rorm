@@ -38,14 +38,13 @@
 //! From there the various methods and associated type from [`FieldType`] take over.
 //! TODO more docs
 
-use rorm_db::sql::value::NullType;
 use rorm_declaration::imr;
 
 use crate::conditions::Value;
 use crate::fields::proxy::FieldProxy;
 use crate::fields::proxy::FieldProxyImpl;
 use crate::internal::hmr::annotations::Annotations;
-use crate::internal::hmr::{AsImr, Source};
+use crate::internal::hmr::{self, AsImr, Source};
 use crate::internal::relation_path::{Path, PathField, PathFieldType};
 use crate::model::Model;
 
@@ -114,42 +113,17 @@ pub fn push_imr<F: Field>(imr: &mut Vec<imr::Field>) {
     for ((name, annotations), null_type) in names.into_iter().zip(annotations).zip(db_types) {
         imr.push(imr::Field {
             name: name.as_str().to_string(),
-            db_type: match null_type {
-                NullType::String => imr::DbType::Text,
-                NullType::Choice => imr::DbType::Choices,
-                NullType::I64 => imr::DbType::Int64,
-                NullType::I32 => imr::DbType::Int32,
-                NullType::I16 => imr::DbType::Int16,
-                NullType::Bool => imr::DbType::Boolean,
-                NullType::F64 => imr::DbType::Double,
-                NullType::F32 => imr::DbType::Float,
-                NullType::Binary => imr::DbType::Binary,
-                NullType::ChronoNaiveTime => imr::DbType::Time,
-                NullType::ChronoNaiveDate => imr::DbType::Date,
-                NullType::ChronoNaiveDateTime => imr::DbType::DateTime,
-                NullType::ChronoDateTime => imr::DbType::DateTime,
-                NullType::TimeDate => imr::DbType::Date,
-                NullType::TimeTime => imr::DbType::Time,
-                NullType::TimeOffsetDateTime => imr::DbType::DateTime,
-                NullType::TimePrimitiveDateTime => imr::DbType::DateTime,
-                NullType::Uuid => imr::DbType::Uuid,
-                NullType::UuidHyphenated => imr::DbType::Uuid,
-                NullType::UuidSimple => imr::DbType::Uuid,
-                NullType::JsonValue => imr::DbType::Binary,
-                #[cfg(feature = "postgres-only")]
-                NullType::MacAddress => imr::DbType::MacAddress,
-                #[cfg(feature = "postgres-only")]
-                NullType::IpNetwork => imr::DbType::IpNetwork,
-                #[cfg(feature = "postgres-only")]
-                NullType::BitVec => imr::DbType::BitVec,
-            },
+            db_type: hmr::db_type(null_type),
             annotations: annotations.as_imr(),
             source_defined_at: Some(source_defined_at.clone()),
         });
     }
 }
 
-/// Check a [`Field`] for correctness by evaluating its [`FieldType`]'s `Check`
+/// Runs the shared linter on a [`Field`]'s columns
+///
+/// This will check each column's annotations to be valid with each other
+/// and valid of the column's type.
 ///
 /// This function is called and its error reported by the `#[derive(Model)]` macro.
 #[allow(clippy::result_large_err, reason = "There is no heap in const")]
@@ -256,14 +230,16 @@ where
 /// - [`Field::NAME`]
 /// - [`Field::EXPLICIT_ANNOTATIONS`]
 /// - [`Field::EFFECTIVE_ANNOTATIONS`]
+/// - [`FieldType::NULL`]
 mod contains {
+    use std::marker::PhantomData;
+
     use crate::fields::traits::{FieldColumns, FieldType};
     use crate::fields::utils::column_name::ColumnName;
     use crate::fields::utils::const_fn::Contains;
     use crate::internal::field::Field;
     use crate::internal::hmr::annotations::Annotations;
     use rorm_db::sql::value::NullType;
-    use std::marker::PhantomData;
 
     pub struct ExplicitAnnotations<F: Field>(PhantomData<F>);
     impl<F: Field> Contains<Annotations> for ExplicitAnnotations<F> {
