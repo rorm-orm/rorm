@@ -15,6 +15,10 @@ use crate::fields::traits::{Array, FieldColumns};
 use crate::fields::types::CascadingForeignModelByField;
 use crate::fields::utils::get_names::single_column_name;
 use crate::internal::field::foreign_model::ForeignModelTrait;
+#[cfg(feature = "postgres-only")]
+use crate::internal::field::FieldProxy;
+#[cfg(feature = "postgres-only")]
+use crate::internal::field::FieldProxyImpl;
 use crate::internal::field::{Field, FieldType, SingleColumnField};
 use crate::internal::hmr;
 use crate::internal::hmr::annotations::{Annotations, OnDelete, OnUpdate};

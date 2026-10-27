@@ -173,6 +173,9 @@ const_fn! {
 #[macro_export]
 macro_rules! impl_FieldType {
     ($type:ty, $null_type:ident) => {
+        $crate::impl_FieldType!($type, $null_type, $crate::db::Row::get);
+    };
+    ($type:ty, $null_type:ident, $decode_fn:expr) => {
         impl $crate::fields::traits::FieldType for $type {
             type Columns = $crate::fields::traits::Array<1>;
 
@@ -200,7 +203,7 @@ macro_rules! impl_FieldType {
                 row: &$crate::db::Row,
                 index: usize,
             ) -> Result<Self, $crate::db::row::RowError<'static>> {
-                row.get(index)
+                ($decode_fn)(row, index)
             }
 
             type GetAnnotations = $crate::fields::utils::get_annotations::forward_annotations<1>;
