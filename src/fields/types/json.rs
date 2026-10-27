@@ -5,7 +5,6 @@ use std::ops::{Deref, DerefMut};
 
 use crate::conditions::Value;
 use crate::fields::traits::{Array, FieldColumns, FieldType};
-use crate::fields::utils::check::shared_linter_check;
 use crate::fields::utils::get_annotations::forward_annotations;
 use crate::fields::utils::get_names::single_column_name;
 use rorm_db::row::RowError;
@@ -73,8 +72,6 @@ impl<T: Serialize + DeserializeOwned + 'static> FieldType for Json<T> {
     }
 
     type GetAnnotations = forward_annotations<1>;
-
-    type Check = shared_linter_check<1>;
 
     type GetNames = single_column_name;
 }

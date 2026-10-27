@@ -62,7 +62,6 @@ const _: () = {
             }
         }
         type GetAnnotations = get_db_enum_annotations;
-        type Check = ::rorm::fields::utils::check::shared_linter_check<1>;
         type GetNames = ::rorm::fields::utils::get_names::single_column_name;
     }
     impl<'a> ::rorm::fields::traits::into_value::IntoValue<'a> for BasicEnum {

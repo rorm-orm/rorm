@@ -56,8 +56,6 @@ pub fn generate_db_enum(parsed: &ParsedDbEnum, config: &MacroConfig) -> TokenStr
 
                 type GetAnnotations = get_db_enum_annotations;
 
-                type Check = #rorm_path::fields::utils::check::shared_linter_check<1>;
-
                 type GetNames = #rorm_path::fields::utils::get_names::single_column_name;
             }
             impl<'a> #rorm_path::fields::traits::into_value::IntoValue<'a> for #ident {

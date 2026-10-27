@@ -43,8 +43,6 @@ where
 
     type GetAnnotations = cascading_foreign_annotations<FF>;
 
-    type Check = <FF::Type as FieldType>::Check;
-
     type GetNames = single_column_name;
 }
 

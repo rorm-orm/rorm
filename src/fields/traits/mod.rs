@@ -73,15 +73,6 @@ pub trait FieldType: Sized + 'static {
 
     /// Get the columns' annotations from the field's annotations
     type GetAnnotations: ConstFn<(Annotations,), FieldColumns<Self, Annotations>>;
-
-    /// Check a field's annotations to be compatible with this type
-    ///
-    /// The function gets the annotations explicitly set by the model author
-    /// as well as the result from [`FieldType::GetAnnotations`].
-    type Check: ConstFn<
-        (Annotations, FieldColumns<Self, Annotations>),
-        Result<(), ConstString<1024>>,
-    >;
 }
 /// Shorthand for constructing an array with the length for the [`FieldType`]'s columns
 pub type FieldColumns<F, T> = <<F as FieldType>::Columns as Columns>::Array<T>;
@@ -103,6 +94,16 @@ pub trait Columns {
 
     /// Iterates over all annotations and sets the `nullable` flag.
     type SetNull: ConstFn<(Self::Array<Annotations>,), Self::Array<Annotations>>;
+
+    /// Iterates over columns and runs [`rorm_declaration::lints::Annotations::check`]
+    type Lint: ConstFn<
+        (
+            Self::Array<ColumnName>,
+            Self::Array<NullType>,
+            Self::Array<Annotations>,
+        ),
+        Result<(), ConstString<1024>>,
+    >;
 }
 
 /// Implementor of [`Columns`] used to specify the number of a [`FieldType`]'s columns
@@ -120,6 +121,8 @@ impl<const N: usize> Columns for Array<N> {
     const NUM: usize = N;
 
     type SetNull = set_null<N>;
+
+    type Lint = lint<N>;
 }
 
 const_fn! {
@@ -132,6 +135,27 @@ const_fn! {
             i += 1;
         }
         annotations
+    }
+}
+
+const_fn! {
+    /// Iterates over all annotations and sets the `nullable` flag.
+    #[allow(clippy::result_large_err, reason = "There is no heap in const")]
+    #[expect(unused, reason = "Up coming feature")]
+    pub fn lint<const N: usize>(names: [ColumnName; N], types: [NullType; N], annotations: [Annotations; N]) -> Result<(), ConstString<1024>> {
+        let mut idx = 0;
+        while idx < N {
+            if let Err(msg) = annotations[idx].as_lint().check() {
+                return Err(ConstString::error(&[
+                    if N == 1 { "Field `" } else { "Column `" },
+                    names[idx].as_str(),
+                    "` has invalid annotations: ",
+                    msg,
+                ]));
+            }
+            idx += 1;
+        }
+        Ok(())
     }
 }
 
@@ -149,13 +173,6 @@ const_fn! {
 #[macro_export]
 macro_rules! impl_FieldType {
     ($type:ty, $null_type:ident) => {
-        impl_FieldType!(
-            $type,
-            $null_type,
-            $crate::fields::utils::check::shared_linter_check<1>
-        );
-    };
-    ($type:ty, $null_type:ident, $Check:ty) => {
         impl $crate::fields::traits::FieldType for $type {
             type Columns = $crate::fields::traits::Array<1>;
 
@@ -187,8 +204,6 @@ macro_rules! impl_FieldType {
             }
 
             type GetAnnotations = $crate::fields::utils::get_annotations::forward_annotations<1>;
-
-            type Check = $Check;
 
             type GetNames = $crate::fields::utils::get_names::single_column_name;
         }

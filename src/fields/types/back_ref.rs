@@ -11,7 +11,6 @@ use crate::crud::query::query;
 use crate::fields::proxy;
 use crate::fields::proxy::FieldProxy;
 use crate::fields::traits::{Array, FieldColumns, FieldType};
-use crate::fields::utils::check::disallow_annotations_check;
 use crate::fields::utils::get_annotations::forward_annotations;
 use crate::fields::utils::get_names::no_columns_names;
 use crate::internal::field::foreign_model::{ForeignModelField, ForeignModelTrait};
@@ -63,8 +62,6 @@ impl<FMF: ForeignModelField> FieldType for BackRef<FMF> {
     }
 
     type GetAnnotations = forward_annotations<0>;
-
-    type Check = disallow_annotations_check<0>;
 
     type GetNames = no_columns_names;
 }

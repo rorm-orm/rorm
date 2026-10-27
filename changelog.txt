@@ -35,6 +35,7 @@ Since 0.12.0
         StructureSafe = true
         SQLite = "SELECT 1;"
         Postgres = 'ALTER TABLE "<table>" DROP CONSTRAINT IF EXISTS "<table>_<column>_max_length", ADD CONSTRAINT "<table>_<column>_max_length" CHECK (length("<column>") <= <max_length>);'
+- Removed FieldType::Check; every field runs the shared linter and nothing else
 
 Notes for publishing
 --------------------

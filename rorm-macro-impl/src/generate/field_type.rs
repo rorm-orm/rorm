@@ -20,7 +20,6 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
         fields,
         get_names,
         get_annotations,
-        check,
     } = field_type;
 
     let fields_struct_ident = format_ident!("__{}_Fields_Struct", field_type.ident);
@@ -32,7 +31,6 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
     let fields__column = fields.map_collect(|x| &x.column);
     let fields__get_name = fields.map_collect(|x| &x.get_name);
     let fields__ty: Vec<_> = fields.map_collect(|x| &x.ty);
-    let fields__check: Vec<_> = fields.map_collect(|x| &x.check);
 
     quote! {const _: () = {
         #field_declarations
@@ -87,7 +85,6 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
 
             type GetNames = #get_names;
             type GetAnnotations = #get_annotations;
-            type Check = #check;
         }
 
         impl<__Field, __Path> #rorm_path::internal::field::ContainerFieldType<__Field, __Path> for #ident
@@ -167,23 +164,6 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
                 builder.finish_const()
             }
         }
-
-        #rorm_path::const_fn! {
-            #vis fn #check(
-                field: #rorm_path::internal::hmr::annotations::Annotations,
-                columns: #rorm_path::fields::traits::FieldColumns<#ident, #rorm_path::internal::hmr::annotations::Annotations>,
-            ) -> Result<(), #rorm_path::internal::const_concat::ConstString<1024>> {
-                if let Err(x) = #rorm_path::fields::utils::check::disallow_annotations_check(field, columns) {
-                    return Err(x);
-                }
-                #(
-                    if let Err(x) = #fields__check() {
-                        return Err(x);
-                    }
-                )*
-                Ok(())
-            }
-        }
     };}
 }
 
@@ -205,7 +185,6 @@ fn generate_fields(model: &AnalyzedFieldType, config: &MacroConfig) -> TokenStre
             annos,
 
             get_name: _,
-            check,
         } = field;
 
         let source = get_source(ident.span(), config);
@@ -236,14 +215,6 @@ fn generate_fields(model: &AnalyzedFieldType, config: &MacroConfig) -> TokenStre
                 fn new() -> Self {
                     Self(::std::marker::PhantomData)
                 }
-            }
-            #[allow(clippy::result_large_err, reason = "There is no other way to return dynamic error messages in const")]
-            const fn #check() -> Result<(), #rorm_path::internal::const_concat::ConstString<1024>> {
-                struct __ExplicitAnnotations;
-                impl #rorm_path::fields::utils::const_fn::Contains<#rorm_path::internal::hmr::annotations::Annotations> for __ExplicitAnnotations {
-                    const ITEM: #rorm_path::internal::hmr::annotations::Annotations = #annos;
-                }
-                #rorm_path::internal::field::multi_column::check::<#ty, __ExplicitAnnotations>()
             }
         });
     }

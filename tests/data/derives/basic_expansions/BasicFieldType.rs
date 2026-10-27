@@ -42,30 +42,6 @@ const _: () = {
             Self(::std::marker::PhantomData)
         }
     }
-    #[allow(
-        clippy::result_large_err,
-        reason = "There is no other way to return dynamic error messages in const"
-    )]
-    const fn check_BasicFieldType_description() -> Result<
-        (),
-        ::rorm::internal::const_concat::ConstString<1024>,
-    > {
-        struct __ExplicitAnnotations;
-        impl ::rorm::fields::utils::const_fn::Contains<
-            ::rorm::internal::hmr::annotations::Annotations,
-        > for __ExplicitAnnotations {
-            const ITEM: ::rorm::internal::hmr::annotations::Annotations = ::rorm::internal::hmr::annotations::Annotations {
-                default: None,
-                index: None,
-                max_length: Some(::rorm::internal::hmr::annotations::MaxLength(255)),
-                on_delete: None,
-                on_update: None,
-                unique: None,
-                ..::rorm::internal::hmr::annotations::Annotations::empty()
-            };
-        }
-        ::rorm::internal::field::multi_column::check::<String, __ExplicitAnnotations>()
-    }
     const NUM_COLUMNS: usize = {
         0
             + <<String as ::rorm::fields::traits::FieldType>::Columns as ::rorm::fields::traits::Columns>::NUM
@@ -118,7 +94,6 @@ const _: () = {
         }
         type GetNames = get_BasicFieldType_names;
         type GetAnnotations = get_BasicFieldType_annotations;
-        type Check = check_BasicFieldType;
     }
     impl<__Field, __Path> ::rorm::internal::field::ContainerFieldType<__Field, __Path>
     for BasicFieldType
@@ -179,15 +154,5 @@ const _: () = {
         (::rorm::internal::field::multi_column::EmptyAnnotations,) > as
         ::rorm::fields::utils::const_fn::Contains < _ >> ::ITEM,); builder.finish_const()
         }
-    }
-    ::rorm::const_fn! {
-        pub fn check_BasicFieldType(field :
-        ::rorm::internal::hmr::annotations::Annotations, columns :
-        ::rorm::fields::traits::FieldColumns < BasicFieldType,
-        ::rorm::internal::hmr::annotations::Annotations >,) -> Result < (),
-        ::rorm::internal::const_concat::ConstString < 1024 >> { if let Err(x) =
-        ::rorm::fields::utils::check::disallow_annotations_check(field, columns) { return
-        Err(x); } if let Err(x) = check_BasicFieldType_description() { return Err(x); }
-        Ok(()) }
     }
 };

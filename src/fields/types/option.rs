@@ -267,7 +267,6 @@ impl<T: FieldType> FieldType for Option<T> {
 
     type GetNames = T::GetNames;
     type GetAnnotations = get_option_annotations<T>;
-    type Check = T::Check;
 }
 
 const_fn! {

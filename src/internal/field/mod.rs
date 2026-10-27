@@ -55,7 +55,7 @@ pub mod fake_field;
 pub mod foreign_model;
 pub mod multi_column;
 
-use crate::fields::traits::{Array, FieldColumns, FieldType};
+use crate::fields::traits::{Array, Columns, FieldColumns, FieldType};
 use crate::fields::utils::column_name::ColumnName;
 use crate::fields::utils::const_fn::{ConstFn, Contains};
 use crate::internal::const_concat::ConstString;
@@ -154,10 +154,36 @@ pub fn push_imr<F: Field>(imr: &mut Vec<imr::Field>) {
 /// This function is called and its error reported by the `#[derive(Model)]` macro.
 #[allow(clippy::result_large_err, reason = "There is no heap in const")]
 pub const fn check<F: Field>() -> Result<(), ConstString<1024>> {
-    <<<F::Type as FieldType>::Check as ConstFn<_, _>>::Body<(
-        contains::ExplicitAnnotations<F>,
-        contains::EffectiveAnnotations<F>,
-    )> as Contains<_>>::ITEM
+    if <<F::Type as FieldType>::Columns as Columns>::NUM > 0 {
+        <<<<F::Type as FieldType>::Columns as Columns>::Lint as ConstFn<_, _>>::Body<(
+            contains::EffectiveNames<F>,
+            contains::NullTypes<F>,
+            contains::EffectiveAnnotations<F>,
+        )> as Contains<_>>::ITEM
+    } else {
+        match F::EXPLICIT_ANNOTATIONS {
+            Annotations {
+                auto_create_time: None,
+                auto_update_time: None,
+                auto_increment: None,
+                choices: None,
+                default: None,
+                index: None,
+                max_length: None,
+                on_delete: None,
+                on_update: None,
+                primary_key: None,
+                unique: None,
+                nullable: false,
+                foreign: None,
+            } => Ok(()),
+            _ => Err(ConstString::error(&[
+                "Field `",
+                F::NAME.as_str(),
+                "` has no columns and doesn't support any annotation",
+            ])),
+        }
+    }
 }
 
 /// A field which is stored in db via a single column
@@ -231,17 +257,27 @@ where
 /// - [`Field::EXPLICIT_ANNOTATIONS`]
 /// - [`Field::EFFECTIVE_ANNOTATIONS`]
 mod contains {
-    use std::marker::PhantomData;
-
-    use crate::fields::traits::FieldColumns;
+    use crate::fields::traits::{FieldColumns, FieldType};
     use crate::fields::utils::column_name::ColumnName;
     use crate::fields::utils::const_fn::Contains;
     use crate::internal::field::Field;
     use crate::internal::hmr::annotations::Annotations;
+    use rorm_db::sql::value::NullType;
+    use std::marker::PhantomData;
 
     pub struct ExplicitAnnotations<F: Field>(PhantomData<F>);
     impl<F: Field> Contains<Annotations> for ExplicitAnnotations<F> {
         const ITEM: Annotations = F::EXPLICIT_ANNOTATIONS;
+    }
+
+    pub struct EffectiveNames<F: Field>(PhantomData<F>);
+    impl<F: Field> Contains<FieldColumns<F::Type, ColumnName>> for EffectiveNames<F> {
+        const ITEM: FieldColumns<F::Type, ColumnName> = F::EFFECTIVE_NAMES;
+    }
+
+    pub struct NullTypes<F: Field>(PhantomData<F>);
+    impl<F: Field> Contains<FieldColumns<F::Type, NullType>> for NullTypes<F> {
+        const ITEM: FieldColumns<F::Type, NullType> = <F::Type as FieldType>::NULL;
     }
 
     pub struct EffectiveAnnotations<F: Field>(PhantomData<F>);

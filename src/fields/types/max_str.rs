@@ -17,7 +17,6 @@ use crate::fields::traits::simple::SimpleFieldILike;
 use crate::fields::traits::simple::{SimpleFieldEq, SimpleFieldIn, SimpleFieldLike};
 use crate::fields::traits::{Array, FieldColumns, FieldType};
 use crate::fields::types::max_str_impl::{LenImpl, NumBytes};
-use crate::fields::utils::check::shared_linter_check;
 use crate::fields::utils::const_fn::Contains;
 use crate::fields::utils::get_annotations::merge_annotations;
 use crate::fields::utils::get_names::single_column_name;
@@ -316,7 +315,6 @@ where
     }
 
     type GetAnnotations = merge_annotations<ImplicitMaxLength<MAX_LEN>>;
-    type Check = shared_linter_check<1>;
     type GetNames = single_column_name;
 }
 
