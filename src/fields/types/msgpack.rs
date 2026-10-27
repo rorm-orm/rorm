@@ -19,6 +19,9 @@ use crate::fields::utils::get_names::single_column_name;
 ///
 /// This is just a convenience wrapper around [rmp_serde] and `Vec<u8>`.
 ///
+/// So `#[rorm(max_length = N)]` bounds the serialized message pack's size in
+/// bytes, not the number of elements it contains.
+///
 /// ```no_run
 /// # use std::collections::HashMap;
 /// use rorm::Model;

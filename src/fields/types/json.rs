@@ -18,6 +18,10 @@ use serde::Serialize;
 ///
 /// This is just a convenience wrapper around [serde_json] and `Vec<u8>`.
 ///
+/// So `#[rorm(max_length = N)]` bounds the serialized json's size in bytes,
+/// not the number of characters or elements it contains. This includes untyped
+/// json stored as `Json<serde_json::Value>`.
+///
 /// ```no_run
 /// # use std::collections::HashMap;
 /// use rorm::Model;

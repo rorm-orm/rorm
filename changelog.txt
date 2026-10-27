@@ -10,6 +10,31 @@ Since 0.12.0
 - Removed MySQL field from RawSQL migration operation
 - Made `const_fn!` support `where` clauses
 - Implemented multi-column fields (functional but experimental)
+- Added support for `max_length` on binary fields (`Vec<u8>`, `Json<T>`, `MsgPack<T>`, ...)
+  - Postgres enforces it with the same `CHECK` constraint as on strings, but counting bytes
+    (for `Json<T>` and `MsgPack<T>` that's the size of the serialized value)
+  - Changing it migrates the column in place instead of dropping and recreating it
+  - If your migrations already contain a binary field with `max_length`,
+    databases migrated from scratch will get its constraint while existing ones won't
+    and `make-migrations` can't tell the difference.
+    The next change of that `max_length` would then fail on the existing databases,
+    trying to drop a constraint which isn't there.
+    To prevent this, add a migration like the following before changing it,
+    numbered after your latest one (e.g. `0005_binary_max_length.toml`).
+    `<table>` and `<column>` are the model's and the field's `Name` in your migration files.
+    It works on both kinds of databases, but fails on one with a value already exceeding `<max_length>`:
+
+        [Migration]
+        Hash = "<the previous migration's hash>"
+        Initial = false
+        Dependency = <the previous migration's id>
+        Replaces = []
+
+        [[Migration.Operations]]
+        Type = "RawSQL"
+        StructureSafe = true
+        SQLite = "SELECT 1;"
+        Postgres = 'ALTER TABLE "<table>" DROP CONSTRAINT IF EXISTS "<table>_<column>_max_length", ADD CONSTRAINT "<table>_<column>_max_length" CHECK (length("<column>") <= <max_length>);'
 
 Notes for publishing
 --------------------

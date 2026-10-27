@@ -117,9 +117,9 @@ pub enum Operation {
 
     /// Representation of a SetFieldMaxLength operation
     ///
-    /// It constrains a [`DbType::Text`] column to a maximum length. Postgres
-    /// enforces it with a check constraint; sqlite has no `varchar` and never
-    /// checks a string's length, so there it does nothing.
+    /// It constrains a [`DbType::Text`] or [`DbType::Binary`] column to a
+    /// maximum length. Postgres enforces it with a check constraint; sqlite has
+    /// no `varchar` and never checks a value's length, so there it does nothing.
     ///
     /// A column which already has a maximum length has to
     /// [drop](Operation::DropFieldMaxLength) it first: a constraint can't be
@@ -132,7 +132,7 @@ pub enum Operation {
         /// Name of the column
         name: String,
 
-        /// The maximum number of characters the column may hold
+        /// The maximum number of characters or bytes the column may hold
         max_length: i32,
     },
 

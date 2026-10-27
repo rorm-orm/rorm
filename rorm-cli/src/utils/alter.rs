@@ -15,8 +15,8 @@
 //!   those groups is a genuine no-op there and a plain
 //!   `ALTER COLUMN ... TYPE` in postgres.
 //! - Sqlite ignores [`Annotation::MaxLength`] entirely - it has no `varchar`
-//!   and never enforces a string's length - so changing it is a no-op there
-//!   and a check constraint in postgres.
+//!   and never enforces a string's or blob's length - so changing it is a
+//!   no-op there and a check constraint in postgres.
 //! - Everything else would need sqlite's `ALTER COLUMN`, which doesn't exist.
 //!   Emitting operations for a `NotNull` change would silently do nothing on a
 //!   sqlite deployment, leaving the migration state claiming a constraint the
@@ -55,11 +55,10 @@ pub fn operations(model: &str, old: &Field, new: &Field) -> Option<Vec<Operation
         });
     }
 
-    // Only a `Text` column's maximum length is a constraint. A
-    // `character varying` carries it in its type, so it neither has one to drop
-    // nor can be given one.
-    let old_max_length = max_length(old).filter(|_| old.db_type == DbType::Text);
-    let new_max_length = max_length(new).filter(|_| new.db_type == DbType::Text);
+    // A `character varying` carries its maximum length in its type, so it
+    // neither has a constraint to drop nor can be given one.
+    let old_max_length = max_length(old).filter(|_| has_max_length_constraint(old.db_type));
+    let new_max_length = max_length(new).filter(|_| has_max_length_constraint(new.db_type));
 
     if old_max_length != new_max_length {
         // A constraint can't be redefined, only replaced
@@ -123,16 +122,24 @@ fn is_alterable_type(old: &Field, new: &Field) -> bool {
 /// Can `old`'s annotations be changed to `new`'s?
 ///
 /// [`Annotation::MaxLength`] is the only alterable annotation, and only on a
-/// string column, where it is either part of the type ([`DbType::VarChar`]) or
-/// a check constraint ([`DbType::Text`]). On any other type it isn't rendered
-/// at all, so a constraint would apply `length()` to a column which has no
-/// length.
+/// column which has a length: it is either part of the type
+/// ([`DbType::VarChar`]) or a [check constraint](has_max_length_constraint).
+/// On any other type it isn't rendered at all, so a constraint would apply
+/// `length()` to a column which has no length.
 fn is_alterable_annotations(old: &Field, new: &Field) -> bool {
     #[allow(deprecated)]
-    let string_column = matches!(new.db_type, DbType::VarChar | DbType::Text);
+    let has_length = new.db_type == DbType::VarChar || has_max_length_constraint(new.db_type);
 
     indexes::annotations_eq(&fixed(old), &fixed(new))
-        && (max_length(old) == max_length(new) || string_column)
+        && (max_length(old) == max_length(new) || has_length)
+}
+
+/// Is a column of type `db_type` held to its [`Annotation::MaxLength`] by a
+/// check constraint?
+///
+/// Postgres' `length()` counts a `text`'s characters and a `bytea`'s bytes.
+fn has_max_length_constraint(db_type: DbType) -> bool {
+    matches!(db_type, DbType::Text | DbType::Binary)
 }
 
 /// The annotations of `field` which can only be changed by recreating it
@@ -350,10 +357,87 @@ mod test {
         );
     }
 
+    /// A `bytea`'s length is its number of bytes, so it is constrained just
+    /// like a `text`'s
+    #[test]
+    fn adding_a_binary_max_length_only_sets() {
+        assert_eq!(
+            delta(
+                &field(DbType::Binary, vec![Annotation::NotNull]),
+                &field(
+                    DbType::Binary,
+                    vec![Annotation::NotNull, Annotation::MaxLength(1024)]
+                ),
+            ),
+            Some(vec!["set=1024".to_string()])
+        );
+    }
+
+    /// The column keeps its data and every other annotation
+    #[test]
+    fn changing_a_binary_max_length_replaces_the_constraint() {
+        assert_eq!(
+            delta(
+                &field(
+                    DbType::Binary,
+                    vec![
+                        Annotation::MaxLength(1024),
+                        Annotation::NotNull,
+                        Annotation::Unique
+                    ]
+                ),
+                &field(
+                    DbType::Binary,
+                    vec![
+                        Annotation::MaxLength(4096),
+                        Annotation::NotNull,
+                        Annotation::Unique
+                    ]
+                ),
+            ),
+            Some(vec!["drop".to_string(), "set=4096".to_string()])
+        );
+    }
+
+    #[test]
+    fn removing_a_binary_max_length_only_drops() {
+        assert_eq!(
+            delta(
+                &field(DbType::Binary, vec![Annotation::MaxLength(1024)]),
+                &field(DbType::Binary, vec![]),
+            ),
+            Some(vec!["drop".to_string()])
+        );
+    }
+
+    #[test]
+    fn an_unchanged_binary_field_has_an_empty_delta() {
+        let annotations = vec![Annotation::MaxLength(1024), Annotation::NotNull];
+        assert_eq!(
+            delta(
+                &field(DbType::Binary, annotations.clone()),
+                &field(DbType::Binary, annotations)
+            ),
+            Some(vec![])
+        );
+    }
+
+    /// Both have a constrained length, but they are still different types
+    #[test]
+    fn binary_to_text_is_not_alterable_even_with_a_max_length() {
+        assert_eq!(
+            delta(
+                &field(DbType::Binary, vec![Annotation::MaxLength(255)]),
+                &field(DbType::Text, vec![Annotation::MaxLength(255)]),
+            ),
+            None
+        );
+    }
+
     /// `length()` has nothing to be applied to on a `bigint`, so a stray
     /// annotation may not become a constraint.
     #[test]
-    fn max_length_is_not_alterable_on_a_non_string_column() {
+    fn max_length_is_not_alterable_on_a_column_without_a_length() {
         assert_eq!(
             delta(
                 &field(DbType::Int64, vec![Annotation::MaxLength(5)]),

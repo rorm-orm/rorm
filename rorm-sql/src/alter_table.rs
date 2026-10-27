@@ -74,7 +74,7 @@ pub enum AlterColumnOperation {
     /// A column which already has one has to [drop](AlterColumnOperation::DropMaxLength)
     /// it first: a constraint can't be redefined, only replaced.
     SetMaxLength {
-        /// The maximum number of characters the column may hold
+        /// The maximum number of characters or bytes the column may hold
         max_length: i32,
     },
 
@@ -371,6 +371,25 @@ mod test {
             );
         }
 
+        /// Sqlite never enforces a maximum length, not even on a blob
+        #[test]
+        fn a_binary_max_length_is_not_rendered() {
+            assert_eq!(
+                alter(
+                    DBImpl::SQLite,
+                    AlterTableOperation::AddColumn {
+                        operation: DBImpl::SQLite.create_column(
+                            "user",
+                            "login",
+                            DbType::Binary,
+                            &[Annotation::MaxLength(255), Annotation::NotNull],
+                        ),
+                    }
+                ),
+                [r#"ALTER TABLE "user" ADD COLUMN "login" BLOB NOT NULL;"#]
+            );
+        }
+
         /// Sqlite has no `ALTER COLUMN` and needs none: not one of these
         /// changes is observable in a `STRICT` table.
         #[test]
@@ -432,6 +451,28 @@ mod test {
                 ),
                 [
                     r#"ALTER TABLE "user" ADD COLUMN "login" text CONSTRAINT "user_login_max_length" CHECK (length("login") <= 255) NOT NULL;"#
+                ]
+            );
+        }
+
+        /// `length()` on a `bytea` counts bytes, so a binary column gets the
+        /// very same constraint as a string column.
+        #[test]
+        fn a_binary_max_length_is_a_constraint_on_its_bytes() {
+            assert_eq!(
+                alter(
+                    DBImpl::Postgres,
+                    AlterTableOperation::AddColumn {
+                        operation: DBImpl::Postgres.create_column(
+                            "user",
+                            "login",
+                            DbType::Binary,
+                            &[Annotation::MaxLength(255), Annotation::NotNull],
+                        ),
+                    }
+                ),
+                [
+                    r#"ALTER TABLE "user" ADD COLUMN "login" bytea CONSTRAINT "user_login_max_length" CHECK (length("login") <= 255) NOT NULL;"#
                 ]
             );
         }

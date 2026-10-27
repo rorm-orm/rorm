@@ -245,10 +245,11 @@ impl<'post_build> CreateColumn<'post_build> for CreateColumnImpl<'_, 'post_build
                         )
                         .unwrap(),
                         // A `character varying` carries its maximum length in
-                        // its type already, and every non string column has
-                        // nothing for `length()` to be applied to.
+                        // its type already, and every other column has nothing
+                        // for `length()` to be applied to. On a `bytea` it
+                        // counts bytes, just like `octet_length()`.
                         Annotation::MaxLength(max_length) => {
-                            if matches!(column.data_type, DbType::Text) {
+                            if matches!(column.data_type, DbType::Text | DbType::Binary) {
                                 write!(
                                     sql,
                                     "CONSTRAINT \"{}\" CHECK (length(\"{}\") <= {max_length})",

@@ -159,10 +159,11 @@ pub enum Annotation {
     Index(Option<IndexValue>),
     /// Specifies the maximum length of the column's content.
     ///
-    /// It is part of the column's type for a [`DbType::VarChar`]
-    /// and a check constraint for a [`DbType::Text`].
+    /// It is part of the column's type for a [`DbType::VarChar`] and a check
+    /// constraint for a [`DbType::Text`] (counting characters) and a
+    /// [`DbType::Binary`] (counting bytes).
     /// Everywhere else, and in sqlite entirely, it is ignored -
-    /// sqlite has no `varchar` and never enforces a string's length.
+    /// sqlite has no `varchar` and never enforces a value's length.
     MaxLength(i32),
     /// NOT NULL constraint
     NotNull,
