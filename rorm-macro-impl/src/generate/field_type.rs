@@ -1,8 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote, quote_spanned};
-use syn::LitStr;
+use quote::{format_ident, quote};
 
-use crate::analyze::field_type::{AnalyzedField, AnalyzedFieldAnnotations, AnalyzedFieldType};
+use crate::analyze::field_type::{AnalyzedFieldAnnotations, AnalyzedFieldType};
 use crate::generate::utils::get_source;
 use crate::generate::SliceExt;
 use crate::parse::annotations::{Index, NamedIndex, OnAction};
@@ -23,18 +22,18 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
     } = field_type;
 
     let fields_struct_ident = format_ident!("__{}_Fields_Struct", field_type.ident);
-    let field_declarations = generate_fields(field_type, config);
 
+    let fields__index = 0usize..;
     let fields__vis = field_type.fields.map_collect(|x| &x.vis);
     let fields__ident = fields.map_collect(|x| &x.ident);
     let fields__unit: Vec<_> = fields.map_collect(|x| &x.unit);
     let fields__column = fields.map_collect(|x| &x.column);
     let fields__get_name = fields.map_collect(|x| &x.get_name);
     let fields__ty: Vec<_> = fields.map_collect(|x| &x.ty);
+    let fields__source: Vec<_> = fields.map_collect(|x| get_source(x.ident.span(), config));
+    let fields__annos = fields.map_collect(|x| generate_field_annotations(&x.annos, config));
 
     quote! {const _: () = {
-        #field_declarations
-
         const NUM_COLUMNS: usize = {
             0 #(+ <<#fields__ty as #rorm_path::fields::traits::FieldType>::Columns as #rorm_path::fields::traits::Columns>::NUM)*
         };
@@ -164,61 +163,30 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
                 builder.finish_const()
             }
         }
-    };}
-}
 
-fn generate_fields(model: &AnalyzedFieldType, config: &MacroConfig) -> TokenStream {
-    let MacroConfig {
-        rorm_path,
-        non_exhaustive: _,
-    } = config;
-
-    let mut tokens = TokenStream::new();
-    let model_ident = &model.ident;
-    for (index, field) in model.fields.iter().enumerate() {
-        let AnalyzedField {
-            vis: _,
-            ident,
-            column,
-            unit,
-            ty,
-            annos,
-
-            get_name: _,
-        } = field;
-
-        let source = get_source(ident.span(), config);
-        let vis = &model.vis;
-        let doc = LitStr::new(
-            &format!("rorm's representation of [`{model_ident}`]'s `{ident}` field",),
-            ident.span(),
-        );
-        let annos = generate_field_annotations(annos, config);
-
-        tokens.extend(quote_spanned! {ident.span()=>
-            #[doc = #doc]
+        #(
+            #[doc = ::std::concat!("rorm's representation of [`", ::std::stringify!(#ident), "`]'s `", ::std::stringify!(#fields__ident), "` field")]
             #[allow(non_camel_case_types)]
-            #vis struct #unit <__Field: #rorm_path::internal::field::Field<Type = #model_ident>> ( std::marker::PhantomData<__Field> );
-            impl <__Field: #rorm_path::internal::field::Field<Type = #model_ident>> ::std::clone::Clone for #unit <__Field> {
+            #vis struct #fields__unit <__Field: #rorm_path::internal::field::Field<Type = #ident>> ( std::marker::PhantomData<__Field> );
+            impl <__Field: #rorm_path::internal::field::Field<Type = #ident>> ::std::clone::Clone for #fields__unit <__Field> {
                 fn clone(&self) -> Self {
                     *self
                 }
             }
-            impl <__Field: #rorm_path::internal::field::Field<Type = #model_ident>> ::std::marker::Copy for #unit <__Field> {}
-            impl <__Field: #rorm_path::internal::field::Field<Type = #model_ident>> #rorm_path::internal::field::Field for #unit <__Field> {
-                type Type = #ty;
+            impl <__Field: #rorm_path::internal::field::Field<Type = #ident>> ::std::marker::Copy for #fields__unit <__Field> {}
+            impl <__Field: #rorm_path::internal::field::Field<Type = #ident>> #rorm_path::internal::field::Field for #fields__unit <__Field> {
+                type Type = #fields__ty;
                 type Model = <__Field as #rorm_path::internal::field::Field>::Model;
-                const INDEX: usize = #index;
-                const NAME: #rorm_path::fields::utils::column_name::ColumnName = <__Field as #rorm_path::internal::field::Field>::NAME.join(#column);
-                const EXPLICIT_ANNOTATIONS: #rorm_path::internal::hmr::annotations::Annotations = #annos;
-                const SOURCE: #rorm_path::internal::hmr::Source = #source;
+                const INDEX: usize = #fields__index;
+                const NAME: #rorm_path::fields::utils::column_name::ColumnName = <__Field as #rorm_path::internal::field::Field>::NAME.join(#fields__column);
+                const EXPLICIT_ANNOTATIONS: #rorm_path::internal::hmr::annotations::Annotations = #fields__annos;
+                const SOURCE: #rorm_path::internal::hmr::Source = #fields__source;
                 fn new() -> Self {
                     Self(::std::marker::PhantomData)
                 }
             }
-        });
-    }
-    tokens
+        )*
+    };}
 }
 
 fn generate_field_annotations(

@@ -1,47 +1,4 @@
 const _: () = {
-    ///rorm's representation of [`BasicFieldType`]'s `description` field
-    #[allow(non_camel_case_types)]
-    pub struct __BasicFieldType_description<
-        __Field: ::rorm::internal::field::Field<Type = BasicFieldType>,
-    >(
-        std::marker::PhantomData<__Field>,
-    );
-    impl<
-        __Field: ::rorm::internal::field::Field<Type = BasicFieldType>,
-    > ::std::clone::Clone for __BasicFieldType_description<__Field> {
-        fn clone(&self) -> Self {
-            *self
-        }
-    }
-    impl<
-        __Field: ::rorm::internal::field::Field<Type = BasicFieldType>,
-    > ::std::marker::Copy for __BasicFieldType_description<__Field> {}
-    impl<
-        __Field: ::rorm::internal::field::Field<Type = BasicFieldType>,
-    > ::rorm::internal::field::Field for __BasicFieldType_description<__Field> {
-        type Type = String;
-        type Model = <__Field as ::rorm::internal::field::Field>::Model;
-        const INDEX: usize = 0usize;
-        const NAME: ::rorm::fields::utils::column_name::ColumnName = <__Field as ::rorm::internal::field::Field>::NAME
-            .join("description");
-        const EXPLICIT_ANNOTATIONS: ::rorm::internal::hmr::annotations::Annotations = ::rorm::internal::hmr::annotations::Annotations {
-            default: None,
-            index: None,
-            max_length: Some(::rorm::internal::hmr::annotations::MaxLength(255)),
-            on_delete: None,
-            on_update: None,
-            unique: None,
-            ..::rorm::internal::hmr::annotations::Annotations::empty()
-        };
-        const SOURCE: ::rorm::internal::hmr::Source = ::rorm::internal::hmr::Source {
-            file: ::std::file!(),
-            line: ::std::line!() as usize,
-            column: ::std::column!() as usize,
-        };
-        fn new() -> Self {
-            Self(::std::marker::PhantomData)
-        }
-    }
     const NUM_COLUMNS: usize = {
         0
             + <<String as ::rorm::fields::traits::FieldType>::Columns as ::rorm::fields::traits::Columns>::NUM
@@ -153,6 +110,52 @@ const _: () = {
         ::rorm::fields::utils::const_fn::ConstFn < _, _ >> ::Body <
         (::rorm::internal::field::multi_column::EmptyAnnotations,) > as
         ::rorm::fields::utils::const_fn::Contains < _ >> ::ITEM,); builder.finish_const()
+        }
+    }
+    #[doc = ::std::concat!(
+        "rorm's representation of [`", ::std::stringify!(BasicFieldType), "`]'s `",
+        ::std::stringify!(description), "` field"
+    )]
+    #[allow(non_camel_case_types)]
+    pub struct __BasicFieldType_description<
+        __Field: ::rorm::internal::field::Field<Type = BasicFieldType>,
+    >(
+        std::marker::PhantomData<__Field>,
+    );
+    impl<
+        __Field: ::rorm::internal::field::Field<Type = BasicFieldType>,
+    > ::std::clone::Clone for __BasicFieldType_description<__Field> {
+        fn clone(&self) -> Self {
+            *self
+        }
+    }
+    impl<
+        __Field: ::rorm::internal::field::Field<Type = BasicFieldType>,
+    > ::std::marker::Copy for __BasicFieldType_description<__Field> {}
+    impl<
+        __Field: ::rorm::internal::field::Field<Type = BasicFieldType>,
+    > ::rorm::internal::field::Field for __BasicFieldType_description<__Field> {
+        type Type = String;
+        type Model = <__Field as ::rorm::internal::field::Field>::Model;
+        const INDEX: usize = 0usize;
+        const NAME: ::rorm::fields::utils::column_name::ColumnName = <__Field as ::rorm::internal::field::Field>::NAME
+            .join("description");
+        const EXPLICIT_ANNOTATIONS: ::rorm::internal::hmr::annotations::Annotations = ::rorm::internal::hmr::annotations::Annotations {
+            default: None,
+            index: None,
+            max_length: Some(::rorm::internal::hmr::annotations::MaxLength(255)),
+            on_delete: None,
+            on_update: None,
+            unique: None,
+            ..::rorm::internal::hmr::annotations::Annotations::empty()
+        };
+        const SOURCE: ::rorm::internal::hmr::Source = ::rorm::internal::hmr::Source {
+            file: ::std::file!(),
+            line: ::std::line!() as usize,
+            column: ::std::column!() as usize,
+        };
+        fn new() -> Self {
+            Self(::std::marker::PhantomData)
         }
     }
 };
