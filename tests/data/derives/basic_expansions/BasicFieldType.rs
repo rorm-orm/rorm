@@ -105,12 +105,18 @@ const _: () = {
         ::rorm::fields::traits::FieldColumns < BasicFieldType,
         ::rorm::internal::hmr::annotations::Annotations > { let mut builder =
         ::rorm::internal::field::multi_column::ArrayBuilder::new([::rorm::internal::hmr::annotations::Annotations::empty();
-        NUM_COLUMNS]); builder.extend_const(<< < String as
-        ::rorm::fields::traits::FieldType > ::GetAnnotations as
-        ::rorm::fields::utils::const_fn::ConstFn < _, _ >> ::Body <
-        (::rorm::internal::field::multi_column::EmptyAnnotations,) > as
-        ::rorm::fields::utils::const_fn::Contains < _ >> ::ITEM,); builder.finish_const()
-        }
+        NUM_COLUMNS]); { struct __FieldAnnotations; impl
+        ::rorm::fields::utils::const_fn::Contains <
+        ::rorm::internal::hmr::annotations::Annotations > for __FieldAnnotations { const
+        ITEM : ::rorm::internal::hmr::annotations::Annotations =
+        ::rorm::internal::hmr::annotations::Annotations { default : None, index : None,
+        max_length : Some(::rorm::internal::hmr::annotations::MaxLength(255)), on_delete
+        : None, on_update : None, unique : None, ..
+        ::rorm::internal::hmr::annotations::Annotations::empty() }; } builder
+        .extend_const(<< < String as ::rorm::fields::traits::FieldType > ::GetAnnotations
+        as ::rorm::fields::utils::const_fn::ConstFn < _, _ >> ::Body <
+        (__FieldAnnotations,) > as ::rorm::fields::utils::const_fn::Contains < _ >>
+        ::ITEM,); } builder.finish_const() }
     }
     #[doc = ::std::concat!(
         "rorm's representation of [`", ::std::stringify!(BasicFieldType), "`]'s `",

@@ -155,11 +155,15 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
                 let mut builder = #rorm_path::internal::field::multi_column::ArrayBuilder::new(
                     [#rorm_path::internal::hmr::annotations::Annotations::empty(); NUM_COLUMNS]
                 );
-                #(
+                #({
+                    struct __FieldAnnotations;
+                    impl #rorm_path::fields::utils::const_fn::Contains<#rorm_path::internal::hmr::annotations::Annotations> for __FieldAnnotations {
+                        const ITEM: #rorm_path::internal::hmr::annotations::Annotations = #fields__annos;
+                    }
                     builder.extend_const(
-                        <<<#fields__ty as #rorm_path::fields::traits::FieldType>::GetAnnotations as #rorm_path::fields::utils::const_fn::ConstFn<_, _>>::Body<(#rorm_path::internal::field::multi_column::EmptyAnnotations,)> as #rorm_path::fields::utils::const_fn::Contains<_>>::ITEM,
+                        <<<#fields__ty as #rorm_path::fields::traits::FieldType>::GetAnnotations as #rorm_path::fields::utils::const_fn::ConstFn<_, _>>::Body<(__FieldAnnotations,)> as #rorm_path::fields::utils::const_fn::Contains<_>>::ITEM,
                     );
-                )*
+                })*
                 builder.finish_const()
             }
         }
