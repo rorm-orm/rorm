@@ -49,8 +49,6 @@ use crate::internal::relation_path::{Path, PathField, PathFieldType};
 use crate::model::Model;
 
 pub mod cascading_foreign_model;
-pub mod decoder;
-pub mod fake_field;
 pub mod foreign_model;
 pub mod multi_column;
 

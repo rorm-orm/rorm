@@ -1,8 +1,5 @@
 //! Utilities for implementing multi-column fields
 
-use crate::fields::utils::const_fn::Contains;
-use crate::internal::hmr::annotations::Annotations;
-
 /// Constructs arrays by concatenating others
 pub struct ArrayBuilder<T, const N: usize> {
     array: [T; N],
@@ -59,10 +56,4 @@ impl<T, const N: usize> ArrayBuilder<T, N> {
         }
         self.array
     }
-}
-
-/// Marker exposing [`Annotations::empty`] as argument for a [`ConstFn`]
-pub struct EmptyAnnotations;
-impl Contains<Annotations> for EmptyAnnotations {
-    const ITEM: Annotations = Annotations::empty();
 }
