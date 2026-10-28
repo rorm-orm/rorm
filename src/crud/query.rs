@@ -215,6 +215,9 @@ where
     /// Order the query by a field
     ///
     /// You can add multiple orderings from most to least significant.
+    ///
+    /// # Multi-Column Fields
+    /// This will order by all columns in the order of their declaration.
     pub fn order_by<I>(mut self, _field: FieldProxy<I>, order: Ordering) -> Self
     where
         I: FieldProxyImpl<Path: Path<Origin = S::Model>>,
@@ -233,6 +236,9 @@ where
     /// Order the query ascending by a field
     ///
     /// You can add multiple orderings from most to least significant.
+    ///
+    /// # Multi-Column Fields
+    /// This will order by all columns in the order of their declaration.
     pub fn order_asc<I>(self, field: FieldProxy<I>) -> Self
     where
         I: FieldProxyImpl<Path: Path<Origin = S::Model>>,
@@ -243,6 +249,9 @@ where
     /// Order the query descending by a field
     ///
     /// You can add multiple orderings from most to least significant.
+    ///
+    /// # Multi-Column Fields
+    /// This will order by all columns in the order of their declaration.
     pub fn order_desc<I>(self, field: FieldProxy<I>) -> Self
     where
         I: FieldProxyImpl<Path: Path<Origin = S::Model>>,

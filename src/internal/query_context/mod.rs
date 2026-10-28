@@ -139,21 +139,26 @@ impl<'v> QueryContext<'v> {
     }
 
     /// Add a field to order by
+    ///
+    /// # Multi-Column Fields
+    /// This will order by all columns in the order of their declaration.
     pub fn order_by_field<F: Field, P: Path>(&mut self, ordering: Ordering) {
         let path_id = P::add_to_context(self);
-        self.order_bys.push(OrderBy {
-            column_name: &F::NAME,
-            table_name: path_id,
-            ordering,
-        });
 
         self.span.in_scope(|| {
-            trace!(
-                table_name = self.join_aliases.get(&path_id),
-                column_name = &*F::NAME,
-                ?ordering,
-                "QueryContext::order_by_field"
-            )
+            for column_name in F::EFFECTIVE_NAMES {
+                self.order_bys.push(OrderBy {
+                    column_name,
+                    table_name: path_id,
+                    ordering,
+                });
+
+                trace!(
+                    table_name = self.join_aliases.get(&path_id),
+                    column_name = &*column_name,
+                    "QueryContext::select_field"
+                )
+            }
         });
     }
 
@@ -250,7 +255,7 @@ impl<'v> QueryContext<'v> {
             .map(|order_by| rorm_db::sql::ordering::OrderByEntry {
                 ordering: order_by.ordering,
                 table_name: Some(self.join_aliases.get(&order_by.table_name).unwrap()),
-                column_name: order_by.column_name,
+                column_name: &order_by.column_name,
             })
             .collect()
     }
@@ -483,7 +488,7 @@ struct Join {
 
 #[derive(Debug, Clone)]
 struct OrderBy {
-    column_name: &'static ColumnName,
+    column_name: ColumnName,
     table_name: PathId,
     ordering: Ordering,
 }

@@ -71,6 +71,18 @@ fn main() {
         r#"SELECT "px"."id" FROM "px" WHERE ("px".color_r = $1);"#
     );
 
+    let sql = get_sql(DBImpl::Postgres, |db| {
+        rorm::query(db, Pixel.id)
+            .order_asc(Pixel.pos)
+            .order_asc(Pixel.id)
+            .order_desc(Pixel.color)
+            .all()
+    });
+    assert_eq!(
+        sql,
+        r#"SELECT "px"."id" FROM "px" ORDER BY "px"."pos_x", "px"."pos_y", "px"."id", "px"."color_r" DESC, "px"."color_g" DESC, "px"."color_b" DESC;"#
+    );
+
     let sql = get_sql(DBImpl::Postgres, |db| async move {
         let px = Pixel::default();
         rorm::insert(db, Pixel)
