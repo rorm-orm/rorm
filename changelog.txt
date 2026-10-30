@@ -40,6 +40,7 @@ Since 0.12.0
   - This is a breaking change: on any other type (integers, `bool`, floats, dates and times, `Uuid`, ...)
     it is now a compile error
   - `rorm-cli` rejects it as well when linting the internal models
+- Fixed sqlite decoding NULL as T::default()
 
 Notes for publishing
 --------------------

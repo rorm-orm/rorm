@@ -53,6 +53,9 @@ where
                 rust_type: type_name::<T>(),
             });
         }
+    } else if !is_option::<T>() {
+        // sqlx' sqlite decoders don't check for `NULL` and would silently produce `0`, `""`, etc.
+        return Err(RowError::UnexpectedNull { index });
     }
 
     T::decode(value).map_err(|source| {
@@ -62,6 +65,20 @@ where
             RowError::Decode { index, source }
         }
     })
+}
+
+/// Checks whether `T` is an `Option<_>`
+///
+/// `Option<_>` is sqlx' only [`Decode`](sqlx::Decode) implementation which accepts `NULL`.
+///
+/// This implementation is a hack.
+/// sqlx would allow to check this through `T::compatible` with a `NULL` type info,
+/// but it doesn't provide a public way to construct such a `SqliteTypeInfo`.
+#[cfg(feature = "sqlite")]
+fn is_option<T>() -> bool {
+    let option = type_name::<Option<()>>();
+    let prefix = option.strip_suffix("()>").unwrap_or(option);
+    type_name::<T>().starts_with(prefix)
 }
 
 fn try_get_raw<'r, 'i, D, R>(
