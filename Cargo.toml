@@ -40,6 +40,7 @@ futures-core = "~0.3" # Used for the stream trait
 # json serialization to communicate with the migrator
 serde_json = { version = "~1" }
 serde = { version = "~1" }
+toml = { version = "~1", optional = true }
 
 # Macro using linker magic to collect items from different code locations into a slice
 linkme = { version = "~0.3" } # Used to collect all models declared by any crate part of the final binary
@@ -139,6 +140,7 @@ zeroize = ["dep:zeroize"]
 
 msgpack = ["dep:rmp-serde"]
 cli = ["dep:rorm-cli"]
+testing = ["cli", "dep:toml"]
 
 # TLS libraries
 rustls = ["rorm-db/rustls"]
@@ -153,9 +155,10 @@ inherits = "release"
 debug = true
 
 [dev-dependencies]
-rorm = { path = "." }
+rorm = { path = ".", features = ["testing"] }
 rorm-macro-impl = { path = "./rorm-macro-impl" }
 
+tokio = { version = "~1", features = ["macros"] }
 proc-macro2 = { version = "~1" }
 syn = { version = "~2" } # Parse files, search for derives and format the expansion with prettyplease
 prettyplease = { version = "~0.2" } # Simple code formatter taking syn as input

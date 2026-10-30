@@ -46,6 +46,8 @@ pub mod crud;
 pub mod fields;
 pub mod internal;
 pub mod model;
+#[cfg(feature = "testing")]
+pub mod testing;
 
 /// This slice is populated by the [`Model`] macro with all models.
 ///
