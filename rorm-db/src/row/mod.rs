@@ -3,7 +3,6 @@
 pub use self::error::*;
 pub use self::index::*;
 use crate::internal::any::{AnyDecode, AnyRow, AnyType};
-use crate::row::get::try_get;
 
 mod error;
 mod get;
@@ -23,9 +22,9 @@ impl Row {
     {
         match &self.0 {
             #[cfg(feature = "postgres")]
-            AnyRow::Postgres(row) => try_get(row, index.into()),
+            AnyRow::Postgres(row) => get::postgres(row, index.into()),
             #[cfg(feature = "sqlite")]
-            AnyRow::Sqlite(row) => try_get(row, index.into()),
+            AnyRow::Sqlite(row) => get::sqlite(row, index.into()),
         }
     }
 }
