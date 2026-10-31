@@ -31,6 +31,9 @@ pub fn analyze_field_type(parsed: ParsedFieldType) -> darling::Result<AnalyzedFi
             mut ty,
             annos:
                 FieldTypeFieldAnnotations {
+                    auto_create_time,
+                    auto_update_time,
+                    auto_increment,
                     unique,
                     on_delete,
                     on_update,
@@ -67,6 +70,9 @@ pub fn analyze_field_type(parsed: ParsedFieldType) -> darling::Result<AnalyzedFi
             column,
             ty,
             annos: AnalyzedFieldAnnotations {
+                auto_create_time,
+                auto_update_time,
+                auto_increment,
                 unique,
                 on_delete,
                 on_update,
@@ -111,6 +117,9 @@ pub struct AnalyzedField {
 }
 
 pub struct AnalyzedFieldAnnotations {
+    pub auto_create_time: bool,
+    pub auto_update_time: bool,
+    pub auto_increment: bool,
     pub unique: bool,
     pub on_delete: Option<OnAction>,
     pub on_update: Option<OnAction>,

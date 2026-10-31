@@ -109,7 +109,8 @@ const _: () = {
         ::rorm::fields::utils::const_fn::Contains <
         ::rorm::internal::hmr::annotations::Annotations > for __FieldAnnotations { const
         ITEM : ::rorm::internal::hmr::annotations::Annotations =
-        ::rorm::internal::hmr::annotations::Annotations { default : None, index : None,
+        ::rorm::internal::hmr::annotations::Annotations { auto_create_time : None,
+        auto_update_time : None, auto_increment : None, default : None, index : None,
         max_length : Some(::rorm::internal::hmr::annotations::MaxLength(255)), on_delete
         : None, on_update : None, unique : None, ..
         ::rorm::internal::hmr::annotations::Annotations::empty() }; } builder
@@ -147,6 +148,9 @@ const _: () = {
         const NAME: ::rorm::fields::utils::column_name::ColumnName = <__Field as ::rorm::internal::field::Field>::NAME
             .join("description");
         const EXPLICIT_ANNOTATIONS: ::rorm::internal::hmr::annotations::Annotations = ::rorm::internal::hmr::annotations::Annotations {
+            auto_create_time: None,
+            auto_update_time: None,
+            auto_increment: None,
             default: None,
             index: None,
             max_length: Some(::rorm::internal::hmr::annotations::MaxLength(255)),

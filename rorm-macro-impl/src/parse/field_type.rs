@@ -82,18 +82,15 @@ pub struct ParsedField {
 #[derive(FromAttributes, Debug, Default)]
 #[darling(attributes(rorm), default)]
 pub struct FieldTypeFieldAnnotations {
-    // TODO: supporting those would required some kind of patches for MCFs
-    //       plus the ability to use FieldType compatible types in patches
-    //
-    // /// `#[rorm(auto_create_time)]`
-    // pub auto_create_time: bool,
-    //
-    // /// `#[rorm(auto_update_time)]`
-    // pub auto_update_time: bool,
-    //
-    // /// `#[rorm(auto_increment)]`
-    // pub auto_increment: bool,
-    //
+    /// `#[rorm(auto_create_time)]`
+    pub auto_create_time: bool,
+
+    /// `#[rorm(auto_update_time)]`
+    pub auto_update_time: bool,
+
+    /// `#[rorm(auto_increment)]`
+    pub auto_increment: bool,
+
     /// `#[rorm(unique)]`
     pub unique: bool,
 

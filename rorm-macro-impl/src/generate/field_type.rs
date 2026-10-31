@@ -203,6 +203,9 @@ fn generate_field_annotations(
     } = config;
 
     let AnalyzedFieldAnnotations {
+        auto_create_time,
+        auto_update_time,
+        auto_increment,
         unique,
         on_delete,
         on_update,
@@ -212,6 +215,9 @@ fn generate_field_annotations(
     } = annos;
 
     // Convert every field into its "creation" expression
+    let auto_create_time = auto_create_time.then(|| quote! {AutoCreateTime});
+    let auto_update_time = auto_update_time.then(|| quote! {AutoUpdateTime});
+    let auto_increment = auto_increment.then(|| quote! {AutoIncrement});
     let unique = unique.then(|| quote! {Unique});
     let max_length = max_length.as_ref().map(|len| quote! {MaxLength(#len)});
     let default = default.as_ref().map(|default| {
@@ -256,6 +262,9 @@ fn generate_field_annotations(
             quote! {None}
         }
     };
+    let auto_create_time = finalize(auto_create_time);
+    let auto_update_time = finalize(auto_update_time);
+    let auto_increment = finalize(auto_increment);
     let default = finalize(default);
     let index = finalize(index);
     let max_length = finalize(max_length);
@@ -265,6 +274,9 @@ fn generate_field_annotations(
 
     quote! {
         #rorm_path::internal::hmr::annotations::Annotations {
+            auto_create_time: #auto_create_time,
+            auto_update_time: #auto_update_time,
+            auto_increment: #auto_increment,
             default: #default,
             index: #index,
             max_length: #max_length,
