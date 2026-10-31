@@ -74,7 +74,7 @@ pub fn generate_field_type(field_type: &AnalyzedFieldType, config: &MacroConfig)
 
             fn decode(row: &#rorm_path::db::Row, mut index: usize) -> Result<Self, #rorm_path::db::row::RowError<'static>> {
                 Ok(Self {#(
-                    #fields__ident: #fields__ty::decode(row, {
+                    #fields__ident: <#fields__ty>::decode(row, {
                         let current = index;
                         index += <<#fields__ty as #rorm_path::fields::traits::FieldType>::Columns as #rorm_path::fields::traits::Columns>::NUM;
                         current

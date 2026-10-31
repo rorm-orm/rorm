@@ -38,7 +38,7 @@ const _: () = {
             mut index: usize,
         ) -> Result<Self, ::rorm::db::row::RowError<'static>> {
             Ok(Self {
-                description: String::decode(
+                description: <String>::decode(
                     row,
                     {
                         let current = index;
