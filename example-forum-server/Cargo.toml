@@ -15,7 +15,7 @@ tokio = { version = "~1", features = ["full"] }
 futures-util = "0.3.30" # Used for consuming streams of db results
 
 # Database abstraction
-rorm = { path = "..", features = ["cli"] }
+rorm = { path = "..", features = ["cli", "testing"] }
 
 # Cli argument parser
 clap = { version = "~4", features = ["derive"] }

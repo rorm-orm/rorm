@@ -11,7 +11,13 @@ use rorm_declaration::migration::{Migration, MigrationFile};
 use rorm_macro::impl_tuple;
 use std::env::temp_dir;
 use std::error::Error;
+use std::future::{poll_fn, Future};
 use std::hash::{BuildHasher, Hasher, RandomState};
+use std::net::{IpAddr, Ipv4Addr};
+use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
+use std::pin::pin;
+use std::process::Command;
+use std::task::Poll;
 use std::{fs, io};
 
 /// Creates an in-memory sqlite database
@@ -42,6 +48,80 @@ pub async fn sqlite_in_memory(
     }
 
     Ok(db)
+}
+
+/// Creates a postgres in a temporary directory
+///
+/// This function depends on the `initdb` and `postgres` commands being installed on the host.
+pub async fn postgres_tmp_dir<T, F>(
+    run: impl FnOnce(Database) -> F,
+) -> Result<T, Box<dyn Error + Send + Sync + 'static>>
+where
+    F: Future<Output = Result<T, Box<dyn Error + Send + Sync + 'static>>>,
+{
+    let random = RandomState::default().build_hasher().finish();
+
+    let postgres_dir = temp_dir().join(format!(".postgres_{random}"));
+    fs::create_dir(&postgres_dir)?;
+    Command::new("initdb")
+        .arg("-D")
+        .arg(&postgres_dir)
+        .output()?;
+
+    let [a, b, c, d, e, ..] = random.to_ne_bytes();
+    let host = Ipv4Addr::new(127, a, b, c | 1).to_string();
+    let port = u16::from_ne_bytes([d, e]) | (1 << 15);
+    let mut server = Command::new("postgres")
+        .arg("-D")
+        .arg(&postgres_dir)
+        .arg("-k")
+        .arg(&postgres_dir)
+        .arg("-h")
+        .arg(&host)
+        .arg("-p")
+        .arg(port.to_string())
+        .spawn()?;
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    Command::new("createdb")
+        .arg("-h")
+        .arg(&host)
+        .arg("-p")
+        .arg(port.to_string())
+        .arg("testdb")
+        .output()?;
+
+    let db = Database::connect(DatabaseConfiguration {
+        min_connections: 1,
+        max_connections: 1,
+        driver: DatabaseDriver::Postgres {
+            name: "testdb".to_string(),
+            host,
+            port,
+            user: "gammelalf".to_string(),
+            password: "".to_string(),
+        },
+    })
+    .await?;
+
+    let mut future = pin!(run(db));
+    let panic_result =
+        poll_fn(
+            move |x| match catch_unwind(AssertUnwindSafe(|| future.as_mut().poll(x))) {
+                Ok(Poll::Ready(x)) => Poll::Ready(Ok(x)),
+                Ok(Poll::Pending) => Poll::Pending,
+                Err(x) => Poll::Ready(Err(x)),
+            },
+        )
+        .await;
+
+    server.kill()?;
+    fs::remove_dir_all(postgres_dir)?;
+
+    match panic_result {
+        Ok(result) => result,
+        Err(panic) => resume_unwind(panic),
+    }
 }
 
 /// Selection of models to initialize a testing database with
