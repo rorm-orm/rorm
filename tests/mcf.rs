@@ -1,4 +1,3 @@
-use rorm::fields::traits::FieldType;
 use rorm::model::Identifiable;
 use rorm::testing::{e, sqlite_in_memory};
 use rorm::{FieldType, Model};

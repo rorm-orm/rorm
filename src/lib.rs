@@ -9,6 +9,7 @@ compile_error!("You cannot enable postgres-only with other drivers active");
 
 pub use rorm_db::{Database, DatabaseConfiguration, DatabaseDriver, Error, Row};
 
+pub use crate::fields::traits::FieldType;
 pub use crate::model::{Model, Patch};
 
 /// Re-export of [rorm-cli](rorm_cli)
@@ -169,7 +170,23 @@ pub use rorm_macro::rorm_main;
 /// }
 /// ```
 pub use rorm_macro::DbEnum;
-/// TODO
+/// ```no_run
+/// use time::OffsetDateTime;
+/// use rorm::FieldType;
+///
+/// #[derive(FieldType)]
+/// #[rorm(experimental)]
+/// struct CommonMeta {
+///     #[rorm(max_length = 4096, default = "")]
+///     description: String,
+///
+///     #[rorm(default = false)]
+///     disabled: bool,
+///
+///     #[rorm(auto_create_time)]
+///     created_at: OffsetDateTime,
+/// }
+/// ```
 pub use rorm_macro::FieldType;
 /// ```no_run
 /// use rorm::Model;
