@@ -266,6 +266,28 @@ impl Annotations {
         }
     }
 
+    /// Checks `self == Self::empty()` (in `const`)
+    pub const fn is_empty(&self) -> bool {
+        matches!(
+            self,
+            Self {
+                auto_create_time: None,
+                auto_update_time: None,
+                auto_increment: None,
+                choices: None,
+                default: None,
+                index: None,
+                max_length: None,
+                on_delete: None,
+                on_update: None,
+                primary_key: None,
+                unique: None,
+                nullable: false,
+                foreign: None,
+            }
+        )
+    }
+
     /// Is SQL's not null annotation set?
     pub const fn not_null(&self) -> bool {
         let implicit = self.primary_key.is_some();

@@ -126,36 +126,35 @@ pub fn push_imr<F: Field>(imr: &mut Vec<imr::Field>) {
 /// This function is called and its error reported by the `#[derive(Model)]` macro.
 #[allow(clippy::result_large_err, reason = "There is no heap in const")]
 pub const fn check<F: Field>() -> Result<(), ConstString<1024>> {
-    if <<F::Type as FieldType>::Columns as Columns>::NUM > 0 {
-        <<<<F::Type as FieldType>::Columns as Columns>::Lint as ConstFn<_, _>>::Body<(
-            contains::EffectiveNames<F>,
-            contains::NullTypes<F>,
-            contains::EffectiveAnnotations<F>,
-        )> as Contains<_>>::ITEM
-    } else {
-        match F::EXPLICIT_ANNOTATIONS {
-            Annotations {
-                auto_create_time: None,
-                auto_update_time: None,
-                auto_increment: None,
-                choices: None,
-                default: None,
-                index: None,
-                max_length: None,
-                on_delete: None,
-                on_update: None,
-                primary_key: None,
-                unique: None,
-                nullable: false,
-                foreign: None,
-            } => Ok(()),
-            _ => Err(ConstString::error(&[
-                "Field `",
-                F::NAME.as_str(),
-                "` has no columns and doesn't support any annotation",
-            ])),
+    match <<F::Type as FieldType>::Columns as Columns>::NUM {
+        0 => {
+            return if F::EXPLICIT_ANNOTATIONS.is_empty() {
+                Ok(())
+            } else {
+                Err(ConstString::error(&[
+                    "Field `",
+                    F::NAME.as_str(),
+                    "` has no columns and doesn't support any annotation",
+                ]))
+            }
+        }
+        1 => {}
+        _ => {
+            if !F::EXPLICIT_ANNOTATIONS.is_empty() {
+                return Err(ConstString::error(&[
+                    "Field `",
+                    F::NAME.as_str(),
+                    "` has multiple columns and doesn't support any annotation (yet)",
+                ]));
+            }
         }
     }
+
+    <<<<F::Type as FieldType>::Columns as Columns>::Lint as ConstFn<_, _>>::Body<(
+        contains::EffectiveNames<F>,
+        contains::NullTypes<F>,
+        contains::EffectiveAnnotations<F>,
+    )> as Contains<_>>::ITEM
 }
 
 /// A field which is stored in db via a single column
