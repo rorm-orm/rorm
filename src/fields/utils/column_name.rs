@@ -69,6 +69,19 @@ impl fmt::Display for ColumnName {
     }
 }
 
+impl Eq for ColumnName {}
+impl PartialEq for ColumnName {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl PartialEq<str> for ColumnName {
+    fn eq(&self, other: &str) -> bool {
+        self.as_str() == other
+    }
+}
+
 /// A UTF-8–encoded, growable string for const expressions.
 ///
 /// ## Required invariant

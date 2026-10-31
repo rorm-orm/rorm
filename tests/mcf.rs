@@ -1,3 +1,5 @@
+use rorm::fields::proxy::{FieldProxy, FieldProxyImpl};
+use rorm::internal::field::Field;
 use rorm::model::Identifiable;
 use rorm::testing::{e, sqlite_in_memory};
 use rorm::{FieldType, Model};
@@ -216,4 +218,97 @@ where
             .as_ref(),
         "SELECT with primary key did not yield the original model"
     );
+}
+
+#[test]
+fn naming() {
+    #[derive(Model)]
+    struct M {
+        #[rorm(id)]
+        id: i64,
+        f1: F1,
+        i1: i32,
+    }
+    #[derive(FieldType)]
+    #[rorm(experimental)]
+    struct F1 {
+        f2: F2,
+        i2: i32,
+    }
+    #[derive(FieldType)]
+    #[rorm(experimental)]
+    struct F2 {
+        f3: F3,
+        i3: i32,
+    }
+    #[derive(FieldType)]
+    #[rorm(experimental)]
+    struct F3 {
+        f4: F4,
+        i4: i32,
+    }
+    #[derive(FieldType)]
+    #[rorm(experimental)]
+    struct F4 {
+        f5: i32,
+        i5: i32,
+    }
+
+    assert_eq!(column(M.f1), "f1_f2_f3_f4_f5");
+    assert_eq!(column(M.f1.f2), "f1_f2_f3_f4_f5");
+    assert_eq!(column(M.f1.f2.f3), "f1_f2_f3_f4_f5");
+    assert_eq!(column(M.f1.f2.f3.f4), "f1_f2_f3_f4_f5");
+    assert_eq!(column(M.f1.f2.f3.f4.f5), "f1_f2_f3_f4_f5");
+
+    assert_eq!(name(M.f1), "f1");
+    assert_eq!(name(M.f1.f2), "f1_f2");
+    assert_eq!(name(M.f1.f2.f3), "f1_f2_f3");
+    assert_eq!(name(M.f1.f2.f3.f4), "f1_f2_f3_f4");
+    assert_eq!(name(M.f1.f2.f3.f4.f5), "f1_f2_f3_f4_f5");
+
+    assert_eq!(
+        columns(M.f1),
+        &[
+            "f1_f2_f3_f4_f5",
+            "f1_f2_f3_f4_i5",
+            "f1_f2_f3_i4",
+            "f1_f2_i3",
+            "f1_i2"
+        ]
+    );
+    assert_eq!(
+        columns(M.f1.f2),
+        &[
+            "f1_f2_f3_f4_f5",
+            "f1_f2_f3_f4_i5",
+            "f1_f2_f3_i4",
+            "f1_f2_i3"
+        ]
+    );
+    assert_eq!(
+        columns(M.f1.f2.f3),
+        &["f1_f2_f3_f4_f5", "f1_f2_f3_f4_i5", "f1_f2_f3_i4"]
+    );
+    assert_eq!(
+        columns(M.f1.f2.f3.f4),
+        &["f1_f2_f3_f4_f5", "f1_f2_f3_f4_i5"]
+    );
+    assert_eq!(columns(M.f1.f2.f3.f4.f5), &["f1_f2_f3_f4_f5"]);
+
+    fn name<T: FieldProxyImpl>(_: FieldProxy<T>) -> String {
+        <T::Field as Field>::NAME.to_string()
+    }
+    fn column<T: FieldProxyImpl>(_: FieldProxy<T>) -> String {
+        <T::Field as Field>::EFFECTIVE_NAMES
+            .into_iter()
+            .next()
+            .unwrap()
+            .to_string()
+    }
+    fn columns<T: FieldProxyImpl>(_: FieldProxy<T>) -> Vec<&'static str> {
+        <T::Field as Field>::EFFECTIVE_NAMES
+            .into_iter()
+            .map(|x| &*x.to_string().leak())
+            .collect()
+    }
 }
