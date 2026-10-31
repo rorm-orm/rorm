@@ -13,6 +13,7 @@ use tracing::{trace, trace_span, Span};
 use crate::conditions::{BinaryOperator, Condition, Value};
 use crate::crud::selector::AggregatedColumn;
 use crate::fields::proxy::FieldProxyImpl;
+use crate::fields::traits::{Array, FieldType};
 use crate::fields::utils::column_name::ColumnName;
 use crate::internal::field::Field;
 use crate::internal::query_context::flat_conditions::{FlatCondition, GetConditionError};
@@ -87,23 +88,24 @@ impl<'v> QueryContext<'v> {
     }
 
     /// Add a field to aggregate returning its index and alias
-    pub fn select_aggregation<I: FieldProxyImpl, R>(
-        &mut self,
-        column: AggregatedColumn<I, R>,
-    ) -> usize {
+    pub fn select_aggregation<I, R>(&mut self, column: AggregatedColumn<I, R>) -> usize
+    where
+        I: FieldProxyImpl<Field: Field<Type: FieldType<Columns = Array<1>>>>,
+    {
         let path_id = I::Path::add_to_context(self);
+        let [column_name] = I::Field::EFFECTIVE_NAMES;
         let index = self.selects.len();
 
         self.selects.push(Select {
             table_name: path_id,
-            column_name: I::Field::NAME,
+            column_name,
             aggregation: Some(column.sql),
         });
 
         self.span.in_scope(|| {
             trace!(
                 table_name = self.join_aliases.get(&path_id),
-                column_name = &*I::Field::NAME,
+                column_name = column_name.as_str(),
                 index,
                 aggregation = ?column.sql,
                 "QueryContext::select_aggregation"

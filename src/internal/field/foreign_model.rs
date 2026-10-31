@@ -88,7 +88,7 @@ const_fn! {
         let mut annos = field;
         annos.foreign = Some(hmr::annotations::ForeignKey {
             table_name: FF::Model::TABLE,
-            column_name: &FF::NAME,
+            column_name: &FF::EFFECTIVE_NAME,
         });
         [annos]
     }

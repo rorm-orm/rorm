@@ -162,6 +162,12 @@ pub const fn check<F: Field>() -> Result<(), ConstString<1024>> {
 ///
 /// This trait is a trait alias with a few additional utility methods.
 pub trait SingleColumnField: Field<Type: FieldType<Columns = Array<1>>> {
+    /// The column name which is passed to db
+    const EFFECTIVE_NAME: ColumnName = {
+        let [name] = Self::EFFECTIVE_NAMES;
+        name
+    };
+
     /// The annotations which are passed to db
     const EFFECTIVE_ANNOTATION: Annotations = {
         let [annos] = Self::EFFECTIVE_ANNOTATIONS;

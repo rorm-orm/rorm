@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 
 use crate::crud::decoder::{Decoder, DirectDecoder};
 use crate::fields::proxy::{FieldProxy, FieldProxyImpl};
-use crate::fields::traits::FieldType;
+use crate::fields::traits::{Array, FieldType};
 use crate::internal::field::Field;
 use crate::internal::query_context::QueryContext;
 use crate::internal::relation_path::Path;
@@ -101,7 +101,7 @@ pub struct AggregatedColumn<I, R> {
 }
 impl<I, R> Selector for AggregatedColumn<I, R>
 where
-    I: FieldProxyImpl,
+    I: FieldProxyImpl<Field: Field<Type: FieldType<Columns = Array<1>>>>,
     R: DecodeOwned,
 {
     type Result = R;

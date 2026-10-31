@@ -82,7 +82,7 @@ const_fn! {
         let mut annos = field;
         annos.foreign = Some(hmr::annotations::ForeignKey {
             table_name: FF::Model::TABLE,
-            column_name: &FF::NAME,
+            column_name: &FF::EFFECTIVE_NAME,
         });
         if field.on_update.is_some() || field.on_delete.is_some() {
             panic!("The annotations `on_update` and `on_delete` are implied by their field's type and can't be set explicitly");
