@@ -133,6 +133,7 @@ pub enum Value<'a> {
     /// DateTime representation
     #[cfg(feature = "chrono")]
     ChronoDateTime(chrono::DateTime<chrono::Utc>),
+
     /// time's date representation
     #[cfg(feature = "time")]
     TimeDate(time::Date),
@@ -145,6 +146,20 @@ pub enum Value<'a> {
     /// time's primitive datetime representation
     #[cfg(feature = "time")]
     TimePrimitiveDateTime(time::PrimitiveDateTime),
+
+    /// jiff's civil date representation
+    #[cfg(feature = "jiff")]
+    JiffCivilDate(jiff::civil::Date),
+    /// jiff's civil time representation
+    #[cfg(feature = "jiff")]
+    JiffCivilTime(jiff::civil::Time),
+    /// jiff's civil datetime representation
+    #[cfg(feature = "jiff")]
+    JiffCivilDateTime(jiff::civil::DateTime),
+    /// jiff's timestamp representation
+    #[cfg(feature = "jiff")]
+    JiffTimestamp(jiff::Timestamp),
+
     /// Uuid representation
     #[cfg(feature = "uuid")]
     Uuid(uuid::Uuid),
@@ -253,6 +268,7 @@ impl Value<'_> {
             Value::ChronoNaiveDateTime(v) => value::Value::ChronoNaiveDateTime(*v),
             #[cfg(feature = "chrono")]
             Value::ChronoDateTime(v) => value::Value::ChronoDateTime(*v),
+
             #[cfg(feature = "time")]
             Value::TimeDate(v) => value::Value::TimeDate(*v),
             #[cfg(feature = "time")]
@@ -261,6 +277,16 @@ impl Value<'_> {
             Value::TimeOffsetDateTime(v) => value::Value::TimeOffsetDateTime(*v),
             #[cfg(feature = "time")]
             Value::TimePrimitiveDateTime(v) => value::Value::TimePrimitiveDateTime(*v),
+
+            #[cfg(feature = "jiff")]
+            Value::JiffCivilDate(v) => value::Value::JiffCivilDate(*v),
+            #[cfg(feature = "jiff")]
+            Value::JiffCivilTime(v) => value::Value::JiffCivilTime(*v),
+            #[cfg(feature = "jiff")]
+            Value::JiffCivilDateTime(v) => value::Value::JiffCivilDateTime(*v),
+            #[cfg(feature = "jiff")]
+            Value::JiffTimestamp(v) => value::Value::JiffTimestamp(*v),
+
             #[cfg(feature = "uuid")]
             Value::Uuid(v) => value::Value::Uuid(*v),
             #[cfg(feature = "postgres-only")]

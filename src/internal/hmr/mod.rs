@@ -27,10 +27,21 @@ pub const fn db_type(null_type: NullType) -> DbType {
         NullType::ChronoNaiveDate => DbType::Date,
         NullType::ChronoNaiveDateTime => DbType::DateTime,
         NullType::ChronoDateTime => DbType::DateTime,
+
         NullType::TimeDate => DbType::Date,
         NullType::TimeTime => DbType::Time,
         NullType::TimeOffsetDateTime => DbType::DateTime,
         NullType::TimePrimitiveDateTime => DbType::DateTime,
+
+        #[cfg(feature = "jiff")]
+        NullType::JiffCivilDate => DbType::Date,
+        #[cfg(feature = "jiff")]
+        NullType::JiffCivilTime => DbType::Time,
+        #[cfg(feature = "jiff")]
+        NullType::JiffCivilDateTime => DbType::DateTime,
+        #[cfg(feature = "jiff")]
+        NullType::JiffTimestamp => DbType::Timestamp,
+
         NullType::Uuid => DbType::Uuid,
         NullType::UuidHyphenated => DbType::Uuid,
         NullType::UuidSimple => DbType::Uuid,

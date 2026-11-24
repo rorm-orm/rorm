@@ -67,6 +67,7 @@ ipnetwork = { version = "~0.21", optional = true }
 # Date and time support
 chrono = { version = ">=0.4.20", default-features = false, optional = true }
 time = { version = "~0.3", optional = true }
+jiff = { version = "~1", optional = true }
 
 # Uuid support
 uuid = { version = "~1", optional = true }
@@ -131,6 +132,7 @@ postgres-only = [
 # Extensions
 chrono = ["dep:chrono"]
 time = ["dep:time"]
+jiff = ["dep:jiff", "rorm-db/jiff"]
 uuid = ["dep:uuid"]
 url = ["dep:url"]
 utoipa = ["dep:utoipa"]

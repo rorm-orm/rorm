@@ -29,6 +29,15 @@ pub fn bind_param<'exe, 'val>(query: &mut AnyQuery<'exe>, param: Value<'val>) {
         Value::TimeOffsetDateTime(x) => query.bind(x),
         Value::TimePrimitiveDateTime(x) => query.bind(x),
 
+        #[cfg(feature = "jiff")]
+        Value::JiffCivilDate(x) => query.bind(jiff_sqlx::Date::from(x)),
+        #[cfg(feature = "jiff")]
+        Value::JiffCivilTime(x) => query.bind(jiff_sqlx::Time::from(x)),
+        #[cfg(feature = "jiff")]
+        Value::JiffCivilDateTime(x) => query.bind(jiff_sqlx::DateTime::from(x)),
+        #[cfg(feature = "jiff")]
+        Value::JiffTimestamp(x) => query.bind(jiff_sqlx::Timestamp::from(x)),
+
         Value::Uuid(x) => query.bind(x),
         #[allow(deprecated)]
         Value::UuidHyphenated(x) => query.bind(x.hyphenated().to_string()),
@@ -111,6 +120,15 @@ pub fn bind_param<'exe, 'val>(query: &mut AnyQuery<'exe>, param: Value<'val>) {
             NullType::TimeTime => query.bind(none(Value::TimeTime)),
             NullType::TimeOffsetDateTime => query.bind(none(Value::TimeOffsetDateTime)),
             NullType::TimePrimitiveDateTime => query.bind(none(Value::TimePrimitiveDateTime)),
+
+            #[cfg(feature = "jiff")]
+            NullType::JiffCivilDate => query.bind(None::<jiff_sqlx::Date>),
+            #[cfg(feature = "jiff")]
+            NullType::JiffCivilTime => query.bind(None::<jiff_sqlx::Time>),
+            #[cfg(feature = "jiff")]
+            NullType::JiffCivilDateTime => query.bind(None::<jiff_sqlx::DateTime>),
+            #[cfg(feature = "jiff")]
+            NullType::JiffTimestamp => query.bind(None::<jiff_sqlx::Timestamp>),
 
             NullType::Uuid => query.bind(none(Value::Uuid)),
             NullType::UuidHyphenated => query.bind(None::<String>),

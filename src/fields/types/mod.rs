@@ -7,6 +7,8 @@ mod cascading_foreign_model;
 #[cfg(feature = "chrono")]
 mod chrono;
 mod foreign_model;
+#[cfg(feature = "jiff")]
+mod jiff;
 mod json;
 mod max_str;
 pub mod max_str_impl;

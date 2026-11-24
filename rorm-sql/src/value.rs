@@ -39,6 +39,20 @@ pub enum NullType {
     TimeOffsetDateTime,
     /// time's primitive datetime representation
     TimePrimitiveDateTime,
+
+    /// jiff's civil date representation
+    #[cfg(feature = "jiff")]
+    JiffCivilDate,
+    /// jiff's civil time representation
+    #[cfg(feature = "jiff")]
+    JiffCivilTime,
+    /// jiff's civil datetime representation
+    #[cfg(feature = "jiff")]
+    JiffCivilDateTime,
+    /// jiff's timestamp representation
+    #[cfg(feature = "jiff")]
+    JiffTimestamp,
+
     /// Uuid representation
     Uuid,
     /// Uuid in hyphenated representation
@@ -112,6 +126,20 @@ pub enum Value<'a> {
     TimeOffsetDateTime(OffsetDateTime),
     /// time's primitive datetime representation
     TimePrimitiveDateTime(PrimitiveDateTime),
+
+    /// jiff's civil date representation
+    #[cfg(feature = "jiff")]
+    JiffCivilDate(jiff::civil::Date),
+    /// jiff's civil time representation
+    #[cfg(feature = "jiff")]
+    JiffCivilTime(jiff::civil::Time),
+    /// jiff's civil datetime representation
+    #[cfg(feature = "jiff")]
+    JiffCivilDateTime(jiff::civil::DateTime),
+    /// jiff's timestamp representation
+    #[cfg(feature = "jiff")]
+    JiffTimestamp(jiff::Timestamp),
+
     /// Uuid representation
     Uuid(Uuid),
     /// Uuid in hyphenated representation
