@@ -21,9 +21,6 @@ rorm-declaration = { version = "~0.6", path = "../rorm-declaration" }
 # Basic traits and types required for async
 futures-core = "~0.3" # Used for the stream trait
 
-# Macro implemeting pin-projection
-pin-project = { version = "~1" } # Used to wrap futures and streams which are !Unpin
-
 # SQL executor
 sqlx = { version = "~0.9", default-features = false, features = ["json", "time", "chrono", "uuid", "runtime-tokio"] }
 
