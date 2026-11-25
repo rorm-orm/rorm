@@ -7,7 +7,6 @@ use futures_core::stream;
 use rorm_sql::value::Value;
 use rorm_sql::DBImpl;
 use sqlx::{AssertSqlSafe, SqlSafeStr, SqlStr};
-use tracing::debug;
 
 use crate::executor::{
     AffectedRows, All, DynamicExecutor, Executor, Nothing, One, Optional, QueryStrategy,
@@ -24,12 +23,6 @@ impl<'exe> Executor<'exe> for &'exe mut Transaction {
     where
         Q: QueryStrategy,
     {
-        debug!(
-            target: "rorm_db::executor",
-            sql = query,
-            values.len = values.len(),
-            "Executing statement"
-        );
         Q::execute(&mut self.sqlx, AssertSqlSafe(query).into_sql_str(), values)
     }
 
@@ -51,12 +44,6 @@ impl<'exe> Executor<'exe> for &'exe Database {
     where
         Q: QueryStrategy,
     {
-        debug!(
-            target: "rorm_db::executor",
-            sql = query,
-            values.len = values.len(),
-            "Executing statement"
-        );
         Q::execute(&self.0, AssertSqlSafe(query).into_sql_str(), values)
     }
 

@@ -1,2 +1,6 @@
-Since 0.13.0
+Since 0.13.1
 -----------
+
+- Replaced tracing event with span
+    The span is closed once the first row is yielded.
+    The span's duration is an okay approximation of the query's "expensiveness".

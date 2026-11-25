@@ -9,6 +9,9 @@ use std::pin::Pin;
 use std::task::{ready, Context, Poll};
 use std::time::Duration;
 
+use crate::futures_util::BoxStream;
+use crate::internal::query_span::QuerySpanBuilder;
+use crate::{DatabaseConfiguration, Error};
 use futures_core::Stream;
 use rorm_declaration::config::DatabaseDriver;
 use sqlx::query::Query;
@@ -18,9 +21,7 @@ use sqlx::{postgres, Postgres};
 use sqlx::{sqlite, Sqlite};
 use sqlx::{ConnectOptions, Executor, Pool, SqlStr, Transaction};
 use tracing::log::LevelFilter;
-
-use crate::futures_util::BoxStream;
-use crate::{DatabaseConfiguration, Error};
+use tracing::{Instrument, Span};
 
 /// Enum around [`Pool<DB>`]
 #[derive(Clone, Debug)]
@@ -179,21 +180,25 @@ pub enum AnyQuery<'exe> {
     PostgresPool {
         executor: &'exe Pool<Postgres>,
         query: Option<Query<'static, Postgres, postgres::PgArguments>>,
+        span: QuerySpanBuilder,
     },
     #[cfg(feature = "sqlite")]
     SqlitePool {
         executor: &'exe Pool<Sqlite>,
         query: Option<Query<'static, Sqlite, sqlite::SqliteArguments>>,
+        span: QuerySpanBuilder,
     },
     #[cfg(feature = "postgres")]
     PostgresConn {
         executor: &'exe mut postgres::PgConnection,
         query: Option<Query<'static, Postgres, postgres::PgArguments>>,
+        span: QuerySpanBuilder,
     },
     #[cfg(feature = "sqlite")]
     SqliteConn {
         executor: &'exe mut sqlite::SqliteConnection,
         query: Option<Query<'static, Sqlite, sqlite::SqliteArguments>>,
+        span: QuerySpanBuilder,
     },
 }
 
@@ -205,6 +210,12 @@ impl<'exe> AnyQuery<'exe> {
     where
         T: Send + AnyEncode<'t> + AnyType,
     {
+        let (Self::PostgresPool { span, .. }
+        | Self::PostgresConn { span, .. }
+        | Self::SqlitePool { span, .. }
+        | Self::SqliteConn { span, .. }) = self;
+        span.track_bind();
+
         match self {
             #[cfg(feature = "postgres")]
             Self::PostgresPool { query, .. } | Self::PostgresConn { query, .. } => {
@@ -221,6 +232,7 @@ impl<'exe> AnyQuery<'exe> {
     pub fn fetch_many(self) -> BoxStream<'exe, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>> {
         struct MappedStream<'stream, LI, LM, RI, RM> {
             stream: BoxStream<'stream, sqlx::Result<sqlx::Either<LI, RI>>>,
+            span: Span,
             map_left: LM,
             map_right: RM,
         }
@@ -232,41 +244,72 @@ impl<'exe> AnyQuery<'exe> {
         {
             type Item = sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>;
 
-            fn poll_next(
-                mut self: Pin<&mut Self>,
-                cx: &mut Context<'_>,
-            ) -> Poll<Option<Self::Item>> {
-                let opt = ready!(self.stream.as_mut().poll_next(cx));
+            fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+                let this = self.get_mut();
+                let opt = ready!(this.span.in_scope(|| this.stream.as_mut().poll_next(cx)));
+                this.span = Span::none(); // Drop span after first item
                 Poll::Ready(opt.map(|res| {
-                    res.map(|either| either.map_left(&self.map_left).map_right(&self.map_right))
+                    res.map(|either| either.map_left(&this.map_left).map_right(&this.map_right))
                 }))
             }
         }
         match self {
             #[cfg(feature = "postgres")]
-            Self::PostgresPool { executor, query } => Box::pin(MappedStream {
-                stream: executor.fetch_many(query.unwrap()),
-                map_left: AnyQueryResult::Postgres,
-                map_right: AnyRow::Postgres,
-            }),
+            Self::PostgresPool {
+                executor,
+                query,
+                span,
+            } => {
+                let span = span.finish();
+                Box::pin(MappedStream {
+                    stream: span.in_scope(|| executor.fetch_many(query.unwrap())),
+                    span,
+                    map_left: AnyQueryResult::Postgres,
+                    map_right: AnyRow::Postgres,
+                })
+            }
             #[cfg(feature = "postgres")]
-            Self::PostgresConn { executor, query } => Box::pin(MappedStream {
-                stream: executor.fetch_many(query.unwrap()),
-                map_left: AnyQueryResult::Postgres,
-                map_right: AnyRow::Postgres,
-            }),
+            Self::PostgresConn {
+                executor,
+                query,
+                span,
+            } => {
+                let span = span.finish();
+                Box::pin(MappedStream {
+                    stream: span.in_scope(|| executor.fetch_many(query.unwrap())),
+                    span,
+                    map_left: AnyQueryResult::Postgres,
+                    map_right: AnyRow::Postgres,
+                })
+            }
             #[cfg(feature = "sqlite")]
-            Self::SqlitePool { executor, query } => Box::pin(MappedStream {
-                stream: executor.fetch_many(query.unwrap()),
-                map_left: AnyQueryResult::Sqlite,
-                map_right: AnyRow::Sqlite,
-            }),
+            Self::SqlitePool {
+                executor,
+                query,
+                span,
+            } => {
+                let span = span.finish();
+                Box::pin(MappedStream {
+                    stream: span.in_scope(|| executor.fetch_many(query.unwrap())),
+                    span,
+                    map_left: AnyQueryResult::Sqlite,
+                    map_right: AnyRow::Sqlite,
+                })
+            }
             #[cfg(feature = "sqlite")]
-            Self::SqliteConn { executor, query } => Box::pin(MappedStream {
-                stream: executor.fetch_many(query.unwrap()),
-                map_left: AnyQueryResult::Sqlite,
-                map_right: AnyRow::Sqlite,
-            }),
+            Self::SqliteConn {
+                executor,
+                query,
+                span,
+            } => {
+                let span = span.finish();
+                Box::pin(MappedStream {
+                    stream: span.in_scope(|| executor.fetch_many(query.unwrap())),
+                    span,
+                    map_left: AnyQueryResult::Sqlite,
+                    map_right: AnyRow::Sqlite,
+                })
+            }
         }
     }
 
@@ -275,48 +318,76 @@ impl<'exe> AnyQuery<'exe> {
         let mut vec = Vec::new();
         match self {
             #[cfg(feature = "postgres")]
-            Self::PostgresPool { executor, query } => {
-                let mut stream = executor.fetch_many(query.unwrap());
-                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
-                    .await
-                    .transpose()?
+            Self::PostgresPool {
+                executor,
+                query,
+                span,
+            } => {
+                let mut span = span.finish();
+                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
+                while let Some(either) =
+                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
+                        .await
+                        .transpose()?
                 {
+                    span = Span::none(); // Drop span after first item
                     if let Some(row) = either.right() {
                         vec.push(AnyRow::Postgres(row));
                     }
                 }
             }
             #[cfg(feature = "postgres")]
-            Self::PostgresConn { executor, query } => {
-                let mut stream = executor.fetch_many(query.unwrap());
-                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
-                    .await
-                    .transpose()?
+            Self::PostgresConn {
+                executor,
+                query,
+                span,
+            } => {
+                let mut span = span.finish();
+                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
+                while let Some(either) =
+                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
+                        .await
+                        .transpose()?
                 {
+                    span = Span::none(); // Drop span after first item
                     if let Some(row) = either.right() {
                         vec.push(AnyRow::Postgres(row));
                     }
                 }
             }
             #[cfg(feature = "sqlite")]
-            Self::SqlitePool { executor, query } => {
-                let mut stream = executor.fetch_many(query.unwrap());
-                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
-                    .await
-                    .transpose()?
+            Self::SqlitePool {
+                executor,
+                query,
+                span,
+            } => {
+                let mut span = span.finish();
+                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
+                while let Some(either) =
+                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
+                        .await
+                        .transpose()?
                 {
+                    span = Span::none(); // Drop span after first item
                     if let Some(row) = either.right() {
                         vec.push(AnyRow::Sqlite(row));
                     }
                 }
             }
             #[cfg(feature = "sqlite")]
-            Self::SqliteConn { executor, query } => {
-                let mut stream = executor.fetch_many(query.unwrap());
-                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
-                    .await
-                    .transpose()?
+            Self::SqliteConn {
+                executor,
+                query,
+                span,
+            } => {
+                let mut span = span.finish();
+                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
+                while let Some(either) =
+                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
+                        .await
+                        .transpose()?
                 {
+                    span = Span::none(); // Drop span after first item
                     if let Some(row) = either.right() {
                         vec.push(AnyRow::Sqlite(row));
                     }
@@ -330,23 +401,43 @@ impl<'exe> AnyQuery<'exe> {
     pub async fn fetch_optional(self) -> sqlx::Result<Option<AnyRow>> {
         match self {
             #[cfg(feature = "postgres")]
-            Self::PostgresPool { executor, query } => executor
+            Self::PostgresPool {
+                executor,
+                query,
+                span,
+            } => executor
                 .fetch_optional(query.unwrap())
+                .instrument(span.finish())
                 .await
                 .map(|option| option.map(AnyRow::Postgres)),
             #[cfg(feature = "postgres")]
-            Self::PostgresConn { executor, query } => executor
+            Self::PostgresConn {
+                executor,
+                query,
+                span,
+            } => executor
                 .fetch_optional(query.unwrap())
+                .instrument(span.finish())
                 .await
                 .map(|option| option.map(AnyRow::Postgres)),
             #[cfg(feature = "sqlite")]
-            Self::SqlitePool { executor, query } => executor
+            Self::SqlitePool {
+                executor,
+                query,
+                span,
+            } => executor
                 .fetch_optional(query.unwrap())
+                .instrument(span.finish())
                 .await
                 .map(|option| option.map(AnyRow::Sqlite)),
             #[cfg(feature = "sqlite")]
-            Self::SqliteConn { executor, query } => executor
+            Self::SqliteConn {
+                executor,
+                query,
+                span,
+            } => executor
                 .fetch_optional(query.unwrap())
+                .instrument(span.finish())
                 .await
                 .map(|option| option.map(AnyRow::Sqlite)),
         }
@@ -357,12 +448,19 @@ impl<'exe> AnyQuery<'exe> {
         let mut count = 0;
         match self {
             #[cfg(feature = "postgres")]
-            Self::PostgresPool { executor, query } => {
-                let mut stream = executor.fetch_many(query.unwrap());
-                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
-                    .await
-                    .transpose()?
+            Self::PostgresPool {
+                executor,
+                query,
+                span,
+            } => {
+                let mut span = span.finish();
+                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
+                while let Some(either) =
+                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
+                        .await
+                        .transpose()?
                 {
+                    span = Span::none(); // Drop span after first item
                     match either {
                         sqlx::Either::Left(result) => count += result.rows_affected(),
                         sqlx::Either::Right(_row) => {}
@@ -370,12 +468,19 @@ impl<'exe> AnyQuery<'exe> {
                 }
             }
             #[cfg(feature = "postgres")]
-            Self::PostgresConn { executor, query } => {
-                let mut stream = executor.fetch_many(query.unwrap());
-                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
-                    .await
-                    .transpose()?
+            Self::PostgresConn {
+                executor,
+                query,
+                span,
+            } => {
+                let mut span = span.finish();
+                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
+                while let Some(either) =
+                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
+                        .await
+                        .transpose()?
                 {
+                    span = Span::none(); // Drop span after first item
                     match either {
                         sqlx::Either::Left(result) => count += result.rows_affected(),
                         sqlx::Either::Right(_row) => {}
@@ -383,12 +488,19 @@ impl<'exe> AnyQuery<'exe> {
                 }
             }
             #[cfg(feature = "sqlite")]
-            Self::SqlitePool { executor, query } => {
-                let mut stream = executor.fetch_many(query.unwrap());
-                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
-                    .await
-                    .transpose()?
+            Self::SqlitePool {
+                executor,
+                query,
+                span,
+            } => {
+                let mut span = span.finish();
+                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
+                while let Some(either) =
+                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
+                        .await
+                        .transpose()?
                 {
+                    span = Span::none(); // Drop span after first item
                     match either {
                         sqlx::Either::Left(result) => count += result.rows_affected(),
                         sqlx::Either::Right(_row) => {}
@@ -396,12 +508,19 @@ impl<'exe> AnyQuery<'exe> {
                 }
             }
             #[cfg(feature = "sqlite")]
-            Self::SqliteConn { executor, query } => {
-                let mut stream = executor.fetch_many(query.unwrap());
-                while let Some(either) = poll_fn(|ctx| stream.as_mut().poll_next(ctx))
-                    .await
-                    .transpose()?
+            Self::SqliteConn {
+                executor,
+                query,
+                span,
+            } => {
+                let mut span = span.finish();
+                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
+                while let Some(either) =
+                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
+                        .await
+                        .transpose()?
                 {
+                    span = Span::none(); // Drop span after first item
                     match either {
                         sqlx::Either::Left(result) => count += result.rows_affected(),
                         sqlx::Either::Right(_row) => {}
@@ -454,11 +573,13 @@ impl<'exe> AnyExecutor<'exe> for &'exe AnyPool {
         match self {
             #[cfg(feature = "postgres")]
             AnyPool::Postgres(pool) => AnyQuery::PostgresPool {
+                span: QuerySpanBuilder::new(&query),
                 executor: pool,
                 query: Some(sqlx::query(query)),
             },
             #[cfg(feature = "sqlite")]
             AnyPool::Sqlite(pool) => AnyQuery::SqlitePool {
+                span: QuerySpanBuilder::new(&query),
                 executor: pool,
                 query: Some(sqlx::query(query)),
             },
@@ -470,11 +591,13 @@ impl<'exe> AnyExecutor<'exe> for &'exe mut AnyTransaction {
         match self {
             #[cfg(feature = "postgres")]
             AnyTransaction::Postgres(tx) => AnyQuery::PostgresConn {
+                span: QuerySpanBuilder::new(&query),
                 executor: tx.deref_mut(),
                 query: Some(sqlx::query(query)),
             },
             #[cfg(feature = "sqlite")]
             AnyTransaction::Sqlite(tx) => AnyQuery::SqliteConn {
+                span: QuerySpanBuilder::new(&query),
                 executor: tx.deref_mut(),
                 query: Some(sqlx::query(query)),
             },
