@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::path::Path;
 
 use anyhow::{anyhow, Context};
-use rorm_db::executor::{Executor, Nothing, Optional};
+use rorm_db::executor::Executor;
 use rorm_db::sql::create_table::CreateTable;
 use rorm_db::transaction::{Transaction, TransactionError};
 use rorm_db::Database;
@@ -83,13 +83,14 @@ pub async fn run_migrate_custom(
         .with_context(|| "Couldn't create internal last migration table")?;
 
     let last_migration: Option<i32> = db
-        .execute::<Optional>(
+        .execute(
             format!(
                 "SELECT migration_id FROM {} ORDER BY id DESC LIMIT 1;",
                 last_migration_table_name
             ),
             Vec::new(),
         )
+        .optional()
         .await
         .and_then(|option| option.map(|row| row.get(0)).transpose().map_err(Into::into))
         .with_context(|| {
@@ -234,7 +235,7 @@ pub async fn create_last_migration_table(
         .build()?;
 
     for (query_string, bind_params) in statements {
-        tx.execute::<Nothing>(query_string, bind_params).await?;
+        tx.execute(query_string, bind_params).nothing().await?;
     }
 
     Ok(())

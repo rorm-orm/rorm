@@ -3,7 +3,6 @@
 //! **Beware:**
 //! `AnyQuery<'q>` and `AnyExecutor<'exe>` work quite different than `Query<'q, Any, _>` and `Executor<'e, Database = Any>`
 
-use std::future::poll_fn;
 use std::ops::DerefMut;
 use std::pin::Pin;
 use std::task::{ready, Context, Poll};
@@ -313,90 +312,6 @@ impl<'exe> AnyQuery<'exe> {
         }
     }
 
-    /// Execute the query and return all the generated results, collected into a `Vec`.
-    pub async fn fetch_all(self) -> sqlx::Result<Vec<AnyRow>> {
-        let mut vec = Vec::new();
-        match self {
-            #[cfg(feature = "postgres")]
-            Self::PostgresPool {
-                executor,
-                query,
-                span,
-            } => {
-                let mut span = span.finish();
-                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
-                while let Some(either) =
-                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
-                        .await
-                        .transpose()?
-                {
-                    span = Span::none(); // Drop span after first item
-                    if let Some(row) = either.right() {
-                        vec.push(AnyRow::Postgres(row));
-                    }
-                }
-            }
-            #[cfg(feature = "postgres")]
-            Self::PostgresConn {
-                executor,
-                query,
-                span,
-            } => {
-                let mut span = span.finish();
-                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
-                while let Some(either) =
-                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
-                        .await
-                        .transpose()?
-                {
-                    span = Span::none(); // Drop span after first item
-                    if let Some(row) = either.right() {
-                        vec.push(AnyRow::Postgres(row));
-                    }
-                }
-            }
-            #[cfg(feature = "sqlite")]
-            Self::SqlitePool {
-                executor,
-                query,
-                span,
-            } => {
-                let mut span = span.finish();
-                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
-                while let Some(either) =
-                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
-                        .await
-                        .transpose()?
-                {
-                    span = Span::none(); // Drop span after first item
-                    if let Some(row) = either.right() {
-                        vec.push(AnyRow::Sqlite(row));
-                    }
-                }
-            }
-            #[cfg(feature = "sqlite")]
-            Self::SqliteConn {
-                executor,
-                query,
-                span,
-            } => {
-                let mut span = span.finish();
-                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
-                while let Some(either) =
-                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
-                        .await
-                        .transpose()?
-                {
-                    span = Span::none(); // Drop span after first item
-                    if let Some(row) = either.right() {
-                        vec.push(AnyRow::Sqlite(row));
-                    }
-                }
-            }
-        }
-        Ok(vec)
-    }
-
     /// Execute the query and returns at most one row.
     pub async fn fetch_optional(self) -> sqlx::Result<Option<AnyRow>> {
         match self {
@@ -441,94 +356,6 @@ impl<'exe> AnyQuery<'exe> {
                 .await
                 .map(|option| option.map(AnyRow::Sqlite)),
         }
-    }
-
-    /// Execute the query and return the number of affected rows.
-    pub async fn fetch_affected_rows(self) -> sqlx::Result<u64> {
-        let mut count = 0;
-        match self {
-            #[cfg(feature = "postgres")]
-            Self::PostgresPool {
-                executor,
-                query,
-                span,
-            } => {
-                let mut span = span.finish();
-                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
-                while let Some(either) =
-                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
-                        .await
-                        .transpose()?
-                {
-                    span = Span::none(); // Drop span after first item
-                    match either {
-                        sqlx::Either::Left(result) => count += result.rows_affected(),
-                        sqlx::Either::Right(_row) => {}
-                    }
-                }
-            }
-            #[cfg(feature = "postgres")]
-            Self::PostgresConn {
-                executor,
-                query,
-                span,
-            } => {
-                let mut span = span.finish();
-                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
-                while let Some(either) =
-                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
-                        .await
-                        .transpose()?
-                {
-                    span = Span::none(); // Drop span after first item
-                    match either {
-                        sqlx::Either::Left(result) => count += result.rows_affected(),
-                        sqlx::Either::Right(_row) => {}
-                    }
-                }
-            }
-            #[cfg(feature = "sqlite")]
-            Self::SqlitePool {
-                executor,
-                query,
-                span,
-            } => {
-                let mut span = span.finish();
-                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
-                while let Some(either) =
-                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
-                        .await
-                        .transpose()?
-                {
-                    span = Span::none(); // Drop span after first item
-                    match either {
-                        sqlx::Either::Left(result) => count += result.rows_affected(),
-                        sqlx::Either::Right(_row) => {}
-                    }
-                }
-            }
-            #[cfg(feature = "sqlite")]
-            Self::SqliteConn {
-                executor,
-                query,
-                span,
-            } => {
-                let mut span = span.finish();
-                let mut stream = span.in_scope(|| executor.fetch_many(query.unwrap()));
-                while let Some(either) =
-                    poll_fn(|ctx| span.in_scope(|| stream.as_mut().poll_next(ctx)))
-                        .await
-                        .transpose()?
-                {
-                    span = Span::none(); // Drop span after first item
-                    match either {
-                        sqlx::Either::Left(result) => count += result.rows_affected(),
-                        sqlx::Either::Right(_row) => {}
-                    }
-                }
-            }
-        }
-        Ok(count)
     }
 }
 

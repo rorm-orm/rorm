@@ -1,6 +1,6 @@
 //! Contains two functions to apply a single migration or a single operation
 
-use rorm_db::executor::{Executor, Nothing};
+use rorm_db::executor::Executor;
 use rorm_db::sql::alter_table::{AlterColumnOperation, AlterTable, AlterTableOperation};
 use rorm_db::sql::create_index::CreateIndex;
 use rorm_db::sql::create_table::CreateTable;
@@ -53,7 +53,8 @@ pub async fn apply_migration(
         .rollback_transaction()
         .build();
 
-    tx.execute::<Nothing>(query_string, bind_params)
+    tx.execute(query_string, bind_params)
+        .nothing()
         .await
         .map_err(|error| ApplyMigrationError {
             error,
@@ -132,7 +133,8 @@ pub async fn apply_operation(
             let statements = create_table.build()?;
 
             for (query_string, query_bind_params) in statements {
-                tx.execute::<Nothing>(query_string, query_bind_params)
+                tx.execute(query_string, query_bind_params)
+                    .nothing()
                     .await?;
             }
         }
@@ -147,14 +149,15 @@ pub async fn apply_operation(
                 .build()?;
 
             for (query_string, query_bind_params) in statements {
-                tx.execute::<Nothing>(query_string, query_bind_params)
+                tx.execute(query_string, query_bind_params)
+                    .nothing()
                     .await?;
             }
         }
         Operation::DeleteModel { name } => {
             let query_string = db_impl.drop_table(name.as_str()).build();
 
-            tx.execute::<Nothing>(query_string, Vec::new()).await?;
+            tx.execute(query_string, Vec::new()).nothing().await?;
         }
         Operation::CreateField { model, field } => {
             let statements = db_impl
@@ -172,7 +175,8 @@ pub async fn apply_operation(
                 .build()?;
 
             for (query_string, query_bind_params) in statements {
-                tx.execute::<Nothing>(query_string, query_bind_params)
+                tx.execute(query_string, query_bind_params)
+                    .nothing()
                     .await?;
             }
         }
@@ -192,7 +196,8 @@ pub async fn apply_operation(
                 .build()?;
 
             for (query_string, query_bind_params) in statements {
-                tx.execute::<Nothing>(query_string, query_bind_params)
+                tx.execute(query_string, query_bind_params)
+                    .nothing()
                     .await?;
             }
         }
@@ -238,7 +243,8 @@ pub async fn apply_operation(
                 .build()?;
 
             for (query_string, query_bind_params) in statements {
-                tx.execute::<Nothing>(query_string, query_bind_params)
+                tx.execute(query_string, query_bind_params)
+                    .nothing()
                     .await?;
             }
         }
@@ -250,22 +256,23 @@ pub async fn apply_operation(
                 create_index = create_index.add_column(column.as_str());
             }
 
-            tx.execute::<Nothing>(create_index.build()?, Vec::new())
+            tx.execute(create_index.build()?, Vec::new())
+                .nothing()
                 .await?;
         }
         Operation::DeleteIndex { model, index } => {
             let query_string = db_impl.drop_index(index.sql_name(model).as_str()).build();
 
-            tx.execute::<Nothing>(query_string, Vec::new()).await?;
+            tx.execute(query_string, Vec::new()).nothing().await?;
         }
         #[allow(unused_variables)]
         Operation::RawSQL {
             postgres, sqlite, ..
         } => match db_impl {
             #[cfg(feature = "sqlite")]
-            DBImpl::SQLite => tx.execute::<Nothing>(sqlite.clone(), Vec::new()).await?,
+            DBImpl::SQLite => tx.execute(sqlite.clone(), Vec::new()).nothing().await?,
             #[cfg(feature = "postgres")]
-            DBImpl::Postgres => tx.execute::<Nothing>(postgres.clone(), Vec::new()).await?,
+            DBImpl::Postgres => tx.execute(postgres.clone(), Vec::new()).nothing().await?,
         },
     }
 
@@ -289,7 +296,8 @@ async fn alter_column(
         .build()?;
 
     for (query_string, query_bind_params) in statements {
-        tx.execute::<Nothing>(query_string, query_bind_params)
+        tx.execute(query_string, query_bind_params)
+            .nothing()
             .await?;
     }
 

@@ -16,20 +16,15 @@ use rorm_sql::value::Value;
 use tracing::warn;
 
 use crate::error::Error;
-use crate::executor::AffectedRows;
-use crate::executor::All;
-use crate::executor::Executor;
-use crate::executor::Nothing;
-use crate::executor::One;
-use crate::executor::QueryStrategy;
+use crate::executor::{Executor, Query};
 use crate::internal::any::AnyPool;
-use crate::query_type::GetLimitClause;
+use crate::query_type::QueryType;
 use crate::row::Row;
 use crate::transaction::Transaction;
 use crate::transaction::TransactionError;
 
 /**
-Type alias for [`SelectColumnData`]..
+Type alias for [`SelectColumnData`].
 
 As all databases use currently the same fields, a type alias is sufficient.
 */
@@ -160,7 +155,7 @@ impl Drop for Database {
 ///   (for [`All`] and [`Stream`](crate::executor::Stream))
 ///   or a simple [`u64`] (for [`One`] and [`Optional`](crate::executor::Optional)).
 #[allow(clippy::too_many_arguments)] // TODO: refactor this API, clippy is right
-pub fn query<'exe, 'data, Q: QueryStrategy + GetLimitClause>(
+pub fn query<'exe, 'data, Q: QueryType>(
     executor: impl Executor<'exe>,
     model: &str,
     columns: &[ColumnSelector<'data>],
@@ -216,7 +211,7 @@ pub fn query<'exe, 'data, Q: QueryStrategy + GetLimitClause>(
 
     let (query_string, bind_params) = q.build();
 
-    executor.execute::<Q>(query_string, bind_params)
+    Q::execute(executor.execute(query_string, bind_params))
 }
 
 /// Inserts a single row and returns columns from it.
@@ -233,7 +228,9 @@ pub async fn insert_returning(
     values: &[Value<'_>],
     returning: &[&str],
 ) -> Result<Row, Error> {
-    generic_insert::<One>(executor, model, columns, values, Some(returning)).await
+    generic_insert(executor, model, columns, values, Some(returning))
+        .one()
+        .await
 }
 
 /// Inserts a single row.
@@ -248,25 +245,27 @@ pub async fn insert(
     columns: &[&str],
     values: &[Value<'_>],
 ) -> Result<(), Error> {
-    generic_insert::<Nothing>(executor, model, columns, values, None).await
+    generic_insert(executor, model, columns, values, None)
+        .nothing()
+        .await
 }
 
 /// Generic implementation of:
 /// - [`Database::insert`]
 /// - [`Database::insert_returning`]
-pub(crate) fn generic_insert<'exe, Q: QueryStrategy>(
+pub(crate) fn generic_insert<'exe>(
     executor: impl Executor<'exe>,
     model: &str,
     columns: &[&str],
     values: &[Value<'_>],
     returning: Option<&[&str]>,
-) -> Q::Result<'exe> {
+) -> Query<'exe> {
     let values = &[values];
     let q = executor.dialect().insert(model, columns, values, returning);
 
     let (query_string, bind_params) = q.build();
 
-    executor.execute::<Q>(query_string, bind_params)
+    executor.execute(query_string, bind_params)
 }
 
 /// This method is used to bulk insert rows.
@@ -291,7 +290,7 @@ pub async fn insert_bulk(
         insert = insert.rollback_transaction();
         let (insert_query, insert_params) = insert.build();
 
-        tr.execute::<Nothing>(insert_query, insert_params).await?;
+        tr.execute(insert_query, insert_params).nothing().await?;
     }
 
     tr.commit_if_owned().await.map_err(|x| match x {
@@ -328,7 +327,7 @@ pub async fn insert_bulk_returning(
         insert = insert.rollback_transaction();
         let (insert_query, insert_params) = insert.build();
 
-        inserted.extend(tr.execute::<All>(insert_query, insert_params).await?);
+        inserted.extend(tr.execute(insert_query, insert_params).all().await?);
     }
 
     tr.commit_if_owned().await.map_err(|x| match x {
@@ -363,7 +362,8 @@ pub async fn delete<'post_build>(
     let (query_string, bind_params) = q.build();
 
     executor
-        .execute::<AffectedRows>(query_string, bind_params)
+        .execute(query_string, bind_params)
+        .affected_rows()
         .await
 }
 
@@ -397,6 +397,7 @@ pub async fn update<'post_build>(
     let (query_string, bind_params) = stmt.build()?;
 
     executor
-        .execute::<AffectedRows>(query_string, bind_params)
+        .execute(query_string, bind_params)
+        .affected_rows()
         .await
 }

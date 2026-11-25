@@ -421,8 +421,6 @@ mod query_stream {
     use std::task::Context;
     use std::task::Poll;
 
-    use rorm_db::executor::QueryStrategyResult;
-    use rorm_db::executor::Stream;
     use rorm_db::Error;
 
     use crate::crud::decoder::Decoder;
@@ -442,7 +440,7 @@ mod query_stream {
         ctx: Box<QueryContext<'cond>>,
 
         #[pin]
-        stream: <Stream as QueryStrategyResult>::Result<'this>,
+        stream: rorm_db::executor::QueryStream<'this>,
     }
 
     impl<'this, 'cond: 'this, D> QueryStream<'this, 'cond, D> {
@@ -451,7 +449,7 @@ mod query_stream {
             ctx: QueryContext<'cond>,
             stream_builder: impl FnOnce(
                 &'this QueryContext<'cond>,
-            ) -> <Stream as QueryStrategyResult>::Result<'this>,
+            ) -> rorm_db::executor::QueryStream<'this>,
         ) -> Self {
             unsafe fn change_lifetime<'old, 'new: 'old, T: 'new + ?Sized>(
                 data: &'old T,
