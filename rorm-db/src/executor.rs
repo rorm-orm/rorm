@@ -6,10 +6,10 @@ use rorm_sql::DBImpl;
 use std::future::Future;
 use std::mem;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll};
 
-use crate::futures_util::{BoxFuture, BoxStream};
-use crate::internal::any::{AnyQueryResult, AnyRow};
+use crate::futures_util::BoxFuture;
+use crate::internal::any::{AnyFetchMany, AnyRow};
 use crate::transaction::{MaybeOwnedTransaction, Transaction};
 use crate::{internal, Database, Error, Row};
 
@@ -196,7 +196,7 @@ impl<'exe> FetchGeneric<'exe> {
 /// `Future` returned by [`Executor::fetch_nothing`]
 #[must_use = "Futures must be polled"]
 pub struct FetchNothing<'exe> {
-    stream: BoxStream<'exe, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>>,
+    stream: AnyFetchMany<'exe>,
 }
 impl<'exe> From<FetchGeneric<'exe>> for FetchNothing<'exe> {
     fn from(value: FetchGeneric<'exe>) -> Self {
@@ -210,7 +210,7 @@ impl Future for FetchNothing<'_> {
     type Output = Result<(), Error>;
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
-            match self.stream.as_mut().poll_next(cx) {
+            match Pin::new(&mut self.stream).poll_next(cx) {
                 Poll::Pending => return Poll::Pending,
                 Poll::Ready(None) => return Poll::Ready(Ok(())),
                 Poll::Ready(Some(Err(x))) => return Poll::Ready(Err(x.into())),
@@ -224,7 +224,7 @@ impl Future for FetchNothing<'_> {
 #[must_use = "Futures must be polled"]
 pub struct FetchAffectedRows<'exe> {
     count: u64,
-    stream: BoxStream<'exe, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>>,
+    stream: AnyFetchMany<'exe>,
 }
 impl<'exe> From<FetchGeneric<'exe>> for FetchAffectedRows<'exe> {
     fn from(value: FetchGeneric<'exe>) -> Self {
@@ -240,7 +240,7 @@ impl Future for FetchAffectedRows<'_> {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
-            match self.stream.as_mut().poll_next(cx) {
+            match Pin::new(&mut self.stream).poll_next(cx) {
                 Poll::Pending => return Poll::Pending,
                 Poll::Ready(None) => return Poll::Ready(Ok(self.count)),
                 Poll::Ready(Some(Err(x))) => return Poll::Ready(Err(x.into())),
@@ -310,7 +310,7 @@ impl Future for FetchOne<'_> {
 #[must_use = "Futures must be polled"]
 pub struct FetchAll<'exe> {
     vec: Vec<Row>,
-    stream: BoxStream<'exe, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>>,
+    stream: AnyFetchMany<'exe>,
 }
 impl<'exe> From<FetchGeneric<'exe>> for FetchAll<'exe> {
     fn from(value: FetchGeneric<'exe>) -> Self {
@@ -325,7 +325,7 @@ impl Future for FetchAll<'_> {
     type Output = Result<Vec<Row>, Error>;
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
-            match self.stream.as_mut().poll_next(cx) {
+            match Pin::new(&mut self.stream).poll_next(cx) {
                 Poll::Pending => return Poll::Pending,
                 Poll::Ready(None) => return Poll::Ready(Ok(mem::take(&mut self.vec))),
                 Poll::Ready(Some(Err(x))) => return Poll::Ready(Err(x.into())),
@@ -342,7 +342,7 @@ impl Future for FetchAll<'_> {
 /// `Stream` returned by [`Executor::fetch_stream`]
 #[must_use = "Streams must be polled"]
 pub struct FetchStream<'exe> {
-    stream: BoxStream<'exe, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>>,
+    stream: AnyFetchMany<'exe>,
 }
 impl<'exe> From<FetchGeneric<'exe>> for FetchStream<'exe> {
     fn from(value: FetchGeneric<'exe>) -> Self {
@@ -357,12 +357,15 @@ impl Stream for FetchStream<'_> {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
-            return Poll::Ready(match ready!(self.stream.as_mut().poll_next(cx)) {
-                None => None,
-                Some(Err(error)) => Some(Err(error.into())),
-                Some(Ok(sqlx::Either::Right(row))) => Some(Ok(Row(row))),
-                Some(Ok(sqlx::Either::Left(_))) => continue,
-            });
+            match Pin::new(&mut self.stream).poll_next(cx) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(None) => return Poll::Ready(None),
+                Poll::Ready(Some(Err(x))) => return Poll::Ready(Some(Err(x.into()))),
+                Poll::Ready(Some(Ok(sqlx::Either::Right(row)))) => {
+                    return Poll::Ready(Some(Ok(Row(row))))
+                }
+                Poll::Ready(Some(Ok(sqlx::Either::Left(_)))) => continue,
+            }
         }
     }
 }
@@ -370,7 +373,7 @@ impl Stream for FetchStream<'_> {
 /// `Stream` returned by [`Executor::fetch_raw`]
 #[must_use = "Streams must be polled"]
 pub struct FetchRaw<'exe> {
-    stream: BoxStream<'exe, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>>,
+    stream: AnyFetchMany<'exe>,
 }
 impl<'exe> From<FetchGeneric<'exe>> for FetchRaw<'exe> {
     fn from(value: FetchGeneric<'exe>) -> Self {
@@ -385,11 +388,12 @@ impl Stream for FetchRaw<'_> {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
-            return Poll::Ready(match ready!(self.stream.as_mut().poll_next(cx)) {
-                None => None,
-                Some(Err(error)) => Some(Err(error.into())),
-                Some(Ok(_either)) => todo!(),
-            });
+            match Pin::new(&mut self.stream).poll_next(cx) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(None) => return Poll::Ready(None),
+                Poll::Ready(Some(Err(x))) => return Poll::Ready(Some(Err(x.into()))),
+                Poll::Ready(Some(Ok(_))) => todo!(),
+            }
         }
     }
 }

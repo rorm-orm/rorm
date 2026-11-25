@@ -228,30 +228,7 @@ impl<'exe> AnyQuery<'exe> {
     }
 
     /// Execute the query and return the generated results in a stream.
-    pub fn fetch_many(self) -> BoxStream<'exe, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>> {
-        struct MappedStream<'stream, LI, LM, RI, RM> {
-            stream: BoxStream<'stream, sqlx::Result<sqlx::Either<LI, RI>>>,
-            span: Span,
-            map_left: LM,
-            map_right: RM,
-        }
-        impl<LI, LM, RI, RM> Unpin for MappedStream<'_, LI, LM, RI, RM> {}
-        impl<LI, LM, RI, RM> Stream for MappedStream<'_, LI, LM, RI, RM>
-        where
-            LM: Fn(LI) -> AnyQueryResult,
-            RM: Fn(RI) -> AnyRow,
-        {
-            type Item = sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>;
-
-            fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-                let this = self.get_mut();
-                let opt = ready!(this.span.in_scope(|| this.stream.as_mut().poll_next(cx)));
-                this.span = Span::none(); // Drop span after first item
-                Poll::Ready(opt.map(|res| {
-                    res.map(|either| either.map_left(&this.map_left).map_right(&this.map_right))
-                }))
-            }
-        }
+    pub fn fetch_many(self) -> AnyFetchMany<'exe> {
         match self {
             #[cfg(feature = "postgres")]
             Self::PostgresPool {
@@ -260,12 +237,10 @@ impl<'exe> AnyQuery<'exe> {
                 span,
             } => {
                 let span = span.finish();
-                Box::pin(MappedStream {
+                AnyFetchMany::Postgres {
                     stream: span.in_scope(|| executor.fetch_many(query.unwrap())),
                     span,
-                    map_left: AnyQueryResult::Postgres,
-                    map_right: AnyRow::Postgres,
-                })
+                }
             }
             #[cfg(feature = "postgres")]
             Self::PostgresConn {
@@ -274,12 +249,10 @@ impl<'exe> AnyQuery<'exe> {
                 span,
             } => {
                 let span = span.finish();
-                Box::pin(MappedStream {
+                AnyFetchMany::Postgres {
                     stream: span.in_scope(|| executor.fetch_many(query.unwrap())),
                     span,
-                    map_left: AnyQueryResult::Postgres,
-                    map_right: AnyRow::Postgres,
-                })
+                }
             }
             #[cfg(feature = "sqlite")]
             Self::SqlitePool {
@@ -288,12 +261,10 @@ impl<'exe> AnyQuery<'exe> {
                 span,
             } => {
                 let span = span.finish();
-                Box::pin(MappedStream {
+                AnyFetchMany::Sqlite {
                     stream: span.in_scope(|| executor.fetch_many(query.unwrap())),
                     span,
-                    map_left: AnyQueryResult::Sqlite,
-                    map_right: AnyRow::Sqlite,
-                })
+                }
             }
             #[cfg(feature = "sqlite")]
             Self::SqliteConn {
@@ -302,12 +273,10 @@ impl<'exe> AnyQuery<'exe> {
                 span,
             } => {
                 let span = span.finish();
-                Box::pin(MappedStream {
+                AnyFetchMany::Sqlite {
                     stream: span.in_scope(|| executor.fetch_many(query.unwrap())),
                     span,
-                    map_left: AnyQueryResult::Sqlite,
-                    map_right: AnyRow::Sqlite,
-                })
+                }
             }
         }
     }
@@ -355,6 +324,60 @@ impl<'exe> AnyQuery<'exe> {
                 .instrument(span.finish())
                 .await
                 .map(|option| option.map(AnyRow::Sqlite)),
+        }
+    }
+}
+
+/// [`Stream`] returned by [`AnyQuery::fetch_many`]
+pub enum AnyFetchMany<'stream> {
+    #[cfg(feature = "postgres")]
+    Postgres {
+        stream: BoxStream<
+            'stream,
+            sqlx::Result<sqlx::Either<postgres::PgQueryResult, postgres::PgRow>>,
+        >,
+        span: Span,
+    },
+    #[cfg(feature = "sqlite")]
+    Sqlite {
+        stream: BoxStream<
+            'stream,
+            sqlx::Result<sqlx::Either<sqlite::SqliteQueryResult, sqlite::SqliteRow>>,
+        >,
+        span: Span,
+    },
+}
+impl Unpin for AnyFetchMany<'_> {}
+impl Stream for AnyFetchMany<'_> {
+    type Item = sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+        match this {
+            #[cfg(feature = "postgres")]
+            AnyFetchMany::Postgres { stream, span } => {
+                let opt = ready!(span.in_scope(|| stream.as_mut().poll_next(cx)));
+                *span = Span::none(); // Drop span after first item
+                Poll::Ready(opt.map(|res| {
+                    res.map(|either| {
+                        either
+                            .map_left(AnyQueryResult::Postgres)
+                            .map_right(AnyRow::Postgres)
+                    })
+                }))
+            }
+            #[cfg(feature = "sqlite")]
+            AnyFetchMany::Sqlite { stream, span } => {
+                let opt = ready!(span.in_scope(|| stream.as_mut().poll_next(cx)));
+                *span = Span::none(); // Drop span after first item
+                Poll::Ready(opt.map(|res| {
+                    res.map(|either| {
+                        either
+                            .map_left(AnyQueryResult::Sqlite)
+                            .map_right(AnyRow::Sqlite)
+                    })
+                }))
+            }
         }
     }
 }
