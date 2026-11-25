@@ -3,7 +3,7 @@
 //! Unlike sqlx's Executor which provides several separate methods for different querying strategies,
 //! our [`Executor`] has a single method which is generic using the [`QueryStrategy`] trait.
 
-use futures_core::Stream as StreamTrait;
+use futures_core::Stream;
 use rorm_sql::value::Value;
 use rorm_sql::DBImpl;
 use std::future::Future;
@@ -200,6 +200,7 @@ impl<'exe> FetchGeneric<'exe> {
 }
 
 /// `Future` returned by [`Executor::fetch_nothing`]
+#[must_use = "Futures must be polled"]
 pub struct FetchNothing<'exe> {
     stream: BoxStream<'exe, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>>,
 }
@@ -226,6 +227,7 @@ impl Future for FetchNothing<'_> {
 }
 
 /// `Future` returned by [`Executor::fetch_affected_rows`]
+#[must_use = "Futures must be polled"]
 pub struct FetchAffectedRows<'exe> {
     count: u64,
     stream: BoxStream<'exe, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>>,
@@ -259,6 +261,7 @@ impl Future for FetchAffectedRows<'_> {
 }
 
 /// `Future` returned by [`Executor::fetch_optional`]
+#[must_use = "Futures must be polled"]
 pub struct FetchOptional<'exe> {
     future: BoxFuture<'exe, sqlx::Result<Option<AnyRow>>>,
 }
@@ -284,6 +287,7 @@ impl Future for FetchOptional<'_> {
 }
 
 /// `Future` returned by [`Executor::fetch_one`]
+#[must_use = "Futures must be polled"]
 pub struct FetchOne<'exe> {
     future: BoxFuture<'exe, sqlx::Result<Option<AnyRow>>>,
 }
@@ -309,6 +313,7 @@ impl Future for FetchOne<'_> {
 }
 
 /// `Future` returned by [`Executor::fetch_all`]
+#[must_use = "Futures must be polled"]
 pub struct FetchAll<'exe> {
     vec: Vec<Row>,
     stream: BoxStream<'exe, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>>,
@@ -341,6 +346,7 @@ impl Future for FetchAll<'_> {
 }
 
 /// `Stream` returned by [`Executor::fetch_stream`]
+#[must_use = "Streams must be polled"]
 pub struct FetchStream<'exe> {
     stream: BoxStream<'exe, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>>,
 }
@@ -352,7 +358,7 @@ impl<'exe> From<FetchGeneric<'exe>> for FetchStream<'exe> {
     }
 }
 impl Unpin for FetchStream<'_> {}
-impl StreamTrait for FetchStream<'_> {
+impl Stream for FetchStream<'_> {
     type Item = Result<Row, Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -368,6 +374,7 @@ impl StreamTrait for FetchStream<'_> {
 }
 
 /// `Stream` returned by [`Executor::fetch_raw`]
+#[must_use = "Streams must be polled"]
 pub struct FetchRaw<'exe> {
     stream: BoxStream<'exe, sqlx::Result<sqlx::Either<AnyQueryResult, AnyRow>>>,
 }
@@ -379,7 +386,7 @@ impl<'exe> From<FetchGeneric<'exe>> for FetchRaw<'exe> {
     }
 }
 impl Unpin for FetchRaw<'_> {}
-impl StreamTrait for FetchRaw<'_> {
+impl Stream for FetchRaw<'_> {
     type Item = Result<!, Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
