@@ -9,7 +9,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use crate::futures_util::BoxFuture;
-use crate::internal::any::{AnyFetchMany, AnyRow};
+use crate::internal::any::{AnyFetchMany, AnyFetchOptional};
 use crate::transaction::{MaybeOwnedTransaction, Transaction};
 use crate::{internal, Database, Error, Row};
 
@@ -257,12 +257,12 @@ impl Future for FetchAffectedRows<'_> {
 /// `Future` returned by [`Executor::fetch_optional`]
 #[must_use = "Futures must be polled"]
 pub struct FetchOptional<'exe> {
-    future: BoxFuture<'exe, sqlx::Result<Option<AnyRow>>>,
+    future: AnyFetchOptional<'exe>,
 }
 impl<'exe> From<FetchGeneric<'exe>> for FetchOptional<'exe> {
     fn from(value: FetchGeneric<'exe>) -> Self {
         Self {
-            future: Box::pin(value.inner.fetch_optional()),
+            future: value.inner.fetch_optional(),
         }
     }
 }
@@ -271,7 +271,7 @@ impl Future for FetchOptional<'_> {
     type Output = Result<Option<Row>, Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.future.as_mut().poll(cx) {
+        match Pin::new(&mut self.future).poll(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(Err(x)) => Poll::Ready(Err(x.into())),
             Poll::Ready(Ok(None)) => Poll::Ready(Ok(None)),
@@ -283,12 +283,12 @@ impl Future for FetchOptional<'_> {
 /// `Future` returned by [`Executor::fetch_one`]
 #[must_use = "Futures must be polled"]
 pub struct FetchOne<'exe> {
-    future: BoxFuture<'exe, sqlx::Result<Option<AnyRow>>>,
+    future: AnyFetchOptional<'exe>,
 }
 impl<'exe> From<FetchGeneric<'exe>> for FetchOne<'exe> {
     fn from(value: FetchGeneric<'exe>) -> Self {
         Self {
-            future: Box::pin(value.inner.fetch_optional()),
+            future: value.inner.fetch_optional(),
         }
     }
 }
@@ -297,7 +297,7 @@ impl Future for FetchOne<'_> {
     type Output = Result<Row, Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.future.as_mut().poll(cx) {
+        match Pin::new(&mut self.future).poll(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(Err(x)) => Poll::Ready(Err(x.into())),
             Poll::Ready(Ok(None)) => Poll::Ready(Err(sqlx::Error::RowNotFound.into())),

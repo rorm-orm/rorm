@@ -3,12 +3,13 @@
 //! **Beware:**
 //! `AnyQuery<'q>` and `AnyExecutor<'exe>` work quite different than `Query<'q, Any, _>` and `Executor<'e, Database = Any>`
 
+use std::future::Future;
 use std::ops::DerefMut;
 use std::pin::Pin;
 use std::task::{ready, Context, Poll};
 use std::time::Duration;
 
-use crate::futures_util::BoxStream;
+use crate::futures_util::{BoxFuture, BoxStream};
 use crate::internal::query_span::QuerySpanBuilder;
 use crate::{DatabaseConfiguration, Error};
 use futures_core::Stream;
@@ -20,7 +21,7 @@ use sqlx::{postgres, Postgres};
 use sqlx::{sqlite, Sqlite};
 use sqlx::{ConnectOptions, Executor, Pool, SqlStr, Transaction};
 use tracing::log::LevelFilter;
-use tracing::{Instrument, Span};
+use tracing::Span;
 
 /// Enum around [`Pool<DB>`]
 #[derive(Clone, Debug)]
@@ -282,48 +283,44 @@ impl<'exe> AnyQuery<'exe> {
     }
 
     /// Execute the query and returns at most one row.
-    pub async fn fetch_optional(self) -> sqlx::Result<Option<AnyRow>> {
+    pub fn fetch_optional(self) -> AnyFetchOptional<'exe> {
         match self {
             #[cfg(feature = "postgres")]
             Self::PostgresPool {
                 executor,
                 query,
                 span,
-            } => executor
-                .fetch_optional(query.unwrap())
-                .instrument(span.finish())
-                .await
-                .map(|option| option.map(AnyRow::Postgres)),
+            } => AnyFetchOptional::Postgres {
+                future: executor.fetch_optional(query.unwrap()),
+                span: span.finish(),
+            },
             #[cfg(feature = "postgres")]
             Self::PostgresConn {
                 executor,
                 query,
                 span,
-            } => executor
-                .fetch_optional(query.unwrap())
-                .instrument(span.finish())
-                .await
-                .map(|option| option.map(AnyRow::Postgres)),
+            } => AnyFetchOptional::Postgres {
+                future: executor.fetch_optional(query.unwrap()),
+                span: span.finish(),
+            },
             #[cfg(feature = "sqlite")]
             Self::SqlitePool {
                 executor,
                 query,
                 span,
-            } => executor
-                .fetch_optional(query.unwrap())
-                .instrument(span.finish())
-                .await
-                .map(|option| option.map(AnyRow::Sqlite)),
+            } => AnyFetchOptional::Sqlite {
+                future: executor.fetch_optional(query.unwrap()),
+                span: span.finish(),
+            },
             #[cfg(feature = "sqlite")]
             Self::SqliteConn {
                 executor,
                 query,
                 span,
-            } => executor
-                .fetch_optional(query.unwrap())
-                .instrument(span.finish())
-                .await
-                .map(|option| option.map(AnyRow::Sqlite)),
+            } => AnyFetchOptional::Sqlite {
+                future: executor.fetch_optional(query.unwrap()),
+                span: span.finish(),
+            },
         }
     }
 }
@@ -355,7 +352,7 @@ impl Stream for AnyFetchMany<'_> {
         let this = self.get_mut();
         match this {
             #[cfg(feature = "postgres")]
-            AnyFetchMany::Postgres { stream, span } => {
+            Self::Postgres { stream, span } => {
                 let opt = ready!(span.in_scope(|| stream.as_mut().poll_next(cx)));
                 *span = Span::none(); // Drop span after first item
                 Poll::Ready(opt.map(|res| {
@@ -367,7 +364,7 @@ impl Stream for AnyFetchMany<'_> {
                 }))
             }
             #[cfg(feature = "sqlite")]
-            AnyFetchMany::Sqlite { stream, span } => {
+            Self::Sqlite { stream, span } => {
                 let opt = ready!(span.in_scope(|| stream.as_mut().poll_next(cx)));
                 *span = Span::none(); // Drop span after first item
                 Poll::Ready(opt.map(|res| {
@@ -377,6 +374,42 @@ impl Stream for AnyFetchMany<'_> {
                             .map_right(AnyRow::Sqlite)
                     })
                 }))
+            }
+        }
+    }
+}
+
+/// [`Future`] returned by [`AnyQuery::fetch_optional`]
+pub enum AnyFetchOptional<'exe> {
+    #[cfg(feature = "postgres")]
+    Postgres {
+        future: BoxFuture<'exe, sqlx::Result<Option<postgres::PgRow>>>,
+        span: Span,
+    },
+    #[cfg(feature = "sqlite")]
+    Sqlite {
+        future: BoxFuture<'exe, sqlx::Result<Option<sqlite::SqliteRow>>>,
+        span: Span,
+    },
+}
+impl Unpin for AnyFetchOptional<'_> {}
+impl Future for AnyFetchOptional<'_> {
+    type Output = sqlx::Result<Option<AnyRow>>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.get_mut();
+        match this {
+            #[cfg(feature = "postgres")]
+            Self::Postgres { future, span } => {
+                let res = ready!(span.in_scope(|| future.as_mut().poll(cx)));
+                *span = Span::none(); // Drop span after first item
+                Poll::Ready(res.map(|opt| opt.map(AnyRow::Postgres)))
+            }
+            #[cfg(feature = "sqlite")]
+            Self::Sqlite { future, span } => {
+                let res = ready!(span.in_scope(|| future.as_mut().poll(cx)));
+                *span = Span::none(); // Drop span after first item
+                Poll::Ready(res.map(|opt| opt.map(AnyRow::Sqlite)))
             }
         }
     }
