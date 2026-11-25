@@ -13,10 +13,6 @@ use std::task::{ready, Context, Poll};
 
 use crate::futures_util::{BoxFuture, BoxStream};
 use crate::internal::any::{AnyQueryResult, AnyRow};
-pub use crate::query_type::All;
-pub use crate::query_type::One;
-pub use crate::query_type::Optional;
-pub use crate::query_type::Stream;
 use crate::transaction::{MaybeOwnedTransaction, Transaction};
 use crate::{internal, Database, Error, Row};
 

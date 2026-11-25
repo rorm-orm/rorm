@@ -142,7 +142,7 @@ impl Drop for Database {
 
 /// Executes a simple `SELECT` query.
 ///
-/// It is generic over a [`QueryStrategy`] which specifies how and how many rows to query.
+/// It is generic over a [`QueryType`] which specifies how and how many rows to query.
 ///
 /// **Parameter**:
 /// - `model`: Model to query.
@@ -155,7 +155,7 @@ impl Drop for Database {
 ///   (for [`All`] and [`Stream`](crate::executor::Stream))
 ///   or a simple [`u64`] (for [`One`] and [`Optional`](crate::executor::Optional)).
 #[allow(clippy::too_many_arguments)] // TODO: refactor this API, clippy is right
-pub fn query<'exe, 'data, Q: QueryType>(
+pub fn query<'exe, 'data, Q: QueryType<'exe>>(
     executor: impl Executor<'exe>,
     model: &str,
     columns: &[ColumnSelector<'data>],
@@ -165,7 +165,7 @@ pub fn query<'exe, 'data, Q: QueryType>(
     limit: Option<Q::LimitOrOffset>,
     distinct: bool,
     #[cfg(feature = "postgres-only")] locking_clause: Option<LockingClause>,
-) -> Q::Result<'exe> {
+) -> Q {
     let columns: Vec<_> = columns
         .iter()
         .map(|c| {

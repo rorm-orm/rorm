@@ -6,11 +6,11 @@ use std::ops::Sub;
 
 use rorm_db::database;
 use rorm_db::error::Error;
-use rorm_db::executor::All;
 use rorm_db::executor::Executor;
-use rorm_db::executor::One;
-use rorm_db::executor::Optional;
-use rorm_db::executor::Stream;
+use rorm_db::executor::FetchAll;
+use rorm_db::executor::FetchOne;
+use rorm_db::executor::FetchOptional;
+use rorm_db::executor::FetchStream;
 use rorm_db::sql::limit_clause::LimitClause;
 use rorm_db::sql::ordering::Ordering;
 #[cfg(feature = "postgres-only")]
@@ -300,7 +300,7 @@ where
 
         let condition = ctx.get_condition_opt(condition_index);
 
-        database::query::<All>(
+        database::query::<FetchAll>(
             self.executor,
             S::Model::TABLE,
             ctx.get_selects().as_slice(),
@@ -335,7 +335,7 @@ where
         }
 
         QueryStream::new(decoder, ctx, move |ctx| {
-            database::query::<Stream>(
+            database::query::<FetchStream>(
                 self.executor,
                 S::Model::TABLE,
                 ctx.get_selects().as_slice(),
@@ -365,7 +365,7 @@ where
             modify(&mut ctx);
         }
 
-        let row = database::query::<One>(
+        let row = database::query::<FetchOne>(
             self.executor,
             S::Model::TABLE,
             ctx.get_selects().as_slice(),
@@ -394,7 +394,7 @@ where
             modify(&mut ctx);
         }
 
-        let row = database::query::<Optional>(
+        let row = database::query::<FetchOptional>(
             self.executor,
             S::Model::TABLE,
             ctx.get_selects().as_slice(),
