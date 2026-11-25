@@ -1,5 +1,5 @@
 use futures_core::future::BoxFuture;
-use rorm_db::executor::{DynamicExecutor, QueryStrategy};
+use rorm_db::executor::{DynamicExecutor, FetchGeneric};
 use rorm_db::sql::value::Value;
 use rorm_db::sql::DBImpl;
 use rorm_db::transaction::MaybeOwnedTransaction;
@@ -134,21 +134,9 @@ where
 }
 
 struct MockDb(DBImpl);
-impl MockDb {
-    fn postgres() -> Self {
-        Self(DBImpl::Postgres)
-    }
-
-    fn sqlite() -> Self {
-        Self(DBImpl::SQLite)
-    }
-}
 struct Sql(String);
 impl<'a> Executor<'a> for MockDb {
-    fn fetch_generic<Q>(self, query: String, values: Vec<Value<'_>>) -> Q::Result<'a>
-    where
-        Q: QueryStrategy,
-    {
+    fn fetch_generic(self, query: String, _values: Vec<Value<'_>>) -> FetchGeneric<'a> {
         panic::panic_any(Sql(query))
     }
 
