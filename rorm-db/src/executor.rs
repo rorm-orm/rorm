@@ -1,7 +1,4 @@
 //! This module defines a wrapper for sqlx's Executor
-//!
-//! Unlike sqlx's Executor which provides several separate methods for different querying strategies,
-//! our [`Executor`] has a single method which is generic using the [`QueryStrategy`] trait.
 
 use futures_core::Stream;
 use rorm_sql::value::Value;
@@ -20,104 +17,97 @@ use crate::{internal, Database, Error, Row};
 ///
 /// This trait is implemented by the database connection itself as well as transactions.
 ///
-/// # Object Safety
-/// This trait is **not** object safe.
+/// # Usage
+/// - Use the most fitting `fetch_*`
+/// - [`fetch_generic`](Executor::fetch_generic) if you write a library and want to leave the choice to your caller
+/// - `Fetch...` are nameable futures / streams returned by the associated methods
+///
+/// ## Placeholder
+/// Every query is executed as prepared statement.
+/// To bind parameter, use ? as placeholder in SQLite
+/// and $1, $2, $n in Postgres.
+///
+/// # dyn compatible
+/// This trait is **not** dyn compatible.
 /// However, there only exist two implementors,
 /// which were combined into the [`DynamicExecutor`] enum.
 pub trait Executor<'exe>: Sized {
     /// Executes a raw SQL query **without returning anything**
-    ///
-    /// The query is executed as prepared statement.
-    /// To bind parameter, use ? as placeholder in SQLite
-    /// and $1, $2, $n in Postgres.
     fn fetch_nothing(self, query: String, values: Vec<Value<'_>>) -> FetchNothing<'exe> {
         self.fetch_generic(query, values).into()
     }
 
     /// Executes a raw SQL query **and returns the number of rows affected**
-    ///
-    /// The query is executed as prepared statement.
-    /// To bind parameter, use ? as placeholder in SQLite
-    /// and $1, $2, $n in Postgres.
+    #[doc(alias = "execute")]
     fn fetch_affected_rows(self, query: String, values: Vec<Value<'_>>) -> FetchAffectedRows<'exe> {
         self.fetch_generic(query, values).into()
     }
 
     /// Executes a raw SQL query **and returns at most one row**
     ///
-    /// The query is executed as prepared statement.
-    /// To bind parameter, use ? as placeholder in SQLite
-    /// and $1, $2, $n in Postgres.
+    /// Additional rows produced by the query will be discarded.
     fn fetch_optional(self, query: String, values: Vec<Value<'_>>) -> FetchOptional<'exe> {
         self.fetch_generic(query, values).into()
     }
 
     /// Executes a raw SQL query **and returns exactly one row**
     ///
-    /// The query is executed as prepared statement.
-    /// To bind parameter, use ? as placeholder in SQLite
-    /// and $1, $2, $n in Postgres.
+    /// Additional rows produced by the query will be discarded.
     fn fetch_one(self, query: String, values: Vec<Value<'_>>) -> FetchOne<'exe> {
         self.fetch_generic(query, values).into()
     }
 
     /// Executes a raw SQL query **and returns all rows in a vec**
-    ///
-    /// The query is executed as prepared statement.
-    /// To bind parameter, use ? as placeholder in SQLite
-    /// and $1, $2, $n in Postgres.
     fn fetch_all(self, query: String, values: Vec<Value<'_>>) -> FetchAll<'exe> {
         self.fetch_generic(query, values).into()
     }
 
     /// Executes a raw SQL query **and returns all rows in a stream**
-    ///
-    /// The query is executed as prepared statement.
-    /// To bind parameter, use ? as placeholder in SQLite
-    /// and $1, $2, $n in Postgres.
     fn fetch_stream(self, query: String, values: Vec<Value<'_>>) -> FetchStream<'exe> {
         self.fetch_generic(query, values).into()
     }
 
     /// Executes a raw SQL query **and returns TODO**
-    ///
-    /// The query is executed as prepared statement.
-    /// To bind parameter, use ? as placeholder in SQLite
-    /// and $1, $2, $n in Postgres.
     fn fetch_raw(self, query: String, values: Vec<Value<'_>>) -> FetchRaw<'exe> {
         self.fetch_generic(query, values).into()
     }
 
     /// Prepares to execute a raw SQL query without specifying what the query should return
     ///
-    /// The query will be executed as prepared statement.
-    /// To bind parameter, use ? as placeholder in SQLite
-    /// and $1, $2, $n in Postgres.
-    ///
     /// This allows code to build the query
     /// and let the caller decide what should be returned (and how):
     ///
-    /// ```rust,ignore
-    /// fn complex_query(db: impl Executor<'exe>) -> FetchGeneric<'exe> {
+    /// ```rust,no_run
+    /// # use rorm_db::executor::{Executor, FetchGeneric};
+    /// #
+    /// fn complex_query<'exe>(db: impl Executor<'exe>) -> FetchGeneric<'exe> {
     ///     db.fetch_generic(todo!("Construct a very"), todo!("complex query"))
     /// }
     ///
-    /// // Caller chooses "all rows" as vec or stream
-    /// let rows = complex_query(&db).all().await?;
-    /// let stream = complex_query(&db).stream();
+    /// async fn caller(db: rorm_db::Database) -> Result<(), rorm_db::Error>  {
+    ///     // Caller chooses "all rows" as vec or stream
+    ///     let rows = complex_query(&db).all().await?;
+    ///     let stream = complex_query(&db).stream();
+    ///     Ok(())
+    /// }
     /// ```
     ///
     /// Alternatively, all `Fetch...` types implement `From<FetchGeneric<'_>>`.
     /// This allows actual generic code:
     ///
-    /// ```rust,ignore
-    /// fn complex_query<Q: From<FetchGeneric<'exe>>(db: impl Executor<'exe>) -> Q {
+    /// ```rust,no_run
+    /// # use rorm_db::executor::{Executor, FetchAll, FetchStream, FetchGeneric};
+    /// #
+    /// fn complex_query<'exe, Q: From<FetchGeneric<'exe>>>(db: impl Executor<'exe>) -> Q {
     ///     db.fetch_generic(todo!("Construct a very"), todo!("complex query")).into()
     /// }
     ///
-    /// // Caller chooses "all rows" as vec or stream
-    /// let rows = complex_query::<FetchAll>(&db).await?;
-    /// let stream = complex_query::<FetchStream>(&db);
+    /// async fn caller(db: rorm_db::Database) -> Result<(), rorm_db::Error>  {
+    ///     // Caller chooses "all rows" as vec or stream
+    ///     let rows = complex_query::<FetchAll>(&db).await?;
+    ///     let stream = complex_query::<FetchStream>(&db);
+    ///     Ok(())
+    /// }
     /// ```
     fn fetch_generic(self, query: String, values: Vec<Value<'_>>) -> FetchGeneric<'exe>;
 
@@ -165,12 +155,16 @@ impl<'exe> FetchGeneric<'exe> {
 
     /// Executes the query **and returns at most one row**
     ///
+    /// Additional rows produced by the query will be discarded.
+    ///
     /// See [`Executor::fetch_optional`]
     pub fn optional(self) -> FetchOptional<'exe> {
         self.into()
     }
 
     /// Executes the query **and returns exactly one row**
+    ///
+    /// Additional rows produced by the query will be discarded.
     ///
     /// See [`Executor::fetch_one`]
     pub fn one(self) -> FetchOne<'exe> {

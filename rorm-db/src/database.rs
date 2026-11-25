@@ -18,7 +18,7 @@ use tracing::warn;
 use crate::error::Error;
 use crate::executor::{Executor, FetchGeneric};
 use crate::internal::any::AnyPool;
-use crate::query_type::QueryType;
+pub use crate::query_type::QueryType;
 use crate::row::Row;
 use crate::transaction::Transaction;
 use crate::transaction::TransactionError;
@@ -145,15 +145,17 @@ impl Drop for Database {
 /// It is generic over a [`QueryType`] which specifies how and how many rows to query.
 ///
 /// **Parameter**:
+/// - `executor`: [`Database`] or [`Transaction`] to execute the query on.
 /// - `model`: Model to query.
 /// - `columns`: Columns to retrieve values from.
 /// - `joins`: Join tables expressions.
 /// - `conditions`: Optional conditions to apply.
 /// - `order_by_clause`: Columns to order the rows by.
 /// - `limit`: Optional limit / offset to apply to the query.
-///   Depending on the query strategy, this is either [`LimitClause`](rorm_sql::limit_clause::LimitClause)
-///   (for [`All`] and [`Stream`](crate::executor::Stream))
-///   or a simple [`u64`] (for [`One`] and [`Optional`](crate::executor::Optional)).
+///   Depending on the query type, this is either [`LimitClause`](rorm_sql::limit_clause::LimitClause)
+///   (for [`FetchAll`](crate::executor::FetchAll) and [`FetchStream`](crate::executor::FetchStream))
+///   or a simple [`u64`]
+///   (for [`FetchOne`](crate::executor::FetchOne) and [`FetchOptional`](crate::executor::FetchOptional)).
 #[allow(clippy::too_many_arguments)] // TODO: refactor this API, clippy is right
 pub fn query<'exe, 'data, Q: QueryType<'exe>>(
     executor: impl Executor<'exe>,
@@ -217,6 +219,7 @@ pub fn query<'exe, 'data, Q: QueryType<'exe>>(
 /// Inserts a single row and returns columns from it.
 ///
 /// **Parameter**:
+/// - `executor`: [`Database`] or [`Transaction`] to execute the query on.
 /// - `model`: Table to insert to
 /// - `columns`: Columns to set `values` for.
 /// - `values`: Values to bind to the corresponding columns.
@@ -236,6 +239,7 @@ pub async fn insert_returning(
 /// Inserts a single row.
 ///
 /// **Parameter**:
+/// - `executor`: [`Database`] or [`Transaction`] to execute the query on.
 /// - `model`: Table to insert to
 /// - `columns`: Columns to set `values` for.
 /// - `values`: Values to bind to the corresponding columns.
@@ -273,10 +277,10 @@ pub(crate) fn generic_insert<'exe>(
 /// If one insert statement fails, the complete operation will be rolled back.
 ///
 /// **Parameter**:
+/// - `executor`: [`Database`] or [`Transaction`] to execute the query on.
 /// - `model`: Table to insert to
 /// - `columns`: Columns to set `rows` for.
 /// - `rows`: List of values to bind to the corresponding columns.
-/// - `transaction`: Optional transaction to execute the query on.
 pub async fn insert_bulk(
     executor: impl Executor<'_>,
     model: &str,
@@ -308,10 +312,10 @@ pub async fn insert_bulk(
 /// If one insert statement fails, the complete operation will be rolled back.
 ///
 /// **Parameter**:
+/// - `executor`: [`Database`] or [`Transaction`] to execute the query on.
 /// - `model`: Table to insert to
 /// - `columns`: Columns to set `rows` for.
 /// - `rows`: List of values to bind to the corresponding columns.
-/// - `transaction`: Optional transaction to execute the query on.
 pub async fn insert_bulk_returning(
     executor: impl Executor<'_>,
     model: &str,
@@ -343,9 +347,9 @@ pub async fn insert_bulk_returning(
 /// This method is used to delete rows from a table.
 ///
 /// **Parameter**:
+/// - `executor`: [`Database`] or [`Transaction`] to execute the query on.
 /// - `model`: Name of the model to delete rows from
 /// - `condition`: Optional condition to apply.
-/// - `transaction`: Optional transaction to execute the query on.
 ///
 /// **Returns** the rows affected of the delete statement. Note that this also includes
 /// relations, etc.
@@ -369,11 +373,11 @@ pub async fn delete<'post_build>(
 /// This method is used to update rows in a table.
 ///
 /// **Parameter**:
+/// - `executor`: [`Database`] or [`Transaction`] to execute the query on.
 /// - `model`: Name of the model to update rows from
 /// - `updates`: A list of updates. An update is a tuple that consists of a list of columns to
 ///   update as well as the value to set to the columns.
 /// - `condition`: Optional condition to apply.
-/// - `transaction`: Optional transaction to execute the query on.
 ///
 /// **Returns** the rows affected from the update statement. Note that this also includes
 /// relations, etc.
