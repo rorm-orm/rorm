@@ -145,7 +145,7 @@ impl MockDb {
 }
 struct Sql(String);
 impl<'a> Executor<'a> for MockDb {
-    fn execute<Q>(self, query: String, values: Vec<Value<'_>>) -> Q::Result<'a>
+    fn fetch_generic<Q>(self, query: String, values: Vec<Value<'_>>) -> Q::Result<'a>
     where
         Q: QueryStrategy,
     {

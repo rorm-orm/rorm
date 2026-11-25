@@ -1,7 +1,6 @@
 use rorm::fields::traits::FieldType;
 use rorm::testing::{e, sqlite_in_memory};
 use rorm::Model;
-use rorm_db::executor::One;
 use rorm_db::Executor;
 
 #[tokio::test]
@@ -9,7 +8,7 @@ async fn sqlite_decode_untyped_null() {
     let db = sqlite_in_memory(()).await.unwrap();
 
     let row = db
-        .execute::<One>("SELECT NULL;".to_string(), Vec::new())
+        .fetch_one("SELECT NULL;".to_string(), Vec::new())
         .await
         .unwrap();
     assert_eq!(row.get::<i32>(0).map_err(e), Err(UNEXPECTED_NULL));
@@ -28,7 +27,7 @@ async fn sqlite_decode_typed_null() {
         .unwrap();
 
     let row = db
-        .execute::<One>("SELECT value FROM test;".to_string(), Vec::new())
+        .fetch_one("SELECT value FROM test;".to_string(), Vec::new())
         .await
         .unwrap();
     assert_eq!(row.get::<i32>(0).map_err(e), Err(UNEXPECTED_NULL));

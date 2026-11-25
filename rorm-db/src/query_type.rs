@@ -1,4 +1,4 @@
-use crate::executor::{Query, QueryAll, QueryOne, QueryOptional, QueryStream};
+use crate::executor::{FetchAll, FetchGeneric, FetchOne, FetchOptional, FetchStream};
 use rorm_sql::limit_clause::LimitClause;
 
 /// Marker for [`query`](crate::database::query) to return all rows in a stream
@@ -14,8 +14,7 @@ pub struct Optional;
 pub struct One;
 
 pub trait QueryType {
-    type Result<'exe>;
-    fn execute(query: Query<'_>) -> Self::Result<'_>;
+    type Result<'exe>: From<FetchGeneric<'exe>>;
 
     type LimitOrOffset;
     fn get_limit_clause(input: Option<Self::LimitOrOffset>) -> Option<LimitClause>;
@@ -24,11 +23,7 @@ pub trait QueryType {
 type Offset = u64;
 
 impl QueryType for Stream {
-    type Result<'exe> = QueryStream<'exe>;
-
-    fn execute(query: Query<'_>) -> Self::Result<'_> {
-        query.stream()
-    }
+    type Result<'exe> = FetchStream<'exe>;
 
     type LimitOrOffset = LimitClause;
 
@@ -38,10 +33,7 @@ impl QueryType for Stream {
 }
 
 impl QueryType for All {
-    type Result<'exe> = QueryAll<'exe>;
-    fn execute(query: Query<'_>) -> Self::Result<'_> {
-        query.all()
-    }
+    type Result<'exe> = FetchAll<'exe>;
 
     type LimitOrOffset = LimitClause;
 
@@ -51,10 +43,7 @@ impl QueryType for All {
 }
 
 impl QueryType for Optional {
-    type Result<'exe> = QueryOptional<'exe>;
-    fn execute(query: Query<'_>) -> Self::Result<'_> {
-        query.optional()
-    }
+    type Result<'exe> = FetchOptional<'exe>;
 
     type LimitOrOffset = Offset;
 
@@ -64,10 +53,7 @@ impl QueryType for Optional {
 }
 
 impl QueryType for One {
-    type Result<'exe> = QueryOne<'exe>;
-    fn execute(query: Query<'_>) -> Self::Result<'_> {
-        query.one()
-    }
+    type Result<'exe> = FetchOne<'exe>;
 
     type LimitOrOffset = Offset;
 

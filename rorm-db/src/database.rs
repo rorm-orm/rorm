@@ -16,7 +16,7 @@ use rorm_sql::value::Value;
 use tracing::warn;
 
 use crate::error::Error;
-use crate::executor::{Executor, Query};
+use crate::executor::{Executor, FetchGeneric};
 use crate::internal::any::AnyPool;
 use crate::query_type::QueryType;
 use crate::row::Row;
@@ -211,7 +211,7 @@ pub fn query<'exe, 'data, Q: QueryType>(
 
     let (query_string, bind_params) = q.build();
 
-    Q::execute(executor.execute(query_string, bind_params))
+    executor.fetch_generic(query_string, bind_params).into()
 }
 
 /// Inserts a single row and returns columns from it.
@@ -259,13 +259,13 @@ pub(crate) fn generic_insert<'exe>(
     columns: &[&str],
     values: &[Value<'_>],
     returning: Option<&[&str]>,
-) -> Query<'exe> {
+) -> FetchGeneric<'exe> {
     let values = &[values];
     let q = executor.dialect().insert(model, columns, values, returning);
 
     let (query_string, bind_params) = q.build();
 
-    executor.execute(query_string, bind_params)
+    executor.fetch_generic(query_string, bind_params)
 }
 
 /// This method is used to bulk insert rows.
@@ -290,7 +290,7 @@ pub async fn insert_bulk(
         insert = insert.rollback_transaction();
         let (insert_query, insert_params) = insert.build();
 
-        tr.execute(insert_query, insert_params).nothing().await?;
+        tr.fetch_nothing(insert_query, insert_params).await?;
     }
 
     tr.commit_if_owned().await.map_err(|x| match x {
@@ -327,7 +327,7 @@ pub async fn insert_bulk_returning(
         insert = insert.rollback_transaction();
         let (insert_query, insert_params) = insert.build();
 
-        inserted.extend(tr.execute(insert_query, insert_params).all().await?);
+        inserted.extend(tr.fetch_all(insert_query, insert_params).await?);
     }
 
     tr.commit_if_owned().await.map_err(|x| match x {
@@ -362,8 +362,7 @@ pub async fn delete<'post_build>(
     let (query_string, bind_params) = q.build();
 
     executor
-        .execute(query_string, bind_params)
-        .affected_rows()
+        .fetch_affected_rows(query_string, bind_params)
         .await
 }
 
@@ -397,7 +396,6 @@ pub async fn update<'post_build>(
     let (query_string, bind_params) = stmt.build()?;
 
     executor
-        .execute(query_string, bind_params)
-        .affected_rows()
+        .fetch_affected_rows(query_string, bind_params)
         .await
 }

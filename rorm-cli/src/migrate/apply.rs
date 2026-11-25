@@ -53,8 +53,7 @@ pub async fn apply_migration(
         .rollback_transaction()
         .build();
 
-    tx.execute(query_string, bind_params)
-        .nothing()
+    tx.fetch_nothing(query_string, bind_params)
         .await
         .map_err(|error| ApplyMigrationError {
             error,
@@ -133,9 +132,7 @@ pub async fn apply_operation(
             let statements = create_table.build()?;
 
             for (query_string, query_bind_params) in statements {
-                tx.execute(query_string, query_bind_params)
-                    .nothing()
-                    .await?;
+                tx.fetch_nothing(query_string, query_bind_params).await?;
             }
         }
         Operation::RenameModel { old, new } => {
@@ -149,15 +146,13 @@ pub async fn apply_operation(
                 .build()?;
 
             for (query_string, query_bind_params) in statements {
-                tx.execute(query_string, query_bind_params)
-                    .nothing()
-                    .await?;
+                tx.fetch_nothing(query_string, query_bind_params).await?;
             }
         }
         Operation::DeleteModel { name } => {
             let query_string = db_impl.drop_table(name.as_str()).build();
 
-            tx.execute(query_string, Vec::new()).nothing().await?;
+            tx.fetch_nothing(query_string, Vec::new()).await?;
         }
         Operation::CreateField { model, field } => {
             let statements = db_impl
@@ -175,9 +170,7 @@ pub async fn apply_operation(
                 .build()?;
 
             for (query_string, query_bind_params) in statements {
-                tx.execute(query_string, query_bind_params)
-                    .nothing()
-                    .await?;
+                tx.fetch_nothing(query_string, query_bind_params).await?;
             }
         }
         Operation::RenameField {
@@ -196,9 +189,7 @@ pub async fn apply_operation(
                 .build()?;
 
             for (query_string, query_bind_params) in statements {
-                tx.execute(query_string, query_bind_params)
-                    .nothing()
-                    .await?;
+                tx.fetch_nothing(query_string, query_bind_params).await?;
             }
         }
         Operation::SetFieldType {
@@ -243,9 +234,7 @@ pub async fn apply_operation(
                 .build()?;
 
             for (query_string, query_bind_params) in statements {
-                tx.execute(query_string, query_bind_params)
-                    .nothing()
-                    .await?;
+                tx.fetch_nothing(query_string, query_bind_params).await?;
             }
         }
         Operation::CreateIndex { model, index } => {
@@ -256,23 +245,21 @@ pub async fn apply_operation(
                 create_index = create_index.add_column(column.as_str());
             }
 
-            tx.execute(create_index.build()?, Vec::new())
-                .nothing()
-                .await?;
+            tx.fetch_nothing(create_index.build()?, Vec::new()).await?;
         }
         Operation::DeleteIndex { model, index } => {
             let query_string = db_impl.drop_index(index.sql_name(model).as_str()).build();
 
-            tx.execute(query_string, Vec::new()).nothing().await?;
+            tx.fetch_nothing(query_string, Vec::new()).await?;
         }
         #[allow(unused_variables)]
         Operation::RawSQL {
             postgres, sqlite, ..
         } => match db_impl {
             #[cfg(feature = "sqlite")]
-            DBImpl::SQLite => tx.execute(sqlite.clone(), Vec::new()).nothing().await?,
+            DBImpl::SQLite => tx.fetch_nothing(sqlite.clone(), Vec::new()).await?,
             #[cfg(feature = "postgres")]
-            DBImpl::Postgres => tx.execute(postgres.clone(), Vec::new()).nothing().await?,
+            DBImpl::Postgres => tx.fetch_nothing(postgres.clone(), Vec::new()).await?,
         },
     }
 
@@ -296,9 +283,7 @@ async fn alter_column(
         .build()?;
 
     for (query_string, query_bind_params) in statements {
-        tx.execute(query_string, query_bind_params)
-            .nothing()
-            .await?;
+        tx.fetch_nothing(query_string, query_bind_params).await?;
     }
 
     Ok(())

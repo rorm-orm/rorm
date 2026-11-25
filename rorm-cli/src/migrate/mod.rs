@@ -83,14 +83,13 @@ pub async fn run_migrate_custom(
         .with_context(|| "Couldn't create internal last migration table")?;
 
     let last_migration: Option<i32> = db
-        .execute(
+        .fetch_optional(
             format!(
                 "SELECT migration_id FROM {} ORDER BY id DESC LIMIT 1;",
                 last_migration_table_name
             ),
             Vec::new(),
         )
-        .optional()
         .await
         .and_then(|option| option.map(|row| row.get(0)).transpose().map_err(Into::into))
         .with_context(|| {
@@ -235,7 +234,7 @@ pub async fn create_last_migration_table(
         .build()?;
 
     for (query_string, bind_params) in statements {
-        tx.execute(query_string, bind_params).nothing().await?;
+        tx.fetch_nothing(query_string, bind_params).await?;
     }
 
     Ok(())

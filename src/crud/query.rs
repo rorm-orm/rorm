@@ -440,7 +440,7 @@ mod query_stream {
         ctx: Box<QueryContext<'cond>>,
 
         #[pin]
-        stream: rorm_db::executor::QueryStream<'this>,
+        stream: rorm_db::executor::FetchStream<'this>,
     }
 
     impl<'this, 'cond: 'this, D> QueryStream<'this, 'cond, D> {
@@ -449,7 +449,7 @@ mod query_stream {
             ctx: QueryContext<'cond>,
             stream_builder: impl FnOnce(
                 &'this QueryContext<'cond>,
-            ) -> rorm_db::executor::QueryStream<'this>,
+            ) -> rorm_db::executor::FetchStream<'this>,
         ) -> Self {
             unsafe fn change_lifetime<'old, 'new: 'old, T: 'new + ?Sized>(
                 data: &'old T,

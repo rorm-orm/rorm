@@ -4,7 +4,7 @@ use rorm_sql::value::Value;
 use rorm_sql::DBImpl;
 use sqlx::{AssertSqlSafe, SqlSafeStr};
 
-use crate::executor::{DynamicExecutor, Executor, Query};
+use crate::executor::{DynamicExecutor, Executor, FetchGeneric};
 use crate::futures_util::BoxFuture;
 use crate::internal::any::{AnyExecutor, AnyPool};
 use crate::internal::bind_params::bind_param;
@@ -12,12 +12,12 @@ use crate::transaction::{MaybeOwnedTransaction, Transaction};
 use crate::{Database, Error};
 
 impl<'exe> Executor<'exe> for &'exe mut Transaction {
-    fn execute(self, query: String, values: Vec<Value<'_>>) -> Query<'exe> {
+    fn fetch_generic(self, query: String, values: Vec<Value<'_>>) -> FetchGeneric<'exe> {
         let mut query = self.sqlx.query(AssertSqlSafe(query).into_sql_str());
         for value in values {
             bind_param(&mut query, value);
         }
-        Query { inner: query }
+        FetchGeneric { inner: query }
     }
 
     fn into_dyn(self) -> DynamicExecutor<'exe> {
@@ -34,12 +34,12 @@ impl<'exe> Executor<'exe> for &'exe mut Transaction {
 }
 
 impl<'exe> Executor<'exe> for &'exe Database {
-    fn execute(self, query: String, values: Vec<Value<'_>>) -> Query<'exe> {
+    fn fetch_generic(self, query: String, values: Vec<Value<'_>>) -> FetchGeneric<'exe> {
         let mut query = self.0.query(AssertSqlSafe(query).into_sql_str());
         for value in values {
             bind_param(&mut query, value);
         }
-        Query { inner: query }
+        FetchGeneric { inner: query }
     }
 
     fn into_dyn(self) -> DynamicExecutor<'exe> {
