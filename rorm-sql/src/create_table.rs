@@ -35,6 +35,7 @@ pub struct CreateTableData<'until_build, 'post_build> {
     pub(crate) columns: Vec<CreateColumnImpl<'until_build, 'post_build>>,
     pub(crate) if_not_exists: bool,
     pub(crate) lookup: Vec<Value<'post_build>>,
+    #[cfg_attr(not(feature = "postgres"), allow(dead_code))]
     pub(crate) pre_statements: Vec<(String, Vec<Value<'post_build>>)>,
     pub(crate) statements: Vec<(String, Vec<Value<'post_build>>)>,
 }
@@ -96,6 +97,7 @@ impl<'until_build, 'post_build> CreateTable<'until_build, 'post_build>
 
                 let columns_len = d.columns.len() - 1;
                 for (idx, mut x) in d.columns.into_iter().enumerate() {
+                    #[cfg_attr(not(feature = "postgres"), expect(irrefutable_let_patterns))]
                     if let CreateColumnImpl::SQLite(cci) = &mut x {
                         cci.statements = Some(&mut d.statements)
                     }

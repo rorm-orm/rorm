@@ -1,6 +1,8 @@
 use rorm_declaration::imr::DbType;
 
-use crate::create_column::{self, CreateColumn, CreateColumnImpl, PostgresType};
+#[cfg(feature = "postgres")]
+use crate::create_column::{self, PostgresType};
+use crate::create_column::{CreateColumn, CreateColumnImpl};
 #[cfg(feature = "postgres")]
 use crate::db_specific::postgres;
 use crate::error::Error;
@@ -148,6 +150,7 @@ impl<'post_build> AlterTable<'post_build> for AlterTableImpl<'_, 'post_build> {
                     AlterTableOperation::AddColumn { mut operation } => {
                         let mut action = String::from("ADD COLUMN ");
 
+                        #[cfg_attr(not(feature = "postgres"), expect(irrefutable_let_patterns))]
                         if let CreateColumnImpl::SQLite(ccd) = &mut operation {
                             ccd.statements = Some(&mut d.statements);
                             ccd.lookup = Some(&mut d.lookup);
