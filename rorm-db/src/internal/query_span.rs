@@ -37,7 +37,7 @@ impl QuerySpanBuilder {
     }
 
     pub fn finish(self) -> Span {
-        self.span.record("values.len", &self.values_len);
+        self.span.record("values.len", self.values_len);
         self.span
     }
 }
