@@ -194,8 +194,9 @@ async fn round_trip_opt_mcf_all_opt() {
     .await;
 }
 
-async fn round_trip<T: FieldType>(db: &Database, original: Object<T>)
+async fn round_trip<T>(db: &Database, original: Object<T>)
 where
+    T: FieldType,
     T: Debug + PartialEq,
 {
     assert_eq!(

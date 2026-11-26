@@ -110,9 +110,7 @@ fn main() {
 fn custom_panic_hook() {
     let old_hook = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
-        if info.payload().is::<Sql>() {
-            ()
-        } else {
+        if !info.payload().is::<Sql>() {
             old_hook(info);
         }
     }));
@@ -123,7 +121,7 @@ where
     F: Future,
 {
     let mut fut = pin!(query(MockDb(dialect)));
-    let mut ctx = Context::from_waker(&Waker::noop());
+    let mut ctx = Context::from_waker(Waker::noop());
     match catch_unwind(AssertUnwindSafe(|| fut.as_mut().poll(&mut ctx))) {
         Ok(_) => unreachable!(),
         Err(panic) => match panic.downcast::<Sql>() {
