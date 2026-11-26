@@ -9,30 +9,20 @@ db-urls = ["https://github.com/rustsec/advisory-db"]
 # The lint level for security vulnerabilities
 yanked = "warn"
 ignore = [
-    # marvin attack on rsa
-    "RUSTSEC-2023-0071", # not patched yet
-
-    # paste is unmaintained
-    "RUSTSEC-2024-0436", # it is a tiny macro utility only used rmp internally and works for them
+    # chrono unmaintained
+    "RUSTSEC-2026-0543", # we don't use it, we offer it to our users.
 ]
+
+[bans]
+multiple-versions = "allow"
 
 [licenses]
 allow = [
     "MIT",
     "Apache-2.0",
-    "BSD-2-Clause",
     "BSD-3-Clause",
-    "MPL-2.0",
     "ISC",
     "Unicode-3.0",
-    "LicenseRef-ring",
     "Zlib",
     "CDLA-Permissive-2.0",
-]
-
-[[licenses.clarify]]
-name = "ring"
-expression = "LicenseRef-ring"
-license-files = [
-    { path = "LICENSE", hash = 0xbd0eed23 },
 ]
