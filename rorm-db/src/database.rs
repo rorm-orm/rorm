@@ -38,7 +38,7 @@ As all databases use currently the same fields, a type alias is sufficient.
 pub type JoinTable<'until_build, 'post_build> = JoinTableData<'until_build, 'post_build>;
 
 /// Configuration use in [`Database::connect`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DatabaseConfiguration {
     /// The driver and its corresponding settings
