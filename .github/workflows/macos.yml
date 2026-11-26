@@ -2,31 +2,33 @@ name: Build & Test for MacOS
 on:
   push:
     paths-ignore:
-      - "*.md"
+      - "**.md"
+  # Pushes to branches of this repository already trigger a run,
+  # so the jobs below only run pull requests from forks.
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build_rs:
-    name: Build & Tests on MacOS
+  build:
+    name: Build on MacOS
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: macos-latest
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
-    env:
-      CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: "recursive"
+      - uses: actions/checkout@v7
 
-      # When rustup is updated, it tries to replace its binary, which on Windows is somehow locked.
-      # This can result in the CI failure, see: https://github.com/rust-lang/rustup/issues/3029
-      - run: |
-          rustup set auto-self-update disable
-          rustup toolchain install stable --profile minimal
+      - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Build rorm
-        run: cargo build -p rorm
+      - name: Build workspace
+        run: cargo build --workspace

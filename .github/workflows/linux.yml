@@ -2,48 +2,113 @@ name: Build & Test for Linux
 on:
   push:
     paths-ignore:
-      - "*.md"
+      - "**.md"
+  # Pushes to branches of this repository already trigger a run,
+  # so the jobs below only run pull requests from forks.
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build_rs:
-    name: Build & Tests on linux
+  lint:
+    name: Lint
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
-    env:
-      CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: "recursive"
+      - uses: actions/checkout@v7
 
-      - uses: moonrepo/setup-rust@v1
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run cargo fmt
+        run: cargo fmt --all --check
+
+      - name: Run cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  check-features:
+    name: Clippy (${{ matrix.name }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Keep in sync with `[package.metadata.docs.rs]` in Cargo.toml
+          - name: docs.rs
+            args: >-
+              -p rorm --all-targets
+              --features all-drivers,chrono,time,uuid,url,utoipa,schemars1,schemars08,zeroize,msgpack,cli,rustls,native-tls
+
+          # Library only: For test targets, the dev-dependency `rorm = { features = ["testing"] }`
+          # also enables rorm's default features which conflict with `postgres-only`.
+          - name: postgres-only
+            args: -p rorm --no-default-features --features postgres-only
+
+          - name: rorm-db-sqlite
+            args: -p rorm-db --all-targets --no-default-features --features sqlite
+
+          - name: rorm-db-postgres
+            args: -p rorm-db --all-targets --no-default-features --features postgres
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-          bins: cargo-deny, clippy-sarif, sarif-fmt, cargo-nextest
-          cache-target: debug
 
-      - name: Build rorm
-        run: cargo build -p rorm
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.name }}
+
+      - name: Run cargo clippy
+        run: cargo clippy ${{ matrix.args }} -- -D warnings
+
+  test:
+    name: Test
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
 
       - name: Run cargo nextest
-        run: cargo nextest --profile ci run --workspace
+        run: cargo nextest run --profile ci --workspace
 
       - name: Run cargo doctest
         run: cargo test --workspace --doc
 
-      - name: Run rust-clippy
-        run: cargo clippy --workspace --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
-        continue-on-error: true
+  deny:
+    name: Cargo deny
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
 
-      - name: Upload clippy analysis results to GitHub
-        uses: github/codeql-action/upload-sarif@v2
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: taiki-e/install-action@v2
         with:
-          sarif_file: rust-clippy-results.sarif
-          wait-for-processing: true
+          tool: cargo-deny
 
       - name: Run cargo deny check
         run: cargo deny check --hide-inclusion-graph

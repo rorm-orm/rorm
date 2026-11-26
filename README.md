@@ -5,7 +5,7 @@
 [![Docs](https://img.shields.io/docsrs/rorm?label=Docs)](https://docs.rs/rorm/latest/rorm/)
 [![Linux Build](https://img.shields.io/github/actions/workflow/status/rorm-orm/rorm/linux.yml?branch=dev&label=Linux%20CI)](https://github.com/rorm-orm/rorm/actions/workflows/linux.yml)
 [![Windows Build](https://img.shields.io/github/actions/workflow/status/rorm-orm/rorm/windows.yml?branch=dev&label=Windows%20CI)](https://github.com/rorm-orm/rorm/actions/workflows/windows.yml)
-[![Windows Build](https://img.shields.io/github/actions/workflow/status/rorm-orm/rorm/macos.yml?branch=dev&label=MacOS%20CI)](https://github.com/rorm-orm/rorm/actions/workflows/macos.yml)
+[![MacOS Build](https://img.shields.io/github/actions/workflow/status/rorm-orm/rorm/macos.yml?branch=dev&label=MacOS%20CI)](https://github.com/rorm-orm/rorm/actions/workflows/macos.yml)
 
 `rorm` is an ORM (Object Relation Mapper) written in Rust.
 
