@@ -38,17 +38,6 @@ Filename = ""
 # Password = "super-secure-password"
 "#;
 
-#[cfg(test)]
-mod test {
-    use crate::migrate::config::{DatabaseConfigFile, EXAMPLE_DATABASE_CONFIG};
-
-    #[test]
-    fn test_example_database_config() {
-        let db_conf = toml::from_str::<DatabaseConfigFile>(EXAMPLE_DATABASE_CONFIG);
-        assert!(db_conf.is_ok());
-    }
-}
-
 /// Helper method to create a dummy database configuration file
 pub(crate) fn create_db_config(path: &Path) -> anyhow::Result<()> {
     let fh = File::create(path).with_context(|| format!("Couldn't open {path:?} for writing"))?;
@@ -72,4 +61,15 @@ pub fn deserialize_db_conf(path: &Path) -> anyhow::Result<DatabaseConfig> {
         .database;
 
     Ok(db_conf)
+}
+
+#[cfg(test)]
+mod test {
+    use crate::migrate::config::{DatabaseConfigFile, EXAMPLE_DATABASE_CONFIG};
+
+    #[test]
+    fn test_example_database_config() {
+        let db_conf = toml::from_str::<DatabaseConfigFile>(EXAMPLE_DATABASE_CONFIG);
+        assert!(db_conf.is_ok());
+    }
 }

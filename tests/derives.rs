@@ -34,8 +34,8 @@ fn expand(input_file: &Utf8Path, input_str: String) -> Result<()> {
         let expansion_path = expansions_dir.join(format!("{ident}.rs"));
 
         if !expansion_path.exists()
-            || &fs::read_to_string(&expansion_path).context("Failed to read expansion from file")?
-                != &expansion_str
+            || fs::read_to_string(&expansion_path).context("Failed to read expansion from file")?
+                != expansion_str
         {
             if env::var_os("RORM_WRITE_EXPANSION").is_some() {
                 fs::create_dir_all(&expansions_dir)
@@ -54,6 +54,7 @@ fn expand(input_file: &Utf8Path, input_str: String) -> Result<()> {
     Ok(())
 }
 
+#[expect(clippy::type_complexity)]
 fn get_derive_fn(item: &syn::Item) -> Result<Option<(Ident, fn(TokenStream) -> TokenStream)>> {
     fn is_derive(attr: &&syn::Attribute) -> bool {
         matches!(attr.path().get_ident(), Some(ident) if ident == "derive")
