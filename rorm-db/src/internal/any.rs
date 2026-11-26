@@ -210,19 +210,15 @@ impl<'exe> AnyQuery<'exe> {
     where
         T: Send + AnyEncode<'t> + AnyType,
     {
-        let (Self::PostgresPool { span, .. }
-        | Self::PostgresConn { span, .. }
-        | Self::SqlitePool { span, .. }
-        | Self::SqliteConn { span, .. }) = self;
-        span.track_bind();
-
         match self {
             #[cfg(feature = "postgres")]
-            Self::PostgresPool { query, .. } | Self::PostgresConn { query, .. } => {
+            Self::PostgresPool { query, span, .. } | Self::PostgresConn { query, span, .. } => {
+                span.track_bind();
                 *query = query.take().map(|query| query.bind(value))
             }
             #[cfg(feature = "sqlite")]
-            Self::SqlitePool { query, .. } | Self::SqliteConn { query, .. } => {
+            Self::SqlitePool { query, span, .. } | Self::SqliteConn { query, span, .. } => {
+                span.track_bind();
                 *query = query.take().map(|query| query.bind(value))
             }
         }
