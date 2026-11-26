@@ -186,11 +186,19 @@ mod test {
             operations("user", old, new)?
                 .into_iter()
                 .map(|operation| match operation {
-                    Operation::SetFieldType { model, name, db_type } => {
+                    Operation::SetFieldType {
+                        model,
+                        name,
+                        db_type,
+                    } => {
                         assert_eq!((model.as_str(), name.as_str()), ("user", "login"));
                         format!("type={db_type:?}")
                     }
-                    Operation::SetFieldMaxLength { model, name, max_length } => {
+                    Operation::SetFieldMaxLength {
+                        model,
+                        name,
+                        max_length,
+                    } => {
                         assert_eq!((model.as_str(), name.as_str()), ("user", "login"));
                         format!("set={max_length}")
                     }
@@ -218,7 +226,10 @@ mod test {
     fn varchar_to_text_sets_the_type_and_adds_the_constraint() {
         assert_eq!(
             delta(
-                &field(VARCHAR, vec![Annotation::MaxLength(255), Annotation::NotNull]),
+                &field(
+                    VARCHAR,
+                    vec![Annotation::MaxLength(255), Annotation::NotNull]
+                ),
                 &field(
                     DbType::Text,
                     vec![Annotation::MaxLength(255), Annotation::NotNull]
