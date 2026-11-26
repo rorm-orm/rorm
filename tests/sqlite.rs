@@ -1,3 +1,5 @@
+#![cfg(feature = "all-drivers")]
+
 use rorm::fields::traits::FieldType;
 use rorm::testing::{e, sqlite_in_memory};
 use rorm::Model;

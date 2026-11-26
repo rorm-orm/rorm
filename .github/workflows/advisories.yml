@@ -1,0 +1,46 @@
+name: Security Advisories
+on:
+  # New advisories appear independently of our changes, so check them regularly.
+  # Scheduled runs always use the default branch.
+  schedule:
+    - cron: "0 6 * * 1" # Mondays, 06:00 UTC
+  push:
+    paths:
+      - "Cargo.lock"
+      - "deny.toml"
+      - ".github/workflows/advisories.yml"
+  # Pushes to branches of this repository already trigger a run,
+  # so the job below only runs pull requests from forks.
+  pull_request:
+    paths:
+      - "Cargo.lock"
+      - "deny.toml"
+      - ".github/workflows/advisories.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  advisories:
+    name: Cargo deny advisories
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+
+      - name: Run cargo deny check advisories
+        run: cargo deny check --hide-inclusion-graph advisories

@@ -1,3 +1,5 @@
+#![cfg(feature = "all-drivers")]
+
 use rorm::fields::proxy::{FieldProxy, FieldProxyImpl};
 use rorm::internal::field::Field;
 use rorm::model::Identifiable;

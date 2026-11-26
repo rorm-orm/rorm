@@ -3,16 +3,21 @@
 use crate::crud::selector::Selector;
 use crate::Model;
 use rorm_cli::make_migrations::{run_make_migrations, MakeMigrationsOptions};
-use rorm_cli::migrate::apply::apply_operation;
-use rorm_db::{Database, DatabaseConfiguration};
-use rorm_declaration::config::DatabaseDriver;
 use rorm_declaration::imr;
 use rorm_declaration::migration::{Migration, MigrationFile};
 use rorm_macro::impl_tuple;
 use std::env::temp_dir;
-use std::error::Error;
 use std::hash::{BuildHasher, Hasher, RandomState};
 use std::{fs, io};
+
+#[cfg(feature = "all-drivers")]
+use rorm_cli::migrate::apply::apply_operation;
+#[cfg(feature = "all-drivers")]
+use rorm_db::{Database, DatabaseConfiguration};
+#[cfg(feature = "all-drivers")]
+use rorm_declaration::config::DatabaseDriver;
+#[cfg(feature = "all-drivers")]
+use std::error::Error;
 
 /// Creates an in-memory sqlite database
 ///

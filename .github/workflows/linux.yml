@@ -52,10 +52,8 @@ jobs:
               -p rorm --all-targets
               --features all-drivers,chrono,time,uuid,url,utoipa,schemars1,schemars08,zeroize,msgpack,cli,rustls,native-tls
 
-          # Library only: For test targets, the dev-dependency `rorm = { features = ["testing"] }`
-          # also enables rorm's default features which conflict with `postgres-only`.
           - name: postgres-only
-            args: -p rorm --no-default-features --features postgres-only
+            args: -p rorm --all-targets --no-default-features --features postgres-only
 
           - name: rorm-db-sqlite
             args: -p rorm-db --all-targets --no-default-features --features sqlite
@@ -97,6 +95,8 @@ jobs:
       - name: Run cargo doctest
         run: cargo test --workspace --doc
 
+  # Advisories are checked separately in `advisories.yml`,
+  # so new advisories don't fail unrelated pushes.
   deny:
     name: Cargo deny
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
@@ -111,4 +111,4 @@ jobs:
           tool: cargo-deny
 
       - name: Run cargo deny check
-        run: cargo deny check --hide-inclusion-graph
+        run: cargo deny check --hide-inclusion-graph bans licenses sources

@@ -155,7 +155,7 @@ inherits = "release"
 debug = true
 
 [dev-dependencies]
-rorm = { path = ".", features = ["testing"] }
+rorm = { path = ".", default-features = false, features = ["testing"] }
 rorm-macro-impl = { path = "./rorm-macro-impl" }
 
 tokio = { version = "~1", features = ["macros"] }
