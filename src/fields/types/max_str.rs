@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
+use std::str::FromStr;
 
 use rorm_db::row::RowError;
 use rorm_db::sql::value::NullType;
@@ -257,6 +258,50 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let this = &*self.string;
         this.fmt(f)
+    }
+}
+
+impl<const MAX_LEN: usize, Impl> FromStr for MaxStr<MAX_LEN, Impl>
+where
+    Impl: LenImpl + Default,
+{
+    type Err = MaxLenError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::new(s.to_string())
+    }
+}
+
+impl<'a, const MAX_LEN: usize, Impl> TryFrom<&'a str> for MaxStr<MAX_LEN, Impl, &'a str>
+where
+    Impl: LenImpl + Default,
+{
+    type Error = MaxLenError<&'a str>;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl<'a, const MAX_LEN: usize, Impl> TryFrom<&'_ str> for MaxStr<MAX_LEN, Impl>
+where
+    Impl: LenImpl + Default,
+{
+    type Error = MaxLenError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::new(value.to_owned())
+    }
+}
+
+impl<'a, const MAX_LEN: usize, Impl> TryFrom<String> for MaxStr<MAX_LEN, Impl>
+where
+    Impl: LenImpl + Default,
+{
+    type Error = MaxLenError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
     }
 }
 

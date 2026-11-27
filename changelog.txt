@@ -44,6 +44,7 @@ Since 0.12.0
 - Replaced tracing event with span
     The span is closed once the first row is yielded.
     The span's duration is an okay approximation of the query's "expensiveness".
+- Implemented FromStr and TryFrom for MaxStr
 
 Notes for publishing
 --------------------
