@@ -283,7 +283,7 @@ where
     }
 }
 
-impl<'a, const MAX_LEN: usize, Impl> TryFrom<&'_ str> for MaxStr<MAX_LEN, Impl>
+impl<const MAX_LEN: usize, Impl> TryFrom<&'_ str> for MaxStr<MAX_LEN, Impl>
 where
     Impl: LenImpl + Default,
 {
@@ -294,7 +294,7 @@ where
     }
 }
 
-impl<'a, const MAX_LEN: usize, Impl> TryFrom<String> for MaxStr<MAX_LEN, Impl>
+impl<const MAX_LEN: usize, Impl> TryFrom<String> for MaxStr<MAX_LEN, Impl>
 where
     Impl: LenImpl + Default,
 {
